@@ -264,7 +264,7 @@ ADR-007 (솔로 친화적 운영)
 ## 관련 문서
 
 - [`Architecture Reference`](../structure/architecture.md) — 실제 구조의 상세 레퍼런스
-- [`../../conventions/`](../../conventions) — 코딩 규약
+- [`../convention/`](../convention) — 코딩 규약
 
 ---
 

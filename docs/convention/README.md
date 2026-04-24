@@ -29,10 +29,10 @@
 
 구조 재편으로 **코드 작성 규약** 과 다른 성격의 문서들은 별도 폴더에서 관리합니다.
 
-- 시스템 구조 → [`architecture/`](../architecture/) — Module Dependencies · Architecture Rules (ArchUnit) · Multitenant · JWT
-- API 계약 → [`api-contract/`](../api-contract/) — API Response · JSON Contract · Versioning · Flutter Integration
-- 기능 가이드 → [`features/`](../features/) — Push · Email · Observability · Rate Limiting · Storage · Migration · Seed Data
-- 테스팅 → [`testing/`](../testing/) — Contract Testing · Testing Strategy
+- 시스템 구조 → [`architecture/`](../structure/) — Module Dependencies · Architecture Rules (ArchUnit) · Multitenant · JWT
+- API 계약 → [`api-contract/`](../api-and-functional/api/) — API Response · JSON Contract · Versioning · Flutter Integration
+- 기능 가이드 → [`features/`](../api-and-functional/functional/) — Push · Email · Observability · Rate Limiting · Storage · Migration · Seed Data
+- 테스팅 → [`testing/`](../production/test/) — Contract Testing · Testing Strategy
 
 ---
 

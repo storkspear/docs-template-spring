@@ -293,7 +293,7 @@ postgres (Supabase or 로컬 docker)
 │   ├── password_reset_tokens
 │   └── devices
 └── <slug> schema            ← apps/app-<slug> 이 소유 — 자기 users/auth/devices + 도메인 테이블
-    ├── users / social_identities / refresh_tokens / ...  ([ADR-012](../journey/philosophy/adr-012-per-app-user-model.md): 앱별 독립 유저)
+    ├── users / social_identities / refresh_tokens / ...  ([ADR-012](../../philosophy/adr-012-per-app-user-model.md): 앱별 독립 유저)
     └── (앱 도메인 테이블)
 ```
 

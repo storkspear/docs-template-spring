@@ -775,7 +775,7 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든
 - [`Flutter ↔ Backend Integration`](../api-and-functional/api/flutter-backend-integration.md) — Flutter 앱 연동
 
 ### 컨벤션 / 기능 가이드
-- [`../conventions/`](../conventions/) — 네이밍, DTO factory, 예외 처리, git-workflow 등
+- [`../conventions/`](../convention/) — 네이밍, DTO factory, 예외 처리, git-workflow 등
 - [`Push Notifications`](../api-and-functional/functional/push-notifications.md) — FCM 디바이스 등록 + PushPort
 - [`Email Verification & Delivery`](../api-and-functional/functional/email-verification.md) — Resend 이메일 인증 + 비밀번호 재설정
 - [`오브젝트 스토리지 규약`](../api-and-functional/functional/storage.md) — 파일 스토리지 컨벤션

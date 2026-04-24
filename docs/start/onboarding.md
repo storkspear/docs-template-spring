@@ -453,7 +453,7 @@ openssl rand -hex 32   # 64자 출력
 | 설계 철학 (16 개 ADR) | [`Repository Philosophy — 책 안내`](../philosophy/README.md) |
 | 문서 작성 규칙 | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) |
 | 인프라 결정 근거 (Supabase/NAS/맥미니 등) | [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) |
-| 코딩 규약 (naming, DTO, exception 등) | [`../conventions/`](../conventions/) |
+| 코딩 규약 (naming, DTO, exception 등) | [`../conventions/`](../convention/) |
 | 테스트 전략 (4층 구조) | [`Testing Strategy`](../production/test/testing-strategy.md) |
 | 미완료 / 향후 작업 목록 | [`Backlog`](../planned/backlog.md) |
 | 장애 시나리오 분석 | [`Edge Cases & Risk Analysis`](../reference/edge-cases.md) |
