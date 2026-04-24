@@ -448,7 +448,7 @@ EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다");
 
 - **원인**: Resend API 장애 또는 `RESEND_API_KEY` 만료
 - **확인**: `curl -i https://api.resend.com/emails -H "Authorization: Bearer $RESEND_API_KEY"` 로 키 유효성 테스트
-- **조치**: 키 회전 ([`../infra/key-rotation.md`](../../production/setup/key-rotation.md))
+- **조치**: 키 회전 ([키 교체 절차 (Key Rotation)](../../production/setup/key-rotation.md))
 
 ### 인증 이메일이 스팸함으로 감
 
@@ -467,6 +467,6 @@ EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다");
 
 ## 다음 단계
 
-- 푸시 알림 통합: [`./push-notifications.md`](./push-notifications.md)
-- JWT 인증 흐름: [`../architecture/jwt-authentication.md`](../../structure/jwt-authentication.md)
-- Rate limit 설정: [`./rate-limiting.md`](./rate-limiting.md)
+- 푸시 알림 통합: [Push Notifications](./push-notifications.md)
+- JWT 인증 흐름: [JWT Authentication](../../structure/jwt-authentication.md)
+- Rate limit 설정: [Rate Limit 규약](./rate-limiting.md)

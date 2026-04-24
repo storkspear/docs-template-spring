@@ -417,7 +417,7 @@ public class PushAutoConfiguration {
 
 ## 관련 문서
 
-- [`./email-verification.md`](./email-verification.md) — 이메일 알림 (푸시와 대조)
-- [`../journey/philosophy/adr-003-api-impl-split.md`](../../philosophy/adr-003-api-impl-split.md) — PushPort 가 `-api` 모듈에 있는 근거
-- [`../journey/philosophy/adr-011-layered-port-adapter.md`](../../philosophy/adr-011-layered-port-adapter.md) — 레이어드 + 포트/어댑터 패턴
-- [`../architecture/jwt-authentication.md`](../../structure/jwt-authentication.md) — 디바이스 등록 시 인증 흐름
+- [Email Verification & Delivery](./email-verification.md) — 이메일 알림 (푸시와 대조)
+- [ADR-003 · core 모듈을 `-api` / `-impl` 로 분리](../../philosophy/adr-003-api-impl-split.md) — PushPort 가 `-api` 모듈에 있는 근거
+- [ADR-011 · 모듈 안 레이어드 아키텍처 + 포트/어댑터 패턴](../../philosophy/adr-011-layered-port-adapter.md) — 레이어드 + 포트/어댑터 패턴
+- [JWT Authentication](../../structure/jwt-authentication.md) — 디바이스 등록 시 인증 흐름

@@ -2,7 +2,7 @@
 
 이 문서는 `spring-backend-template` 의 **실제 구조** 를 설명합니다. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 16 개 ADR 에 기록되어 있습니다.
 
-> **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내합니다. Level 0~1 은 [`onboarding.md`](../start/onboarding.md) 먼저 참고.
+> **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내합니다. Level 0~1 은 [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) 먼저 참고.
 
 ---
 
@@ -72,7 +72,7 @@
 | Postgres 인스턴스 | 공유 (하나) | 별도 |
 | 유저/인증/도메인 테이블 | 앱 schema 별 독립 | 완전 별도 |
 
-schema 실제 구조와 마이그레이션 상세는 `infrastructure.md §10` ([`../infra/infrastructure.md`](../production/deploy/infrastructure.md)).
+schema 실제 구조와 마이그레이션 상세는 `infrastructure.md §10` ([인프라 (Infrastructure)](../production/deploy/infrastructure.md)).
 
 ---
 
@@ -405,7 +405,7 @@ bootstrap                              # 최상위 (모든 것을 조립)
 
 **2단계 — ArchUnit CI**
 
-Gradle 이 잡지 못하는 패턴 (같은 패키지 이름 규칙, Entity 노출 금지, `*Mapper` 클래스 금지 등) 은 ArchUnit 22 개 규칙 (r1~r22) 으로 빌드 시 검증. 상세: [`../architecture/architecture-rules.md`](./architecture-rules.md).
+Gradle 이 잡지 못하는 패턴 (같은 패키지 이름 규칙, Entity 노출 금지, `*Mapper` 클래스 금지 등) 은 ArchUnit 22 개 규칙 (r1~r22) 으로 빌드 시 검증. 상세: [Architecture Rules (ArchUnit)](./architecture-rules.md).
 
 두 단계 설계의 근거: [ADR-004 · Gradle + ArchUnit](../philosophy/adr-004-gradle-archunit.md).
 
@@ -484,7 +484,7 @@ ApiResponse.error(new ApiError("USR_001", "유저를 찾을 수 없습니다", {
 HTTP 404 + JSON 응답
 ```
 
-포맷 상세: [`../api-contract/api-response.md`](../api-and-functional/api/api-response.md).
+포맷 상세: [API Response Format](../api-and-functional/api/api-response.md).
 
 ---
 
@@ -716,7 +716,7 @@ apps/app-<slug>/config/<Slug>DataSourceConfig (slug="<slug>")
 
 Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든 impl 이 이 계약을 통과해야 머지 가능. JSON 직렬화 계약은 `AbstractJsonContractTest<T>`. 테스트 실패 시 CI 빌드 정지.
 
-이 레이어가 **추출 가능성의 형식적 보증** — `core-auth-impl` 을 HTTP 클라이언트 어댑터로 교체해도 같은 계약 테스트를 통과하면 정상 작동 확정. 상세: [`../testing/contract-testing.md`](../production/test/contract-testing.md).
+이 레이어가 **추출 가능성의 형식적 보증** — `core-auth-impl` 을 HTTP 클라이언트 어댑터로 교체해도 같은 계약 테스트를 통과하면 정상 작동 확정. 상세: [계약 테스트 (Contract Testing)](../production/test/contract-testing.md).
 
 ### 실제 추출 절차 (예상 7~10 영업일)
 
@@ -748,34 +748,34 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든
 - 외부 시스템 (FCM, Resend) 의 fake adapter (Mockito 가 아니라 in-memory 구현)
 - 비결정 의존성 (Clock, 난수) 의 고정값 (`Clock.fixed()` 등)
 
-상세: [`../testing/testing-strategy.md`](../production/test/testing-strategy.md).
+상세: [Testing Strategy](../production/test/testing-strategy.md).
 
 ---
 
 ## 관련 문서
 
 ### 핵심 레퍼런스
-- [`philosophy/README.md`](../philosophy/README.md) — 16 개 ADR 설계 결정의 근거
-- [`../STYLE_GUIDE.md`](../reference/STYLE_GUIDE.md) — 문서 작성 규칙
-- [`onboarding.md`](../start/onboarding.md) — 로컬 개발 환경 셋업
+- [Repository Philosophy — 책 안내](../philosophy/README.md) — 16 개 ADR 설계 결정의 근거
+- [Documentation Style Guide](../reference/STYLE_GUIDE.md) — 문서 작성 규칙
+- [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) — 로컬 개발 환경 셋업
 
 ### 모듈 / 아키텍처 세부
-- [`../architecture/module-dependencies.md`](./module-dependencies.md) — 의존 방향 규칙 상세
-- [`../architecture/architecture-rules.md`](./architecture-rules.md) — ArchUnit 22 규칙 전체 (r1~r22)
-- [`../architecture/multitenant-architecture.md`](./multitenant-architecture.md) — per-app schema + HikariCP 격리 + appSlug 검증
-- [`../architecture/jwt-authentication.md`](./jwt-authentication.md) — JWT claims · access/refresh · @CurrentUser · BCrypt
+- [모듈 의존 규칙 (Module Dependencies)](./module-dependencies.md) — 의존 방향 규칙 상세
+- [Architecture Rules (ArchUnit)](./architecture-rules.md) — ArchUnit 22 규칙 전체 (r1~r22)
+- [Multi-tenant Architecture](./multitenant-architecture.md) — per-app schema + HikariCP 격리 + appSlug 검증
+- [JWT Authentication](./jwt-authentication.md) — JWT claims · access/refresh · @CurrentUser · BCrypt
 
 ### 인프라 / 운영
-- [`../infra/infrastructure.md`](../production/deploy/infrastructure.md) — 맥미니 홈서버, Supabase, Cloudflare Tunnel, 블루그린 배포
-- [`../infra/ci-cd-flow.md`](../production/deploy/ci-cd-flow.md) — commit → 운영 반영 전체 흐름
-- [`../infra/runbook.md`](../production/deploy/runbook.md) — 운영 절차 + 장애 대응
+- [인프라 (Infrastructure)](../production/deploy/infrastructure.md) — 맥미니 홈서버, Supabase, Cloudflare Tunnel, 블루그린 배포
+- [CI / CD 전체 플로우 — commit 부터 운영 반영까지](../production/deploy/ci-cd-flow.md) — commit → 운영 반영 전체 흐름
+- [운영 런북 (Runbook)](../production/deploy/runbook.md) — 운영 절차 + 장애 대응
 
 ### API 계약
-- [`../api-contract/api-response.md`](../api-and-functional/api/api-response.md) — 응답 포맷 표준
-- [`../api-contract/flutter-backend-integration.md`](../api-and-functional/api/flutter-backend-integration.md) — Flutter 앱 연동
+- [API Response Format](../api-and-functional/api/api-response.md) — 응답 포맷 표준
+- [Flutter ↔ Backend Integration](../api-and-functional/api/flutter-backend-integration.md) — Flutter 앱 연동
 
 ### 컨벤션 / 기능 가이드
 - [`../conventions/`](../conventions/) — 네이밍, DTO factory, 예외 처리, git-workflow 등
-- [`../features/push-notifications.md`](../api-and-functional/functional/push-notifications.md) — FCM 디바이스 등록 + PushPort
-- [`../features/email-verification.md`](../api-and-functional/functional/email-verification.md) — Resend 이메일 인증 + 비밀번호 재설정
-- [`../features/storage.md`](../api-and-functional/functional/storage.md) — 파일 스토리지 컨벤션
+- [Push Notifications](../api-and-functional/functional/push-notifications.md) — FCM 디바이스 등록 + PushPort
+- [Email Verification & Delivery](../api-and-functional/functional/email-verification.md) — Resend 이메일 인증 + 비밀번호 재설정
+- [오브젝트 스토리지 규약](../api-and-functional/functional/storage.md) — 파일 스토리지 컨벤션

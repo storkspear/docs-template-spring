@@ -153,7 +153,7 @@ public class UserException extends BaseException {
 throw new UserException(UserError.USER_NOT_FOUND, Map.of("id", String.valueOf(userId)));
 ```
 
-자세한 체계는 [`exception-handling.md`](./exception-handling.md) 를 참고하세요.
+자세한 체계는 [Exception Handling Convention](./exception-handling.md) 를 참고하세요.
 
 ### 설정 클래스
 

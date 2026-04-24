@@ -121,6 +121,6 @@ record 컴포넌트 이름이 자동으로 JSON 키가 됨. 네이밍 충돌 시
 
 ## 관련 문서
 
-- [`conventions/dto-factory.md`](./dto-factory.md) — DTO 팩토리 패턴
-- [`conventions/naming.md`](./naming.md) — 네이밍 규칙
-- [`architecture/module-dependencies.md`](../structure/module-dependencies.md) — ArchUnit 규칙 18, 19
+- [DTO 팩토리 컨벤션](./dto-factory.md) — DTO 팩토리 패턴
+- [Naming Conventions](./naming.md) — 네이밍 규칙
+- [모듈 의존 규칙 (Module Dependencies)](../structure/module-dependencies.md) — ArchUnit 규칙 18, 19

@@ -255,5 +255,5 @@ ISO-8601 문자열 강제:
 
 ## 관련 문서
 
-- [`testing/contract-testing.md`](../../production/test/contract-testing.md) — 3층 테스트 구조 전체
-- [`conventions/naming.md`](../../convention/naming.md) — DTO 네이밍 규칙
+- [계약 테스트 (Contract Testing)](../../production/test/contract-testing.md) — 3층 테스트 구조 전체
+- [Naming Conventions](../../convention/naming.md) — DTO 네이밍 규칙

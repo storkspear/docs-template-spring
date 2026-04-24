@@ -6,9 +6,9 @@
 
 이 문서는 `spring-backend-template` 의 **메트릭·로그·알림** 규약을 정의합니다.
 
-> 인프라 스택 구성 / 프로비저닝 상태: [`infra/infrastructure.md §5`](../../production/deploy/infrastructure.md)
-> 셋업 가이드 (도커 기동, 대시보드 프로비저닝): [`infra/monitoring-setup.md`](../../production/setup/monitoring-setup.md)
-> 선택 근거 (셀프 호스트 vs 관리형): [`decisions-infra.md`](../../production/deploy/decisions-infra.md) I-06
+> 인프라 스택 구성 / 프로비저닝 상태: [인프라 (Infrastructure)](../../production/deploy/infrastructure.md)
+> 셋업 가이드 (도커 기동, 대시보드 프로비저닝): [운영 모니터링 셋업 가이드](../../production/setup/monitoring-setup.md)
+> 선택 근거 (셀프 호스트 vs 관리형): [인프라 결정 기록 (Decisions — Infrastructure)](../../production/deploy/decisions-infra.md) I-06
 > 알림 종류/임계치 확정: Item Ops-1 (`../reference/backlog.md`)
 
 ## 한 문장 요약
@@ -119,5 +119,5 @@ Prometheus scrape 시 Micrometer 가 `.` → `_` 변환: `http_server_requests_s
 
 ## 관련 문서
 
-- [`infra/monitoring-setup.md`](../../production/setup/monitoring-setup.md) — 프로덕션 모니터링 스택 배포
-- [`features/rate-limiting.md`](./rate-limiting.md) — Rate limit 정책
+- [운영 모니터링 셋업 가이드](../../production/setup/monitoring-setup.md) — 프로덕션 모니터링 스택 배포
+- [Rate Limit 규약](./rate-limiting.md) — Rate limit 정책

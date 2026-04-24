@@ -130,22 +130,22 @@ git push origin fix/refresh-token-race
 
 ## 관련 문서
 
-- [`conventions/git-workflow.md`](../convention/git-workflow.md) — 브랜치 · 커밋 규약
-- [`api-contract/versioning.md`](../api-and-functional/api/versioning.md) — 버전 · Deprecation
-- [`philosophy/adr-002-use-this-template.md`](../philosophy/adr-002-use-this-template.md) — template 패턴 + cherry-pick 전파
-- [`philosophy/adr-015-conventional-commits-semver.md`](../philosophy/adr-015-conventional-commits-semver.md) — Conventional Commits + template-v* SemVer
-- [`features/migration.md`](../api-and-functional/functional/migration.md) — 버전별 migration guide (breaking 있을 때만)
+- [Git 워크플로우 (Git Workflow)](../convention/git-workflow.md) — 브랜치 · 커밋 규약
+- [버전 규약 & Deprecation 프로세스](../api-and-functional/api/versioning.md) — 버전 · Deprecation
+- [ADR-002 · GitHub Template Repository 패턴 (Use this template)](../philosophy/adr-002-use-this-template.md) — template 패턴 + cherry-pick 전파
+- [ADR-015 · Conventional Commits + 템플릿 전체 semver](../philosophy/adr-015-conventional-commits-semver.md) — Conventional Commits + template-v* SemVer
+- [Migration Guides](../api-and-functional/functional/migration.md) — 버전별 migration guide (breaking 있을 때만)
 
 ---
 
 ## 📖 책 목차 — Journey 7단계 (마지막)
 
-[`journey/README.md`](../onboarding/README.md) 의 **7단계 — 이제 use this template** 의 마무리 문서입니다.
+[📚 spring-backend-template — 책 목차 (Developer Journey)](../onboarding/README.md) 의 **7단계 — 이제 use this template** 의 마무리 문서입니다.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|
-| ← 이전 | [`journey/deployment.md`](../production/deploy/deployment.md) | 같은 7단계, 파생 레포 첫 운영 배포 |
-| → 다음 | (책 끝) — 본인 도메인 작업 시작 | 막히면 [`infra/runbook.md`](../production/deploy/runbook.md) (운영 절차) 참고 |
+| ← 이전 | [운영 배포 가이드 (파생레포 onboarding)](../production/deploy/deployment.md) | 같은 7단계, 파생 레포 첫 운영 배포 |
+| → 다음 | (책 끝) — 본인 도메인 작업 시작 | 막히면 [운영 런북 (Runbook)](../production/deploy/runbook.md) (운영 절차) 참고 |
 
-**막혔을 때**: [`infra/runbook.md`](../production/deploy/runbook.md) (장애 대응) / [`infra/edge-cases.md`](../reference/edge-cases.md) (리스크 시나리오)
+**막혔을 때**: [운영 런북 (Runbook)](../production/deploy/runbook.md) (장애 대응) / [Edge Cases & Risk Analysis](../reference/edge-cases.md) (리스크 시나리오)
 **왜 이렇게?**: [ADR-002 (template 패턴)](../philosophy/adr-002-use-this-template.md) + [ADR-015 (Conventional Commits)](../philosophy/adr-015-conventional-commits-semver.md)

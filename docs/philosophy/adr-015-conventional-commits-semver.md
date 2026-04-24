@@ -295,7 +295,7 @@ Versioning: [SemVer](https://semver.org/).
 
 **초기 셋업 비용** — commitlint · husky · workflows · CHANGELOG · tag-validate · release.yml · .gitmessage — 설정할 게 많음. 프로젝트 시작 시 약 4~6시간 투입. 완화: 1회성이며, 템플릿으로 박혀있어 파생 레포는 clone 만으로 상속.
 
-**학습 곡선** — "왜 `feat:` 로 시작해야 하지?" 같은 초기 당혹감. 완화: `.gitmessage` 에 가이드, [`docs/conventions/git-workflow.md`](../convention/git-workflow.md) 에 FAQ.
+**학습 곡선** — "왜 `feat:` 로 시작해야 하지?" 같은 초기 당혹감. 완화: `.gitmessage` 에 가이드, [Git 워크플로우 (Git Workflow)](../convention/git-workflow.md) 에 FAQ.
 
 **모듈별 세밀 버전의 손실** — "common-web 만 업그레이드" 불가. 완화: 프로젝트 스케일에서 불필요. 필요해지면 본 ADR 재검토.
 
@@ -392,8 +392,8 @@ r20 이 빌드 실패로 강제하므로:
 
 **CHANGELOG / 버저닝**:
 - [`CHANGELOG.md`](https://github.com/storkspear/spring-backend-template/blob/main/CHANGELOG.md) — Keep a Changelog 포맷, [Unreleased] 유지
-- [`docs/api-contract/versioning.md`](../api-and-functional/api/versioning.md) — template-v* 태그 + Deprecation 상세
-- [`docs/conventions/git-workflow.md`](../convention/git-workflow.md) — 브랜치 + 커밋 규칙 통합 가이드
+- [버전 규약 & Deprecation 프로세스](../api-and-functional/api/versioning.md) — template-v* 태그 + Deprecation 상세
+- [Git 워크플로우 (Git Workflow)](../convention/git-workflow.md) — 브랜치 + 커밋 규칙 통합 가이드
 
 **Deprecation 강제**:
 - [`common-testing/architecture/ArchitectureRules.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r20 규칙 정의

@@ -1,6 +1,6 @@
 # 인프라 (Infrastructure)
 
-프로젝트의 환경별 인프라 구성, 책임 분담, 프로비저닝 상태를 기록합니다. 코드 아키텍처의 **왜** 는 [`philosophy/` 16 개 ADR](../../philosophy/README.md) 에, **무엇/어디** 는 [`architecture.md`](../../structure/architecture.md) 에 있으며, 이 문서는 그 위에서 **운영 환경의 실체** 를 다룹니다.
+프로젝트의 환경별 인프라 구성, 책임 분담, 프로비저닝 상태를 기록합니다. 코드 아키텍처의 **왜** 는 [`philosophy/` 16 개 ADR](../../philosophy/README.md) 에, **무엇/어디** 는 [Architecture Reference](../../structure/architecture.md) 에 있으며, 이 문서는 그 위에서 **운영 환경의 실체** 를 다룹니다.
 
 > **독자 대상**: Level 2~3. 본인 (미래의 자신) / 파생 레포를 만든 개발자 / 운영 담당 (Phase 1+).
 
@@ -8,11 +8,11 @@
 
 - **포함**: 물리/운영 인프라 (DB, 오브젝트 스토리지, 운영 호스트, 엣지, 관측성) 구성과 현재 상태
 - **제외**:
-  - 코드 아키텍처 (포트/어댑터, 모듈 구조) → [`architecture.md`](../../structure/architecture.md)
-  - 인프라 결정의 근거/대안 → [`decisions-infra.md`](./decisions-infra.md)
-  - 코드 설계 철학 → [`philosophy/README.md`](../../philosophy/README.md)
-  - 배포 파이프라인 상세 → [`ci-cd-flow.md`](./ci-cd-flow.md)
-  - 운영 절차 / 장애 대응 → [`runbook.md`](./runbook.md)
+  - 코드 아키텍처 (포트/어댑터, 모듈 구조) → [Architecture Reference](../../structure/architecture.md)
+  - 인프라 결정의 근거/대안 → [인프라 결정 기록 (Decisions — Infrastructure)](./decisions-infra.md)
+  - 코드 설계 철학 → [Repository Philosophy — 책 안내](../../philosophy/README.md)
+  - 배포 파이프라인 상세 → [CI / CD 전체 플로우 — commit 부터 운영 반영까지](./ci-cd-flow.md)
+  - 운영 절차 / 장애 대응 → [운영 런북 (Runbook)](./runbook.md)
 
 ---
 
@@ -30,7 +30,7 @@
 | 로컬 docker 관측성 | `deprecated` | 로컬에서는 기동하지 않음 (2026-04-19 변경). 운영 전용으로 범위 재조정 (I-06 노트) |
 | 2-tier bucket 정책 | `provisioned` (로컬 `dev-shared`) / `planned` (운영 `{slug}-{category}`) | `BucketProvisioner` 자동 생성. 상세: `features/storage.md` I-07 |
 
-상태 필드 정의 (`planned` / `provisioned` / `in-prod` / `hardware-acquired`) 및 전이 규칙: [`decisions-infra.md`](./decisions-infra.md) 참조.
+상태 필드 정의 (`planned` / `provisioned` / `in-prod` / `hardware-acquired`) 및 전이 규칙: [인프라 결정 기록 (Decisions — Infrastructure)](./decisions-infra.md) 참조.
 
 ---
 
@@ -82,7 +82,7 @@ docker compose -f infra/docker-compose.dev.yml up -d postgres minio
 ./gradlew :bootstrap:bootRun
 ```
 
-자세한 onboarding 흐름: [`guides/onboarding.md`](../../start/onboarding.md).
+자세한 onboarding 흐름: [Onboarding — 템플릿 첫 사용 가이드](../../start/onboarding.md).
 
 ---
 
@@ -90,7 +90,7 @@ docker compose -f infra/docker-compose.dev.yml up -d postgres minio
 
 > ⚠️ **현재 `planned` 상태이나 배포 파이프라인 인프라는 template 에 구축 완료**.
 > 파생레포가 "Use this template" → 환경값 채움 → `kamal setup` 한 번 실행 → GHA 자동 배포로 운영 진입.
-> 자세한 onboarding: [`guides/deployment.md`](./deployment.md). 결정 근거: [`decisions-infra.md#결정-i-09`](./decisions-infra.md).
+> 자세한 onboarding: [운영 배포 가이드 (파생레포 onboarding)](./deployment.md). 결정 근거: [인프라 결정 기록 (Decisions — Infrastructure)](./decisions-infra.md).
 
 ```
 [인터넷 사용자]
@@ -190,7 +190,7 @@ ingress:
 
 ## 6. 선택 근거 요약
 
-각 선택의 "왜 이거인가" 는 [`infra/decisions-infra.md`](./decisions-infra.md) 의 결정 카드 참조. 요약만:
+각 선택의 "왜 이거인가" 는 [인프라 결정 기록 (Decisions — Infrastructure)](./decisions-infra.md) 의 결정 카드 참조. 요약만:
 
 - **Supabase** (I-01) — 관리형 Postgres Free tier, Seoul region, 솔로 친화
 - **NAS MinIO** (I-03) — 보유 하드웨어 활용, S3 호환 → 미래 이관 유연, LAN 대역폭
@@ -223,7 +223,7 @@ ingress:
 ### MAU 100K 이상
 - 이 문서는 현재 프로젝트 스케일 범위 밖. 아키텍처 재설계 시점.
 
-**재검토 트리거 구체 표**: [`decisions-infra.md` 말미](./decisions-infra.md#재검토-트리거-요약-표).
+**재검토 트리거 구체 표**: [인프라 결정 기록 (Decisions — Infrastructure) 말미](./decisions-infra.md#재검토-트리거-요약-표).
 
 ---
 
@@ -326,7 +326,7 @@ V009__add_devices_updated_at.sql
 
 ### 10.4 서비스별 DataSource
 
-앱별 schema 에 붙는 DataSource 는 각 앱 모듈의 `<Slug>DataSourceConfig` 에서 `@Value` 로 환경변수 주입. Bootstrap 은 core schema 만, 각 앱은 자기 schema 에. 5중 방어선 (DB role · DataSource · Flyway · 포트 · ArchUnit) 의 구조적 근거: [ADR-005 (단일 Postgres + 앱당 schema)](../../philosophy/adr-005-db-schema-isolation.md). 구조 상세: [`architecture.md`](../../structure/architecture.md) 데이터베이스 구조 섹션.
+앱별 schema 에 붙는 DataSource 는 각 앱 모듈의 `<Slug>DataSourceConfig` 에서 `@Value` 로 환경변수 주입. Bootstrap 은 core schema 만, 각 앱은 자기 schema 에. 5중 방어선 (DB role · DataSource · Flyway · 포트 · ArchUnit) 의 구조적 근거: [ADR-005 (단일 Postgres + 앱당 schema)](../../philosophy/adr-005-db-schema-isolation.md). 구조 상세: [Architecture Reference](../../structure/architecture.md) 데이터베이스 구조 섹션.
 
 ### 10.5 `keep-alive.sh` — Supabase Free 7일 비활성 방지
 
@@ -345,25 +345,25 @@ V009__add_devices_updated_at.sql
 ## 11. 관련 문서
 
 ### 코드 아키텍처 / 설계 결정
-- [`architecture.md`](../../structure/architecture.md) — 코드 아키텍처 (포트/어댑터, 모듈 의존성)
-- [`philosophy/README.md`](../../philosophy/README.md) — 16 개 ADR 인덱스 (설계 결정의 근거)
+- [Architecture Reference](../../structure/architecture.md) — 코드 아키텍처 (포트/어댑터, 모듈 의존성)
+- [Repository Philosophy — 책 안내](../../philosophy/README.md) — 16 개 ADR 인덱스 (설계 결정의 근거)
 - 특히: [ADR-001 (모듈러 모놀리스)](../../philosophy/adr-001-modular-monolith.md), [ADR-005 (Postgres schema 격리)](../../philosophy/adr-005-db-schema-isolation.md), [ADR-007 (솔로 친화적 운영)](../../philosophy/adr-007-solo-friendly-operations.md)
 
 ### 인프라 결정 / 운영
-- [`decisions-infra.md`](./decisions-infra.md) — 인프라 결정 카드 I-01~I-07
-- [`ci-cd-flow.md`](./ci-cd-flow.md) — commit → 운영 반영까지 전체 배포 흐름
-- [`runbook.md`](./runbook.md) — 운영 절차 + 장애 대응
-- [`edge-cases.md`](../../reference/edge-cases.md) — 엣지 케이스 / 예외 처리 목록
-- [`key-rotation.md`](../setup/key-rotation.md) — 보안 키 로테이션 절차
-- [`mac-mini-setup.md`](../setup/mac-mini-setup.md) — 맥미니 홈서버 셋업
+- [인프라 결정 기록 (Decisions — Infrastructure)](./decisions-infra.md) — 인프라 결정 카드 I-01~I-07
+- [CI / CD 전체 플로우 — commit 부터 운영 반영까지](./ci-cd-flow.md) — commit → 운영 반영까지 전체 배포 흐름
+- [운영 런북 (Runbook)](./runbook.md) — 운영 절차 + 장애 대응
+- [Edge Cases & Risk Analysis](../../reference/edge-cases.md) — 엣지 케이스 / 예외 처리 목록
+- [키 교체 절차 (Key Rotation)](../setup/key-rotation.md) — 보안 키 로테이션 절차
+- [Mac mini 운영 호스트 설정 — 레퍼런스](../setup/mac-mini-setup.md) — 맥미니 홈서버 셋업
 
 ### 기능 별 상세
-- [`../features/storage.md`](../../api-and-functional/functional/storage.md) — MinIO 2-tier bucket 정책
-- [`../features/observability.md`](../../api-and-functional/functional/observability.md) — 관측성 규약
-- [`storage-setup.md`](../setup/storage-setup.md) — MinIO 로컬/NAS 셋업
-- [`monitoring-setup.md`](../setup/monitoring-setup.md) — 관측성 스택 기동
+- [오브젝트 스토리지 규약](../../api-and-functional/functional/storage.md) — MinIO 2-tier bucket 정책
+- [Observability 규약](../../api-and-functional/functional/observability.md) — 관측성 규약
+- [스토리지 셋업 가이드 (MinIO / 시놀로지 NAS)](../setup/storage-setup.md) — MinIO 로컬/NAS 셋업
+- [운영 모니터링 셋업 가이드](../setup/monitoring-setup.md) — 관측성 스택 기동
 
 ### 여정 / 진입점
-- [`../journey/onboarding.md`](../../start/onboarding.md) — 템플릿 첫 사용 가이드
-- [`../journey/deployment.md`](./deployment.md) — 파생 레포 첫 운영 배포
-- [`../reference/backlog.md`](../../planned/backlog.md) — 미완료 항목 (Item Ops-1 묶음 포함)
+- [Onboarding — 템플릿 첫 사용 가이드](../../start/onboarding.md) — 템플릿 첫 사용 가이드
+- [운영 배포 가이드 (파생레포 onboarding)](./deployment.md) — 파생 레포 첫 운영 배포
+- [Backlog](../../planned/backlog.md) — 미완료 항목 (Item Ops-1 묶음 포함)

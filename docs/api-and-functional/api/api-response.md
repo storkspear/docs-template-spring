@@ -500,7 +500,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ## 관련 문서
 
-- [`../conventions/exception-handling.md`](../../convention/exception-handling.md) — 에러 코드 체계 + 도메인별 예외
-- [`./json-contract.md`](./json-contract.md) — JSON 직렬화 정책 + 테스트 4 종
-- [`./flutter-backend-integration.md`](./flutter-backend-integration.md) — 클라이언트 연동 규약
-- [`./versioning.md`](./versioning.md) — API 버전 관리 전략
+- [Exception Handling Convention](../../convention/exception-handling.md) — 에러 코드 체계 + 도메인별 예외
+- [JSON 계약 규약 (JSON Contract)](./json-contract.md) — JSON 직렬화 정책 + 테스트 4 종
+- [Flutter ↔ Backend Integration](./flutter-backend-integration.md) — 클라이언트 연동 규약
+- [버전 규약 & Deprecation 프로세스](./versioning.md) — API 버전 관리 전략

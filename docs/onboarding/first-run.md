@@ -2,7 +2,7 @@
 
 로컬에서 `./gradlew bootRun` 을 처음 돌렸을 때 나오는 로그가 **무엇을 의미하는지** 한 번 훑어봅니다. 실제로 돌리지 않아도 읽을 수 있도록 구성. 막히는 로그가 있으면 이 문서로 돌아오세요.
 
-> **전제**: [`../onboarding.md`](../start/onboarding.md) 의 환경 셋업 (§1~§3) 완료. `./tools/bootstrap.sh` 또는 `./gradlew bootRun` 직접 실행.
+> **전제**: [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) 의 환경 셋업 (§1~§3) 완료. `./tools/bootstrap.sh` 또는 `./gradlew bootRun` 직접 실행.
 
 ## 1. Gradle 단계
 
@@ -177,5 +177,5 @@ HikariPool-1 - Shutdown completed.
 | 다음 행동 | 문서 |
 |---|---|
 | 실제 코드를 수정해보기 | [**첫 수정 — nickname 컬럼 추가**](./first-change.md) |
-| 앱 모듈을 만들어보기 | [`../onboarding.md`](../start/onboarding.md) §5 `new-app.sh` |
-| 뭔가 에러로 막힘 | [`../onboarding.md`](../start/onboarding.md) §6 "흔한 에러" |
+| 앱 모듈을 만들어보기 | [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) §5 `new-app.sh` |
+| 뭔가 에러로 막힘 | [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) §6 "흔한 에러" |

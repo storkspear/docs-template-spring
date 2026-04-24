@@ -342,10 +342,10 @@ core 는 Entity 와 Port 만 정의하고 DataSource 는 제공하지 않습니�
 
 ## 관련 문서
 
-- [`../journey/philosophy/adr-005-db-schema-isolation.md`](../philosophy/adr-005-db-schema-isolation.md) — schema 격리 + 5중 방어선 결정
-- [`../journey/philosophy/adr-012-per-app-user-model.md`](../philosophy/adr-012-per-app-user-model.md) — 앱별 독립 유저 모델
-- [`./jwt-authentication.md`](./jwt-authentication.md) — `appSlug` 검증 필터
-- [`../infra/infrastructure.md`](../production/deploy/infrastructure.md) — 실제 schema 배치 (Supabase)
+- [ADR-005 · 단일 Postgres database + 앱당 schema](../philosophy/adr-005-db-schema-isolation.md) — schema 격리 + 5중 방어선 결정
+- [ADR-012 · 앱별 독립 유저 모델 (통합 계정 폐기)](../philosophy/adr-012-per-app-user-model.md) — 앱별 독립 유저 모델
+- [JWT Authentication](./jwt-authentication.md) — `appSlug` 검증 필터
+- [인프라 (Infrastructure)](../production/deploy/infrastructure.md) — 실제 schema 배치 (Supabase)
 
 ---
 

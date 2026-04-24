@@ -4,8 +4,8 @@
 
 **설계 근거**: [ADR-006 (HS256 JWT)](../../philosophy/adr-006-hs256-jwt.md) · [ADR-007 (솔로 친화적 운영)](../../philosophy/adr-007-solo-friendly-operations.md)
 
-> 결정 근거: [`infra/decisions-infra.md` I-10, I-14](../deploy/decisions-infra.md)
-> 셋업 가이드: [`journey/dogfood-setup.md`](../../start/dogfood-setup.md)
+> 결정 근거: [인프라 결정 기록 (Decisions — Infrastructure) I-10, I-14](../deploy/decisions-infra.md)
+> 셋업 가이드: [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md)
 
 ---
 
@@ -43,7 +43,7 @@
 3. 확인
 
 **새 발급**:
-- [`journey/dogfood-setup.md §3.1`](../../start/dogfood-setup.md) 의 절차 따름
+- [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md) 의 절차 따름
 - 새 토큰 값 → `.env.dogfood` 의 `GHCR_TOKEN` 갱신
 - `bash tools/dogfooding/setup.sh` 실행 (멱등 — 기존 secret overwrite)
 
@@ -60,7 +60,7 @@
 3. (선택) 같은 client 로 로그인된 ephemeral devices 가 admin → Machines 에 남아있다면 expired 표시되므로 별도 정리 불필요
 
 **새 발급**:
-- [`journey/dogfood-setup.md §3.2`](../../start/dogfood-setup.md) 의 절차 따름
+- [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md) 의 절차 따름
 - ⚠️ **scope 2개 모두 체크 필수** (Devices Core Write + Auth Keys Write, 둘 다 tag:ci)
 - ACL 의 `tagOwners` 가 이미 정의되어 있으면 그대로 사용 (재정의 불필요)
 - 새 Client ID + Secret → `.env.dogfood` 의 `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` 갱신
@@ -156,14 +156,14 @@
 
 ## 다음 단계
 
-- 인시던트 회고: [`./runbook.md`](../deploy/runbook.md) 의 "인시던트 회고 템플릿"
-- 장애 대응 절차: [`./runbook.md`](../deploy/runbook.md)
-- 관측성 알림 설정: [`./monitoring-setup.md`](./monitoring-setup.md)
+- 인시던트 회고: [운영 런북 (Runbook)](../deploy/runbook.md) 의 "인시던트 회고 템플릿"
+- 장애 대응 절차: [운영 런북 (Runbook)](../deploy/runbook.md)
+- 관측성 알림 설정: [운영 모니터링 셋업 가이드](./monitoring-setup.md)
 
 ---
 
 ## 관련 문서
 
-- [`journey/dogfood-setup.md`](../../start/dogfood-setup.md) — 외부 리소스 발급 절차
-- [`infra/decisions-infra.md` I-10, I-14](../deploy/decisions-infra.md) — PAT / Tailscale OAuth 결정 근거
-- [`journey/dogfood-pitfalls.md`](../../start/dogfood-pitfalls.md) — 키 관련 함정
+- [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md) — 외부 리소스 발급 절차
+- [인프라 결정 기록 (Decisions — Infrastructure) I-10, I-14](../deploy/decisions-infra.md) — PAT / Tailscale OAuth 결정 근거
+- [도그푸딩 함정 모음 (사고 실록)](../../start/dogfood-pitfalls.md) — 키 관련 함정

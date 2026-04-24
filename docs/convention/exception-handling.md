@@ -215,5 +215,5 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 
 ## 관련 문서
 
-- [`../api-contract/api-response.md`](../api-and-functional/api/api-response.md) — 예외가 변환되는 응답 포맷
-- [`../api-contract/flutter-backend-integration.md`](../api-and-functional/api/flutter-backend-integration.md) — 클라이언트 측 401/403 처리 규약
+- [API Response Format](../api-and-functional/api/api-response.md) — 예외가 변환되는 응답 포맷
+- [Flutter ↔ Backend Integration](../api-and-functional/api/flutter-backend-integration.md) — 클라이언트 측 401/403 처리 규약

@@ -244,9 +244,9 @@ git push origin template-v1.3.0
 
 ## 관련 문서
 
-- [`conventions/git-workflow.md`](../../convention/git-workflow.md) — 브랜치 · 커밋 규약 · Merge 정책
-- [`journey/cross-repo-cherry-pick.md`](../../start/cross-repo-cherry-pick.md) — 파생 레포 동기화
+- [Git 워크플로우 (Git Workflow)](../../convention/git-workflow.md) — 브랜치 · 커밋 규약 · Merge 정책
+- [크로스 레포 Cherry-pick 가이드](../../start/cross-repo-cherry-pick.md) — 파생 레포 동기화
 - [ADR-002 · GitHub Template Repository 패턴](../../philosophy/adr-002-use-this-template.md) — 템플릿 전파
 - [ADR-008 · API 버전 관리 미도입](../../philosophy/adr-008-no-api-versioning.md) — URL 버저닝 거절 근거
 - [ADR-015 · Conventional Commits + SemVer](../../philosophy/adr-015-conventional-commits-semver.md) — 커밋/태그 체계
-- [`features/migration.md`](../functional/migration.md) — 버전별 migration guide
+- [Migration Guides](../functional/migration.md) — 버전별 migration guide

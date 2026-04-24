@@ -6,9 +6,9 @@
 
 Mac mini 운영 호스트에서 관측성 스택(Loki + Grafana + Prometheus + Alertmanager)을 기동·운영하는 방법.
 
-> 인프라 전체 구성 / 책임 분담: [`infra/infrastructure.md`](../deploy/infrastructure.md)
-> 관측성 규약 (로그 레벨, MDC, 메트릭 네이밍): [`features/observability.md`](../../api-and-functional/functional/observability.md)
-> 선택 근거 (왜 Loki/Graf/Prom 셀프 호스트?): [`infra/decisions-infra.md`](../deploy/decisions-infra.md) I-06
+> 인프라 전체 구성 / 책임 분담: [인프라 (Infrastructure)](../deploy/infrastructure.md)
+> 관측성 규약 (로그 레벨, MDC, 메트릭 네이밍): [Observability 규약](../../api-and-functional/functional/observability.md)
+> 선택 근거 (왜 Loki/Graf/Prom 셀프 호스트?): [인프라 결정 기록 (Decisions — Infrastructure)](../deploy/decisions-infra.md) I-06
 
 ## 개요
 
@@ -130,15 +130,15 @@ docker compose -f infra/docker-compose.observability.yml ps
 
 ## 다음 단계
 
-- 평시/장애 대응: [`./runbook.md`](../deploy/runbook.md)
-- 관측성 규약 (로깅/메트릭/알림): [`../features/observability.md`](../../api-and-functional/functional/observability.md)
-- 인프라 구성: [`./infrastructure.md`](../deploy/infrastructure.md)
+- 평시/장애 대응: [운영 런북 (Runbook)](../deploy/runbook.md)
+- 관측성 규약 (로깅/메트릭/알림): [Observability 규약](../../api-and-functional/functional/observability.md)
+- 인프라 구성: [인프라 (Infrastructure)](../deploy/infrastructure.md)
 
 ---
 
 ## 관련 문서
 
-- [`features/observability.md`](../../api-and-functional/functional/observability.md) — 메트릭/로그 규약
-- [`journey/deployment.md`](../deploy/deployment.md) — 운영 배포 파이프라인 (Kamal + GHA)
-- [`infra/infrastructure.md §4`](../deploy/infrastructure.md) — 운영 구성도
-- [`infra/decisions-infra.md` I-06](../deploy/decisions-infra.md) — 관측성 스택 선택 근거
+- [Observability 규약](../../api-and-functional/functional/observability.md) — 메트릭/로그 규약
+- [운영 배포 가이드 (파생레포 onboarding)](../deploy/deployment.md) — 운영 배포 파이프라인 (Kamal + GHA)
+- [인프라 (Infrastructure)](../deploy/infrastructure.md) — 운영 구성도
+- [인프라 결정 기록 (Decisions — Infrastructure) I-06](../deploy/decisions-infra.md) — 관측성 스택 선택 근거

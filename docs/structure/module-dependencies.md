@@ -196,5 +196,5 @@ Rule 'r9: core-*-api must not depend on JPA/Hibernate' was violated (1 time):
 - [ADR-003 · -api / -impl 분리](../philosophy/adr-003-api-impl-split.md)
 - [ADR-004 · Gradle + ArchUnit](../philosophy/adr-004-gradle-archunit.md)
 - [ADR-014 · Delegation mock 금지](../philosophy/adr-014-no-delegation-mock.md)
-- [`journey/architecture.md`](./architecture.md) — "의존 규칙" 및 6중 방어선
-- [`testing/contract-testing.md`](../production/test/contract-testing.md) — Port 계약 테스트
+- [Architecture Reference](./architecture.md) — "의존 규칙" 및 6중 방어선
+- [계약 테스트 (Contract Testing)](../production/test/contract-testing.md) — Port 계약 테스트

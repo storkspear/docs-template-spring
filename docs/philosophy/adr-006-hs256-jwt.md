@@ -294,7 +294,7 @@ secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 - [`.env.example`](https://github.com/storkspear/spring-backend-template/blob/main/.env.example) — `JWT_SECRET` 생성 명령 포함
 
 **로테이션 가이드**:
-- [`docs/infra/key-rotation.md`](../production/setup/key-rotation.md) — 6개월 주기, 교체 절차
+- [키 교체 절차 (Key Rotation)](../production/setup/key-rotation.md) — 6개월 주기, 교체 절차
 
 **부재 확인 (HS256 only 검증)**:
 - `grep -r "RS256"` 결과: core-auth-impl (Apple JWKS) 외 없음

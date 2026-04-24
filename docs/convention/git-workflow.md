@@ -245,8 +245,8 @@ Item 시작 전에 **반드시** backlog 를 점검:
 
 ## 관련 문서
 
-- [`api-contract/versioning.md`](../api-and-functional/api/versioning.md) — 버전 규약 · 릴리스 프로세스 · Deprecation
-- [`journey/cross-repo-cherry-pick.md`](../start/cross-repo-cherry-pick.md) — 템플릿 ↔ 파생 레포 동기화
+- [버전 규약 & Deprecation 프로세스](../api-and-functional/api/versioning.md) — 버전 규약 · 릴리스 프로세스 · Deprecation
+- [크로스 레포 Cherry-pick 가이드](../start/cross-repo-cherry-pick.md) — 템플릿 ↔ 파생 레포 동기화
 - [ADR-002 · GitHub Template Repository 패턴](../philosophy/adr-002-use-this-template.md) — 템플릿 전파
 - [ADR-015 · Conventional Commits + SemVer](../philosophy/adr-015-conventional-commits-semver.md) — 커밋 포맷 강제
-- [`reference/backlog.md`](../planned/backlog.md) — 실제 개발 목록
+- [Backlog](../planned/backlog.md) — 실제 개발 목록

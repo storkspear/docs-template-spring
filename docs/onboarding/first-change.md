@@ -2,7 +2,7 @@
 
 "뭐 하나 바꿔보고 싶다" 는 단계. 이 문서는 **`users` 테이블에 `nickname` 컬럼을 추가** 하는 **엔드투엔드 흐름** 을 따라갑니다. DB · 엔티티 · DTO · Controller · 테스트 — 한 변경이 **몇 곳** 을 건드리는지 실감할 수 있어요.
 
-> **전제**: [`./first-run.md`](./first-run.md) 의 부팅까지 성공 + 앱 모듈 하나 추가 (`new-app.sh sumtally`).
+> **전제**: [첫 실행 결과 해석](./first-run.md) 의 부팅까지 성공 + 앱 모듈 하나 추가 (`new-app.sh sumtally`).
 >
 > **목표 시간**: 30 분.
 >
@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_users_nickname ON users(nickname)
     WHERE nickname IS NOT NULL;
 ```
 
-**왜 `NOT NULL` 안 붙이나?**: 기존 유저 레코드들이 이미 있을 수 있어서. "뒤로 호환" 원칙 ([`../../infra/runbook.md` Expand/Contract 규율](../production/deploy/runbook.md) 참조). 필수로 만들려면 "2 단계 배포" 를 거쳐야 함.
+**왜 `NOT NULL` 안 붙이나?**: 기존 유저 레코드들이 이미 있을 수 있어서. "뒤로 호환" 원칙 ([운영 런북 (Runbook) Expand/Contract 규율](../production/deploy/runbook.md) 참조). 필수로 만들려면 "2 단계 배포" 를 거쳐야 함.
 
 **앱 schema 에도 반영해야 함**: `new-app.sh` 로 생성된 앱 모듈은 자기 schema 에 별개 마이그레이션이 있음. 예:
 ```bash
@@ -219,6 +219,6 @@ curl http://localhost:8080/api/apps/sumtally/users/me \
 | 다음 행동 | 문서 |
 |---|---|
 | 이 패턴을 깊이 이해 | [ADR-016 · DTO Mapper 금지](../philosophy/adr-016-dto-mapper-forbidden.md) |
-| 테스트 전략 자세히 | [`../../testing/testing-strategy.md`](../production/test/testing-strategy.md) |
-| 새 도메인 테이블 추가 | [`../../features/migration.md`](../api-and-functional/functional/migration.md) |
+| 테스트 전략 자세히 | [Testing Strategy](../production/test/testing-strategy.md) |
+| 새 도메인 테이블 추가 | [Migration Guides](../api-and-functional/functional/migration.md) |
 | 배포 경험해보기 | [**배포 맛보기**](./first-deploy.md) |

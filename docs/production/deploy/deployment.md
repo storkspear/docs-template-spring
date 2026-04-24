@@ -2,9 +2,9 @@
 
 template 에서 "Use this template" 으로 만든 파생레포를 Mac mini 홈서버에 처음 배포할 때의 순서.
 
-> 결정 근거: [`infra/decisions-infra.md` I-09](./decisions-infra.md)
-> 전체 구성도: [`infra/infrastructure.md §4`](./infrastructure.md)
-> 평시 운영 / 장애 대응: [`infra/runbook.md`](./runbook.md)
+> 결정 근거: [인프라 결정 기록 (Decisions — Infrastructure) I-09](./decisions-infra.md)
+> 전체 구성도: [인프라 (Infrastructure)](./infrastructure.md)
+> 평시 운영 / 장애 대응: [운영 런북 (Runbook)](./runbook.md)
 
 ---
 
@@ -247,22 +247,22 @@ curl -I https://log.<도메인>                                   # 302 (CF Acce
 
 ## 관련 문서
 
-- [`infra/decisions-infra.md` I-09](./decisions-infra.md) — Kamal 선택 근거
-- [`infra/runbook.md`](./runbook.md) — 평시 배포 / 롤백 / 장애 대응
-- [`monitoring-setup.md`](../setup/monitoring-setup.md) — Grafana / Prometheus / Alertmanager 운영
-- [`onboarding.md`](../../start/onboarding.md) — 새 개발자 첫 실행 (로컬 dev)
-- [`storage-setup.md`](../setup/storage-setup.md) — MinIO 로컬/NAS
+- [인프라 결정 기록 (Decisions — Infrastructure) I-09](./decisions-infra.md) — Kamal 선택 근거
+- [운영 런북 (Runbook)](./runbook.md) — 평시 배포 / 롤백 / 장애 대응
+- [운영 모니터링 셋업 가이드](../setup/monitoring-setup.md) — Grafana / Prometheus / Alertmanager 운영
+- [Onboarding — 템플릿 첫 사용 가이드](../../start/onboarding.md) — 새 개발자 첫 실행 (로컬 dev)
+- [스토리지 셋업 가이드 (MinIO / 시놀로지 NAS)](../setup/storage-setup.md) — MinIO 로컬/NAS
 
 ---
 
 ## 📖 책 목차 — Journey 7단계
 
-[`journey/README.md`](../../onboarding/README.md) 의 **7단계 — 이제 use this template** 입니다. 파생 레포 첫 운영 배포.
+[📚 spring-backend-template — 책 목차 (Developer Journey)](../../onboarding/README.md) 의 **7단계 — 이제 use this template** 입니다. 파생 레포 첫 운영 배포.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|
-| ← 이전 | [`journey/dogfood-setup.md`](../../start/dogfood-setup.md) | 4~6단계, template 자체 검증 (셋업/테스트/정리) |
-| → 다음 | [`journey/cross-repo-cherry-pick.md`](../../start/cross-repo-cherry-pick.md) | 같은 7단계, template 변경을 파생 레포로 가져오기 |
+| ← 이전 | [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md) | 4~6단계, template 자체 검증 (셋업/테스트/정리) |
+| → 다음 | [크로스 레포 Cherry-pick 가이드](../../start/cross-repo-cherry-pick.md) | 같은 7단계, template 변경을 파생 레포로 가져오기 |
 
-**막혔을 때**: [`journey/dogfood-pitfalls.md`](../../start/dogfood-pitfalls.md) (도그푸딩과 같은 함정 적용) / [`infra/runbook.md`](./runbook.md) (평시 운영 절차)
-**왜 이렇게?**: [`infra/decisions-infra.md` I-09](./decisions-infra.md) (Kamal 선택) / [ADR-002 (GitHub Template Repository 패턴)](../../philosophy/adr-002-use-this-template.md)
+**막혔을 때**: [도그푸딩 함정 모음 (사고 실록)](../../start/dogfood-pitfalls.md) (도그푸딩과 같은 함정 적용) / [운영 런북 (Runbook)](./runbook.md) (평시 운영 절차)
+**왜 이렇게?**: [인프라 결정 기록 (Decisions — Infrastructure) I-09](./decisions-infra.md) (Kamal 선택) / [ADR-002 (GitHub Template Repository 패턴)](../../philosophy/adr-002-use-this-template.md)

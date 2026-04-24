@@ -207,9 +207,9 @@ public DetailedProfile getDetailedProfile(long userId) {
 
 ## 관련 문서
 
-- [`conventions/naming.md`](./naming.md) — DTO 네이밍 규칙
-- [`conventions/records-and-classes.md`](./records-and-classes.md) — record vs class 선택 기준
-- [`api-contract/json-contract.md`](../api-and-functional/api/json-contract.md) — JSON 직렬화 정책
+- [Naming Conventions](./naming.md) — DTO 네이밍 규칙
+- [record vs class 선택 기준](./records-and-classes.md) — record vs class 선택 기준
+- [JSON 계약 규약 (JSON Contract)](../api-and-functional/api/json-contract.md) — JSON 직렬화 정책
 - [ADR-003 · -api / -impl 분리](../philosophy/adr-003-api-impl-split.md)
 - [ADR-011 · 레이어드 + 포트/어댑터](../philosophy/adr-011-layered-port-adapter.md)
 - [ADR-016 · DTO Mapper 금지](../philosophy/adr-016-dto-mapper-forbidden.md)

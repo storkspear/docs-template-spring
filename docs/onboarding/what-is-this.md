@@ -89,7 +89,7 @@
 - [**5 분 투어**](./five-minute-tour.md) — 핵심 개념 4 개 · 모듈 그림
 
 "지금 바로 돌려보고 싶다" 면:
-- [`../onboarding.md`](../start/onboarding.md) — 로컬 개발 환경 셋업 (1 시간 예상)
+- [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) — 로컬 개발 환경 셋업 (1 시간 예상)
 
 "왜 이렇게 설계됐는지부터 알고 싶다" 면:
-- [`../philosophy/README.md`](../philosophy/README.md) — 16 개 ADR 의 프롤로그만 먼저
+- [Repository Philosophy — 책 안내](../philosophy/README.md) — 16 개 ADR 의 프롤로그만 먼저

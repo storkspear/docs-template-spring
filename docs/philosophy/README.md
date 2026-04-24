@@ -263,19 +263,19 @@ ADR-007 (솔로 친화적 운영)
 
 ## 관련 문서
 
-- [`../architecture.md`](../structure/architecture.md) — 실제 구조의 상세 레퍼런스
+- [Architecture Reference](../structure/architecture.md) — 실제 구조의 상세 레퍼런스
 - [`../../conventions/`](../../conventions) — 코딩 규약
 
 ---
 
 ## 📖 책 목차 — Journey 1단계
 
-[`../README.md`](../onboarding/README.md) 의 **1단계 — 이 레포가 뭐야?** 입니다.
+[📚 spring-backend-template — 책 목차 (Developer Journey)](../onboarding/README.md) 의 **1단계 — 이 레포가 뭐야?** 입니다.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|
 | ← 이전 | (없음, 첫 단계) | README 의 30분 QuickStart 가 선행 |
-| → 다음 | [`../architecture.md`](../structure/architecture.md) | 같은 1단계, 모듈 구조 한눈 요약 |
+| → 다음 | [Architecture Reference](../structure/architecture.md) | 같은 1단계, 모듈 구조 한눈 요약 |
 
 **막혔을 때**: [도그푸딩 함정](../start/dogfood-pitfalls.md) / [FAQ](../start/dogfood-faq.md)  
-**왜 이렇게?**: 이 문서가 "왜" 의 본진입니다. 더 깊은 인프라 결정은 [`../../infra/decisions-infra.md`](../production/deploy/decisions-infra.md).
+**왜 이렇게?**: 이 문서가 "왜" 의 본진입니다. 더 깊은 인프라 결정은 [인프라 결정 기록 (Decisions — Infrastructure)](../production/deploy/decisions-infra.md).

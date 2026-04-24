@@ -4,9 +4,9 @@
 
 **설계 근거**: [ADR-007 (솔로 친화적 운영)](../../philosophy/adr-007-solo-friendly-operations.md) · [ADR-015 (Conventional Commits + SemVer)](../../philosophy/adr-015-conventional-commits-semver.md)
 
-> 결정 근거: [`infra/decisions-infra.md` I-09 ~ I-14](./decisions-infra.md)
-> 셋업 가이드: [`journey/dogfood-setup.md`](../../start/dogfood-setup.md)
-> 함정 모음: [`journey/dogfood-pitfalls.md`](../../start/dogfood-pitfalls.md)
+> 결정 근거: [인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14](./decisions-infra.md)
+> 셋업 가이드: [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md)
+> 함정 모음: [도그푸딩 함정 모음 (사고 실록)](../../start/dogfood-pitfalls.md)
 
 ---
 
@@ -387,9 +387,9 @@ cloudflared tunnel 이 외부 도메인을 Mac mini :80 으로 outbound 연결. 
 
 ## 관련 문서
 
-- [`journey/dogfood-setup.md`](../../start/dogfood-setup.md) — 셋업 가이드 (정상 흐름)
-- [`journey/dogfood-pitfalls.md`](../../start/dogfood-pitfalls.md) — 함정 모음 (사고 실록)
-- [`journey/dogfood-faq.md`](../../start/dogfood-faq.md) — 자주 묻는 질문
-- [`journey/deployment.md`](./deployment.md) — 운영 배포 (cloudflared, observability)
-- [`infra/runbook.md`](./runbook.md) — 평시 운영 / 장애 대응
-- [`infra/decisions-infra.md` I-09 ~ I-14](./decisions-infra.md) — 결정 카드
+- [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md) — 셋업 가이드 (정상 흐름)
+- [도그푸딩 함정 모음 (사고 실록)](../../start/dogfood-pitfalls.md) — 함정 모음 (사고 실록)
+- [도그푸딩 FAQ](../../start/dogfood-faq.md) — 자주 묻는 질문
+- [운영 배포 가이드 (파생레포 onboarding)](./deployment.md) — 운영 배포 (cloudflared, observability)
+- [운영 런북 (Runbook)](./runbook.md) — 평시 운영 / 장애 대응
+- [인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14](./decisions-infra.md) — 결정 카드

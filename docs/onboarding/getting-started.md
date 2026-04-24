@@ -18,9 +18,9 @@
 3. **그다음 뭘 봐야 하지?** — 다음 문서로 자연스럽게 이동
 
 **목표가 아닌 것**:
-- 실제로 돌려보게 만들기 (그건 [`../onboarding.md`](../start/onboarding.md) 의 역할)
-- 구조 전체를 이해하게 만들기 (그건 [`../architecture.md`](../structure/architecture.md))
-- 설계 결정의 이유를 다 알게 만들기 (그건 [`../philosophy/README.md`](../philosophy/README.md))
+- 실제로 돌려보게 만들기 (그건 [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) 의 역할)
+- 구조 전체를 이해하게 만들기 (그건 [Architecture Reference](../structure/architecture.md))
+- 설계 결정의 이유를 다 알게 만들기 (그건 [Repository Philosophy — 책 안내](../philosophy/README.md))
 
 ## 문서
 
@@ -33,7 +33,7 @@
 4. [**첫 수정 — nickname 컬럼 추가**](./first-change.md) — 30 분 튜토리얼, 한 필드 추가의 6 곳 반영
 5. [**배포 맛보기**](./first-deploy.md) — 로컬 Docker 로 운영 배포 감 잡기
 
-> 💡 **모르는 용어가 나오면** — [`./glossary.md`](../reference/glossary.md) (Reference 그룹) 참조. Spring · JPA · Docker · JWT · Kamal 등 범용 용어 풀이.
+> 💡 **모르는 용어가 나오면** — [Level 0 용어 사전](../reference/glossary.md) (Reference 그룹) 참조. Spring · JPA · Docker · JWT · Kamal 등 범용 용어 풀이.
 
 ## 다음 단계
 
@@ -41,9 +41,9 @@ Level 0 두 문서를 다 읽었다면:
 
 | 다음 행동 | 문서 |
 |---|---|
-| 내 노트북에서 돌려보기 | [`../onboarding.md`](../start/onboarding.md) — 로컬 개발 환경 셋업 |
-| 먼저 구조를 이해하고 싶음 | [`../architecture.md`](../structure/architecture.md) — 모듈 · 기술 스택 |
-| 왜 이렇게 설계됐는지 궁금 | [`../philosophy/README.md`](../philosophy/README.md) — 16 개 ADR |
-| 전체 읽기 순서를 알고 싶음 | [`../README.md`](./README.md) — Developer Journey |
+| 내 노트북에서 돌려보기 | [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) — 로컬 개발 환경 셋업 |
+| 먼저 구조를 이해하고 싶음 | [Architecture Reference](../structure/architecture.md) — 모듈 · 기술 스택 |
+| 왜 이렇게 설계됐는지 궁금 | [Repository Philosophy — 책 안내](../philosophy/README.md) — 16 개 ADR |
+| 전체 읽기 순서를 알고 싶음 | [📚 spring-backend-template — 책 목차 (Developer Journey)](./README.md) — Developer Journey |
 
 "나한테 안 맞는다" 가 결론이어도 OK — 이 레벨의 의도 자체가 **빠른 필터링**이에요.

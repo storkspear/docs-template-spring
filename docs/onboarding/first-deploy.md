@@ -2,7 +2,7 @@
 
 "운영 배포가 **어떤 일들** 을 하는가?" 를 **실제 운영 배포 없이** 맛보는 문서. 로컬에서 Docker 로 돌려보면서 "프로덕션에서도 대략 이런 일이 일어난다" 를 체감합니다.
 
-> **주의**: 이 문서는 **실제 운영 배포 가이드가 아님**. 실전 배포는 [`../deployment.md`](../production/deploy/deployment.md) 가 담당.
+> **주의**: 이 문서는 **실제 운영 배포 가이드가 아님**. 실전 배포는 [운영 배포 가이드 (파생레포 onboarding)](../production/deploy/deployment.md) 가 담당.
 >
 > **목표 시간**: 20 분.
 
@@ -110,7 +110,7 @@ Health check 통과 후:
 
 **핵심**: 사용자 요청은 **한 순간도 끊기지 않음**. 구 버전은 진행 중이던 요청을 마친 후 종료.
 
-이 스왑을 **Kamal** 이 관리. [`../../infra/runbook.md`](../production/deploy/runbook.md) 에 실전 명령어.
+이 스왑을 **Kamal** 이 관리. [운영 런북 (Runbook)](../production/deploy/runbook.md) 에 실전 명령어.
 
 ## 4. GitHub Actions 가 실제로 하는 일
 
@@ -152,7 +152,7 @@ docker run --rm --env-file /path/to/.env my-backend:v1.1 migrate-only
 # Flyway 만 실행하고 종료. Spring 은 기동 안 함
 ```
 
-Expand/Contract 규율 (뒤로 호환 마이그레이션) 은 [`../../infra/runbook.md`](../production/deploy/runbook.md) 의 "블루/그린 배포 + Flyway 원칙" 섹션.
+Expand/Contract 규율 (뒤로 호환 마이그레이션) 은 [운영 런북 (Runbook)](../production/deploy/runbook.md) 의 "블루/그린 배포 + Flyway 원칙" 섹션.
 
 ## 6. 배포 실패하면?
 
@@ -175,17 +175,17 @@ git push origin main
 # → CI/CD 사이클 자동 실행 (약 10 분)
 ```
 
-[`../../infra/runbook.md`](../production/deploy/runbook.md) 에 "롤백 3 옵션" 상세.
+[운영 런북 (Runbook)](../production/deploy/runbook.md) 에 "롤백 3 옵션" 상세.
 
 ## 7. 맥미니? 클라우드 VM?
 
-이 레포의 **기본 전제** 는 **맥미니 홈서버** ([`../../infra/mac-mini-setup.md`](../production/setup/mac-mini-setup.md)). 이유:
+이 레포의 **기본 전제** 는 **맥미니 홈서버** ([Mac mini 운영 호스트 설정 — 레퍼런스](../production/setup/mac-mini-setup.md)). 이유:
 
 - 전기세 월 $4
 - 클라우드 VM 대비 break-even 약 1 년
 - 홈 네트워크의 LAN 직접 활용 (MinIO NAS 등)
 
-**언제 클라우드 이관?**: MAU 10K~100K 도달 시점 ([`../../infra/infrastructure.md` §7](../production/deploy/infrastructure.md)). 이 때 AWS EC2 또는 Fly.io 로.
+**언제 클라우드 이관?**: MAU 10K~100K 도달 시점 ([인프라 (Infrastructure) §7](../production/deploy/infrastructure.md)). 이 때 AWS EC2 또는 Fly.io 로.
 
 ## 8. 관측성 — 배포 후 모니터링
 
@@ -204,7 +204,7 @@ Prometheus 가 `actuator/prometheus` 를 스크래핑 → Grafana 대시보드.
 알림:
 - **Alertmanager → Discord** (CPU · 메모리 · 5xx · p95 임계 시)
 
-상세: [`../../infra/monitoring-setup.md`](../production/setup/monitoring-setup.md).
+상세: [운영 모니터링 셋업 가이드](../production/setup/monitoring-setup.md).
 
 ## 이 맛보기에서 배운 것
 
@@ -218,9 +218,9 @@ Prometheus 가 `actuator/prometheus` 를 스크래핑 → Grafana 대시보드.
 
 | 다음 행동 | 문서 |
 |---|---|
-| 실제로 배포해보기 | [`../deployment.md`](../production/deploy/deployment.md) — 파생 레포 첫 운영 배포 |
-| 운영 중 장애 대응 | [`../../infra/runbook.md`](../production/deploy/runbook.md) |
-| 인프라 전체 구성 | [`../../infra/infrastructure.md`](../production/deploy/infrastructure.md) |
-| 왜 맥미니인가? | [ADR-007 · 솔로 친화적 운영](../philosophy/adr-007-solo-friendly-operations.md), [`../../infra/decisions-infra.md` I-04](../production/deploy/decisions-infra.md) |
+| 실제로 배포해보기 | [운영 배포 가이드 (파생레포 onboarding)](../production/deploy/deployment.md) — 파생 레포 첫 운영 배포 |
+| 운영 중 장애 대응 | [운영 런북 (Runbook)](../production/deploy/runbook.md) |
+| 인프라 전체 구성 | [인프라 (Infrastructure)](../production/deploy/infrastructure.md) |
+| 왜 맥미니인가? | [ADR-007 · 솔로 친화적 운영](../philosophy/adr-007-solo-friendly-operations.md), [인프라 결정 기록 (Decisions — Infrastructure) I-04](../production/deploy/decisions-infra.md) |
 
 여기까지 읽으면 **Level 0 완료**. 다음은 Level 1 — 실제 운영에 들어가는 여정입니다.

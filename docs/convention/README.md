@@ -16,12 +16,12 @@
 
 ## 이 폴더의 문서 (순수 코드 작성 규약)
 
-- [`design-principles.md`](./design-principles.md) — SOLID · DRY · YAGNI · 포트/어댑터 · 의존 방향
-- [`naming.md`](./naming.md) — 패키지/클래스/메서드/DB 네이밍 규칙
-- [`records-and-classes.md`](./records-and-classes.md) — record vs class 결정 기준
-- [`dto-factory.md`](./dto-factory.md) — DTO 팩토리 패턴 (from/of/with) · Entity `to<Dto>()` 패턴
-- [`exception-handling.md`](./exception-handling.md) — 예외 계층 · ErrorCode enum · HTTP 매핑
-- [`git-workflow.md`](./git-workflow.md) — 브랜치 · 커밋 규약 · Merge 전략 · Conventional Commits
+- [Design Principles](./design-principles.md) — SOLID · DRY · YAGNI · 포트/어댑터 · 의존 방향
+- [Naming Conventions](./naming.md) — 패키지/클래스/메서드/DB 네이밍 규칙
+- [record vs class 선택 기준](./records-and-classes.md) — record vs class 결정 기준
+- [DTO 팩토리 컨벤션](./dto-factory.md) — DTO 팩토리 패턴 (from/of/with) · Entity `to<Dto>()` 패턴
+- [Exception Handling Convention](./exception-handling.md) — 예외 계층 · ErrorCode enum · HTTP 매핑
+- [Git 워크플로우 (Git Workflow)](./git-workflow.md) — 브랜치 · 커밋 규약 · Merge 전략 · Conventional Commits
 
 ---
 
@@ -52,7 +52,7 @@
 **자동화가 1순위입니다.** 가능한 한 IDE, 빌드, CI 가 규약을 강제하도록 만듭니다.
 
 - **Gradle 빌드** — 모듈 의존 관계 강제
-- **ArchUnit 테스트** — 패키지 구조 및 네이밍 강제 (전체 22개 규칙: [`architecture/architecture-rules.md`](../structure/architecture-rules.md))
+- **ArchUnit 테스트** — 패키지 구조 및 네이밍 강제 (전체 22개 규칙: [Architecture Rules (ArchUnit)](../structure/architecture-rules.md))
 - **checkstyle / spotless** — 포맷팅 강제 (Phase 1+ 도입 예정)
 - **pre-commit hook** — 커밋 메시지 형식 검증 (선택)
 
@@ -82,7 +82,7 @@
 
 ## 관련 문서
 
-- [`../STYLE_GUIDE.md`](../reference/STYLE_GUIDE.md) — 문서 작성 규칙 (코드 규약의 문서 버전)
-- [`../journey/philosophy/adr-016-dto-mapper-forbidden.md`](../philosophy/adr-016-dto-mapper-forbidden.md) — Mapper 금지 설계 근거
-- [`../journey/philosophy/adr-015-conventional-commits-semver.md`](../philosophy/adr-015-conventional-commits-semver.md) — 커밋 규약 설계 근거
-- [`../architecture/architecture-rules.md`](../structure/architecture-rules.md) — ArchUnit 이 기계 강제하는 규약 목록
+- [Documentation Style Guide](../reference/STYLE_GUIDE.md) — 문서 작성 규칙 (코드 규약의 문서 버전)
+- [ADR-016 · DTO 변환은 Entity 메서드로 (Mapper 클래스 금지)](../philosophy/adr-016-dto-mapper-forbidden.md) — Mapper 금지 설계 근거
+- [ADR-015 · Conventional Commits + 템플릿 전체 semver](../philosophy/adr-015-conventional-commits-semver.md) — 커밋 규약 설계 근거
+- [Architecture Rules (ArchUnit)](../structure/architecture-rules.md) — ArchUnit 이 기계 강제하는 규약 목록

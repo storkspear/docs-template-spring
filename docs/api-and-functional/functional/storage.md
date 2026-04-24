@@ -6,9 +6,9 @@
 
 `core-storage-api` / `core-storage-impl` 의 `StoragePort` 사용 가이드.
 
-> 인프라 전체 구성 / 프로비저닝 상태: [`infra/infrastructure.md §4`](../../production/deploy/infrastructure.md)
-> 셋업 가이드 (로컬 docker / NAS): [`infra/storage-setup.md`](../../production/setup/storage-setup.md)
-> 선택 근거 (2-tier bucket): [`decisions-infra.md`](../../production/deploy/decisions-infra.md) I-07
+> 인프라 전체 구성 / 프로비저닝 상태: [인프라 (Infrastructure)](../../production/deploy/infrastructure.md)
+> 셋업 가이드 (로컬 docker / NAS): [스토리지 셋업 가이드 (MinIO / 시놀로지 NAS)](../../production/setup/storage-setup.md)
+> 선택 근거 (2-tier bucket): [인프라 결정 기록 (Decisions — Infrastructure)](../../production/deploy/decisions-infra.md) I-07
 
 ## 개요
 
@@ -147,6 +147,6 @@ class VoiceMessage {
 
 ## 관련 문서
 
-- [`../infra/storage-setup.md`](../../production/setup/storage-setup.md) — MinIO 로컬 / NAS 셋업 가이드
-- [`../journey/philosophy/adr-003-api-impl-split.md`](../../philosophy/adr-003-api-impl-split.md) — StoragePort 가 `-api` 모듈에 있는 근거
-- [`../journey/philosophy/adr-007-solo-friendly-operations.md`](../../philosophy/adr-007-solo-friendly-operations.md) — 관리형 스토리지 선호 근거
+- [스토리지 셋업 가이드 (MinIO / 시놀로지 NAS)](../../production/setup/storage-setup.md) — MinIO 로컬 / NAS 셋업 가이드
+- [ADR-003 · core 모듈을 `-api` / `-impl` 로 분리](../../philosophy/adr-003-api-impl-split.md) — StoragePort 가 `-api` 모듈에 있는 근거
+- [ADR-007 · 솔로 친화적 운영](../../philosophy/adr-007-solo-friendly-operations.md) — 관리형 스토리지 선호 근거

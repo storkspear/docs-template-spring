@@ -316,9 +316,9 @@ Architecture Violation [r1: apps/* must not depend on core-*-impl (ports only)]
 
 ## 관련 문서
 
-- [`../journey/philosophy/adr-004-gradle-archunit.md`](../philosophy/adr-004-gradle-archunit.md) — ArchUnit 도입 결정 + Gradle convention plugin 관계
-- [`./module-dependencies.md`](./module-dependencies.md) — 모듈 의존 방향 규칙 (r1~r5 상세)
-- [`../testing/contract-testing.md`](../production/test/contract-testing.md) — 테스트 계약 규약 (r20 연관)
+- [ADR-004 · Gradle 모듈 경계 + ArchUnit 22규칙으로 의존 강제](../philosophy/adr-004-gradle-archunit.md) — ArchUnit 도입 결정 + Gradle convention plugin 관계
+- [모듈 의존 규칙 (Module Dependencies)](./module-dependencies.md) — 모듈 의존 방향 규칙 (r1~r5 상세)
+- [계약 테스트 (Contract Testing)](../production/test/contract-testing.md) — 테스트 계약 규약 (r20 연관)
 
 ---
 

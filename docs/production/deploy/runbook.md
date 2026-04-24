@@ -1,8 +1,8 @@
 # 운영 런북 (Runbook)
 
-평시 배포·롤백·장애 대응 절차. 파생 레포 최초 onboarding 은 [`deployment.md`](./deployment.md).
+평시 배포·롤백·장애 대응 절차. 파생 레포 최초 onboarding 은 [운영 배포 가이드 (파생레포 onboarding)](./deployment.md).
 
-> **설계 배경**: [ADR-007 (솔로 친화적 운영)](../../philosophy/adr-007-solo-friendly-operations.md) — 운영 단위 1, 관리형 서비스 선호, 회색 지대 없는 CI. 운영 구성 상세: [`infrastructure.md`](./infrastructure.md). 배포 결정 근거: [`decisions-infra.md I-09`](./decisions-infra.md).
+> **설계 배경**: [ADR-007 (솔로 친화적 운영)](../../philosophy/adr-007-solo-friendly-operations.md) — 운영 단위 1, 관리형 서비스 선호, 회색 지대 없는 CI. 운영 구성 상세: [인프라 (Infrastructure)](./infrastructure.md). 배포 결정 근거: [인프라 결정 기록 (Decisions — Infrastructure)](./decisions-infra.md).
 >
 > **독자 대상**: Level 2~3. 장애 상황에서 빠르게 찾을 수 있도록 최단 경로 · 명령어 중심으로 기술.
 
@@ -183,20 +183,20 @@ kamal app boot                # 마지막 배포 버전으로 다시 기동
 ## 관련 문서
 
 ### 배포 / 운영
-- [`../journey/deployment.md`](./deployment.md) — 파생 레포 onboarding (최초 1회)
-- [`ci-cd-flow.md`](./ci-cd-flow.md) — commit → 운영 반영 전체 흐름
-- [`infrastructure.md`](./infrastructure.md) — 전체 구성도
-- [`decisions-infra.md`](./decisions-infra.md) — 인프라 결정 카드 (I-01~I-09)
+- [운영 배포 가이드 (파생레포 onboarding)](./deployment.md) — 파생 레포 onboarding (최초 1회)
+- [CI / CD 전체 플로우 — commit 부터 운영 반영까지](./ci-cd-flow.md) — commit → 운영 반영 전체 흐름
+- [인프라 (Infrastructure)](./infrastructure.md) — 전체 구성도
+- [인프라 결정 기록 (Decisions — Infrastructure)](./decisions-infra.md) — 인프라 결정 카드 (I-01~I-09)
 
 ### 관측성 / 보안
-- [`monitoring-setup.md`](../setup/monitoring-setup.md) — 관측성 스택 기동
-- [`../features/observability.md`](../../api-and-functional/functional/observability.md) — 관측성 규약
-- [`key-rotation.md`](../setup/key-rotation.md) — 보안 키 로테이션 절차
+- [운영 모니터링 셋업 가이드](../setup/monitoring-setup.md) — 관측성 스택 기동
+- [Observability 규약](../../api-and-functional/functional/observability.md) — 관측성 규약
+- [키 교체 절차 (Key Rotation)](../setup/key-rotation.md) — 보안 키 로테이션 절차
 
 ### 장애 / 회고
-- [`edge-cases.md`](../../reference/edge-cases.md) — 리스크 시나리오 · 엣지 케이스 목록
-- [`../reference/backlog.md`](../../planned/backlog.md) — 미완료 항목 (인시던트 회고 추가 대상)
+- [Edge Cases & Risk Analysis](../../reference/edge-cases.md) — 리스크 시나리오 · 엣지 케이스 목록
+- [Backlog](../../planned/backlog.md) — 미완료 항목 (인시던트 회고 추가 대상)
 
 ### 설계 배경
-- [`../journey/philosophy/adr-007-solo-friendly-operations.md`](../../philosophy/adr-007-solo-friendly-operations.md) — 솔로 운영 원칙
-- [`../journey/philosophy/adr-001-modular-monolith.md`](../../philosophy/adr-001-modular-monolith.md) — 단일 JVM 운영 단위
+- [ADR-007 · 솔로 친화적 운영](../../philosophy/adr-007-solo-friendly-operations.md) — 솔로 운영 원칙
+- [ADR-001 · 모듈러 모놀리스 (Modular Monolith)](../../philosophy/adr-001-modular-monolith.md) — 단일 JVM 운영 단위

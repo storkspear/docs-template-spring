@@ -2,9 +2,9 @@
 
 > **유형**: How-to · **독자**: Level 1 · **읽는 시간**: ~10분
 
-> 결정 근거: [`infra/decisions-infra.md` I-09 ~ I-14](../production/deploy/decisions-infra.md)
-> 정상 흐름: [`journey/dogfood-setup.md`](./dogfood-setup.md)
-> 전체 플로우: [`infra/ci-cd-flow.md`](../production/deploy/ci-cd-flow.md)
+> 결정 근거: [인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14](../production/deploy/decisions-infra.md)
+> 정상 흐름: [도그푸딩 환경 셋업 가이드](./dogfood-setup.md)
+> 전체 플로우: [CI / CD 전체 플로우 — commit 부터 운영 반영까지](../production/deploy/ci-cd-flow.md)
 
 ---
 
@@ -245,19 +245,19 @@ DB_PASSWORD=<password>
 2. **함정별 자세한 분석 섹션** 에 같은 패턴으로 한 항목 추가
 3. **commit 메시지** 에 `pitfalls: add #N` 접두사
 4. 가능하면 `setup.sh` 의 검증 step 에 가드 추가 (예: #11 의 DB_URL 형식 체크처럼)
-5. ADR 변경이 필요한 결정이면 [`infra/decisions-infra.md`](../production/deploy/decisions-infra.md) 에 새 카드 추가
+5. ADR 변경이 필요한 결정이면 [인프라 결정 기록 (Decisions — Infrastructure)](../production/deploy/decisions-infra.md) 에 새 카드 추가
 
 ## 다음 단계
 
 - 새 함정 만났을 때: 이 문서 상단 "새 함정 발견 시 추가하는 방법" 참고
-- 본 가이드 전체: [`./dogfood-setup.md`](./dogfood-setup.md)
-- 자주 묻는 질문: [`./dogfood-faq.md`](./dogfood-faq.md)
+- 본 가이드 전체: [도그푸딩 환경 셋업 가이드](./dogfood-setup.md)
+- 자주 묻는 질문: [도그푸딩 FAQ](./dogfood-faq.md)
 
 ---
 
 ## 관련 문서
 
-- [`journey/dogfood-setup.md`](./dogfood-setup.md) — 정상 흐름 (이 함정들 없이 가는 길)
-- [`infra/ci-cd-flow.md`](../production/deploy/ci-cd-flow.md) — 다이어그램 + phase 별 안전망
-- [`infra/decisions-infra.md` I-09 ~ I-14](../production/deploy/decisions-infra.md) — ADR (왜 이 결정을)
-- [`infra/key-rotation.md`](../production/setup/key-rotation.md) — 키 노출 시 절차
+- [도그푸딩 환경 셋업 가이드](./dogfood-setup.md) — 정상 흐름 (이 함정들 없이 가는 길)
+- [CI / CD 전체 플로우 — commit 부터 운영 반영까지](../production/deploy/ci-cd-flow.md) — 다이어그램 + phase 별 안전망
+- [인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14](../production/deploy/decisions-infra.md) — ADR (왜 이 결정을)
+- [키 교체 절차 (Key Rotation)](../production/setup/key-rotation.md) — 키 노출 시 절차

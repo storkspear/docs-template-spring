@@ -36,9 +36,9 @@
 
 ### 샘플
 
-- Level 3 예시: [`journey/philosophy/adr-005-db-schema-isolation.md`](../philosophy/adr-005-db-schema-isolation.md) — 대안 3개 비교 + 5중 방어선 · 미래 이전 경로
-- Level 2 예시: [`conventions/design-principles.md`](../convention/design-principles.md) — SOLID 설명 + 코드 샘플
-- Level 1 예시: [`reference/app-scaffolding.md`](../start/app-scaffolding.md) — 단계별 명령 + 트러블슈팅
+- Level 3 예시: [ADR-005 · 단일 Postgres database + 앱당 schema](../philosophy/adr-005-db-schema-isolation.md) — 대안 3개 비교 + 5중 방어선 · 미래 이전 경로
+- Level 2 예시: [Design Principles](../convention/design-principles.md) — SOLID 설명 + 코드 샘플
+- Level 1 예시: [App Scaffolding (`new-app.sh`)](../start/app-scaffolding.md) — 단계별 명령 + 트러블슈팅
 
 ---
 
@@ -95,8 +95,8 @@ h1 바로 아래에 **한 줄 블록** 필수:
 
 ### 샘플
 
-- 전체 구조 모범: [`adr-009-base-entity.md`](../philosophy/adr-009-base-entity.md) — 8 섹션 + 설계 포인트 5개
-- "비목표" 추가 예: [`adr-007-solo-friendly-operations.md`](../philosophy/adr-007-solo-friendly-operations.md)
+- 전체 구조 모범: [ADR-009 · BaseEntity 공통 슈퍼클래스](../philosophy/adr-009-base-entity.md) — 8 섹션 + 설계 포인트 5개
+- "비목표" 추가 예: [ADR-007 · 솔로 친화적 운영](../philosophy/adr-007-solo-friendly-operations.md)
 
 ### 2.B — Reference (참조 문서)
 
@@ -123,8 +123,8 @@ h1 바로 아래에 **한 줄 블록** 필수:
 
 **모범**:
 
-- [`conventions/naming.md`](../convention/naming.md) — 네이밍 규칙 카테고리별 표 + 반례
-- [`architecture/architecture-rules.md`](../structure/architecture-rules.md) — ArchUnit r1~r22 명세
+- [Naming Conventions](../convention/naming.md) — 네이밍 규칙 카테고리별 표 + 반례
+- [Architecture Rules (ArchUnit)](../structure/architecture-rules.md) — ArchUnit r1~r22 명세
 
 ### 2.C — How-to (절차서)
 
@@ -151,8 +151,8 @@ h1 바로 아래에 **한 줄 블록** 필수:
 
 **모범**:
 
-- [`journey/level0/first-change.md`](../onboarding/first-change.md) — nickname 컬럼 추가 튜토리얼
-- [`infra/key-rotation.md`](../production/setup/key-rotation.md) — 키 교체 절차
+- [첫 수정 — nickname 컬럼 추가](../onboarding/first-change.md) — nickname 컬럼 추가 튜토리얼
+- [키 교체 절차 (Key Rotation)](../production/setup/key-rotation.md) — 키 교체 절차
 
 ### 2.D — Explanation (설명글)
 
@@ -180,8 +180,8 @@ h1 바로 아래에 **한 줄 블록** 필수:
 
 **모범**:
 
-- [`architecture/jwt-authentication.md`](../structure/jwt-authentication.md) — JWT 시스템 구조 + 필터 체인
-- [`architecture/multitenant-architecture.md`](../structure/multitenant-architecture.md) — per-app schema 구현 패턴
+- [JWT Authentication](../structure/jwt-authentication.md) — JWT 시스템 구조 + 필터 체인
+- [Multi-tenant Architecture](../structure/multitenant-architecture.md) — per-app schema 구현 패턴
 
 ### 2.E — Runbook (운영 절차)
 
@@ -208,7 +208,7 @@ h1 바로 아래에 **한 줄 블록** 필수:
 
 **모범**:
 
-- [`infra/runbook.md`](../production/deploy/runbook.md) — 평시 배포 · 롤백 · 장애 대응
+- [운영 런북 (Runbook)](../production/deploy/runbook.md) — 평시 배포 · 롤백 · 장애 대응
 
 ### 2.F — 유형 선택 가이드
 
@@ -259,8 +259,8 @@ h1 바로 아래에 **한 줄 블록** 필수:
 
 ### 샘플
 
-- 해요체 일관: [`adr-012-per-app-user-model.md`](../philosophy/adr-012-per-app-user-model.md) 전체
-- 단정적 근거 있는 표현: [`adr-004-gradle-archunit.md`](../philosophy/adr-004-gradle-archunit.md) "ArchUnit 이 **유일한** 런타임 경계 강제 수단"
+- 해요체 일관: [ADR-012 · 앱별 독립 유저 모델 (통합 계정 폐기)](../philosophy/adr-012-per-app-user-model.md) 전체
+- 단정적 근거 있는 표현: [ADR-004 · Gradle 모듈 경계 + ArchUnit 22규칙으로 의존 강제](../philosophy/adr-004-gradle-archunit.md) "ArchUnit 이 **유일한** 런타임 경계 강제 수단"
 
 ---
 
@@ -329,8 +329,8 @@ public String issueAccessToken(...) {
 
 ### 샘플
 
-- 경로 주석 + 발췌 표기: [`adr-006-hs256-jwt.md`](../philosophy/adr-006-hs256-jwt.md) 의 JwtService 스니펫
-- 지시 주석 활용: [`adr-014-no-delegation-mock.md`](../philosophy/adr-014-no-delegation-mock.md) 의 "// ← 구현 세부에 결합" 주석
+- 경로 주석 + 발췌 표기: [ADR-006 · HS256 JWT (대칭키)](../philosophy/adr-006-hs256-jwt.md) 의 JwtService 스니펫
+- 지시 주석 활용: [ADR-014 · Delegation mock 테스트 금지](../philosophy/adr-014-no-delegation-mock.md) 의 "// ← 구현 세부에 결합" 주석
 
 ---
 
@@ -383,7 +383,7 @@ Code References 마지막에 `**관련 ADR**:` 블록으로 수렴:
 
 ### 샘플
 
-- ADR 간 재참조: [`adr-013-per-app-auth-endpoints.md`](../philosophy/adr-013-per-app-auth-endpoints.md) 의 "관련 ADR" 블록
+- ADR 간 재참조: [ADR-013 · 앱별 인증 엔드포인트 (core-auth 는 라이브러리 역할)](../philosophy/adr-013-per-app-auth-endpoints.md) 의 "관련 ADR" 블록
 - 앵커 링크: [`adr-005`](../philosophy/adr-005-db-schema-isolation.md) 의 `[제약 2](../README.md#제약-2--시간이-가장-희소한-자원)`
 
 ---

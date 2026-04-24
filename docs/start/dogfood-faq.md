@@ -2,9 +2,9 @@
 
 > **유형**: How-to · **독자**: Level 1 · **읽는 시간**: ~5분
 
-> 셋업 가이드: [`journey/dogfood-setup.md`](./dogfood-setup.md)
-> 함정 모음: [`journey/dogfood-pitfalls.md`](./dogfood-pitfalls.md)
-> 다이어그램: [`infra/ci-cd-flow.md`](../production/deploy/ci-cd-flow.md)
+> 셋업 가이드: [도그푸딩 환경 셋업 가이드](./dogfood-setup.md)
+> 함정 모음: [도그푸딩 함정 모음 (사고 실록)](./dogfood-pitfalls.md)
+> 다이어그램: [CI / CD 전체 플로우 — commit 부터 운영 반영까지](../production/deploy/ci-cd-flow.md)
 
 ---
 
@@ -132,21 +132,21 @@ curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
 
 ## 개요
 
-도그푸딩 환경 셋업 시 자주 묻는 질문 11 개 모음. 본 가이드 ([`./dogfood-setup.md`](./dogfood-setup.md)) 를 따라가다 막히는 지점별 해결 포인터.
+도그푸딩 환경 셋업 시 자주 묻는 질문 11 개 모음. 본 가이드 ([도그푸딩 환경 셋업 가이드](./dogfood-setup.md)) 를 따라가다 막히는 지점별 해결 포인터.
 
 ---
 
 ## 더 궁금한 게 있다면
 
-- [`journey/dogfood-setup.md`](./dogfood-setup.md) — 정상 흐름
-- [`journey/dogfood-pitfalls.md`](./dogfood-pitfalls.md) — 11회 함정 자세히
-- [`infra/ci-cd-flow.md`](../production/deploy/ci-cd-flow.md) — 다이어그램
-- [`infra/key-rotation.md`](../production/setup/key-rotation.md) — 키 교체
-- [`infra/decisions-infra.md`](../production/deploy/decisions-infra.md) — 결정 근거 (I-09 ~ I-14)
+- [도그푸딩 환경 셋업 가이드](./dogfood-setup.md) — 정상 흐름
+- [도그푸딩 함정 모음 (사고 실록)](./dogfood-pitfalls.md) — 11회 함정 자세히
+- [CI / CD 전체 플로우 — commit 부터 운영 반영까지](../production/deploy/ci-cd-flow.md) — 다이어그램
+- [키 교체 절차 (Key Rotation)](../production/setup/key-rotation.md) — 키 교체
+- [인프라 결정 기록 (Decisions — Infrastructure)](../production/deploy/decisions-infra.md) — 결정 근거 (I-09 ~ I-14)
 
 ---
 
 ## 다음 단계
 
-- 함정 사례 검색: [`./dogfood-pitfalls.md`](./dogfood-pitfalls.md) — 실제 겪은 11 개 사고 기록
-- 본 가이드 전체: [`./dogfood-setup.md`](./dogfood-setup.md)
+- 함정 사례 검색: [도그푸딩 함정 모음 (사고 실록)](./dogfood-pitfalls.md) — 실제 겪은 11 개 사고 기록
+- 본 가이드 전체: [도그푸딩 환경 셋업 가이드](./dogfood-setup.md)

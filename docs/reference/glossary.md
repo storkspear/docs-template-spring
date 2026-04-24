@@ -106,5 +106,5 @@
 
 ## 다음
 
-- 여전히 감이 안 오는 용어가 있으면 [`philosophy/README.md`](../philosophy/README.md) 의 프롤로그부터 훑어보세요.
-- 실전 용어는 [`architecture.md`](../structure/architecture.md) 의 각 섹션에서 맥락과 함께 등장합니다.
+- 여전히 감이 안 오는 용어가 있으면 [Repository Philosophy — 책 안내](../philosophy/README.md) 의 프롤로그부터 훑어보세요.
+- 실전 용어는 [Architecture Reference](../structure/architecture.md) 의 각 섹션에서 맥락과 함께 등장합니다.
