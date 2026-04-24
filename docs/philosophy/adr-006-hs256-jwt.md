@@ -10,7 +10,7 @@
 
 ## 왜 이런 고민이 시작됐나?
 
-[ADR-001 (모듈러 모놀리스)](./adr-001-modular-monolith.md) 에서 우리는 **한 JAR, 한 프로세스** 로 운영 단위를 1개로 묶기로 했어요. 이 전제 위에서 JWT 서명 알고리즘을 고를 때의 선택지는 크게 둘입니다.
+[`ADR-001 (모듈러 모놀리스)`](./adr-001-modular-monolith.md) 에서 우리는 **한 JAR, 한 프로세스** 로 운영 단위를 1개로 묶기로 했어요. 이 전제 위에서 JWT 서명 알고리즘을 고를 때의 선택지는 크게 둘입니다.
 
 ### 대칭키 계열 (HSnnn)
 
@@ -87,7 +87,7 @@ JWT 표준 기본 알고리즘. 하나의 비밀 키로 서명/검증 모두.
 - **채택 이유**:
   - 현재 아키텍처 (단일 JVM) 와 완전 정합
   - 단점은 시크릿 관리 + 미래 이행 경로로 해결 가능
-  - [제약 2](./README.md#제약-2--시간이-가장-희소한-자원) (운영 단순성) 에 최적
+  - [`제약 2`](./README.md#제약-2--시간이-가장-희소한-자원) (운영 단순성) 에 최적
 
 ## 결정
 
@@ -129,7 +129,7 @@ claims 전체 목록:
 |---|---|---|
 | `sub` | userId (Long → String) | JWT 표준 subject |
 | `email` | 사용자 이메일 | 로깅 / 감사 편의 |
-| `appSlug` | 앱 슬러그 (단일) | [ADR-012](./adr-012-per-app-user-model.md) 의 경계 강제 |
+| `appSlug` | 앱 슬러그 (단일) | [`ADR-012`](./adr-012-per-app-user-model.md) 의 경계 강제 |
 | `role` | 유저 role ("USER", "ADMIN") | Spring Security 권한 부여 |
 | `iss` | `JWT_ISSUER` 환경변수 | 발급처 검증 |
 | `iat` | 발급 시각 | 표준 |
@@ -208,7 +208,7 @@ try {
 
 ### 긍정적 결과
 
-**관리 대상 = 환경변수 1개** — `JWT_SECRET` 만 신경 쓰면 됨. 키 파일 관리, JWKS 엔드포인트 운영, 공개키 배포 — 전부 불필요. [제약 2](./README.md#제약-2--시간이-가장-희소한-자원) 에 최적.
+**관리 대상 = 환경변수 1개** — `JWT_SECRET` 만 신경 쓰면 됨. 키 파일 관리, JWKS 엔드포인트 운영, 공개키 배포 — 전부 불필요. [`제약 2`](./README.md#제약-2--시간이-가장-희소한-자원) 에 최적.
 
 **서명/검증 속도 무시 가능** — HS256 은 HMAC 이라 사실상 CPU cost 없음. JWKS fetching + RSA 검증의 수십 ms 대비 μs 수준.
 
@@ -294,7 +294,7 @@ secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 - [`.env.example`](https://github.com/storkspear/spring-backend-template/blob/main/.env.example) — `JWT_SECRET` 생성 명령 포함
 
 **로테이션 가이드**:
-- [키 교체 절차 (Key Rotation)](../production/setup/key-rotation.md) — 6개월 주기, 교체 절차
+- [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) — 6개월 주기, 교체 절차
 
 **부재 확인 (HS256 only 검증)**:
 - `grep -r "RS256"` 결과: core-auth-impl (Apple JWKS) 외 없음
@@ -302,6 +302,6 @@ secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 - JWKS endpoint 노출: 없음
 
 **관련 ADR**:
-- [ADR-001 · 모듈러 모놀리스](./adr-001-modular-monolith.md) — 단일 JVM 전제
-- [ADR-012 · 앱별 독립 유저 모델](./adr-012-per-app-user-model.md) — `appSlug` claim 사용
-- [ADR-013 · 앱별 인증 엔드포인트](./adr-013-per-app-auth-endpoints.md) — 이 JWT 를 사용하는 엔드포인트 구조
+- [`ADR-001 · 모듈러 모놀리스`](./adr-001-modular-monolith.md) — 단일 JVM 전제
+- [`ADR-012 · 앱별 독립 유저 모델`](./adr-012-per-app-user-model.md) — `appSlug` claim 사용
+- [`ADR-013 · 앱별 인증 엔드포인트`](./adr-013-per-app-auth-endpoints.md) — 이 JWT 를 사용하는 엔드포인트 구조

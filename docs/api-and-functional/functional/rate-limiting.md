@@ -69,5 +69,5 @@ Content-Type: application/json
 
 ## 관련 문서
 
-- [Observability 규약](./observability.md) — `appSlug` 태깅 (버킷 키와 동일 원칙)
-- [API Response Format](../api/api-response.md) — 429 응답 포맷 표준
+- [`Observability 규약`](./observability.md) — `appSlug` 태깅 (버킷 키와 동일 원칙)
+- [`API Response Format`](../api/api-response.md) — 429 응답 포맷 표준

@@ -5,7 +5,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-> **이 ADR 의 범위** — [ADR-001](./adr-001-modular-monolith.md) 에서 "**왜** 2단계 방어가 필요한가" 를, [ADR-003](./adr-003-api-impl-split.md) 에서 "**무엇을** 분리하는가 (-api/-impl)" 를 다뤘어요. 본 ADR 은 **"어떤 도구로 어떻게 강제할 것인가"** 의 도구 선택과 DSL 설계, 그리고 앞에서 안 다룬 나머지 ArchUnit 규칙 (r16, r18~r22) 에 초점을 맞춥니다.
+> **이 ADR 의 범위** — [`ADR-001`](./adr-001-modular-monolith.md) 에서 "**왜** 2단계 방어가 필요한가" 를, [`ADR-003`](./adr-003-api-impl-split.md) 에서 "**무엇을** 분리하는가 (-api/-impl)" 를 다뤘어요. 본 ADR 은 **"어떤 도구로 어떻게 강제할 것인가"** 의 도구 선택과 DSL 설계, 그리고 앞에서 안 다룬 나머지 ArchUnit 규칙 (r16, r18~r22) 에 초점을 맞춥니다.
 
 ## 결론부터
 
@@ -13,7 +13,7 @@ Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`
 
 ## 왜 이런 고민이 시작됐나?
 
-[ADR-001](./adr-001-modular-monolith.md) 에서 "2단계 방어" 를 선언했어요. [ADR-003](./adr-003-api-impl-split.md) 에서 "-api/-impl 을 분리해서 추출 가능성을 보장한다" 고 선언했고요. 이 선언들이 **실제로 지켜지려면** 누군가가 규칙 위반을 감지해야 합니다. 이 결정이 답해야 할 물음은 이거예요.
+[`ADR-001`](./adr-001-modular-monolith.md) 에서 "2단계 방어" 를 선언했어요. [`ADR-003`](./adr-003-api-impl-split.md) 에서 "-api/-impl 을 분리해서 추출 가능성을 보장한다" 고 선언했고요. 이 선언들이 **실제로 지켜지려면** 누군가가 규칙 위반을 감지해야 합니다. 이 결정이 답해야 할 물음은 이거예요.
 
 > **컨벤션을 어떤 수단으로 강제할 것인가?**  
 > PR 리뷰? Git hook? CI lint? 어느 수준의 강제력이 솔로 인디 스케일에 맞는가?
@@ -36,7 +36,7 @@ husky 같은 도구로 로컬 커밋 순간 검증.
 
 - **장점**: 가장 빠른 피드백 (커밋 순간).
 - **단점**: `git commit --no-verify` 로 우회 가능. CI 환경과 로컬 환경 규칙 동기화 어려움.
-- **부분 채택**: 커밋 메시지 검증 ([ADR-002](./adr-002-use-this-template.md) 의 Conventional Commits) 에는 사용. 하지만 **구조 규칙** 에는 부적합.
+- **부분 채택**: 커밋 메시지 검증 ([`ADR-002`](./adr-002-use-this-template.md) 의 Conventional Commits) 에는 사용. 하지만 **구조 규칙** 에는 부적합.
 
 ##### Option 3 — 전통적 Java lint 도구 (Checkstyle, PMD, SpotBugs)
 
@@ -119,7 +119,7 @@ if (name.startsWith('testFixtures')) return
 
 ### 나머지 ArchUnit 규칙 (r16, r18~r22) — 네이밍/DTO/메타데이터
 
-[ADR-001](./adr-001-modular-monolith.md) 은 r1~r5 를, [ADR-003](./adr-003-api-impl-split.md) 은 r6~r11, r13~r15, r17, r21 을 다뤘어요. [ADR-002](./adr-002-use-this-template.md) 는 r7, r8 을 다뤘고요. 여기서는 남은 **r16, r18, r19, r20, r22** 를 소개합니다.
+[`ADR-001`](./adr-001-modular-monolith.md) 은 r1~r5 를, [`ADR-003`](./adr-003-api-impl-split.md) 은 r6~r11, r13~r15, r17, r21 을 다뤘어요. [`ADR-002`](./adr-002-use-this-template.md) 는 r7, r8 을 다뤘고요. 여기서는 남은 **r16, r18, r19, r20, r22** 를 소개합니다.
 
 ##### r16 — `*Exception` → `..exception..` 패키지
 
@@ -184,7 +184,7 @@ public static final ArchRule DEPRECATED_MUST_DECLARE_SINCE_AND_FOR_REMOVAL =
         .as("r20: @Deprecated must declare since and forRemoval");
 ```
 
-**목적**: [ADR-002](./adr-002-use-this-template.md) 의 **Deprecation 유예 기간** 을 실천하는 규칙. 단순히 `@Deprecated` 만 붙이면 "언제부터? 언제 제거?" 가 모호. `@Deprecated(since = "0.4.0", forRemoval = true)` 처럼 명시하면 파생 레포가 "내가 지금 v0.3.0 기반인데 이 API 는 v0.4.0 부터 deprecated 니까 아직 사용 가능" 판단 가능.
+**목적**: [`ADR-002`](./adr-002-use-this-template.md) 의 **Deprecation 유예 기간** 을 실천하는 규칙. 단순히 `@Deprecated` 만 붙이면 "언제부터? 언제 제거?" 가 모호. `@Deprecated(since = "0.4.0", forRemoval = true)` 처럼 명시하면 파생 레포가 "내가 지금 v0.3.0 기반인데 이 API 는 v0.4.0 부터 deprecated 니까 아직 사용 가능" 판단 가능.
 
 ##### r22 — `*Mapper` 클래스 금지
 

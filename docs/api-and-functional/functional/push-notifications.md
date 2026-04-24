@@ -2,7 +2,7 @@
 
 > **유형**: Explanation · **독자**: Level 2 · **읽는 시간**: ~10분
 
-**설계 근거**: [ADR-003 (-api / -impl 분리)](../../philosophy/adr-003-api-impl-split.md) · [ADR-011 (레이어드 + 포트/어댑터)](../../philosophy/adr-011-layered-port-adapter.md)
+**설계 근거**: [`ADR-003 (-api / -impl 분리)`](../../philosophy/adr-003-api-impl-split.md) · [`ADR-011 (레이어드 + 포트/어댑터)`](../../philosophy/adr-011-layered-port-adapter.md)
 
 이 문서는 푸시 알림 아키텍처와 디바이스 토큰 관리 방식을 정리합니다.
 
@@ -417,7 +417,7 @@ public class PushAutoConfiguration {
 
 ## 관련 문서
 
-- [Email Verification & Delivery](./email-verification.md) — 이메일 알림 (푸시와 대조)
+- [`Email Verification & Delivery`](./email-verification.md) — 이메일 알림 (푸시와 대조)
 - [ADR-003 · core 모듈을 `-api` / `-impl` 로 분리](../../philosophy/adr-003-api-impl-split.md) — PushPort 가 `-api` 모듈에 있는 근거
-- [ADR-011 · 모듈 안 레이어드 아키텍처 + 포트/어댑터 패턴](../../philosophy/adr-011-layered-port-adapter.md) — 레이어드 + 포트/어댑터 패턴
-- [JWT Authentication](../../structure/jwt-authentication.md) — 디바이스 등록 시 인증 흐름
+- [`ADR-011 · 모듈 안 레이어드 아키텍처 + 포트/어댑터 패턴`](../../philosophy/adr-011-layered-port-adapter.md) — 레이어드 + 포트/어댑터 패턴
+- [`JWT Authentication`](../../structure/jwt-authentication.md) — 디바이스 등록 시 인증 흐름

@@ -50,7 +50,7 @@
 
 ### 2차: ArchUnit (CI 테스트 단계)
 
-`common-testing/src/main/java/.../architecture/ArchitectureRules.java` 에 canonical 정의 (22개 규칙, r1~r22). `BootstrapArchitectureTest` 가 전체 classpath 스캔. 전체 목록은 [architecture-rules.md](./architecture-rules.md) 참고.
+`common-testing/src/main/java/.../architecture/ArchitectureRules.java` 에 canonical 정의 (22개 규칙, r1~r22). `BootstrapArchitectureTest` 가 전체 classpath 스캔. 전체 목록은 [`architecture-rules.md`](./architecture-rules.md) 참고.
 
 ---
 
@@ -193,8 +193,8 @@ Rule 'r9: core-*-api must not depend on JPA/Hibernate' was violated (1 time):
 
 ## 관련 문서
 
-- [ADR-003 · -api / -impl 분리](../philosophy/adr-003-api-impl-split.md)
-- [ADR-004 · Gradle + ArchUnit](../philosophy/adr-004-gradle-archunit.md)
-- [ADR-014 · Delegation mock 금지](../philosophy/adr-014-no-delegation-mock.md)
-- [Architecture Reference](./architecture.md) — "의존 규칙" 및 6중 방어선
-- [계약 테스트 (Contract Testing)](../production/test/contract-testing.md) — Port 계약 테스트
+- [`ADR-003 · -api / -impl 분리`](../philosophy/adr-003-api-impl-split.md)
+- [`ADR-004 · Gradle + ArchUnit`](../philosophy/adr-004-gradle-archunit.md)
+- [`ADR-014 · Delegation mock 금지`](../philosophy/adr-014-no-delegation-mock.md)
+- [`Architecture Reference`](./architecture.md) — "의존 규칙" 및 6중 방어선
+- [`계약 테스트 (Contract Testing)`](../production/test/contract-testing.md) — Port 계약 테스트

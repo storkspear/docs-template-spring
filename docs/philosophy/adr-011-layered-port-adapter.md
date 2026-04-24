@@ -10,7 +10,7 @@
 
 ## 왜 이런 고민이 시작됐나?
 
-[ADR-001](./adr-001-modular-monolith.md) 이 "전체 레포를 어떤 모듈로 나눌지" 를 정했고, [ADR-003](./adr-003-api-impl-split.md) 이 "core 도메인을 `-api` / `-impl` 로 어떻게 쪼갤지" 를 정했어요. 그러면 이제 다음 질문이 남습니다.
+[`ADR-001`](./adr-001-modular-monolith.md) 이 "전체 레포를 어떤 모듈로 나눌지" 를 정했고, [`ADR-003`](./adr-003-api-impl-split.md) 이 "core 도메인을 `-api` / `-impl` 로 어떻게 쪼갤지" 를 정했어요. 그러면 이제 다음 질문이 남습니다.
 
 > **한 `core-*-impl` 모듈 안쪽의 코드를 어떤 구조로 배치할 것인가?**
 
@@ -123,11 +123,11 @@ apps/app-<slug>/                         ← 앱별 도메인 + 인증 컨트롤
 - `/api/apps/<slug>/health`, `/api/apps/<slug>/dashboard` 같은 도메인 경로 → `controller/`
 - `/api/apps/<slug>/auth/email/signup` 같은 인증 경로 → `auth/`
 
-자세한 내용은 [ADR-013 (앱별 인증 엔드포인트)](./adr-013-per-app-auth-endpoints.md) 참조.
+자세한 내용은 [`ADR-013 (앱별 인증 엔드포인트)`](./adr-013-per-app-auth-endpoints.md) 참조.
 
 ### 포트/어댑터 패턴의 역할 매핑
 
-[ADR-003](./adr-003-api-impl-split.md) 에서 포트 패턴의 큰 그림을 잡았어요. 여기서는 **레이어와 포트가 어떻게 대응되는지** 명시합니다.
+[`ADR-003`](./adr-003-api-impl-split.md) 에서 포트 패턴의 큰 그림을 잡았어요. 여기서는 **레이어와 포트가 어떻게 대응되는지** 명시합니다.
 
 | 개념 | 위치 | 역할 |
 |---|---|---|
@@ -220,7 +220,7 @@ ADR-004 의 22규칙 중 **5개가 이 결정과 연관** 됩니다.
 2026-04-20 에 이 구조를 수정:
 - `AuthAutoConfiguration.class` 에서 `@Import(AuthController.class)` 제거
 - `AuthController.java` 는 파일은 남지만 **런타임 bean 으로 등록 안 됨** — `new-app.sh` 가 참조할 스캐폴딩 소스로만 존재
-- 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 경로는 `/api/apps/<slug>/auth/*` — [ADR-013](./adr-013-per-app-auth-endpoints.md) 에서 상세
+- 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 경로는 `/api/apps/<slug>/auth/*` — [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 에서 상세
 
 **교훈**: 레이어 구조는 "파일이 어디에 있는가" 뿐만 아니라 **"런타임에 무엇이 bean 으로 활성화되는가"** 까지 포함합니다. `core-*-impl` 의 `controller/` 는 이제 관습적으로 "템플릿 소스 영역" 이 되었고, 실제 bean 등록은 `apps/app-<slug>/auth/` 에서만 일어나요. 이 구분이 명시적으로 유지되지 않으면 "같은 파일이 어떨 땐 런타임, 어떨 땐 참조용" 이 되어 혼란.
 

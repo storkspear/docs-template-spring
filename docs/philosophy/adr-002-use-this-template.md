@@ -199,7 +199,7 @@ $ gh repo fork storkspear/spring-backend-template \
 
 ## Counter-example 2 — "템플릿 순수성" 의 기계 강제 (ArchUnit r7, r8)
 
-"특정 앱 이름을 원본에 박지 않는다" 는 이 ADR 의 절대 금지 규칙 중 하나예요. 이걸 **문서로만** 선언하면 사람이 깜빡하기 쉽습니다. 그래서 [ADR-004](./adr-004-gradle-archunit.md) 의 기계 강제 도구 (ArchUnit) 중 **r7, r8** 이 이 원칙을 **바이트코드 수준에서** 차단합니다.
+"특정 앱 이름을 원본에 박지 않는다" 는 이 ADR 의 절대 금지 규칙 중 하나예요. 이걸 **문서로만** 선언하면 사람이 깜빡하기 쉽습니다. 그래서 [`ADR-004`](./adr-004-gradle-archunit.md) 의 기계 강제 도구 (ArchUnit) 중 **r7, r8** 이 이 원칙을 **바이트코드 수준에서** 차단합니다.
 
 ```java
 // 규칙 정의 (ArchitectureRules.java)
@@ -246,7 +246,7 @@ references class <com.factory.apps.sumtally.hooks.SumtallyAuthHook>
 **이 규칙이 의미하는 것**:
 
 1. **의존 방향은 항상 `apps → core`** (위에서 아래). 반대 방향 (`core → apps`) 은 core 가 특정 앱에 종속되는 것이라 **재사용성 파괴**. 템플릿이 한 도메인에 물들면 다른 파생 레포에서 그 core 를 못 씀.
-2. **앱별 hook 이 필요하면 Dependency Inversion 으로 해결** — core 에 `AuthHook` Port 인터페이스 정의, 각 앱이 구현체를 Spring 빈으로 등록. core 는 Port 만 알고 구현체 이름은 모름. 이건 [ADR-003](./adr-003-api-impl-split.md) 의 포트/어댑터 패턴 그대로 적용.
+2. **앱별 hook 이 필요하면 Dependency Inversion 으로 해결** — core 에 `AuthHook` Port 인터페이스 정의, 각 앱이 구현체를 Spring 빈으로 등록. core 는 Port 만 알고 구현체 이름은 모름. 이건 [`ADR-003`](./adr-003-api-impl-split.md) 의 포트/어댑터 패턴 그대로 적용.
 
 **고치는 방법**:
 

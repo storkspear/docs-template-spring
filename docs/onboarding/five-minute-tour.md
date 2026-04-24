@@ -1,6 +1,6 @@
 # 5 분 투어
 
-[이게 뭐야?](./what-is-this.md) 를 읽고 "조금 더 봐볼까" 싶을 때 읽는 문서예요. 코드를 돌려보지 않고도 **"이 레포의 정체를 대충 알겠다"** 는 상태에 도달하는 게 목적. 5 분 안에 다음 4 가지 그림이 머릿속에 잡힙니다.
+[`이게 뭐야?`](./what-is-this.md) 를 읽고 "조금 더 봐볼까" 싶을 때 읽는 문서예요. 코드를 돌려보지 않고도 **"이 레포의 정체를 대충 알겠다"** 는 상태에 도달하는 게 목적. 5 분 안에 다음 4 가지 그림이 머릿속에 잡힙니다.
 
 1. **모듈 4 종류** 가 어떻게 생겼나
 2. **앱 하나를 추가** 한다는 게 무슨 뜻인가
@@ -41,7 +41,7 @@
 
 **핵심**: `common/` 은 "재료", `core/` 는 "조립된 부품", `apps/` 는 "각 앱의 실제 제품", `bootstrap/` 은 "이것들을 다 담아 배송하는 상자".
 
-각 `core-*` 가 왜 **`-api` 와 `-impl` 두 개** 로 쪼개져 있는지는 [ADR-003](../philosophy/adr-003-api-impl-split.md) 이 답해요 — 한 줄로 말하면 **"나중에 뽑을 수 있게 하기 위한 경계"**.
+각 `core-*` 가 왜 **`-api` 와 `-impl` 두 개** 로 쪼개져 있는지는 [`ADR-003`](../philosophy/adr-003-api-impl-split.md) 이 답해요 — 한 줄로 말하면 **"나중에 뽑을 수 있게 하기 위한 경계"**.
 
 ## 2. 앱 하나를 추가한다는 것
 
@@ -107,11 +107,11 @@ postgres (database)
 
 **중요한 규칙 3 개**:
 
-1. **같은 이메일** 이 sumtally 와 rny 에 있어도 **서로 다른 유저** ([ADR-012](../philosophy/adr-012-per-app-user-model.md))
+1. **같은 이메일** 이 sumtally 와 rny 에 있어도 **서로 다른 유저** ([`ADR-012`](../philosophy/adr-012-per-app-user-model.md))
 2. **DB role** 이 분리되어 있어서 sumtally 코드가 rny schema 에 접근하려 하면 **PostgreSQL 이 거절**
 3. **HikariCP 커넥션 풀** 도 앱별로 따로 — 한 앱이 DB 를 과부하시켜도 다른 앱은 무사
 
-이것이 [ADR-005](../philosophy/adr-005-db-schema-isolation.md) 의 **5중 방어선** 중 핵심 내용.
+이것이 [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 **5중 방어선** 중 핵심 내용.
 
 ## 4. 배포되면 1 개 vs N 개
 
@@ -141,9 +141,9 @@ postgres (database)
 
 | 다음 행동 | 문서 |
 |---|---|
-| **설계 결정의 이유를 읽고 싶다** | [Repository Philosophy — 책 안내](../philosophy/README.md) — 프롤로그 + 테마 1 (ADR-001~004) |
-| **직접 돌려보고 싶다** | [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) — 로컬 환경 셋업 |
-| **구조의 전체 레퍼런스** | [Architecture Reference](../structure/architecture.md) — 파일 트리 + 의존 그래프 |
-| **Developer Journey 전체 순서** | [📚 spring-backend-template — 책 목차 (Developer Journey)](./README.md) |
+| **설계 결정의 이유를 읽고 싶다** | [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 프롤로그 + 테마 1 (ADR-001~004) |
+| **직접 돌려보고 싶다** | [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 환경 셋업 |
+| **구조의 전체 레퍼런스** | [`Architecture Reference`](../structure/architecture.md) — 파일 트리 + 의존 그래프 |
+| **Developer Journey 전체 순서** | [`📚 spring-backend-template — 책 목차 (Developer Journey)`](./README.md) |
 
 "관심은 있는데 지금은 시간 없음" → 이 2 개 Level 0 문서로 충분. 필요할 때 돌아오세요.

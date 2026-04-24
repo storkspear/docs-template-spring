@@ -2,7 +2,7 @@
 
 > **유형**: How-to · **독자**: Level 1~2 · **읽는 시간**: ~20분
 
-**설계 근거**: [ADR-002 (Use this template)](../philosophy/adr-002-use-this-template.md) · [ADR-005 (Postgres schema 격리)](../philosophy/adr-005-db-schema-isolation.md) · [ADR-013 (앱별 인증 엔드포인트)](../philosophy/adr-013-per-app-auth-endpoints.md)
+**설계 근거**: [`ADR-002 (Use this template)`](../philosophy/adr-002-use-this-template.md) · [`ADR-005 (Postgres schema 격리)`](../philosophy/adr-005-db-schema-isolation.md) · [`ADR-013 (앱별 인증 엔드포인트)`](../philosophy/adr-013-per-app-auth-endpoints.md)
 
 ## 개요
 
@@ -298,7 +298,7 @@ APP_CREDENTIALS_<SLUG_UPPER>_GOOGLE_CLIENT_IDS_1=CHANGE_ME
 APP_CREDENTIALS_<SLUG_UPPER>_APPLE_BUNDLE_ID=com.example.<slugLower>
 ```
 
-실제 값 발급 방법은 [소셜 로그인 설정 가이드](./social-auth-setup.md) 를 참조합니다.
+실제 값 발급 방법은 [`소셜 로그인 설정 가이드`](./social-auth-setup.md) 를 참조합니다.
 
 ### 4.4 멱등성 — 이미 있는 키는 skip
 
@@ -588,6 +588,6 @@ slug 자체는 하이픈을 허용하지만 Postgres schema/role 이름에는 `S
 새 앱 모듈이 준비되었다면:
 
 - **도메인 코드 작성**: `apps/app-<slug>/` 에 Controller · Service · Entity · Repository 추가
-- **소셜 로그인 설정**: [소셜 로그인 설정 가이드](./social-auth-setup.md) — Google/Apple credential 발급
-- **Flutter 연동**: [Flutter ↔ Backend Integration](../api-and-functional/api/flutter-backend-integration.md)
-- **배포**: [운영 배포 가이드 (파생레포 onboarding)](../production/deploy/deployment.md)
+- **소셜 로그인 설정**: [`소셜 로그인 설정 가이드`](./social-auth-setup.md) — Google/Apple credential 발급
+- **Flutter 연동**: [`Flutter ↔ Backend Integration`](../api-and-functional/api/flutter-backend-integration.md)
+- **배포**: [`운영 배포 가이드 (파생레포 onboarding)`](../production/deploy/deployment.md)

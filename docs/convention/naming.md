@@ -153,7 +153,7 @@ public class UserException extends BaseException {
 throw new UserException(UserError.USER_NOT_FOUND, Map.of("id", String.valueOf(userId)));
 ```
 
-자세한 체계는 [Exception Handling Convention](./exception-handling.md) 를 참고하세요.
+자세한 체계는 [`Exception Handling Convention`](./exception-handling.md) 를 참고하세요.
 
 ### 설정 클래스
 
@@ -358,7 +358,7 @@ apps/app-sumtally/src/main/resources/db/migration/sumtally/
 
 `conditions` 의 키 형식: `{fieldName}_{operator}`. 지원 연산자: `eq`(기본), `not`, `gte`, `lte`, `gt`, `lt`, `like`, `in`, `notIn`, `isNull`, `isNotNull`.
 
-상세 규칙은 [ADR-010 (SearchCondition)](../philosophy/adr-010-search-condition.md) 참조.
+상세 규칙은 [`ADR-010 (SearchCondition)`](../philosophy/adr-010-search-condition.md) 참조.
 
 ---
 

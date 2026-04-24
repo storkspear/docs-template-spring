@@ -2,7 +2,7 @@
 
 > **유형**: How-to · **독자**: Level 2 · **읽는 시간**: ~12분
 
-**설계 근거**: [ADR-006 (HS256 JWT)](../../philosophy/adr-006-hs256-jwt.md) · [ADR-013 (앱별 인증 엔드포인트)](../../philosophy/adr-013-per-app-auth-endpoints.md)
+**설계 근거**: [`ADR-006 (HS256 JWT)`](../../philosophy/adr-006-hs256-jwt.md) · [`ADR-013 (앱별 인증 엔드포인트)`](../../philosophy/adr-013-per-app-auth-endpoints.md)
 
 이 문서는 이메일 발송 아키텍처와 이메일 인증/비밀번호 재설정 플로우를 정리합니다.
 
@@ -418,7 +418,7 @@ EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다");
 | `ATH_005` EMAIL_NOT_VERIFIED | 401 | 이메일 인증이 필요한 엔드포인트에 미인증 유저 접근 |
 | `ATH_006` EMAIL_DELIVERY_FAILED | 503 | Resend API 장애, 2xx 외 응답, 네트워크 에러 |
 
-`ATH_001`(잘못된 자격 증명) 을 포함한 전체 에러 코드는 [exception-handling.md](../../convention/exception-handling.md) 를 참조하세요.
+`ATH_001`(잘못된 자격 증명) 을 포함한 전체 에러 코드는 [`exception-handling.md`](../../convention/exception-handling.md) 를 참조하세요.
 
 ### 발송 실패가 가입/재설정을 막지 않는 이유
 
@@ -448,7 +448,7 @@ EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다");
 
 - **원인**: Resend API 장애 또는 `RESEND_API_KEY` 만료
 - **확인**: `curl -i https://api.resend.com/emails -H "Authorization: Bearer $RESEND_API_KEY"` 로 키 유효성 테스트
-- **조치**: 키 회전 ([키 교체 절차 (Key Rotation)](../../production/setup/key-rotation.md))
+- **조치**: 키 회전 ([`키 교체 절차 (Key Rotation)`](../../production/setup/key-rotation.md))
 
 ### 인증 이메일이 스팸함으로 감
 
@@ -467,6 +467,6 @@ EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다");
 
 ## 다음 단계
 
-- 푸시 알림 통합: [Push Notifications](./push-notifications.md)
-- JWT 인증 흐름: [JWT Authentication](../../structure/jwt-authentication.md)
-- Rate limit 설정: [Rate Limit 규약](./rate-limiting.md)
+- 푸시 알림 통합: [`Push Notifications`](./push-notifications.md)
+- JWT 인증 흐름: [`JWT Authentication`](../../structure/jwt-authentication.md)
+- Rate limit 설정: [`Rate Limit 규약`](./rate-limiting.md)

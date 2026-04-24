@@ -155,7 +155,7 @@ common-persistence/                 ← QueryDsl 의존
 
 ### 왜 두 모듈로 분리했는가
 
-`common-web` 은 **순수 Java + Spring Web 만** 의존. JPA 없음. 이 원칙 ([ADR-003](./adr-003-api-impl-split.md) 의 "api 는 JPA-free") 을 지키기 위해 순수 DTO 와 QueryDsl 변환을 분리했어요.
+`common-web` 은 **순수 Java + Spring Web 만** 의존. JPA 없음. 이 원칙 ([`ADR-003`](./adr-003-api-impl-split.md) 의 "api 는 JPA-free") 을 지키기 위해 순수 DTO 와 QueryDsl 변환을 분리했어요.
 
 - `PageListRequest`, `SortOrder` 같은 **계약 DTO** → `common-web/search/` (JPA 의존 없음)
 - `QueryDslPredicateBuilder` → `common-persistence/` (QueryDsl + JPA 의존)

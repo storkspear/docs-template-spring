@@ -207,12 +207,12 @@ docker restart factory-app
 
 ## 📖 책 목차 — Journey 4단계
 
-[📚 spring-backend-template — 책 목차 (Developer Journey)](../onboarding/README.md) 의 **4단계 — 발급은 어디서?** 의 첫 항목 (소셜 로그인) 입니다.
+[`📚 spring-backend-template — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **4단계 — 발급은 어디서?** 의 첫 항목 (소셜 로그인) 입니다.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|
-| ← 이전 | [Onboarding — 템플릿 첫 사용 가이드](./onboarding.md) | 2~3단계, 로컬 dev + 첫 앱 모듈 |
-| → 다음 | [도그푸딩 환경 셋업 가이드](./dogfood-setup.md) §3 | 4단계 두 번째, 운영 자격 증명 (Tailscale OAuth · GitHub PAT · Supabase) |
+| ← 이전 | [`Onboarding — 템플릿 첫 사용 가이드`](./onboarding.md) | 2~3단계, 로컬 dev + 첫 앱 모듈 |
+| → 다음 | [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) §3 | 4단계 두 번째, 운영 자격 증명 (Tailscale OAuth · GitHub PAT · Supabase) |
 
-**막혔을 때**: [도그푸딩 함정](./dogfood-pitfalls.md) / [FAQ](./dogfood-faq.md)
-**왜 이렇게?**: [ADR-002 (template 패턴)](../philosophy/adr-002-use-this-template.md), [ADR-012 (앱별 독립 유저 모델)](../philosophy/adr-012-per-app-user-model.md) / [인프라 결정 기록 (Decisions — Infrastructure)](../production/deploy/decisions-infra.md)
+**막혔을 때**: [`도그푸딩 함정`](./dogfood-pitfalls.md) / [`FAQ`](./dogfood-faq.md)
+**왜 이렇게?**: [`ADR-002 (template 패턴)`](../philosophy/adr-002-use-this-template.md), [`ADR-012 (앱별 독립 유저 모델)`](../philosophy/adr-012-per-app-user-model.md) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md)

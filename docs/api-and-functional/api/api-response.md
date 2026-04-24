@@ -269,7 +269,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ## 에러 코드 & 예외 처리
 
-ErrorCode enum, 예외 계층 구조, ExceptionHandler 매핑, 새 예외 추가 절차는 **[exception-handling.md](../../convention/exception-handling.md)** 에서 관리합니다.
+ErrorCode enum, 예외 계층 구조, ExceptionHandler 매핑, 새 예외 추가 절차는 **[`exception-handling.md`](../../convention/exception-handling.md)** 에서 관리합니다.
 
 여기서는 핵심 원칙만 요약합니다:
 
@@ -399,7 +399,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 }
 ```
 
-검증 실패 시 Spring 이 `MethodArgumentNotValidException` 을 던지고, ExceptionHandler 가 이를 `VALIDATION_ERROR` 응답으로 변환합니다. (상세: [exception-handling.md](../../convention/exception-handling.md))
+검증 실패 시 Spring 이 `MethodArgumentNotValidException` 을 던지고, ExceptionHandler 가 이를 `VALIDATION_ERROR` 응답으로 변환합니다. (상세: [`exception-handling.md`](../../convention/exception-handling.md))
 
 ---
 
@@ -493,14 +493,14 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 - **모든 응답은 `{data, error}` 래퍼** 로 감쌉니다
 - **둘은 상호 배타적** — 동시에 값을 갖지 않습니다
 - **성공은 HTTP 2xx + data**, **실패는 HTTP 4xx/5xx + error**
-- **예외로 에러를 표현** — 컨트롤러는 `ApiResponse.error()` 를 직접 반환하지 않습니다 (상세: [exception-handling.md](../../convention/exception-handling.md))
+- **예외로 에러를 표현** — 컨트롤러는 `ApiResponse.error()` 를 직접 반환하지 않습니다 (상세: [`exception-handling.md`](../../convention/exception-handling.md))
 - **날짜는 ISO 8601 UTC**, **필드명은 camelCase**, **null 은 생략** (빈 배열은 생략 안 함)
 
 ---
 
 ## 관련 문서
 
-- [Exception Handling Convention](../../convention/exception-handling.md) — 에러 코드 체계 + 도메인별 예외
-- [JSON 계약 규약 (JSON Contract)](./json-contract.md) — JSON 직렬화 정책 + 테스트 4 종
-- [Flutter ↔ Backend Integration](./flutter-backend-integration.md) — 클라이언트 연동 규약
-- [버전 규약 & Deprecation 프로세스](./versioning.md) — API 버전 관리 전략
+- [`Exception Handling Convention`](../../convention/exception-handling.md) — 에러 코드 체계 + 도메인별 예외
+- [`JSON 계약 규약 (JSON Contract)`](./json-contract.md) — JSON 직렬화 정책 + 테스트 4 종
+- [`Flutter ↔ Backend Integration`](./flutter-backend-integration.md) — 클라이언트 연동 규약
+- [`버전 규약 & Deprecation 프로세스`](./versioning.md) — API 버전 관리 전략

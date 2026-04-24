@@ -2,11 +2,11 @@
 
 > **유형**: How-to · **독자**: Level 1~2 · **읽는 시간**: ~10분
 
-**설계 근거**: [ADR-013 (앱별 인증 엔드포인트)](../../philosophy/adr-013-per-app-auth-endpoints.md) · [ADR-006 (HS256 JWT)](../../philosophy/adr-006-hs256-jwt.md)
+**설계 근거**: [`ADR-013 (앱별 인증 엔드포인트)`](../../philosophy/adr-013-per-app-auth-endpoints.md) · [`ADR-006 (HS256 JWT)`](../../philosophy/adr-006-hs256-jwt.md)
 
 이 문서는 Flutter 앱이 `spring-backend-template` 기반 백엔드와 통신할 때 알아야 할 **백엔드 관점의 계약** 을 설명합니다. 엔드포인트 경로, 인증 방식, 토큰 갱신 규약, appSlug 매칭 규칙 등이 포함됩니다.
 
-응답 포맷의 세부 구조(`{data, error}`)는 [API Response Format](./api-response.md), 에러 코드 체계는 [Exception Handling Convention](../../convention/exception-handling.md) 에서 관리하므로 중복되지 않게 **Flutter 입장에서 특별히 알아야 할 것** 만 정리합니다.
+응답 포맷의 세부 구조(`{data, error}`)는 [`API Response Format`](./api-response.md), 에러 코드 체계는 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리하므로 중복되지 않게 **Flutter 입장에서 특별히 알아야 할 것** 만 정리합니다.
 
 ---
 
@@ -345,7 +345,7 @@ Flutter 가 자주 받게 될 응답 조합만 요약합니다.
 | 이메일 발송 실패 | 503 | `ATH_006` |
 | Rate limit 초과 | 429 | `CMN_429` (Retry-After 헤더 포함) |
 
-전체 매핑과 이유는 [API Response Format](./api-response.md) 및 [Exception Handling Convention](../../convention/exception-handling.md) 에서 관리합니다.
+전체 매핑과 이유는 [`API Response Format`](./api-response.md) 및 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리합니다.
 
 ---
 
@@ -409,8 +409,8 @@ Content-Type: application/json
 
 ### 401 Unauthorized 계속 반환
 
-- **원인 1**: Access Token 만료 → Refresh Token 으로 갱신 필요 ([ADR-006](../../philosophy/adr-006-hs256-jwt.md))
-- **원인 2**: JWT 의 `appSlug` 와 URL path 의 `{appSlug}` 불일치 → `AppSlugVerificationFilter` 가 403 반환 ([ADR-012](../../philosophy/adr-012-per-app-user-model.md))
+- **원인 1**: Access Token 만료 → Refresh Token 으로 갱신 필요 ([`ADR-006`](../../philosophy/adr-006-hs256-jwt.md))
+- **원인 2**: JWT 의 `appSlug` 와 URL path 의 `{appSlug}` 불일치 → `AppSlugVerificationFilter` 가 403 반환 ([`ADR-012`](../../philosophy/adr-012-per-app-user-model.md))
 - **확인**: 토큰 payload 의 `appSlug` claim 과 호출한 URL path 비교
 
 ### 이메일 가입이 200 인데 로그인 안 됨
@@ -421,20 +421,20 @@ Content-Type: application/json
 ### 소셜 로그인 identity token 거부됨
 
 - **원인**: Apple/Google Console 의 Client ID 와 서버 `APP_CREDENTIALS_<SLUG>_*` 불일치
-- **조치**: [소셜 로그인 설정 가이드](../../start/social-auth-setup.md) §4 에서 credential 재발급
+- **조치**: [`소셜 로그인 설정 가이드`](../../start/social-auth-setup.md) §4 에서 credential 재발급
 
 ## 다음 단계
 
-- 앱별 credential 발급: [소셜 로그인 설정 가이드](../../start/social-auth-setup.md)
-- 인증 내부 구조 상세: [JWT Authentication](../../structure/jwt-authentication.md)
-- API 응답 포맷 표준: [API Response Format](./api-response.md)
+- 앱별 credential 발급: [`소셜 로그인 설정 가이드`](../../start/social-auth-setup.md)
+- 인증 내부 구조 상세: [`JWT Authentication`](../../structure/jwt-authentication.md)
+- API 응답 포맷 표준: [`API Response Format`](./api-response.md)
 
 ---
 
 ## 연관 문서
 
-- [API Response Format](./api-response.md) — `{data, error}` 래퍼, JSON 필드 명명, 날짜 형식, 페이지네이션
-- [Exception Handling Convention](../../convention/exception-handling.md) — 전체 에러 코드 목록, HTTP 매핑
-- [계약 테스트 (Contract Testing)](../../production/test/contract-testing.md) — DTO JSON 계약 테스트 (forward compat 보장)
-- [Rate Limit 규약](../functional/rate-limiting.md) — Rate limit 규약과 민감 엔드포인트
-- [Naming Conventions](../../convention/naming.md) — REST URL 패턴 일반 규약
+- [`API Response Format`](./api-response.md) — `{data, error}` 래퍼, JSON 필드 명명, 날짜 형식, 페이지네이션
+- [`Exception Handling Convention`](../../convention/exception-handling.md) — 전체 에러 코드 목록, HTTP 매핑
+- [`계약 테스트 (Contract Testing)`](../../production/test/contract-testing.md) — DTO JSON 계약 테스트 (forward compat 보장)
+- [`Rate Limit 규약`](../functional/rate-limiting.md) — Rate limit 규약과 민감 엔드포인트
+- [`Naming Conventions`](../../convention/naming.md) — REST URL 패턴 일반 규약

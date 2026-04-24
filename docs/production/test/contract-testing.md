@@ -6,7 +6,7 @@
 
 ## 왜 계약 테스트인가
 
-이 프로젝트는 모듈러 모놀리스 구조로, `core-*-api` (포트 인터페이스 + DTO) 와 `core-*-impl` (구현체) 를 Gradle 모듈로 분리합니다 ([ADR-003](../../philosophy/adr-003-api-impl-split.md)). 이 분리가 실제로 가치를 가지려면:
+이 프로젝트는 모듈러 모놀리스 구조로, `core-*-api` (포트 인터페이스 + DTO) 와 `core-*-impl` (구현체) 를 Gradle 모듈로 분리합니다 ([`ADR-003`](../../philosophy/adr-003-api-impl-split.md)). 이 분리가 실제로 가치를 가지려면:
 
 1. **Port 계약이 변경되지 않아야** 소비자(apps/, 파생 레포)가 안전하게 의존 가능.
 2. **DTO JSON 직렬화가 호환되어야** 클라이언트 앱과 wire-protocol 이 일치.

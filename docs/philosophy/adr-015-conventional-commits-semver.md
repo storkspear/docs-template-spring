@@ -10,7 +10,7 @@
 
 ## 왜 이런 고민이 시작됐나?
 
-[ADR-002 (Use this template)](./adr-002-use-this-template.md) 에서 우리는 **파생 레포 패턴** 을 채택했어요:
+[`ADR-002 (Use this template)`](./adr-002-use-this-template.md) 에서 우리는 **파생 레포 패턴** 을 채택했어요:
 
 - 템플릿 레포 (본 레포) 에서 공통 코드 개선
 - 파생 레포 (`sumtally-backend`, `rny-backend` 등) 가 그 개선을 **cherry-pick** 으로 받음
@@ -52,7 +52,7 @@
   - 모듈 간 의존 관계 (auth ↔ user) 로 인해 실제로는 한 모듈만 독립 업데이트 거의 불가
   - 모듈 5개 × 버전 추적 = 솔로 운영에서 감당 어려움
   - "현재 레포 상태" 를 한 줄로 표현 불가
-- **탈락 이유**: cherry-pick 모델 자체가 불가능해짐. [제약 2 (시간이 가장 희소한 자원)](./README.md#제약-2--시간이-가장-희소한-자원) 에 정면 충돌.
+- **탈락 이유**: cherry-pick 모델 자체가 불가능해짐. [`제약 2 (시간이 가장 희소한 자원)`](./README.md#제약-2--시간이-가장-희소한-자원) 에 정면 충돌.
 
 ### Option 2 — Conventional Commits + 커밋 단위 SemVer (commit 마다 tag)
 
@@ -82,7 +82,7 @@
   - 태그 찍는 타이밍이 판단 필요 (자동 아님)
 - **채택 이유**:
   - cherry-pick 모델 + 버전 추적 단순화를 동시 확보
-  - 초기 비용은 1회성, 장기 이득은 운영 내내 작동 ([ADR-007](./adr-007-solo-friendly-operations.md) 의 "현재 부담 vs 미래 부담 감소" 트레이드오프)
+  - 초기 비용은 1회성, 장기 이득은 운영 내내 작동 ([`ADR-007`](./adr-007-solo-friendly-operations.md) 의 "현재 부담 vs 미래 부담 감소" 트레이드오프)
   - 솔로 운영에서 "여러 버전 동기화" 를 **한 버전 추적** 으로 환원
 
 ## 결정
@@ -279,7 +279,7 @@ Versioning: [SemVer](https://semver.org/).
 
 ### 긍정적 결과
 
-**cherry-pick 이 기계 쿼리로 작동** — `git log template-v0.3.0..template-v0.4.0 --grep="^feat\\|^fix"` 한 줄로 파생 레포가 받아갈 공통 개선 목록 획득. [ADR-002 (Use this template)](./adr-002-use-this-template.md) 의 전파 모델이 이 ADR 위에서 실제로 작동.
+**cherry-pick 이 기계 쿼리로 작동** — `git log template-v0.3.0..template-v0.4.0 --grep="^feat\\|^fix"` 한 줄로 파생 레포가 받아갈 공통 개선 목록 획득. [`ADR-002 (Use this template)`](./adr-002-use-this-template.md) 의 전파 모델이 이 ADR 위에서 실제로 작동.
 
 **파생 레포 관리 단순화** — 파생 레포 README 에 "기반: template-v0.3.0" 한 줄이면 끝. 어느 모듈이 어느 버전인지 N개 추적 불필요.
 
@@ -295,7 +295,7 @@ Versioning: [SemVer](https://semver.org/).
 
 **초기 셋업 비용** — commitlint · husky · workflows · CHANGELOG · tag-validate · release.yml · .gitmessage — 설정할 게 많음. 프로젝트 시작 시 약 4~6시간 투입. 완화: 1회성이며, 템플릿으로 박혀있어 파생 레포는 clone 만으로 상속.
 
-**학습 곡선** — "왜 `feat:` 로 시작해야 하지?" 같은 초기 당혹감. 완화: `.gitmessage` 에 가이드, [Git 워크플로우 (Git Workflow)](../convention/git-workflow.md) 에 FAQ.
+**학습 곡선** — "왜 `feat:` 로 시작해야 하지?" 같은 초기 당혹감. 완화: `.gitmessage` 에 가이드, [`Git 워크플로우 (Git Workflow)`](../convention/git-workflow.md) 에 FAQ.
 
 **모듈별 세밀 버전의 손실** — "common-web 만 업그레이드" 불가. 완화: 프로젝트 스케일에서 불필요. 필요해지면 본 ADR 재검토.
 
@@ -392,8 +392,8 @@ r20 이 빌드 실패로 강제하므로:
 
 **CHANGELOG / 버저닝**:
 - [`CHANGELOG.md`](https://github.com/storkspear/spring-backend-template/blob/main/CHANGELOG.md) — Keep a Changelog 포맷, [Unreleased] 유지
-- [버전 규약 & Deprecation 프로세스](../api-and-functional/api/versioning.md) — template-v* 태그 + Deprecation 상세
-- [Git 워크플로우 (Git Workflow)](../convention/git-workflow.md) — 브랜치 + 커밋 규칙 통합 가이드
+- [`버전 규약 & Deprecation 프로세스`](../api-and-functional/api/versioning.md) — template-v* 태그 + Deprecation 상세
+- [`Git 워크플로우 (Git Workflow)`](../convention/git-workflow.md) — 브랜치 + 커밋 규칙 통합 가이드
 
 **Deprecation 강제**:
 - [`common-testing/architecture/ArchitectureRules.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r20 규칙 정의
@@ -403,6 +403,6 @@ r20 이 빌드 실패로 강제하므로:
 - [`.gitmessage`](https://github.com/storkspear/spring-backend-template/blob/main/.gitmessage) — 커밋 템플릿 (Commitizen 없이도 가이드)
 
 **관련 ADR**:
-- [ADR-002 · Use this template](./adr-002-use-this-template.md) — 본 ADR 이 해결하는 근본 문제 (파생 레포 cherry-pick)
-- [ADR-004 · Gradle + ArchUnit](./adr-004-gradle-archunit.md) — r20 이 같은 체계에 속함
-- [ADR-007 · 솔로 친화적 운영](./adr-007-solo-friendly-operations.md) — "초기 투자 vs 미래 부담 감소" 트레이드오프 원칙
+- [`ADR-002 · Use this template`](./adr-002-use-this-template.md) — 본 ADR 이 해결하는 근본 문제 (파생 레포 cherry-pick)
+- [`ADR-004 · Gradle + ArchUnit`](./adr-004-gradle-archunit.md) — r20 이 같은 체계에 속함
+- [`ADR-007 · 솔로 친화적 운영`](./adr-007-solo-friendly-operations.md) — "초기 투자 vs 미래 부담 감소" 트레이드오프 원칙

@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~10분
 
-**설계 근거**: [ADR-004 (Gradle + ArchUnit)](../philosophy/adr-004-gradle-archunit.md)
+**설계 근거**: [`ADR-004 (Gradle + ArchUnit)`](../philosophy/adr-004-gradle-archunit.md)
 
 이 문서는 ArchUnit 으로 강제되는 모듈 경계 및 코드 구조 규칙을 설명합니다.
 
@@ -212,7 +212,7 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **내용:** `..dto..` 패키지의 record 는 이름이 다음 중 하나로 끝나야 합니다: `Request`, `Response`, `Dto`, `Summary`, `Profile`, `Account`, `Tokens`, `Message`, `Result`, `Status`.
 
-**목적:** DTO 네이밍을 통일하면 이름만 보고 용도 (입력/출력/뷰/결과) 를 구분할 수 있습니다. 허용 suffix 목록은 [naming.md](../convention/naming.md) 의 DTO 규칙과 일치합니다.
+**목적:** DTO 네이밍을 통일하면 이름만 보고 용도 (입력/출력/뷰/결과) 를 구분할 수 있습니다. 허용 suffix 목록은 [`naming.md`](../convention/naming.md) 의 DTO 규칙과 일치합니다.
 
 **위반 예시:** `core.auth.api.dto.AuthData` — 허용되지 않은 suffix.
 
@@ -233,7 +233,7 @@ public void oldMethod() { ... }
 public void oldMethod() { ... }
 ```
 
-[versioning.md](../api-and-functional/api/versioning.md) 의 Deprecation 절차와 연동됩니다.
+[`versioning.md`](../api-and-functional/api/versioning.md) 의 Deprecation 절차와 연동됩니다.
 
 ### r21: ENTITIES_MUST_RESIDE_IN_IMPL_ENTITY
 
@@ -249,7 +249,7 @@ public void oldMethod() { ... }
 
 **목적:** `UserMapper.toDto(user)` 같은 별도 Mapper 클래스 대신 **Entity 내부에 `toDto()` 메서드** 를 두는 패턴을 강제합니다. Mapper 클래스는 Entity 와 DTO 양쪽을 알아야 해서 변경 추적이 어렵고, 엔티티의 도메인 지식을 외부로 끄집어냅니다.
 
-상세는 [dto-factory.md](../convention/dto-factory.md) 를 참조하세요.
+상세는 [`dto-factory.md`](../convention/dto-factory.md) 를 참조하세요.
 
 **위반 예시:** `core.user.impl.mapper.UserMapper` 클래스.
 
@@ -316,9 +316,9 @@ Architecture Violation [r1: apps/* must not depend on core-*-impl (ports only)]
 
 ## 관련 문서
 
-- [ADR-004 · Gradle 모듈 경계 + ArchUnit 22규칙으로 의존 강제](../philosophy/adr-004-gradle-archunit.md) — ArchUnit 도입 결정 + Gradle convention plugin 관계
-- [모듈 의존 규칙 (Module Dependencies)](./module-dependencies.md) — 모듈 의존 방향 규칙 (r1~r5 상세)
-- [계약 테스트 (Contract Testing)](../production/test/contract-testing.md) — 테스트 계약 규약 (r20 연관)
+- [`ADR-004 · Gradle 모듈 경계 + ArchUnit 22규칙으로 의존 강제`](../philosophy/adr-004-gradle-archunit.md) — ArchUnit 도입 결정 + Gradle convention plugin 관계
+- [`모듈 의존 규칙 (Module Dependencies)`](./module-dependencies.md) — 모듈 의존 방향 규칙 (r1~r5 상세)
+- [`계약 테스트 (Contract Testing)`](../production/test/contract-testing.md) — 테스트 계약 규약 (r20 연관)
 
 ---
 

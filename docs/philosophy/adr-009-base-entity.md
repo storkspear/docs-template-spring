@@ -242,7 +242,7 @@ BaseEntity 는 JPA 어노테이션에 의존 (`@MappedSuperclass`, `@Id`, `@Colu
 - `common-security/` 에 넣을 수 없음 → 같은 이유
 - **`common-persistence/`** 가 적합 — 이 모듈이 JPA 를 가짐
 
-이 위치는 [ADR-004](./adr-004-gradle-archunit.md) 의 convention plugin (`factory.common-module`) 하에서 `common-persistence` 가 JPA 의존을 가지도록 명시됨.
+이 위치는 [`ADR-004`](./adr-004-gradle-archunit.md) 의 convention plugin (`factory.common-module`) 하에서 `common-persistence` 가 JPA 의존을 가지도록 명시됨.
 
 #### 포인트 5 — Lombok 안 쓴 이유
 

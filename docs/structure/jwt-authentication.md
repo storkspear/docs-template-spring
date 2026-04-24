@@ -2,7 +2,7 @@
 
 > **유형**: Explanation · **독자**: Level 2 · **읽는 시간**: ~15분
 
-**설계 근거**: [ADR-006 (HS256 JWT)](../philosophy/adr-006-hs256-jwt.md) · [ADR-012 (앱별 독립 유저 모델)](../philosophy/adr-012-per-app-user-model.md)
+**설계 근거**: [`ADR-006 (HS256 JWT)`](../philosophy/adr-006-hs256-jwt.md) · [`ADR-012 (앱별 독립 유저 모델)`](../philosophy/adr-012-per-app-user-model.md)
 
 이 문서는 JWT 기반 인증 체계의 구조와 사용법을 설명합니다.
 
@@ -485,10 +485,10 @@ Prod 는 default 값 없이 `${VAR}` strict 방식을 사용해 환경변수 주
 
 ## 관련 문서
 
-- [ADR-006 · HS256 JWT (대칭키)](../philosophy/adr-006-hs256-jwt.md) — HS256 채택 결정
-- [ADR-012 · 앱별 독립 유저 모델 (통합 계정 폐기)](../philosophy/adr-012-per-app-user-model.md) — 앱별 독립 유저 모델 + `appSlug` claim
-- [Multi-tenant Architecture](./multitenant-architecture.md) — 앱별 DataSource 분리 구현
-- [Flutter ↔ Backend Integration](../api-and-functional/api/flutter-backend-integration.md) — 클라이언트 401 처리 규약
+- [`ADR-006 · HS256 JWT (대칭키)`](../philosophy/adr-006-hs256-jwt.md) — HS256 채택 결정
+- [`ADR-012 · 앱별 독립 유저 모델 (통합 계정 폐기)`](../philosophy/adr-012-per-app-user-model.md) — 앱별 독립 유저 모델 + `appSlug` claim
+- [`Multi-tenant Architecture`](./multitenant-architecture.md) — 앱별 DataSource 분리 구현
+- [`Flutter ↔ Backend Integration`](../api-and-functional/api/flutter-backend-integration.md) — 클라이언트 401 처리 규약
 
 ---
 

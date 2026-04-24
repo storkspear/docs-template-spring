@@ -6,7 +6,7 @@
 
 각 단계 끝에는 다음 단계로 넘어가는 링크가 있습니다. 책처럼 위에서 아래로 한 번 흐르듯 읽으면 자연스럽게 전체 그림이 잡힙니다.
 
-> 💡 막히면: [도그푸딩 함정 모음](../start/dogfood-pitfalls.md) / [도그푸딩 FAQ](../start/dogfood-faq.md) 부터 검색해 보세요.
+> 💡 막히면: [`도그푸딩 함정 모음`](../start/dogfood-pitfalls.md) / [`도그푸딩 FAQ`](../start/dogfood-faq.md) 부터 검색해 보세요.
 
 ---
 
@@ -32,12 +32,12 @@ QuickStart 는 다음을 합니다.
 
 읽을 문서:
 
-1. [Repository Philosophy — 책 안내](../philosophy/README.md) 의 **프롤로그** (3 제약 · 독자 페르소나) + **테마 1 의 ADR-001 ~ ADR-003** 만 먼저 읽으세요.
-   - [ADR-001 · 모듈러 모놀리스](../philosophy/adr-001-modular-monolith.md) (왜 마이크로서비스가 아닌가)
-   - [ADR-002 · GitHub Template Repository 패턴](../philosophy/adr-002-use-this-template.md) (왜 fork 가 아닌 template 인가)
+1. [`Repository Philosophy — 책 안내`](../philosophy/README.md) 의 **프롤로그** (3 제약 · 독자 페르소나) + **테마 1 의 ADR-001 ~ ADR-003** 만 먼저 읽으세요.
+   - [`ADR-001 · 모듈러 모놀리스`](../philosophy/adr-001-modular-monolith.md) (왜 마이크로서비스가 아닌가)
+   - [`ADR-002 · GitHub Template Repository 패턴`](../philosophy/adr-002-use-this-template.md) (왜 fork 가 아닌 template 인가)
    - [ADR-003 · `-api` / `-impl` 분리](../philosophy/adr-003-api-impl-split.md) (왜 포트 인터페이스 분리인가)
 
-2. [Architecture Reference](../structure/architecture.md) 의 **§ 전체 구성 요약** 한 섹션만 읽으세요. 모듈 4종류 (`common/` · `core/` · `apps/` · `bootstrap`) 와 기술 스택의 한눈 요약이 있습니다.
+2. [`Architecture Reference`](../structure/architecture.md) 의 **§ 전체 구성 요약** 한 섹션만 읽으세요. 모듈 4종류 (`common/` · `core/` · `apps/` · `bootstrap`) 와 기술 스택의 한눈 요약이 있습니다.
 
 여기까지 읽으면 "이 레포가 뭘 하려는 도구인지" 감이 잡힙니다. 나머지 ADR (총 16 개, 테마 2~5) 은 나중에 해당 영역이 궁금해질 때 돌아오세요.
 
@@ -49,7 +49,7 @@ QuickStart 는 다음을 합니다.
 
 읽을 문서:
 
-- [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) — 전체 한 번 정독.
+- [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 전체 한 번 정독.
 
 핵심 흐름은 다음과 같습니다.
 
@@ -68,7 +68,7 @@ template 은 비즈니스 로직 없이 뼈대만 가지고 있습니다. 실제
 
 읽을 문서:
 
-- [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) **§5 앱 모듈 추가 (`new-app.sh`)** 섹션.
+- [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) **§5 앱 모듈 추가 (`new-app.sh`)** 섹션.
 
 수행하는 일:
 
@@ -88,7 +88,7 @@ template 은 비즈니스 로직 없이 뼈대만 가지고 있습니다. 실제
 
 ### 4.1 소셜 로그인 자격 증명
 
-[소셜 로그인 설정 가이드](../start/social-auth-setup.md) 를 읽으세요.
+[`소셜 로그인 설정 가이드`](../start/social-auth-setup.md) 를 읽으세요.
 
 - Google Sign In Client ID 발급 절차 + Console 에서 입력할 값
 - Apple Sign In Bundle ID + Service ID 발급 절차
@@ -97,7 +97,7 @@ template 은 비즈니스 로직 없이 뼈대만 가지고 있습니다. 실제
 
 ### 4.2 운영 배포 자격 증명 (Tailscale OAuth · GitHub PAT · Supabase)
 
-[도그푸딩 환경 셋업 가이드](../start/dogfood-setup.md) **§3 외부 리소스 발급** 섹션을 읽으세요.
+[`도그푸딩 환경 셋업 가이드`](../start/dogfood-setup.md) **§3 외부 리소스 발급** 섹션을 읽으세요.
 
 - §3.1 GitHub PAT (GHCR push 권한)
 - §3.2 Tailscale OAuth client (GHA → Mac mini 라우팅)
@@ -114,8 +114,8 @@ template 은 비즈니스 로직 없이 뼈대만 가지고 있습니다. 실제
 
 읽을 문서:
 
-- [도그푸딩 환경 셋업 가이드](../start/dogfood-setup.md) **§4 ~ §6** (작성 + 실행 + 동작 확인).
-- 막히면 [도그푸딩 함정 모음 (사고 실록)](../start/dogfood-pitfalls.md).
+- [`도그푸딩 환경 셋업 가이드`](../start/dogfood-setup.md) **§4 ~ §6** (작성 + 실행 + 동작 확인).
+- 막히면 [`도그푸딩 함정 모음 (사고 실록)`](../start/dogfood-pitfalls.md).
 
 핵심 명령은 두 줄입니다.
 
@@ -127,7 +127,7 @@ bash tools/dogfooding/setup.sh
 
 `setup.sh` 가 GitHub Actions Variables / Secrets 일괄 등록 + GHA 용 SSH 키 발급 + DEPLOY_ENABLED 토글 + 자동 배포 trigger 까지 한 번에 처리합니다.
 
-배포가 실행되는 전체 흐름이 궁금하다면 [CI / CD 전체 플로우 — commit 부터 운영 반영까지](../production/deploy/ci-cd-flow.md) 의 다이어그램을 참고하세요.
+배포가 실행되는 전체 흐름이 궁금하다면 [`CI / CD 전체 플로우 — commit 부터 운영 반영까지`](../production/deploy/ci-cd-flow.md) 의 다이어그램을 참고하세요.
 
 ---
 
@@ -137,7 +137,7 @@ bash tools/dogfooding/setup.sh
 
 읽을 문서:
 
-- [도그푸딩 환경 셋업 가이드](../start/dogfood-setup.md) **§7 `cleanup.sh` 실행** 섹션.
+- [`도그푸딩 환경 셋업 가이드`](../start/dogfood-setup.md) **§7 `cleanup.sh` 실행** 섹션.
 
 핵심 명령은 한 줄입니다.
 
@@ -151,7 +151,7 @@ bash tools/dogfooding/cleanup.sh
 - Mac mini 의 spring 컨테이너 + kamal-proxy + authorized_keys 의 GHA 키 정리
 - GHCR 의 도그푸딩 이미지 삭제
 
-외부 서비스 (PAT / Tailscale OAuth) 의 키 자체는 **본인이 직접 폐기** 해야 합니다. 절차는 [키 교체 절차 (Key Rotation)](../production/setup/key-rotation.md) 에 있습니다.
+외부 서비스 (PAT / Tailscale OAuth) 의 키 자체는 **본인이 직접 폐기** 해야 합니다. 절차는 [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) 에 있습니다.
 
 ---
 
@@ -161,8 +161,8 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 
 읽을 문서:
 
-1. [운영 배포 가이드 (파생레포 onboarding)](../production/deploy/deployment.md) — "Use this template" 으로 만든 파생 레포를 Mac mini 에 처음 배포하는 onboarding.
-2. [크로스 레포 Cherry-pick 가이드](../start/cross-repo-cherry-pick.md) — template 에 새 변경이 생겼을 때 파생 레포로 가져오는 방법.
+1. [`운영 배포 가이드 (파생레포 onboarding)`](../production/deploy/deployment.md) — "Use this template" 으로 만든 파생 레포를 Mac mini 에 처음 배포하는 onboarding.
+2. [`크로스 레포 Cherry-pick 가이드`](../start/cross-repo-cherry-pick.md) — template 에 새 변경이 생겼을 때 파생 레포로 가져오는 방법.
 
 핵심 흐름은 도그푸딩과 거의 동일합니다 (5 ~ 6단계). 차이는:
 
@@ -177,35 +177,35 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 
 | 그룹 | Level | 시간 | 무엇을 찾을 수 있나 |
 |---|---|---|---|
-| 📚 입문 | 0 | 3~10분 | [Level 0 진입점](./getting-started.md) · [5분 투어](./five-minute-tour.md) · 용어 사전 · 첫 실행/수정/배포 맛보기 |
-| 🏃 시작하기 | 1 | 1~2시간 | [Onboarding](../start/onboarding.md) · Social Auth · App Scaffolding · Dogfood · Cherry-pick |
-| 🏗️ 구조 이해하기 | 2 | 1시간 | [Architecture](../structure/architecture.md) · Module Deps · ArchUnit Rules · Multitenant · JWT Auth |
-| 📖 프로젝트 철학 | 3 | 2~3시간 | [16 ADR 인덱스](../philosophy/README.md) · 테마 1~6 (모듈/데이터/운영/엔티티/레이어/테스트) |
+| 📚 입문 | 0 | 3~10분 | [`Level 0 진입점`](./getting-started.md) · [`5분 투어`](./five-minute-tour.md) · 용어 사전 · 첫 실행/수정/배포 맛보기 |
+| 🏃 시작하기 | 1 | 1~2시간 | [`Onboarding`](../start/onboarding.md) · Social Auth · App Scaffolding · Dogfood · Cherry-pick |
+| 🏗️ 구조 이해하기 | 2 | 1시간 | [`Architecture`](../structure/architecture.md) · Module Deps · ArchUnit Rules · Multitenant · JWT Auth |
+| 📖 프로젝트 철학 | 3 | 2~3시간 | [`16 ADR 인덱스`](../philosophy/README.md) · 테마 1~6 (모듈/데이터/운영/엔티티/레이어/테스트) |
 | 📝 코딩 규약 | 2 | 1시간 | Design Principles · Naming · DTO · Exception · Git Workflow |
 | 🔌 API 및 기능 | 2 | 필요 시 | API Response · Push · Email · Storage · Migration · Observability |
-| ✅ 테스팅 | 2 | 필요 시 | [Testing Strategy](../production/test/testing-strategy.md) · Contract Testing |
-| 🛠️ 운영 | 2.5+ | 운영자용 | Infrastructure · CI/CD · Deployment · [Runbook](../production/deploy/runbook.md) · Edge Cases · Key Rotation |
-| 📚 참고 | — | — | App Scaffolding · Backlog · [STYLE_GUIDE](../reference/STYLE_GUIDE.md) (저자용) |
+| ✅ 테스팅 | 2 | 필요 시 | [`Testing Strategy`](../production/test/testing-strategy.md) · Contract Testing |
+| 🛠️ 운영 | 2.5+ | 운영자용 | Infrastructure · CI/CD · Deployment · [`Runbook`](../production/deploy/runbook.md) · Edge Cases · Key Rotation |
+| 📚 참고 | — | — | App Scaffolding · Backlog · [`STYLE_GUIDE`](../reference/STYLE_GUIDE.md) (저자용) |
 
 ## 깊이 있는 참조 — 자주 찾는 것
 
 | 궁금한 것 | 문서 | 한 줄 |
 |---|---|---|
-| 왜 이렇게 설계? | [Repository Philosophy — 책 안내](../philosophy/README.md) | 16 ADR · 프롤로그 3 제약 |
-| 문서 작성 규칙 (저자) | [Documentation Style Guide](../reference/STYLE_GUIDE.md) | 5 유형 템플릿 · 메타블록 규격 · 검증 체크리스트 |
-| 모듈 구조 상세 | [Architecture Reference](../structure/architecture.md) | 파일 트리 + 의존 그래프 + Extraction 6 레이어 |
-| 환경별 인프라 현황 | [인프라 (Infrastructure)](../production/deploy/infrastructure.md) | 어떤 서비스가 어디에서 도는지 |
-| 인프라 결정 근거 | [인프라 결정 기록 (Decisions — Infrastructure)](../production/deploy/decisions-infra.md) | I-01~I-13 |
-| ArchUnit 22 규칙 | [Architecture Rules (ArchUnit)](../structure/architecture-rules.md) | r1~r22 |
-| 평시 배포/롤백/장애 | [운영 런북 (Runbook)](../production/deploy/runbook.md) | 운영자용 절차서 |
-| CI/CD 전체 흐름 | [CI / CD 전체 플로우 — commit 부터 운영 반영까지](../production/deploy/ci-cd-flow.md) | commit → 운영 반영 |
-| 장애 시나리오 분석 | [Edge Cases & Risk Analysis](../reference/edge-cases.md) | 무엇이 깨질 수 있나 |
-| 미완 항목 | [Backlog](../planned/backlog.md) | 진행 중 / 대기 |
-| 키 교체 절차 | [키 교체 절차 (Key Rotation)](../production/setup/key-rotation.md) | PAT / Tailscale / Supabase / SSH |
-| Mac mini 셋업 | [Mac mini 운영 호스트 설정 — 레퍼런스](../production/setup/mac-mini-setup.md) | 물리 호스트 셋업 |
-| 관측성 스택 | [운영 모니터링 셋업 가이드](../production/setup/monitoring-setup.md) | Loki / Grafana / Prometheus |
-| 스토리지 셋업 | [스토리지 셋업 가이드 (MinIO / 시놀로지 NAS)](../production/setup/storage-setup.md) | MinIO / NAS |
-| 마이그레이션 | [Migration Guides](../api-and-functional/functional/migration.md) | Flyway 규칙 |
+| 왜 이렇게 설계? | [`Repository Philosophy — 책 안내`](../philosophy/README.md) | 16 ADR · 프롤로그 3 제약 |
+| 문서 작성 규칙 (저자) | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) | 5 유형 템플릿 · 메타블록 규격 · 검증 체크리스트 |
+| 모듈 구조 상세 | [`Architecture Reference`](../structure/architecture.md) | 파일 트리 + 의존 그래프 + Extraction 6 레이어 |
+| 환경별 인프라 현황 | [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) | 어떤 서비스가 어디에서 도는지 |
+| 인프라 결정 근거 | [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) | I-01~I-13 |
+| ArchUnit 22 규칙 | [`Architecture Rules (ArchUnit)`](../structure/architecture-rules.md) | r1~r22 |
+| 평시 배포/롤백/장애 | [`운영 런북 (Runbook)`](../production/deploy/runbook.md) | 운영자용 절차서 |
+| CI/CD 전체 흐름 | [`CI / CD 전체 플로우 — commit 부터 운영 반영까지`](../production/deploy/ci-cd-flow.md) | commit → 운영 반영 |
+| 장애 시나리오 분석 | [`Edge Cases & Risk Analysis`](../reference/edge-cases.md) | 무엇이 깨질 수 있나 |
+| 미완 항목 | [`Backlog`](../planned/backlog.md) | 진행 중 / 대기 |
+| 키 교체 절차 | [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) | PAT / Tailscale / Supabase / SSH |
+| Mac mini 셋업 | [`Mac mini 운영 호스트 설정 — 레퍼런스`](../production/setup/mac-mini-setup.md) | 물리 호스트 셋업 |
+| 관측성 스택 | [`운영 모니터링 셋업 가이드`](../production/setup/monitoring-setup.md) | Loki / Grafana / Prometheus |
+| 스토리지 셋업 | [`스토리지 셋업 가이드 (MinIO / 시놀로지 NAS)`](../production/setup/storage-setup.md) | MinIO / NAS |
+| 마이그레이션 | [`Migration Guides`](../api-and-functional/functional/migration.md) | Flyway 규칙 |
 
 ---
 

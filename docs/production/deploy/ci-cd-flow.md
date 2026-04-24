@@ -2,11 +2,11 @@
 
 > **유형**: Explanation · **독자**: Level 2.5 · **읽는 시간**: ~15분
 
-**설계 근거**: [ADR-007 (솔로 친화적 운영)](../../philosophy/adr-007-solo-friendly-operations.md) · [ADR-015 (Conventional Commits + SemVer)](../../philosophy/adr-015-conventional-commits-semver.md)
+**설계 근거**: [`ADR-007 (솔로 친화적 운영)`](../../philosophy/adr-007-solo-friendly-operations.md) · [`ADR-015 (Conventional Commits + SemVer)`](../../philosophy/adr-015-conventional-commits-semver.md)
 
-> 결정 근거: [인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14](./decisions-infra.md)
-> 셋업 가이드: [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md)
-> 함정 모음: [도그푸딩 함정 모음 (사고 실록)](../../start/dogfood-pitfalls.md)
+> 결정 근거: [`인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14`](./decisions-infra.md)
+> 셋업 가이드: [`도그푸딩 환경 셋업 가이드`](../../start/dogfood-setup.md)
+> 함정 모음: [`도그푸딩 함정 모음 (사고 실록)`](../../start/dogfood-pitfalls.md)
 
 ---
 
@@ -20,7 +20,7 @@
 
 **`git commit` → 사용자에게 노출까지 ~15~20분, billed 8분.**
 
-CI workflow 가 jar 를 만들면 deploy workflow 가 `workflow_run` 으로 자동 트리거되어 jar 를 받아 docker 이미지로 패키징 + GHCR push + Mac mini 의 kamal 이 swap. **gradle build 1회만** (CI 가 만든 jar 를 deploy 가 재사용 — 중복 빌드 제거 [I-12](./decisions-infra.md)).
+CI workflow 가 jar 를 만들면 deploy workflow 가 `workflow_run` 으로 자동 트리거되어 jar 를 받아 docker 이미지로 패키징 + GHCR push + Mac mini 의 kamal 이 swap. **gradle build 1회만** (CI 가 만든 jar 를 deploy 가 재사용 — 중복 빌드 제거 [`I-12`](./decisions-infra.md)).
 
 ---
 
@@ -343,7 +343,7 @@ cloudflared tunnel 이 외부 도메인을 Mac mini :80 으로 outbound 연결. 
 **이전 (개선 전, 병렬 + 중복 빌드)**: 같은 wall-clock 8분 + billed 13분.
 → **billed 5분 절약 (38%)**.
 
-이유: deploy 가 더 이상 자체 gradle build 안 함 ([I-12](./decisions-infra.md)). CI 의 jar 를 artifact 로 받아 패키징만.
+이유: deploy 가 더 이상 자체 gradle build 안 함 ([`I-12`](./decisions-infra.md)). CI 의 jar 를 artifact 로 받아 패키징만.
 
 ---
 
@@ -364,7 +364,7 @@ cloudflared tunnel 이 외부 도메인을 Mac mini :80 으로 outbound 연결. 
 
 ---
 
-## 6. 함정 11개 (자세히 → [pitfalls](../../start/dogfood-pitfalls.md))
+## 6. 함정 11개 (자세히 → [`pitfalls`](../../start/dogfood-pitfalls.md))
 
 | # | 단계 | 키워드 | 자동화로 회피? |
 |---|---|---|---|
@@ -387,9 +387,9 @@ cloudflared tunnel 이 외부 도메인을 Mac mini :80 으로 outbound 연결. 
 
 ## 관련 문서
 
-- [도그푸딩 환경 셋업 가이드](../../start/dogfood-setup.md) — 셋업 가이드 (정상 흐름)
-- [도그푸딩 함정 모음 (사고 실록)](../../start/dogfood-pitfalls.md) — 함정 모음 (사고 실록)
-- [도그푸딩 FAQ](../../start/dogfood-faq.md) — 자주 묻는 질문
-- [운영 배포 가이드 (파생레포 onboarding)](./deployment.md) — 운영 배포 (cloudflared, observability)
-- [운영 런북 (Runbook)](./runbook.md) — 평시 운영 / 장애 대응
-- [인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14](./decisions-infra.md) — 결정 카드
+- [`도그푸딩 환경 셋업 가이드`](../../start/dogfood-setup.md) — 셋업 가이드 (정상 흐름)
+- [`도그푸딩 함정 모음 (사고 실록)`](../../start/dogfood-pitfalls.md) — 함정 모음 (사고 실록)
+- [`도그푸딩 FAQ`](../../start/dogfood-faq.md) — 자주 묻는 질문
+- [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) — 운영 배포 (cloudflared, observability)
+- [`운영 런북 (Runbook)`](./runbook.md) — 평시 운영 / 장애 대응
+- [`인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14`](./decisions-infra.md) — 결정 카드

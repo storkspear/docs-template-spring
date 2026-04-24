@@ -52,7 +52,7 @@
 ❌ **Node.js · Go · Python** 등 다른 언어 생태계를 원한다 → 이 레포는 Java 전용  
 ❌ **MongoDB · DynamoDB · Firestore** 등 비관계형 DB 가 필수다 → PostgreSQL 전제로 설계됨  
 ❌ 앱이 **하나뿐** 이고 당분간 추가 계획도 없다 → 과한 설계. 일반 Spring Boot 튜토리얼이 나음  
-❌ **HA 99.99% · 멀티 리전 · 초당 10,000 요청** 급 스케일이 필요하다 → 이 템플릿은 인디 스케일 전제 ([ADR-007](../philosophy/adr-007-solo-friendly-operations.md))
+❌ **HA 99.99% · 멀티 리전 · 초당 10,000 요청** 급 스케일이 필요하다 → 이 템플릿은 인디 스케일 전제 ([`ADR-007`](../philosophy/adr-007-solo-friendly-operations.md))
 
 ## 숫자로 보기
 
@@ -86,10 +86,10 @@
 ## 다음
 
 여기까지 읽고 "흥미있다" 싶으면:
-- [**5 분 투어**](./five-minute-tour.md) — 핵심 개념 4 개 · 모듈 그림
+- [`**5 분 투어**`](./five-minute-tour.md) — 핵심 개념 4 개 · 모듈 그림
 
 "지금 바로 돌려보고 싶다" 면:
-- [Onboarding — 템플릿 첫 사용 가이드](../start/onboarding.md) — 로컬 개발 환경 셋업 (1 시간 예상)
+- [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 개발 환경 셋업 (1 시간 예상)
 
 "왜 이렇게 설계됐는지부터 알고 싶다" 면:
-- [Repository Philosophy — 책 안내](../philosophy/README.md) — 16 개 ADR 의 프롤로그만 먼저
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 16 개 ADR 의 프롤로그만 먼저

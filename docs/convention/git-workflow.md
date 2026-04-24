@@ -141,7 +141,7 @@ git config --local commit.template .gitmessage
 
 **원칙**: 한 커밋은 한 논리적 변경만.
 
-- 공통 코드 수정과 도메인 코드 수정을 같은 커밋에 섞지 않음 ([ADR-002](../philosophy/adr-002-use-this-template.md) · [ADR-015](../philosophy/adr-015-conventional-commits-semver.md))
+- 공통 코드 수정과 도메인 코드 수정을 같은 커밋에 섞지 않음 ([`ADR-002`](../philosophy/adr-002-use-this-template.md) · [`ADR-015`](../philosophy/adr-015-conventional-commits-semver.md))
 - 파생 레포에서 우연히 공통 코드 고친 경우 **별도 커밋으로 분리**
 - 템플릿 레포는 apps/ 가 비어있어 혼합 위험 없음
 
@@ -245,8 +245,8 @@ Item 시작 전에 **반드시** backlog 를 점검:
 
 ## 관련 문서
 
-- [버전 규약 & Deprecation 프로세스](../api-and-functional/api/versioning.md) — 버전 규약 · 릴리스 프로세스 · Deprecation
-- [크로스 레포 Cherry-pick 가이드](../start/cross-repo-cherry-pick.md) — 템플릿 ↔ 파생 레포 동기화
-- [ADR-002 · GitHub Template Repository 패턴](../philosophy/adr-002-use-this-template.md) — 템플릿 전파
-- [ADR-015 · Conventional Commits + SemVer](../philosophy/adr-015-conventional-commits-semver.md) — 커밋 포맷 강제
-- [Backlog](../planned/backlog.md) — 실제 개발 목록
+- [`버전 규약 & Deprecation 프로세스`](../api-and-functional/api/versioning.md) — 버전 규약 · 릴리스 프로세스 · Deprecation
+- [`크로스 레포 Cherry-pick 가이드`](../start/cross-repo-cherry-pick.md) — 템플릿 ↔ 파생 레포 동기화
+- [`ADR-002 · GitHub Template Repository 패턴`](../philosophy/adr-002-use-this-template.md) — 템플릿 전파
+- [`ADR-015 · Conventional Commits + SemVer`](../philosophy/adr-015-conventional-commits-semver.md) — 커밋 포맷 강제
+- [`Backlog`](../planned/backlog.md) — 실제 개발 목록

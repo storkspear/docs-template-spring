@@ -6,7 +6,7 @@
 
 | 문서 | 범위 |
 |---|---|
-| [Repository Philosophy — 책 안내](../../philosophy/README.md) | **코드 설계 결정 (16 ADR)** — 모듈 구조, 포트/어댑터, Mapper 금지, 테스트 전략 등 |
+| [`Repository Philosophy — 책 안내`](../../philosophy/README.md) | **코드 설계 결정 (16 ADR)** — 모듈 구조, 포트/어댑터, Mapper 금지, 테스트 전략 등 |
 | **`decisions-infra.md`** (이 문서) | **물리/운영 인프라 결정** — DB, 오브젝트 스토리지, 운영 호스트, 엣지, 관측성 |
 
 경계 케이스 (예: 서비스별 schema — 코드 규약이자 인프라 결정) 는 양쪽에서 상호 참조합니다.
@@ -28,7 +28,7 @@
 
 결정이 서로 충돌할 때 우선순위:
 
-1. **솔로 친화** ([ADR-007](../../philosophy/adr-007-solo-friendly-operations.md)) — 운영 부담 < 기능 완성도
+1. **솔로 친화** ([`ADR-007`](../../philosophy/adr-007-solo-friendly-operations.md)) — 운영 부담 < 기능 완성도
 2. **보안 최소 기준** — 시크릿 분리, JWT, TLS (edge)
 3. **파생 레포 일관성** — breaking 변경은 Item 단위로 묶어서 일괄
 4. **비용** — 클라우드 무료티어 > 유료, 셀프 호스트 > SaaS (Phase 0)
@@ -77,7 +77,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 - **status**: `provisioned`
 - **결정일**: Phase 0 초기 (ADR-005 정의 시점)
 - **결정**: 단일 Postgres DB 에서 **앱별 schema 로 분리** (`core`, `<slug>`). `core` 는 공통 (users, auth 등), 앱별 schema 는 도메인 테이블.
-- **근거**: [ADR-005 (단일 Postgres + 앱당 schema)](../../philosophy/adr-005-db-schema-isolation.md) 에 정의. 솔로 운영에서 DB 인스턴스 N개 관리 부담 회피.
+- **근거**: [`ADR-005 (단일 Postgres + 앱당 schema)`](../../philosophy/adr-005-db-schema-isolation.md) 에 정의. 솔로 운영에서 DB 인스턴스 N개 관리 부담 회피.
 - **대안**: DB 분리, 단일 schema, 단일 테이블 + tenant_id
 - **Trade-off**:
   - schema 경계 실수 위험 (FK cross-schema 사용 시 cascade 영향) — `search_path` + 앱별 DB user 로 완화
@@ -86,7 +86,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
   - 앱당 DB 용량 > 200MB (5앱 = 1GB 초과 예상) → DB 분리 검토
   - 앱 격리 요구 상승 (컴플라이언스 등)
 - **관련 문서**:
-  - [ADR-005](../../philosophy/adr-005-db-schema-isolation.md)
+  - [`ADR-005`](../../philosophy/adr-005-db-schema-isolation.md)
   - `infra/scripts/init-core-schema.sql`, `init-app-schema.sql`
   - `tools/new-app/new-app.sh` (앱 schema 는 수동, Item 10 에서 자동화)
 
@@ -256,7 +256,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 - **결정일**: 2026-04-19
 - **결정**: 각 앱 모듈이 `AbstractAppDataSourceConfig` (common-persistence) 를 extends 한 `<Slug>DataSourceConfig` 를 소유. Template 은 abstract + `new-app.sh` 자동 생성 로직만 제공. Bootstrap 은 `CoreDataSourceConfig` 를 `@Primary` 로 선언하여 core schema 와 app schema 공존.
 - **근거**:
-  - [ADR-003 (core -api/-impl 분리)](../../philosophy/adr-003-api-impl-split.md) 정신 일치 — 앱이 자기 infra 책임
+  - [`ADR-003 (core -api/-impl 분리)`](../../philosophy/adr-003-api-impl-split.md) 정신 일치 — 앱이 자기 infra 책임
   - 파생 레포가 template bootstrap 수정 불필요 → cherry-pick 충돌 회피
   - Spring Boot 의 `@ConditionalOnMissingBean(AbstractEntityManagerFactoryBean.class)` back-off 문제는 `CoreDataSourceConfig` 의 명시적 `@Primary` 선언으로 해결 (canonical Spring 공식 multi-DS 패턴)
   - `new-app.sh` 자동 생성으로 boilerplate 부담 제거
@@ -291,8 +291,8 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 - **결정**: 운영 Spring 배포는 **Kamal (37signals) + Docker + GHA** 조합. Mac mini 에서 blue/green 컨테이너 스왑, kamal-proxy 가 health check 통과 후 트래픽을 Green 으로 원자 전환. GHA runner 가 Tailscale 로 tailnet 조인 → SSH → Kamal 로 Mac mini 원격 제어.
 - **근거**:
   - **Blue/green 무중단 배포가 검증된 툴** — 커스텀 bash 로 상태 기계 재구현 비용 회피. 롤백이 `kamal rollback <version>` 한 줄.
-  - **솔로 친화** ([ADR-007](../../philosophy/adr-007-solo-friendly-operations.md)) — `config/deploy.yml` + GHA workflow 두 파일이면 배포 파이프라인 끝. Jenkins 호스팅/플러그인 관리 부담 0.
-  - **파생레포 재사용성** — template 이 deploy.yml placeholder 만 제공하면 파생레포는 env/Secrets 로 값 주입. 새 파생레포마다 배포 로직 재작성 불필요 ([ADR-002](../../philosophy/adr-002-use-this-template.md)).
+  - **솔로 친화** ([`ADR-007`](../../philosophy/adr-007-solo-friendly-operations.md)) — `config/deploy.yml` + GHA workflow 두 파일이면 배포 파이프라인 끝. Jenkins 호스팅/플러그인 관리 부담 0.
+  - **파생레포 재사용성** — template 이 deploy.yml placeholder 만 제공하면 파생레포는 env/Secrets 로 값 주입. 새 파생레포마다 배포 로직 재작성 불필요 ([`ADR-002`](../../philosophy/adr-002-use-this-template.md)).
   - **Tailscale 위에서 SSH** — public webhook endpoint / HMAC 구현 불필요. tailnet ACL 이 authZ 대체.
 - **대안**:
   - **launchd + 커스텀 deploy.sh** — Spring JAR 을 native JVM 으로 launchd 관리, bash 로 blue/green 로직 직접. 탈락: blue/green 상태 기계, health check polling, rollback 구현 비용이 Kamal 학습 비용보다 큼.
@@ -488,9 +488,9 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 
 ## 관련 문서
 
-- [Repository Philosophy — 책 안내](../../philosophy/README.md) — 코드 설계 결정 (16 ADR)
-- [인프라 (Infrastructure)](./infrastructure.md) — 인프라 현재 상태 + 구성도
-- [오브젝트 스토리지 규약](../../api-and-functional/functional/storage.md) — 2-tier bucket 상세 규약
-- [Observability 규약](../../api-and-functional/functional/observability.md) — 관측성 규약
-- [Edge Cases & Risk Analysis](../../reference/edge-cases.md) — 리스크 시나리오 분석
+- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 코드 설계 결정 (16 ADR)
+- [`인프라 (Infrastructure)`](./infrastructure.md) — 인프라 현재 상태 + 구성도
+- [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md) — 2-tier bucket 상세 규약
+- [`Observability 규약`](../../api-and-functional/functional/observability.md) — 관측성 규약
+- [`Edge Cases & Risk Analysis`](../../reference/edge-cases.md) — 리스크 시나리오 분석
 - Item Ops-1 (예정) — 운영 배포 구현

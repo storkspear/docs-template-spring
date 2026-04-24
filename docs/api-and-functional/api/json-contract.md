@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~5분
 
-**설계 근거**: [ADR-016 (DTO Mapper 금지)](../../philosophy/adr-016-dto-mapper-forbidden.md)
+**설계 근거**: [`ADR-016 (DTO Mapper 금지)`](../../philosophy/adr-016-dto-mapper-forbidden.md)
 
 이 문서는 DTO JSON 직렬화/역직렬화의 전역 정책과 테스트 규약을 정의합니다.
 
@@ -255,5 +255,5 @@ ISO-8601 문자열 강제:
 
 ## 관련 문서
 
-- [계약 테스트 (Contract Testing)](../../production/test/contract-testing.md) — 3층 테스트 구조 전체
-- [Naming Conventions](../../convention/naming.md) — DTO 네이밍 규칙
+- [`계약 테스트 (Contract Testing)`](../../production/test/contract-testing.md) — 3층 테스트 구조 전체
+- [`Naming Conventions`](../../convention/naming.md) — DTO 네이밍 규칙

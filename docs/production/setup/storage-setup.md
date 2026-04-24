@@ -2,14 +2,14 @@
 
 > **유형**: How-to · **독자**: Level 2.5 · **읽는 시간**: ~3분
 
-**설계 근거**: [ADR-007 (솔로 친화적 운영)](../../philosophy/adr-007-solo-friendly-operations.md)
+**설계 근거**: [`ADR-007 (솔로 친화적 운영)`](../../philosophy/adr-007-solo-friendly-operations.md)
 
 > **대상**: 이 문서는 **template 레포 자체** 의 MinIO 셋업 (docker-compose 기반, 기본 bucket=`template-default`) 을 설명합니다.
-> **파생 레포 개발자** 는 [Onboarding — 템플릿 첫 사용 가이드](../../start/onboarding.md) §3.3 를 참조하세요 (`dev-shared` 또는 본인 환경 이름).
+> **파생 레포 개발자** 는 [`Onboarding — 템플릿 첫 사용 가이드`](../../start/onboarding.md) §3.3 를 참조하세요 (`dev-shared` 또는 본인 환경 이름).
 >
-> 인프라 전체 구성 / 책임 분담: [인프라 (Infrastructure)](../deploy/infrastructure.md)
-> bucket 네이밍 / key 패턴 규약: [오브젝트 스토리지 규약](../../api-and-functional/functional/storage.md)
-> 선택 근거 (왜 NAS MinIO?): [인프라 결정 기록 (Decisions — Infrastructure)](../deploy/decisions-infra.md) I-03
+> 인프라 전체 구성 / 책임 분담: [`인프라 (Infrastructure)`](../deploy/infrastructure.md)
+> bucket 네이밍 / key 패턴 규약: [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md)
+> 선택 근거 (왜 NAS MinIO?): [`인프라 결정 기록 (Decisions — Infrastructure)`](../deploy/decisions-infra.md) I-03
 
 ## 개요
 
@@ -122,13 +122,13 @@ NAS 자체 RAID/Snapshot 활용 권장. docker volume 은 NAS 볼륨 안이라 N
 
 ## 다음 단계
 
-- 스토리지 사용 규약: [오브젝트 스토리지 규약](../../api-and-functional/functional/storage.md)
-- 키 로테이션 (MinIO access key 포함): [키 교체 절차 (Key Rotation)](./key-rotation.md)
-- 인프라 구성: [인프라 (Infrastructure)](../deploy/infrastructure.md)
+- 스토리지 사용 규약: [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md)
+- 키 로테이션 (MinIO access key 포함): [`키 교체 절차 (Key Rotation)`](./key-rotation.md)
+- 인프라 구성: [`인프라 (Infrastructure)`](../deploy/infrastructure.md)
 
 ---
 
 ## 관련 문서
 
-- [오브젝트 스토리지 규약](../../api-and-functional/functional/storage.md) — StoragePort 사용 패턴
-- [운영 모니터링 셋업 가이드](./monitoring-setup.md) — Grafana/Prometheus 연동
+- [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md) — StoragePort 사용 패턴
+- [`운영 모니터링 셋업 가이드`](./monitoring-setup.md) — Grafana/Prometheus 연동

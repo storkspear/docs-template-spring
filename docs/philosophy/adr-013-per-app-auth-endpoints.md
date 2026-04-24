@@ -10,7 +10,7 @@
 
 ## 왜 이런 고민이 시작됐나?
 
-[ADR-012](./adr-012-per-app-user-model.md) 에서 "통합 계정 → 앱별 독립 유저" 로 전환했습니다. 이제 인증 엔드포인트를 어떻게 설계할지 차례예요. 세 가지 설계 축이 서로 엮여요.
+[`ADR-012`](./adr-012-per-app-user-model.md) 에서 "통합 계정 → 앱별 독립 유저" 로 전환했습니다. 이제 인증 엔드포인트를 어떻게 설계할지 차례예요. 세 가지 설계 축이 서로 엮여요.
 
 ### 축 1 — URL 경로: 앱을 어디에 표현할 것인가?
 
@@ -44,10 +44,10 @@
 
 - **장점**: URL 단순. Controller 가 한 개.
 - **단점**:
-  - [ADR-012](./adr-012-per-app-user-model.md) 에서 이미 폐기 — ThreadLocal + `AbstractRoutingDataSource` 의 불안정성
+  - [`ADR-012`](./adr-012-per-app-user-model.md) 에서 이미 폐기 — ThreadLocal + `AbstractRoutingDataSource` 의 불안정성
   - URL 에서 "어느 앱 요청인지" 가 **안 보임** → API 로그 · CloudFlare 분석 · Swagger 문서가 전부 모호
   - Spring Security 필터가 appSlug 를 알려면 body 를 미리 읽어야 함 (request body 는 보통 Filter 이후 읽힘)
-- **탈락 이유**: [ADR-012](./adr-012-per-app-user-model.md) 의 전면 재설계 일부. 유저 모델과 엔드포인트 구조는 같은 결정의 양면.
+- **탈락 이유**: [`ADR-012`](./adr-012-per-app-user-model.md) 의 전면 재설계 일부. 유저 모델과 엔드포인트 구조는 같은 결정의 양면.
 
 ### Option 2 — 경로에 `{slug}` + 통합 Controller (런타임 활성)
 
@@ -70,7 +70,7 @@ public class AuthController {
   - 앱 추가 시 Controller 신규 생성 불필요
 - **단점**:
   - 앱 모듈이 자기 DataSource 를 **쓸 수 없음** — Controller 가 core-auth-impl 에 있으면 core schema DataSource 를 쓰게 됨
-  - [ADR-005](./adr-005-db-schema-isolation.md) 의 "앱 모듈 = 자기 schema 독점" 원칙과 충돌 — 다시 ThreadLocal/라우팅이 필요해짐
+  - [`ADR-005`](./adr-005-db-schema-isolation.md) 의 "앱 모듈 = 자기 schema 독점" 원칙과 충돌 — 다시 ThreadLocal/라우팅이 필요해짐
   - `AuthPort.signUpWithEmail(slug, req)` 로 slug 를 계속 인자로 전달해야 하는 보일러플레이트
 - **탈락 이유**: URL 은 고쳤지만 "라우팅은 어디서?" 문제가 제자리. 결국 ThreadLocal 부활.
 
@@ -94,10 +94,10 @@ public class SumtallyAuthController {
 
 - **장점**:
   - **URL 에 appSlug 명시**
-  - **앱 모듈이 자기 DataSource 주입** — [ADR-005](./adr-005-db-schema-isolation.md) 의 방어선 2 와 정합
+  - **앱 모듈이 자기 DataSource 주입** — [`ADR-005`](./adr-005-db-schema-isolation.md) 의 방어선 2 와 정합
   - **ThreadLocal 불필요** — 라우팅 경계 = URL path 의 `{slug}`, 실제 DataSource 결정 = Spring DI
   - **로직 중복 없음** — 모든 앱이 같은 `AuthPort` bean 을 주입. 실제 로직은 `AuthServiceImpl` 한 곳.
-  - **`AppSlugVerificationFilter` 와 정합** — URL slug vs JWT appSlug 검증 ([ADR-012](./adr-012-per-app-user-model.md))
+  - **`AppSlugVerificationFilter` 와 정합** — URL slug vs JWT appSlug 검증 ([`ADR-012`](./adr-012-per-app-user-model.md))
 - **단점**:
   - 앱 모듈마다 Controller 파일 존재 — 중복처럼 보임 (실제로는 `AuthPort` 에 얇은 위임만)
   - `core-auth-impl/AuthController.java` 가 "런타임 미등록" 이라는 비직관적 상태
@@ -170,7 +170,7 @@ public interface AuthPort {
 }
 ```
 
-- **모든 파라미터/반환이 DTO** — [ADR-011 (레이어드 포트)](./adr-011-layered-port-adapter.md) · [ADR-016 (Mapper 금지)](./adr-016-dto-mapper-forbidden.md) 의 규칙에 따름
+- **모든 파라미터/반환이 DTO** — [`ADR-011 (레이어드 포트)`](./adr-011-layered-port-adapter.md) · [`ADR-016 (Mapper 금지)`](./adr-016-dto-mapper-forbidden.md) 의 규칙에 따름
 - **메서드 수 = 인증 도메인 전체** — 이메일/소셜 가입·로그인, 토큰 갱신, 탈퇴, 비밀번호 리셋/변경, 이메일 인증
 - ArchUnit r11 (Port 가 Entity 노출 금지) 으로 기계 강제
 
@@ -286,9 +286,9 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 **Controller 파일 N 개** — 앱이 10개면 Controller 파일 10개. 코드 중복처럼 보임. 완화: `new-app.sh` 가 생성하므로 손으로 쓸 일 없음. 인증 스펙 변경은 `AuthPort` + `AuthServiceImpl` 수정이면 끝.
 
-**"런타임 미등록 Controller" 의 혼란성** — 처음 레포를 보는 사람이 `core-auth-impl/AuthController.java` 의 `@RestController` + `@RequestMapping` 을 보고 "이게 실제 엔드포인트" 라고 오해. 완화: 파일 상단 JavaDoc 에 명시 ("런타임에 등록되지 않습니다") + 본 ADR 에 근거 기록 + [ADR-012 의 교훈](./adr-012-per-app-user-model.md#교훈) 에서도 동일 이슈 언급.
+**"런타임 미등록 Controller" 의 혼란성** — 처음 레포를 보는 사람이 `core-auth-impl/AuthController.java` 의 `@RestController` + `@RequestMapping` 을 보고 "이게 실제 엔드포인트" 라고 오해. 완화: 파일 상단 JavaDoc 에 명시 ("런타임에 등록되지 않습니다") + 본 ADR 에 근거 기록 + [`ADR-012 의 교훈`](./adr-012-per-app-user-model.md#교훈) 에서도 동일 이슈 언급.
 
-**`AuthPort` 변경의 파급** — Port 메서드 시그니처 변경 시 모든 앱 Controller 가 영향. 완화: `AuthPort` 는 **인증 도메인 인터페이스** 라 변경 빈도 낮음. 추가 메서드는 가능 (기존 Controller 에 영향 없음), 기존 메서드 변경은 [ADR-015 의 Deprecation 프로세스](./README.md#테마-5--운영--개발-방법론-작성-예정) 로 관리.
+**`AuthPort` 변경의 파급** — Port 메서드 시그니처 변경 시 모든 앱 Controller 가 영향. 완화: `AuthPort` 는 **인증 도메인 인터페이스** 라 변경 빈도 낮음. 추가 메서드는 가능 (기존 Controller 에 영향 없음), 기존 메서드 변경은 [`ADR-015 의 Deprecation 프로세스`](./README.md#테마-5--운영--개발-방법론-작성-예정) 로 관리.
 
 ### core-auth-impl 의 이중 역할 — "라이브러리" 로 이해하기
 
@@ -316,7 +316,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 1. **파일 상단 JavaDoc** — 오픈 시점에 즉시 보임
 2. **Bean 등록 차단** — `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 를 **하지 않음** (기술적 실상)
-3. **본 ADR + [ADR-012](./adr-012-per-app-user-model.md#교훈) 에 기록** — 구조적 맥락 설명
+3. **본 ADR + [`ADR-012`](./adr-012-per-app-user-model.md#교훈) 에 기록** — 구조적 맥락 설명
 
 **교훈**: 파일 외형과 런타임 역할이 다른 코드는 반드시 3중 이상의 레이어에서 명시해야 함. 한 군데만 표시하면 반드시 누군가는 놓친다.
 
@@ -330,7 +330,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 - 쪼개면 Controller 가 4개의 Port 를 주입 — DI 복잡도 증가
 - **"앱이 필요로 하는 인증 기능 전체"** 가 하나의 단위 — 쪼개는 기준이 인위적
-- 메서드 11개는 관리 가능한 크기. 30개가 되면 그때 쪼개면 됨 ([YAGNI](./README.md))
+- 메서드 11개는 관리 가능한 크기. 30개가 되면 그때 쪼개면 됨 ([`YAGNI`](./README.md))
 
 **교훈**: Port 의 메서드 수를 미리 걱정해서 쪼개지 말 것. "하나의 소비자 관점에서 일관된 단위" 를 유지하는 게 우선. 쪼개는 건 **관리 한계에 이르렀을 때** 해도 늦지 않음.
 
@@ -338,7 +338,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 "앱별 Controller + URL 에 slug" 만으로는 **실제 경계가 강제되지 않아요**. 예: sumtally 에서 발급된 JWT 를 가지고 `/api/apps/rny/users/me` 를 치면, rny Controller 가 받긴 받습니다. 만약 인증된 사용자 정보를 JWT 에서만 가져오면 rny 앱에 sumtally 유저가 접근하는 사고 발생.
 
-그래서 [ADR-012](./adr-012-per-app-user-model.md#구현--appslugverificationfilter-로-경계-강제) 의 `AppSlugVerificationFilter` 가 필수:
+그래서 [`ADR-012`](./adr-012-per-app-user-model.md#구현--appslugverificationfilter-로-경계-강제) 의 `AppSlugVerificationFilter` 가 필수:
 
 - URL path 의 `{slug}` 와 JWT 의 `appSlug` claim 이 **다르면 403**
 - 필터 체인: `JwtAuthFilter → AppSlugMdcFilter → AppSlugVerificationFilter → Controller`
@@ -374,7 +374,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 **관련 ADR**:
 - [ADR-003 · `-api` / `-impl` 분리](./adr-003-api-impl-split.md) — `AuthPort` 가 `core-auth-api` 에 위치하는 근거
-- [ADR-005 · 단일 Postgres + 앱당 schema](./adr-005-db-schema-isolation.md) — 앱 모듈이 자기 DataSource 를 주입받는 구조
-- [ADR-006 · HS256 JWT](./adr-006-hs256-jwt.md) — 엔드포인트가 발급/검증하는 JWT
-- [ADR-012 · 앱별 독립 유저 모델](./adr-012-per-app-user-model.md) — 엔드포인트 구조의 쌍둥이 결정
-- [ADR-016 · DTO Mapper 금지](./adr-016-dto-mapper-forbidden.md) — `AuthPort` 가 DTO 만 다루는 근거
+- [`ADR-005 · 단일 Postgres + 앱당 schema`](./adr-005-db-schema-isolation.md) — 앱 모듈이 자기 DataSource 를 주입받는 구조
+- [`ADR-006 · HS256 JWT`](./adr-006-hs256-jwt.md) — 엔드포인트가 발급/검증하는 JWT
+- [`ADR-012 · 앱별 독립 유저 모델`](./adr-012-per-app-user-model.md) — 엔드포인트 구조의 쌍둥이 결정
+- [`ADR-016 · DTO Mapper 금지`](./adr-016-dto-mapper-forbidden.md) — `AuthPort` 가 DTO 만 다루는 근거

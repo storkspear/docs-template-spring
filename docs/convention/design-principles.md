@@ -2,7 +2,7 @@
 
 > **유형**: Explanation · **독자**: Level 2 · **읽는 시간**: ~15분
 
-**설계 근거**: [ADR-011 (레이어드 + 포트/어댑터)](../philosophy/adr-011-layered-port-adapter.md) · [ADR-016 (DTO Mapper 금지)](../philosophy/adr-016-dto-mapper-forbidden.md)
+**설계 근거**: [`ADR-011 (레이어드 + 포트/어댑터)`](../philosophy/adr-011-layered-port-adapter.md) · [`ADR-016 (DTO Mapper 금지)`](../philosophy/adr-016-dto-mapper-forbidden.md)
 
 이 문서는 코드 작성 시 참조하는 **설계 원칙** 을 정리합니다.
 
@@ -491,8 +491,8 @@ public UserProfile findProfileById(Long id) {
 
 ## 관련 문서
 
-- [Naming Conventions](./naming.md) — 네이밍 규칙 (Design Principles 의 "일관된 표현" 구현)
-- [record vs class 선택 기준](./records-and-classes.md) — record vs class 선택 기준
-- [ADR-011 · 모듈 안 레이어드 아키텍처 + 포트/어댑터 패턴](../philosophy/adr-011-layered-port-adapter.md) — 포트/어댑터 패턴 채택 근거
-- [ADR-016 · DTO 변환은 Entity 메서드로 (Mapper 클래스 금지)](../philosophy/adr-016-dto-mapper-forbidden.md) — Mapper 금지 결정
-- [Testing Strategy](../production/test/testing-strategy.md) — TDD 실천 규약
+- [`Naming Conventions`](./naming.md) — 네이밍 규칙 (Design Principles 의 "일관된 표현" 구현)
+- [`record vs class 선택 기준`](./records-and-classes.md) — record vs class 선택 기준
+- [`ADR-011 · 모듈 안 레이어드 아키텍처 + 포트/어댑터 패턴`](../philosophy/adr-011-layered-port-adapter.md) — 포트/어댑터 패턴 채택 근거
+- [`ADR-016 · DTO 변환은 Entity 메서드로 (Mapper 클래스 금지)`](../philosophy/adr-016-dto-mapper-forbidden.md) — Mapper 금지 결정
+- [`Testing Strategy`](../production/test/testing-strategy.md) — TDD 실천 규약

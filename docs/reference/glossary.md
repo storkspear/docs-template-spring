@@ -24,13 +24,13 @@
 
 **ORM (Object-Relational Mapping)** — "객체와 관계형 DB 를 자동 연결" 하는 기술 전반.
 
-**QueryDsl** — 타입 세이프한 동적 쿼리 빌더. `select()·from()·where()` 를 Java 코드로 조립. SQL 오타가 **컴파일 타임에** 잡힘 ([ADR-010](../philosophy/adr-010-search-condition.md)).
+**QueryDsl** — 타입 세이프한 동적 쿼리 빌더. `select()·from()·where()` 를 Java 코드로 조립. SQL 오타가 **컴파일 타임에** 잡힘 ([`ADR-010`](../philosophy/adr-010-search-condition.md)).
 
 **Flyway** — DB 마이그레이션 도구. `V001__init_users.sql` 같은 파일을 **순서대로 한 번씩** 실행해서 스키마를 만들어감. 이미 실행한 건 기억해둠.
 
 **HikariCP** — DB 커넥션 풀. 매 요청마다 DB 연결을 새로 여는 건 느리니까 **미리 10 개 정도 열어두고 돌려씀**. 이 레포는 앱마다 독립 풀.
 
-**Schema** — 한 DB 안의 논리적 네임스페이스. `sumtally.users` 와 `rny.users` 는 같은 Postgres 안에 있지만 서로 별개 테이블 ([ADR-005](../philosophy/adr-005-db-schema-isolation.md)).
+**Schema** — 한 DB 안의 논리적 네임스페이스. `sumtally.users` 와 `rny.users` 는 같은 Postgres 안에 있지만 서로 별개 테이블 ([`ADR-005`](../philosophy/adr-005-db-schema-isolation.md)).
 
 **Role** — Postgres 의 사용자 계정. 이 레포에서는 앱마다 전용 role 을 만들어 "다른 앱 schema 접근 불가" 를 강제.
 
@@ -44,7 +44,7 @@
 
 **Bearer Token** — HTTP 헤더 포맷: `Authorization: Bearer <token>`. RFC 6750 표준.
 
-**HS256 vs RS256** — JWT 서명 알고리즘. HS256 은 **한 비밀키로 서명+검증** (대칭키). RS256 은 **개인키 서명 + 공개키 검증** (비대칭키). 이 레포는 HS256 ([ADR-006](../philosophy/adr-006-hs256-jwt.md)).
+**HS256 vs RS256** — JWT 서명 알고리즘. HS256 은 **한 비밀키로 서명+검증** (대칭키). RS256 은 **개인키 서명 + 공개키 검증** (비대칭키). 이 레포는 HS256 ([`ADR-006`](../philosophy/adr-006-hs256-jwt.md)).
 
 **BCrypt** — 비밀번호 해싱 알고리즘. 원본 비밀번호를 DB 에 저장하지 않고 해시만 저장.
 
@@ -70,17 +70,17 @@
 
 ## 아키텍처 용어
 
-**Modular Monolith** — "한 프로세스 안에 여러 모듈 공존 + 모듈 간 경계 강제". 마이크로서비스의 복잡함 없이 마이크로서비스의 이점 일부 얻기. 이 레포의 핵심 철학 ([ADR-001](../philosophy/adr-001-modular-monolith.md)).
+**Modular Monolith** — "한 프로세스 안에 여러 모듈 공존 + 모듈 간 경계 강제". 마이크로서비스의 복잡함 없이 마이크로서비스의 이점 일부 얻기. 이 레포의 핵심 철학 ([`ADR-001`](../philosophy/adr-001-modular-monolith.md)).
 
 **Microservice** — 앱을 작은 서비스 여러 개로 쪼개서 각자 배포/운영. 대규모 팀에 유리, 솔로에 과함.
 
-**Port / Adapter (Hexagonal Architecture)** — "비즈니스 로직(Port)" 과 "외부 연결(Adapter)" 분리. 이 레포의 `-api` vs `-impl` 구조 ([ADR-003](../philosophy/adr-003-api-impl-split.md), [ADR-011](../philosophy/adr-011-layered-port-adapter.md)).
+**Port / Adapter (Hexagonal Architecture)** — "비즈니스 로직(Port)" 과 "외부 연결(Adapter)" 분리. 이 레포의 `-api` vs `-impl` 구조 ([`ADR-003`](../philosophy/adr-003-api-impl-split.md), [`ADR-011`](../philosophy/adr-011-layered-port-adapter.md)).
 
-**ArchUnit** — 아키텍처 규칙을 **코드로 테스트** 하는 라이브러리. "core-api 는 JPA 의존 금지" 같은 걸 컴파일/테스트 레벨에서 강제 ([ADR-004](../philosophy/adr-004-gradle-archunit.md)).
+**ArchUnit** — 아키텍처 규칙을 **코드로 테스트** 하는 라이브러리. "core-api 는 JPA 의존 금지" 같은 걸 컴파일/테스트 레벨에서 강제 ([`ADR-004`](../philosophy/adr-004-gradle-archunit.md)).
 
 ## 개발 프로세스
 
-**Conventional Commits** — 커밋 메시지 포맷: `type(scope): subject`. 예: `feat(auth): add Apple Sign In`. 기계가 읽어서 릴리스 노트 자동 생성 가능 ([ADR-015](../philosophy/adr-015-conventional-commits-semver.md)).
+**Conventional Commits** — 커밋 메시지 포맷: `type(scope): subject`. 예: `feat(auth): add Apple Sign In`. 기계가 읽어서 릴리스 노트 자동 생성 가능 ([`ADR-015`](../philosophy/adr-015-conventional-commits-semver.md)).
 
 **SemVer (Semantic Versioning)** — 버전 번호 규칙: `MAJOR.MINOR.PATCH`. Breaking change → major, 기능 추가 → minor, 버그 수정 → patch.
 
@@ -106,5 +106,5 @@
 
 ## 다음
 
-- 여전히 감이 안 오는 용어가 있으면 [Repository Philosophy — 책 안내](../philosophy/README.md) 의 프롤로그부터 훑어보세요.
-- 실전 용어는 [Architecture Reference](../structure/architecture.md) 의 각 섹션에서 맥락과 함께 등장합니다.
+- 여전히 감이 안 오는 용어가 있으면 [`Repository Philosophy — 책 안내`](../philosophy/README.md) 의 프롤로그부터 훑어보세요.
+- 실전 용어는 [`Architecture Reference`](../structure/architecture.md) 의 각 섹션에서 맥락과 함께 등장합니다.

@@ -34,7 +34,7 @@ void signUp_delegatesToEmailAuthService() {
 
 즉 테스트가 **구현 내부 (how)** 에 결합됨. Kent Beck 의 "Tests should be about what, not how" 와 정면 충돌.
 
-또 다른 관점: [ADR-011 (레이어드 + 포트/어댑터)](./adr-011-layered-port-adapter.md) 의 핵심은 **"Port 가 계약, 내부는 자유"** 예요. delegation mock 테스트는 "내부 구조를 계약으로 굳혀버리는" 행위라 ADR-011 의 의도와 충돌.
+또 다른 관점: [`ADR-011 (레이어드 + 포트/어댑터)`](./adr-011-layered-port-adapter.md) 의 핵심은 **"Port 가 계약, 내부는 자유"** 예요. delegation mock 테스트는 "내부 구조를 계약으로 굳혀버리는" 행위라 ADR-011 의 의도와 충돌.
 
 이 결정이 답할 물음은 이거예요.
 
@@ -63,7 +63,7 @@ void signUp_callsEmailAuthService() {
   - **Port 패턴의 의도 훼손** — Port 의 계약이 아니라 구현 세부에 결합
   - **테스트가 "구현 복제"** — Controller 코드를 읽으면 테스트도 예측 가능. 가치가 얇음
   - 테스트 유지보수 비용이 높아 리팩토링을 **회피** 하게 됨 (테스트 고치기 귀찮아서 내부 구조 개선 포기)
-- **탈락 이유**: [ADR-011](./adr-011-layered-port-adapter.md) 의 "Port 는 계약" 과 정면 충돌. 테스트가 내부 구조 개선을 막는 안티패턴.
+- **탈락 이유**: [`ADR-011`](./adr-011-layered-port-adapter.md) 의 "Port 는 계약" 과 정면 충돌. 테스트가 내부 구조 개선을 막는 안티패턴.
 
 ### Option 2 — 모든 테스트를 Integration 으로 (Mockito 전면 금지)
 
@@ -98,7 +98,7 @@ Controller → Service → Repository → DB 전체 흐름을 매번 검증. `@S
   - 4층 구분의 학습 곡선 — 어떤 테스트를 어느 층에 둘지 판단 필요
   - Contract 테스트의 초기 설계 비용 (abstract 계약 + 구현별 구체 테스트)
 - **채택 이유**:
-  - [ADR-011 (Port/Adapter)](./adr-011-layered-port-adapter.md) 의 의도와 완전 정합
+  - [`ADR-011 (Port/Adapter)`](./adr-011-layered-port-adapter.md) 의 의도와 완전 정합
   - 리팩토링 안전망 + 회귀 방지 + 속도의 삼각 균형
   - 실제 적용 1년 경과 후 안정적 작동 확인
 
@@ -242,7 +242,7 @@ Contract (Port) 가 절반에 가까움. delegation mock 테스트 = 0.
 
 **Contract 테스트 설계의 초기 비용** — 첫 Port 의 Contract 테스트 fixture 를 설계할 때 "어떤 fake adapter 가 필요한가 · 어떤 fixture 가 공통인가" 를 신중히 결정 필요. 완화: 한 번 설계되면 다른 Port 에 재사용.
 
-**초기 학습 곡선** — "Mockito `verify()` 를 쓰지 마라" 는 Java 개발자에게 낯섦. 초기 멤버는 "그럼 어떻게 단위 테스트 쓰지?" 로 혼란. 완화: [계약 테스트 (Contract Testing)](../production/test/contract-testing.md) 에 FAQ 수준의 상세 가이드.
+**초기 학습 곡선** — "Mockito `verify()` 를 쓰지 마라" 는 Java 개발자에게 낯섦. 초기 멤버는 "그럼 어떻게 단위 테스트 쓰지?" 로 혼란. 완화: [`계약 테스트 (Contract Testing)`](../production/test/contract-testing.md) 에 FAQ 수준의 상세 가이드.
 
 ### 순수 알고리즘 단위 테스트는 **유지**
 
@@ -277,7 +277,7 @@ void issueAndValidate_happyPath() {
 - 리팩토링 시 "어떤 테스트가 깨질 수 있는가" 예측 가능
 - 중복 검증 방지 (같은 행위를 두 층에서 검증 안 함)
 
-**교훈**: 테스트 전략은 **코드 시작 전에** 선언해야 함. "우선 쓰고 나중에 정리" 는 누적된 혼란으로 귀결. 전략 문서 ([testing-strategy.md](../production/test/testing-strategy.md)) 가 코드만큼 중요.
+**교훈**: 테스트 전략은 **코드 시작 전에** 선언해야 함. "우선 쓰고 나중에 정리" 는 누적된 혼란으로 귀결. 전략 문서 ([`testing-strategy.md`](../production/test/testing-strategy.md)) 가 코드만큼 중요.
 
 ### Fake adapter 가 Mock 보다 강력함
 
@@ -335,13 +335,13 @@ void issueAndValidate_happyPath() {
 - [`core-auth-impl/test/AppleSignInServiceTest.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/test/java/com/factory/core/auth/impl/service/AppleSignInServiceTest.java) — Apple JWKS RSA 검증
 
 **전략 문서**:
-- [Testing Strategy](../production/test/testing-strategy.md) — 4층 전략 전체
-- [계약 테스트 (Contract Testing)](../production/test/contract-testing.md) — Port 계약 테스트 상세 + Mock 허용/금지 가이드
+- [`Testing Strategy`](../production/test/testing-strategy.md) — 4층 전략 전체
+- [`계약 테스트 (Contract Testing)`](../production/test/contract-testing.md) — Port 계약 테스트 상세 + Mock 허용/금지 가이드
 
 **부재 확인 (delegation mock 없음)**:
 - `grep -rE "verify\(.*\)\.[a-z]+\(" core/ common/` — delegation 검증 패턴 0건 (외부 시스템 verify 제외)
 - `@ExtendWith(MockitoExtension.class)` 사용처 — 30여 건, 모두 외부 시스템 격리 또는 순수 알고리즘 비결정 고정
 
 **관련 ADR**:
-- [ADR-003 · -api / -impl 분리](./adr-003-api-impl-split.md) — Port 가 계약 단위
-- [ADR-011 · 레이어드 + 포트/어댑터](./adr-011-layered-port-adapter.md) — Port 계약 의도
+- [`ADR-003 · -api / -impl 분리`](./adr-003-api-impl-split.md) — Port 가 계약 단위
+- [`ADR-011 · 레이어드 + 포트/어댑터`](./adr-011-layered-port-adapter.md) — Port 계약 의도

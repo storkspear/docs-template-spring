@@ -12,7 +12,7 @@ REST API 서버와 클라이언트를 떠올려보세요. 클라이언트는 **A
 
 ## 왜 이런 고민이 시작됐나?
 
-[ADR-001](./adr-001-modular-monolith.md) 에서 "특정 앱이 성공해서 마이크로서비스로 추출할 때 코드 변경 0 으로 가능하다" 고 약속했어요. 이 약속이 **실제로 지켜지려면** 지금 이 시점에서 구조적 장치가 있어야 합니다. 아무 장치 없이 써놓은 코드를 미래에 추출하려고 하면 수백 곳 리팩토링이 필요해요.
+[`ADR-001`](./adr-001-modular-monolith.md) 에서 "특정 앱이 성공해서 마이크로서비스로 추출할 때 코드 변경 0 으로 가능하다" 고 약속했어요. 이 약속이 **실제로 지켜지려면** 지금 이 시점에서 구조적 장치가 있어야 합니다. 아무 장치 없이 써놓은 코드를 미래에 추출하려고 하면 수백 곳 리팩토링이 필요해요.
 
 구체적인 물음은 이거예요.
 
@@ -61,7 +61,7 @@ public AuthResponse signup(SignUpRequest req) {
 
 - **장점**: 모듈 수 절반. 파일 덜 복잡.
 - **단점**: 앱이 의존 선언할 때 "인터페이스만 보기" 가 언어 레벨로 강제 안 됨. Java 는 public 클래스면 어디서든 import 가능. 앱이 실수로 `AuthServiceImpl` 을 import 해도 컴파일 성공.
-- **탈락 이유**: 추출 가능성 파괴. [ADR-001](./adr-001-modular-monolith.md) 의 약속을 지킬 수 없음.
+- **탈락 이유**: 추출 가능성 파괴. [`ADR-001`](./adr-001-modular-monolith.md) 의 약속을 지킬 수 없음.
 
 ### Option 2 — 런타임 전략 패턴 (Spring `@Qualifier`)
 
@@ -90,8 +90,8 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 - **앱 모듈**: `-api` 만 의존. `-impl` 은 ArchUnit 규칙 r6 이 금지.
 
 **장점**:
-- 컴파일 타임 강제 — `-impl` 의 클래스를 앱에서 import 시도하면 빌드 실패 ([ADR-001](./adr-001-modular-monolith.md) 의 1단계 방어).
-- 런타임 강제 — 바이트코드 스캔으로 reflection 우회도 차단 ([ADR-001](./adr-001-modular-monolith.md) 의 2단계 방어).
+- 컴파일 타임 강제 — `-impl` 의 클래스를 앱에서 import 시도하면 빌드 실패 ([`ADR-001`](./adr-001-modular-monolith.md) 의 1단계 방어).
+- 런타임 강제 — 바이트코드 스캔으로 reflection 우회도 차단 ([`ADR-001`](./adr-001-modular-monolith.md) 의 2단계 방어).
 - 미래 추출 시 `-api` 는 그대로, `-impl` 만 HTTP 클라이언트로 교체.
 
 **단점**:
@@ -182,7 +182,7 @@ public class ResendEmailAdapter implements EmailPort {
 
 ### 장치 3 — ArchUnit 9개 규칙이 `-api`/`-impl` 경계 강제
 
-[ADR-001](./adr-001-modular-monolith.md) 의 2단계 방어(ArchUnit 22규칙) 중 **9개가 이 결정과 직접 연관** 됩니다.
+[`ADR-001`](./adr-001-modular-monolith.md) 의 2단계 방어(ArchUnit 22규칙) 중 **9개가 이 결정과 직접 연관** 됩니다.
 
 | # | 규칙 | 막는 것 |
 |---|---|---|
@@ -277,7 +277,7 @@ references class <com.factory.core.user.impl.entity.User>
 
 ## 교훈
 
-**2026-04-20 — `core-auth-impl/controller/AuthController` 의 런타임 등록 해제 사건** ([ADR-001](./adr-001-modular-monolith.md) 과 연결).
+**2026-04-20 — `core-auth-impl/controller/AuthController` 의 런타임 등록 해제 사건** ([`ADR-001`](./adr-001-modular-monolith.md) 과 연결).
 
 이 분리 구조에서는 Controller 조차 **Port 의 사용자** 입니다. Controller 는 Port 를 주입받아 호출할 뿐 Port 를 구현하지 않아요. 그래서 Controller 가 `-impl` 에 있는 것 자체는 괜찮았는데, 문제는 **Controller 를 런타임에 어디서 등록할 것인가** 였어요.
 
