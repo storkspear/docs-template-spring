@@ -225,31 +225,119 @@ async function loadDoc(docPath) {
   }
 }
 
-// 문서 경로 → Lucide 아이콘 이름 매핑. 문서 성격에 맞는 아이콘 선택.
-const NAV_ICONS = [
-  { prefix: 'onboarding/',                 icon: 'compass' },         // Level 0 — 방향 잡기
-  { prefix: 'start/',                      icon: 'rocket' },          // Level 1 — 시작
-  { prefix: 'structure/',                  icon: 'layout-grid' },     // Level 2 — 구조
-  { prefix: 'philosophy/',                 icon: 'scroll-text' },     // Level 3 — ADR (결정 기록)
-  { prefix: 'convention/',                 icon: 'ruler' },           // 코딩 규약
-  { prefix: 'api-and-functional/api/',     icon: 'plug' },            // API 계약
-  { prefix: 'api-and-functional/functional/', icon: 'sparkles' },     // 기능
-  { prefix: 'production/deploy/',          icon: 'ship' },            // 배포
-  { prefix: 'production/setup/',           icon: 'wrench' },          // 설정 (How-to)
-  { prefix: 'production/test/',            icon: 'flask-conical' },   // 테스트
-  { prefix: 'reference/',                  icon: 'book-open' },       // 참고 자료
-  { prefix: 'planned/',                    icon: 'list-todo' },       // 예정 항목
-];
+// 문서별 Lucide 아이콘 + 색상. 각 문서 주제에 맞는 개별 아이콘.
+// 색상은 그룹 단위로 묶어서 시각적 그룹핑 유지.
+const NAV_ICON_BY_PATH = {
+  // ── Level 0: 입문 (초록 계열) ───────────────────────
+  'onboarding/README.md':              { icon: 'map',            color: '#22c55e' },  // 전체 지도
+  'onboarding/getting-started.md':     { icon: 'compass',        color: '#22c55e' },  // 방향 잡기
+  'onboarding/what-is-this.md':        { icon: 'circle-help',    color: '#22c55e' },  // "이게 뭐야?"
+  'onboarding/five-minute-tour.md':    { icon: 'timer',          color: '#22c55e' },  // 5분
+  'onboarding/first-run.md':           { icon: 'play',           color: '#22c55e' },  // 첫 실행
+  'onboarding/first-change.md':        { icon: 'pencil-line',    color: '#22c55e' },  // 첫 수정
+  'onboarding/first-deploy.md':        { icon: 'rocket',         color: '#22c55e' },  // 첫 배포
+
+  // ── Level 1: 시작 (파랑 계열) ───────────────────────
+  'start/onboarding.md':               { icon: 'user-plus',      color: '#3b82f6' },  // 신규 개발자
+  'start/social-auth-setup.md':        { icon: 'key-round',      color: '#3b82f6' },  // OAuth 키
+  'start/app-scaffolding.md':          { icon: 'package-plus',   color: '#3b82f6' },  // 앱 생성
+  'start/dogfood-setup.md':            { icon: 'dog',            color: '#3b82f6' },  // 도그푸드
+  'start/dogfood-faq.md':              { icon: 'message-circle-question', color: '#3b82f6' },
+  'start/dogfood-pitfalls.md':         { icon: 'triangle-alert', color: '#3b82f6' },  // 함정
+  'start/cross-repo-cherry-pick.md':   { icon: 'cherry',         color: '#3b82f6' },  // cherry-pick
+
+  // ── Level 2: 구조 (보라 계열) ───────────────────────
+  'structure/architecture.md':             { icon: 'building-2',     color: '#a855f7' },  // 건축
+  'structure/module-dependencies.md':      { icon: 'network',        color: '#a855f7' },  // 의존 그래프
+  'structure/architecture-rules.md':       { icon: 'shield-check',   color: '#a855f7' },  // ArchUnit 규칙
+  'structure/multitenant-architecture.md': { icon: 'users-round',    color: '#a855f7' },  // 다중 테넌트
+  'structure/jwt-authentication.md':       { icon: 'lock-keyhole',   color: '#a855f7' },  // 인증
+
+  // ── Level 3: 철학 ADR (호박 계열) ────────────────────
+  'philosophy/README.md':                              { icon: 'book-open-text',      color: '#f59e0b' },
+  // 모듈 설계
+  'philosophy/adr-001-modular-monolith.md':            { icon: 'box',                 color: '#f59e0b' },
+  'philosophy/adr-002-use-this-template.md':           { icon: 'copy-plus',           color: '#f59e0b' },
+  'philosophy/adr-003-api-impl-split.md':              { icon: 'split',               color: '#f59e0b' },
+  'philosophy/adr-004-gradle-archunit.md':             { icon: 'shield',              color: '#f59e0b' },
+  // 데이터 & 인증
+  'philosophy/adr-005-db-schema-isolation.md':         { icon: 'database',            color: '#f59e0b' },
+  'philosophy/adr-006-hs256-jwt.md':                   { icon: 'key-square',          color: '#f59e0b' },
+  'philosophy/adr-012-per-app-user-model.md':          { icon: 'user-cog',            color: '#f59e0b' },
+  'philosophy/adr-013-per-app-auth-endpoints.md':      { icon: 'fingerprint',         color: '#f59e0b' },
+  // 운영 철학
+  'philosophy/adr-007-solo-friendly-operations.md':    { icon: 'user-round',          color: '#f59e0b' },
+  'philosophy/adr-008-no-api-versioning.md':           { icon: 'minus-circle',        color: '#f59e0b' },
+  // 엔티티 & 쿼리
+  'philosophy/adr-009-base-entity.md':                 { icon: 'layers',              color: '#f59e0b' },
+  'philosophy/adr-010-search-condition.md':            { icon: 'search',              color: '#f59e0b' },
+  // 레이어 설계
+  'philosophy/adr-011-layered-port-adapter.md':        { icon: 'layers-3',            color: '#f59e0b' },
+  // 테스트 & 배포
+  'philosophy/adr-014-no-delegation-mock.md':          { icon: 'ban',                 color: '#f59e0b' },
+  'philosophy/adr-015-conventional-commits-semver.md': { icon: 'git-commit-horizontal',color: '#f59e0b' },
+  'philosophy/adr-016-dto-mapper-forbidden.md':        { icon: 'unplug',              color: '#f59e0b' },
+
+  // ── Convention (인디고 계열) ─────────────────────────
+  'convention/README.md':              { icon: 'list-ordered',     color: '#6366f1' },
+  'convention/design-principles.md':   { icon: 'diamond',          color: '#6366f1' },  // SOLID
+  'convention/naming.md':              { icon: 'tag',              color: '#6366f1' },
+  'convention/records-and-classes.md': { icon: 'file-code',        color: '#6366f1' },
+  'convention/dto-factory.md':         { icon: 'factory',          color: '#6366f1' },
+  'convention/exception-handling.md':  { icon: 'octagon-alert',    color: '#6366f1' },
+  'convention/git-workflow.md':        { icon: 'git-branch',       color: '#6366f1' },
+
+  // ── API (청록 계열) ──────────────────────────────────
+  'api-and-functional/api/api-response.md':               { icon: 'reply',       color: '#06b6d4' },
+  'api-and-functional/api/json-contract.md':              { icon: 'braces',      color: '#06b6d4' },  // JSON
+  'api-and-functional/api/versioning.md':                 { icon: 'git-compare', color: '#06b6d4' },
+  'api-and-functional/api/flutter-backend-integration.md':{ icon: 'smartphone',  color: '#06b6d4' },
+
+  // ── Functional (분홍 계열) ───────────────────────────
+  'api-and-functional/functional/push-notifications.md': { icon: 'bell',             color: '#ec4899' },
+  'api-and-functional/functional/email-verification.md': { icon: 'mail-check',       color: '#ec4899' },
+  'api-and-functional/functional/storage.md':            { icon: 'hard-drive',       color: '#ec4899' },
+  'api-and-functional/functional/migration.md':          { icon: 'database-backup',  color: '#ec4899' },
+  'api-and-functional/functional/seed-data-management.md':{ icon: 'sprout',          color: '#ec4899' },
+  'api-and-functional/functional/rate-limiting.md':      { icon: 'gauge',            color: '#ec4899' },
+  'api-and-functional/functional/observability.md':      { icon: 'activity',         color: '#ec4899' },
+
+  // ── Production: Deploy (주황 계열) ───────────────────
+  'production/deploy/infrastructure.md':  { icon: 'server',         color: '#f97316' },
+  'production/deploy/decisions-infra.md': { icon: 'clipboard-list', color: '#f97316' },
+  'production/deploy/ci-cd-flow.md':      { icon: 'workflow',       color: '#f97316' },
+  'production/deploy/deployment.md':      { icon: 'cloud-upload',   color: '#f97316' },
+  'production/deploy/runbook.md':         { icon: 'book-marked',    color: '#f97316' },
+
+  // ── Production: Setup (슬레이트 계열) ────────────────
+  'production/setup/key-rotation.md':     { icon: 'refresh-cw',     color: '#64748b' },
+  'production/setup/mac-mini-setup.md':   { icon: 'monitor',        color: '#64748b' },
+  'production/setup/monitoring-setup.md': { icon: 'chart-line',     color: '#64748b' },
+  'production/setup/storage-setup.md':    { icon: 'hard-drive-download', color: '#64748b' },
+
+  // ── Production: Test (에메랄드 계열) ─────────────────
+  'production/test/testing-strategy.md':  { icon: 'flask-conical',  color: '#10b981' },
+  'production/test/contract-testing.md':  { icon: 'file-check',     color: '#10b981' },
+
+  // ── Reference (앰버 계열) ────────────────────────────
+  'reference/glossary.md':    { icon: 'book-a',          color: '#eab308' },  // 사전 (abc)
+  'reference/environment.md': { icon: 'package',         color: '#eab308' },  // 패키지 인벤토리
+  'reference/edge-cases.md':  { icon: 'octagon-alert',   color: '#eab308' },
+  'reference/STYLE_GUIDE.md': { icon: 'pen-tool',        color: '#eab308' },
+
+  // ── Planned (로즈 계열) ──────────────────────────────
+  'planned/backlog.md': { icon: 'list-todo', color: '#f43f5e' },
+};
 
 function iconFor(path) {
   if (!path) return null;
-  const hit = NAV_ICONS.find(e => path.startsWith(e.prefix));
-  return hit ? hit.icon : 'file-text';
+  return NAV_ICON_BY_PATH[path] || { icon: 'file-text', color: '#9ca3af' };
 }
 
 function iconHTML(path) {
-  const name = iconFor(path);
-  return name ? `<i class="nav-icon" data-lucide="${name}"></i>` : '<span class="nav-icon-placeholder"></span>';
+  const hit = iconFor(path);
+  if (!hit) return '<span class="nav-icon-placeholder"></span>';
+  return `<i class="nav-icon" data-lucide="${hit.icon}" style="color:${hit.color}"></i>`;
 }
 
 function buildSidebar(manifest) {
