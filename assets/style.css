@@ -132,6 +132,28 @@ body.sidebar-collapsed .sidebar-open-btn { display: flex; }
   margin-bottom: 2px;
 }
 .nav-item .dot { margin-top: 5px; flex-shrink: 0; }
+.nav-item .nav-icon,
+.nav-item .nav-icon-placeholder {
+  width: 16px; height: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: #6b7280;
+  stroke-width: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-item .nav-icon svg { width: 16px; height: 16px; }
+.nav-item:hover .nav-icon { color: #a5b4fc; }
+.nav-item.active .nav-icon { color: var(--accent); }
+.nav-item-child .nav-icon,
+.nav-item-child .nav-icon-placeholder {
+  width: 14px; height: 14px;
+  margin-top: 3px;
+  color: #4b5563;
+}
+.nav-item-child .nav-icon svg { width: 14px; height: 14px; }
+.nav-item-child.active .nav-icon { color: var(--accent); }
 .nav-item-inner {
   display: flex;
   flex-direction: column;

@@ -225,6 +225,33 @@ async function loadDoc(docPath) {
   }
 }
 
+// 문서 경로 → Lucide 아이콘 이름 매핑. 문서 성격에 맞는 아이콘 선택.
+const NAV_ICONS = [
+  { prefix: 'onboarding/',                 icon: 'compass' },         // Level 0 — 방향 잡기
+  { prefix: 'start/',                      icon: 'rocket' },          // Level 1 — 시작
+  { prefix: 'structure/',                  icon: 'layout-grid' },     // Level 2 — 구조
+  { prefix: 'philosophy/',                 icon: 'scroll-text' },     // Level 3 — ADR (결정 기록)
+  { prefix: 'convention/',                 icon: 'ruler' },           // 코딩 규약
+  { prefix: 'api-and-functional/api/',     icon: 'plug' },            // API 계약
+  { prefix: 'api-and-functional/functional/', icon: 'sparkles' },     // 기능
+  { prefix: 'production/deploy/',          icon: 'ship' },            // 배포
+  { prefix: 'production/setup/',           icon: 'wrench' },          // 설정 (How-to)
+  { prefix: 'production/test/',            icon: 'flask-conical' },   // 테스트
+  { prefix: 'reference/',                  icon: 'book-open' },       // 참고 자료
+  { prefix: 'planned/',                    icon: 'list-todo' },       // 예정 항목
+];
+
+function iconFor(path) {
+  if (!path) return null;
+  const hit = NAV_ICONS.find(e => path.startsWith(e.prefix));
+  return hit ? hit.icon : 'file-text';
+}
+
+function iconHTML(path) {
+  const name = iconFor(path);
+  return name ? `<i class="nav-icon" data-lucide="${name}"></i>` : '<span class="nav-icon-placeholder"></span>';
+}
+
 function buildSidebar(manifest) {
   const sidebar = document.querySelector('.sidebar');
 
@@ -255,7 +282,7 @@ function buildSidebar(manifest) {
         a.className = 'nav-item';
         a.dataset.doc = file.path;
         const descHtml = file.desc ? `<span class="nav-item-desc">${file.desc}</span>` : '';
-        a.innerHTML = `<span class="dot"></span><span class="nav-item-inner"><span class="nav-item-title">${file.title}</span>${descHtml}</span>`;
+        a.innerHTML = `${iconHTML(file.path)}<span class="nav-item-inner"><span class="nav-item-title">${file.title}</span>${descHtml}</span>`;
         sidebar.appendChild(a);
       } else {
         // 경로 없는 서브카테고리 헤더 (비클릭, 순수 레이블)
@@ -273,7 +300,7 @@ function buildSidebar(manifest) {
           ca.className = isSubcategory ? 'nav-item' : 'nav-item nav-item-child';
           ca.dataset.doc = child.path;
           const childDescHtml = child.desc ? `<span class="nav-item-desc">${child.desc}</span>` : '';
-          ca.innerHTML = `<span class="dot"></span><span class="nav-item-inner"><span class="nav-item-title">${child.title}</span>${childDescHtml}</span>`;
+          ca.innerHTML = `${iconHTML(child.path)}<span class="nav-item-inner"><span class="nav-item-title">${child.title}</span>${childDescHtml}</span>`;
           sidebar.appendChild(ca);
         });
       }
@@ -284,6 +311,11 @@ function buildSidebar(manifest) {
     const item = e.target.closest('.nav-item');
     if (item && item.dataset.doc) loadDoc(item.dataset.doc);
   });
+
+  // Lucide 아이콘 렌더링 (data-lucide 속성을 실제 SVG 로 치환)
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
 }
 
 async function init() {
