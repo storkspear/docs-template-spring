@@ -23,7 +23,7 @@
 
 | 영역 | 기술 | 근거 ADR |
 |---|---|---|
-| 언어/런타임 | Java 21, Spring Boot 3.3.x (LTS) | — |
+| 언어/런타임 | Java 21, Spring Boot 3.5.13 | — |
 | 빌드 | Gradle 8.x 멀티모듈 + convention plugins | [`ADR-004`](../philosophy/adr-004-gradle-archunit.md) |
 | 데이터 액세스 | Spring Data JPA / Hibernate + QueryDsl 5.1.0 (Jakarta) | [`ADR-009`](../philosophy/adr-009-base-entity.md), [`ADR-010`](../philosophy/adr-010-search-condition.md) |
 | DB | PostgreSQL 16 (로컬 Docker / 운영 Supabase Seoul) | [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) |
