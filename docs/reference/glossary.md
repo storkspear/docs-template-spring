@@ -103,8 +103,3 @@
 **도그푸딩 (dogfooding)** — "자기 제품을 자기가 써보기". 이 레포는 템플릿 자체를 실제 프로젝트로 돌려서 작동 검증.
 
 **template-v* 태그** — 템플릿 레포의 버전 태그. 예: `template-v0.3.0`. 파생 레포는 "v0.3.0 기반" 이라고 단일 버전으로 추적.
-
-## 다음
-
-- 여전히 감이 안 오는 용어가 있으면 [`Repository Philosophy — 책 안내`](../philosophy/README.md) 의 프롤로그부터 훑어보세요.
-- 실전 용어는 [`Architecture Reference`](../structure/architecture.md) 의 각 섹션에서 맥락과 함께 등장합니다.
