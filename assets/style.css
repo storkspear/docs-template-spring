@@ -132,10 +132,13 @@ body.sidebar-collapsed .sidebar-open-btn { display: flex; }
   margin-bottom: 2px;
 }
 .nav-item .dot { margin-top: 5px; flex-shrink: 0; }
+/* 아이콘: 타이틀 첫 줄의 line-box 중앙에 맞춤.
+   title: 16px / line-height 1.4 = 22.4px → center at 11.2px
+   icon 16px → margin-top = (22.4 - 16) / 2 ≈ 3px */
 .nav-item .nav-icon,
 .nav-item .nav-icon-placeholder {
   width: 16px; height: 16px;
-  margin-top: 2px;
+  margin-top: 3px;
   flex-shrink: 0;
   color: #6b7280;
   stroke-width: 2;
@@ -143,16 +146,18 @@ body.sidebar-collapsed .sidebar-open-btn { display: flex; }
   align-items: center;
   justify-content: center;
 }
-.nav-item .nav-icon svg { width: 16px; height: 16px; }
+.nav-item .nav-icon svg { width: 16px; height: 16px; display: block; }
 .nav-item:hover .nav-icon { color: #a5b4fc; }
 .nav-item.active .nav-icon { color: var(--accent); }
+/* child: 12px / 1.4 = 16.8px → center at 8.4px
+   icon 14px → margin-top = (16.8 - 14) / 2 ≈ 1px */
 .nav-item-child .nav-icon,
 .nav-item-child .nav-icon-placeholder {
   width: 14px; height: 14px;
-  margin-top: 3px;
+  margin-top: 1px;
   color: #4b5563;
 }
-.nav-item-child .nav-icon svg { width: 14px; height: 14px; }
+.nav-item-child .nav-icon svg { width: 14px; height: 14px; display: block; }
 .nav-item-child.active .nav-icon { color: var(--accent); }
 .nav-item-inner {
   display: flex;
