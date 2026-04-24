@@ -158,6 +158,9 @@ body.sidebar-collapsed .sidebar-open-btn { display: flex; }
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+  /* Noto Sans KR 글리프 시각중심은 line-box center 에서 ~1.5px 아래로 치우쳐 있음.
+     SVG 에만 translateY 적용 (wrapper line-box 는 건드리지 않아 구조 안정). */
+  transform: translateY(1.5px);
 }
 .nav-item:hover .nav-icon { color: #a5b4fc; }
 .nav-item.active .nav-icon { color: var(--accent); }
@@ -176,6 +179,7 @@ body.sidebar-collapsed .sidebar-open-btn { display: flex; }
   width: 14px;
   height: 14px;
   display: block;
+  transform: translateY(1.5px);
 }
 .nav-item-child.active .nav-icon { color: var(--accent); }
 .nav-item-inner {
