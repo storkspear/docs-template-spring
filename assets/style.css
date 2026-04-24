@@ -133,53 +133,42 @@ body.sidebar-collapsed .sidebar-open-btn { display: flex; }
 }
 .nav-item .dot { margin-top: 5px; flex-shrink: 0; }
 
-/* 아이콘 wrapper 를 title 의 line-box (16px × 1.4 = 22.4px) 와 동일하게 잡아서
-   align-items: flex-start 에서 wrapper top-edge 와 title top-edge 가 정확히 일치.
-   그 안에서 SVG 를 align-items: center 로 line-box 중앙에 놓으면,
-   브라우저가 폰트 메트릭(Noto Sans KR ascent-heavy)을 기반으로 계산한
-   글리프 시각 중앙과 같은 좌표에 아이콘이 떨어짐 → margin-top 불필요. */
-.nav-item .nav-icon,
-.nav-item .nav-icon-placeholder {
+/* Lucide 는 <i data-lucide> 를 <svg> 로 교체하므로, 바깥 <span class="nav-icon-wrap"> 를
+   안정적인 wrapper 로 사용. wrapper 에 title 의 line-box (16px × 1.4 = 22.4px)
+   동일한 height 를 주면 align-items: flex-start 에서 top-edge 가 정확히 일치.
+   그 안에서 svg 를 flex-center 하되, Noto Sans KR 글리프 시각중심이 line-box
+   중심에서 ~1.5px 아래에 있으므로 svg 에 translateY(1.5px) 로 보정. */
+.nav-item .nav-icon-wrap {
   width: 16px;
   height: 1.4em;
   font-size: 16px;          /* .nav-item 의 13px 상속 차단 — title 과 같은 font-size */
   line-height: 1.4;
   flex-shrink: 0;
-  color: #6b7280;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.nav-item .nav-icon svg,
-.nav-item .nav-icon-placeholder svg {
+.nav-item .nav-icon {
   width: 16px;
   height: 16px;
   display: block;
+  color: #6b7280;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  /* Noto Sans KR 글리프 시각중심은 line-box center 에서 ~1.5px 아래로 치우쳐 있음.
-     SVG 에만 translateY 적용 (wrapper line-box 는 건드리지 않아 구조 안정). */
   transform: translateY(1.5px);
 }
 .nav-item:hover .nav-icon { color: #a5b4fc; }
 .nav-item.active .nav-icon { color: var(--accent); }
 
-/* child: title font-size 는 override 없이 16px 유지 → wrapper line-box 도 동일하게 22.4px.
-   아이콘만 14px 로 축소. */
-.nav-item-child .nav-icon,
-.nav-item-child .nav-icon-placeholder {
+/* child: title font-size 16px 유지 → wrapper line-box 도 22.4px 동일. 아이콘만 14px. */
+.nav-item-child .nav-icon-wrap {
   width: 14px;
-  height: 1.4em;
-  font-size: 16px;
-  color: #4b5563;
 }
-.nav-item-child .nav-icon svg,
-.nav-item-child .nav-icon-placeholder svg {
+.nav-item-child .nav-icon {
   width: 14px;
   height: 14px;
-  display: block;
-  transform: translateY(1.5px);
+  color: #4b5563;
 }
 .nav-item-child.active .nav-icon { color: var(--accent); }
 .nav-item-inner {

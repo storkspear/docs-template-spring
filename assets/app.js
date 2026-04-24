@@ -336,8 +336,10 @@ function iconFor(path) {
 
 function iconHTML(path) {
   const hit = iconFor(path);
-  if (!hit) return '<span class="nav-icon-placeholder"></span>';
-  return `<i class="nav-icon" data-lucide="${hit.icon}" style="color:${hit.color}"></i>`;
+  if (!hit) return '<span class="nav-icon-wrap"></span>';
+  // Lucide 가 <i> 를 <svg> 로 교체하므로 외부에 <span class="nav-icon-wrap"> 로
+  // 안정적인 wrapper 를 둠. CSS 는 wrapper 에 레이아웃, svg 에 사이즈/색상/transform.
+  return `<span class="nav-icon-wrap"><i class="nav-icon" data-lucide="${hit.icon}" style="color:${hit.color}"></i></span>`;
 }
 
 function buildSidebar(manifest) {
