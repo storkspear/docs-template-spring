@@ -136,6 +136,7 @@
       "name": "Reference",
       "files": [
         { "path": "reference/glossary.md",               "title": "용어 사전",            "desc": "Spring · JPA · Docker · JWT · Kamal 등 전반 용어 풀이" },
+        { "path": "reference/environment.md",            "title": "Environment",          "desc": "프레임워크 · 라이브러리 · 외부 서비스 인벤토리 (버전 포함)" },
         { "path": "reference/edge-cases.md",                      "title": "Edge Cases",           "desc": "엣지 케이스 및 예외 처리 기록" },
         { "path": "reference/STYLE_GUIDE.md",                           "title": "Documentation Style Guide", "desc": "저자용 · 5 유형 템플릿 · ADR 규격 · 검증 체크리스트" }
       ]
