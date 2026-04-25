@@ -22,6 +22,7 @@
 - [`DTO 팩토리 컨벤션`](./dto-factory.md) — DTO 팩토리 패턴 (from/of/with) · Entity `to<Dto>()` 패턴
 - [`Exception Handling Convention`](./exception-handling.md) — 예외 계층 · ErrorCode enum · HTTP 매핑
 - [`Git 워크플로우 (Git Workflow)`](./git-workflow.md) — 브랜치 · 커밋 규약 · Merge 전략 · Conventional Commits
+- [`Code Comments Convention`](./code-comments.md) — Javadoc + 인라인 작성 규약 (적는다/안 적는다 · 형식 · 우선순위)
 
 ---
 

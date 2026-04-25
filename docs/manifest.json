@@ -87,7 +87,8 @@
         { "path": "convention/records-and-classes.md",       "title": "Records & Classes",    "desc": "Record vs Class 사용 기준" },
         { "path": "convention/dto-factory.md",               "title": "DTO Factory",          "desc": "DTO 생성 패턴" },
         { "path": "convention/exception-handling.md",        "title": "Exception Handling",   "desc": "예외 처리 표준" },
-        { "path": "convention/git-workflow.md",              "title": "Git Workflow",         "desc": "브랜치 전략 및 커밋 규칙" }
+        { "path": "convention/git-workflow.md",              "title": "Git Workflow",         "desc": "브랜치 전략 및 커밋 규칙" },
+        { "path": "convention/code-comments.md",             "title": "Code Comments",        "desc": "Javadoc + 인라인 주석 작성 규약" }
       ]
     },
     {
