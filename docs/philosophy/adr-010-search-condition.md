@@ -322,15 +322,15 @@ Option 2 (Spring Data Specifications) 를 버리고 커스텀 빌더를 만든 �
 ## Code References
 
 **순수 Java DTO** (`common-web/search/`):
-- [`PageListRequest.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-web/src/main/java/com/factory/common/web/search/PageListRequest.java)
-- [`PageListResponse.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-web/src/main/java/com/factory/common/web/search/PageListResponse.java)
-- [`PageListResult.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-web/src/main/java/com/factory/common/web/search/PageListResult.java)
-- [`SortOrder.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-web/src/main/java/com/factory/common/web/search/SortOrder.java)
-- [`SortFieldMapper.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-web/src/main/java/com/factory/common/web/search/SortFieldMapper.java)
-- [`PageListQuery.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-web/src/main/java/com/factory/common/web/search/PageListQuery.java)
+- [`PageListRequest.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/search/PageListRequest.java)
+- [`PageListResponse.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/search/PageListResponse.java)
+- [`PageListResult.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/search/PageListResult.java)
+- [`SortOrder.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/search/SortOrder.java)
+- [`SortFieldMapper.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/search/SortFieldMapper.java)
+- [`PageListQuery.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/search/PageListQuery.java)
 
 **QueryDsl 변환** (`common-persistence/`):
-- [`QueryDslPredicateBuilder.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-persistence/src/main/java/com/factory/common/persistence/QueryDslPredicateBuilder.java) — 78줄, 8개 연산자
-- [`QueryDslSortBuilder.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-persistence/src/main/java/com/factory/common/persistence/QueryDslSortBuilder.java)
-- [`QueryDslAutoConfiguration.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-persistence/src/main/java/com/factory/common/persistence/QueryDslAutoConfiguration.java)
-- [`QueryUtil.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-persistence/src/main/java/com/factory/common/persistence/QueryUtil.java)
+- [`QueryDslPredicateBuilder.java`](https://github.com/storkspear/template-spring/blob/main/common/common-persistence/src/main/java/com/factory/common/persistence/QueryDslPredicateBuilder.java) — 78줄, 8개 연산자
+- [`QueryDslSortBuilder.java`](https://github.com/storkspear/template-spring/blob/main/common/common-persistence/src/main/java/com/factory/common/persistence/QueryDslSortBuilder.java)
+- [`QueryDslAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/common/common-persistence/src/main/java/com/factory/common/persistence/QueryDslAutoConfiguration.java)
+- [`QueryUtil.java`](https://github.com/storkspear/template-spring/blob/main/common/common-persistence/src/main/java/com/factory/common/persistence/QueryUtil.java)

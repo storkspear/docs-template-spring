@@ -357,20 +357,20 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 ## Code References
 
 **엔드포인트 경로 정의**:
-- [`common/common-web/ApiEndpoints.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) — `APP_BASE`, `Auth.BASE`, 11개 경로 상수 + `PUBLIC_PATTERNS`
+- [`common/common-web/ApiEndpoints.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) — `APP_BASE`, `Auth.BASE`, 11개 경로 상수 + `PUBLIC_PATTERNS`
 
 **Port + Service**:
-- [`core-auth-api/AuthPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 11개 메서드 인터페이스
-- [`core-auth-impl/AuthServiceImpl.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java) — 9개 서비스 위임, `@Transactional`
-- [`core-auth-impl/AuthAutoConfiguration.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — bean 등록 (Controller 는 import **안 함**)
+- [`core-auth-api/AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 11개 메서드 인터페이스
+- [`core-auth-impl/AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java) — 9개 서비스 위임, `@Transactional`
+- [`core-auth-impl/AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — bean 등록 (Controller 는 import **안 함**)
 
 **Controller (레퍼런스 + 앱별)**:
-- [`core-auth-impl/controller/AuthController.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — 레퍼런스 소스, 런타임 미등록
-- [`tools/new-app/new-app.sh` L296-430](https://github.com/storkspear/spring-backend-template/blob/main/tools/new-app/new-app.sh#L296-L430) — `<Slug>AuthController` 자동 생성
+- [`core-auth-impl/controller/AuthController.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — 레퍼런스 소스, 런타임 미등록
+- [`tools/new-app/new-app.sh` L296-430](https://github.com/storkspear/template-spring/blob/main/tools/new-app/new-app.sh#L296-L430) — `<Slug>AuthController` 자동 생성
 
 **경계 강제**:
-- [`common-security/AppSlugVerificationFilter.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-security/src/main/java/com/factory/common/security/AppSlugVerificationFilter.java) — URL slug vs JWT appSlug 일치 검증 (403)
-- [`common-testing/architecture/ArchitectureRules.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r13 (Controller 위치 규칙)
+- [`common-security/AppSlugVerificationFilter.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/AppSlugVerificationFilter.java) — URL slug vs JWT appSlug 일치 검증 (403)
+- [`common-testing/architecture/ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r13 (Controller 위치 규칙)
 
 **관련 ADR**:
 - [ADR-003 · `-api` / `-impl` 분리](./adr-003-api-impl-split.md) — `AuthPort` 가 `core-auth-api` 에 위치하는 근거

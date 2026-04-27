@@ -1,6 +1,6 @@
 # 모듈 의존 규칙 (Module Dependencies)
 
-이 문서는 `spring-backend-template` 의 **모듈 간 의존 허용 매트릭스** 와 강제 메커니즘을 정의합니다.
+이 문서는 `template-spring` 의 **모듈 간 의존 허용 매트릭스** 와 강제 메커니즘을 정의합니다.
 
 ---
 

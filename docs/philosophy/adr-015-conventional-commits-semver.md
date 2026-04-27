@@ -380,27 +380,27 @@ r20 이 빌드 실패로 강제하므로:
 ## Code References
 
 **commitlint / 커밋 검증**:
-- [`commitlint.config.mjs`](https://github.com/storkspear/spring-backend-template/blob/main/commitlint.config.mjs) — 10 type + 15 scope + 72자 제한
-- [`.husky/commit-msg`](https://github.com/storkspear/spring-backend-template/blob/main/.husky/commit-msg) — AI coauthor 차단 + commitlint 실행
-- [`package.json`](https://github.com/storkspear/spring-backend-template/blob/main/package.json) — commitlint 19 · husky 9 · commitizen 4.3
+- [`commitlint.config.mjs`](https://github.com/storkspear/template-spring/blob/main/commitlint.config.mjs) — 10 type + 15 scope + 72자 제한
+- [`.husky/commit-msg`](https://github.com/storkspear/template-spring/blob/main/.husky/commit-msg) — AI coauthor 차단 + commitlint 실행
+- [`package.json`](https://github.com/storkspear/template-spring/blob/main/package.json) — commitlint 19 · husky 9 · commitizen 4.3
 
 **CI 검증 워크플로**:
-- [`.github/workflows/commit-lint.yml`](https://github.com/storkspear/spring-backend-template/blob/main/.github/workflows/commit-lint.yml) — PR 커밋 포맷 재검증
-- [`.github/workflows/pr-title.yml`](https://github.com/storkspear/spring-backend-template/blob/main/.github/workflows/pr-title.yml) — PR 제목 포맷
-- [`.github/workflows/changelog-check.yml`](https://github.com/storkspear/spring-backend-template/blob/main/.github/workflows/changelog-check.yml) — CHANGELOG 업데이트 여부
-- [`.github/workflows/release.yml`](https://github.com/storkspear/spring-backend-template/blob/main/.github/workflows/release.yml) — tag → GitHub Release 자동 생성
+- [`.github/workflows/commit-lint.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/commit-lint.yml) — PR 커밋 포맷 재검증
+- [`.github/workflows/pr-title.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/pr-title.yml) — PR 제목 포맷
+- [`.github/workflows/changelog-check.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/changelog-check.yml) — CHANGELOG 업데이트 여부
+- [`.github/workflows/release.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/release.yml) — tag → GitHub Release 자동 생성
 
 **CHANGELOG / 버저닝**:
-- [`CHANGELOG.md`](https://github.com/storkspear/spring-backend-template/blob/main/CHANGELOG.md) — Keep a Changelog 포맷, [Unreleased] 유지
+- [`CHANGELOG.md`](https://github.com/storkspear/template-spring/blob/main/CHANGELOG.md) — Keep a Changelog 포맷, [Unreleased] 유지
 - [`버전 규약 & Deprecation 프로세스`](../api-and-functional/api/versioning.md) — template-v* 태그 + Deprecation 상세
 - [`Git 워크플로우 (Git Workflow)`](../convention/git-workflow.md) — 브랜치 + 커밋 규칙 통합 가이드
 
 **Deprecation 강제**:
-- [`common-testing/architecture/ArchitectureRules.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r20 규칙 정의
-- [`bootstrap/test/BootstrapArchitectureTest.java`](https://github.com/storkspear/spring-backend-template/blob/main/bootstrap/src/test/java/com/factory/bootstrap/BootstrapArchitectureTest.java) — r20 ArchTest 바인딩
+- [`common-testing/architecture/ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r20 규칙 정의
+- [`bootstrap/test/BootstrapArchitectureTest.java`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/test/java/com/factory/bootstrap/BootstrapArchitectureTest.java) — r20 ArchTest 바인딩
 
 **개발자 편의**:
-- [`.gitmessage`](https://github.com/storkspear/spring-backend-template/blob/main/.gitmessage) — 커밋 템플릿 (Commitizen 없이도 가이드)
+- [`.gitmessage`](https://github.com/storkspear/template-spring/blob/main/.gitmessage) — 커밋 템플릿 (Commitizen 없이도 가이드)
 
 **관련 ADR**:
 - [`ADR-002 · Use this template`](./adr-002-use-this-template.md) — 본 ADR 이 해결하는 근본 문제 (파생 레포 cherry-pick)

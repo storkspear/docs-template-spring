@@ -1,6 +1,6 @@
 # Architecture Reference
 
-이 문서는 `spring-backend-template` 의 **실제 구조** 를 설명합니다. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 16 개 ADR 에 기록되어 있습니다.
+이 문서는 `template-spring` 의 **실제 구조** 를 설명합니다. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 16 개 ADR 에 기록되어 있습니다.
 
 > **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내합니다. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 먼저 참고.
 
@@ -79,7 +79,7 @@ schema 실제 구조와 마이그레이션 상세는 `infrastructure.md §10` ([
 ## 파일 트리 (주석 포함)
 
 ```
-spring-backend-template/
+template-spring/
 │
 ├── .editorconfig                      # 에디터 공통 설정
 ├── .env.example                       # 환경변수 키 목록 (플레이스홀더)

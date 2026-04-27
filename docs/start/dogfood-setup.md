@@ -50,7 +50,7 @@ GHCR 에 docker 이미지 push 할 권한이 필요합니다. `GITHUB_TOKEN` 으
 
 **발급**:
 1. https://github.com/settings/tokens → "Generate new token" → "Generate new token (classic)"
-2. Note: `dogfood-spring-backend-template`
+2. Note: `dogfood-template-spring`
 3. Expiration: 90일 (또는 본인 정책)
 4. **Scopes** 체크:
    - ☑ `write:packages`
@@ -315,7 +315,7 @@ cleanup.sh 가 마지막에 안내 출력. 실제 폐기는 사람이:
 
 ## 📖 책 목차 — Journey 4~6단계
 
-[`📚 spring-backend-template — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **4단계 (외부 자격 증명) · 5단계 (테스트) · 6단계 (정리)** 입니다. 한 문서가 세 단계를 통합합니다.
+[`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **4단계 (외부 자격 증명) · 5단계 (테스트) · 6단계 (정리)** 입니다. 한 문서가 세 단계를 통합합니다.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|

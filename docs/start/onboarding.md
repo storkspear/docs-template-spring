@@ -159,7 +159,7 @@ curl http://localhost:8081/actuator/health    # → UP
 docker compose -f infra/docker-compose.dev.yml up -d postgres
 
 # 2. Postgres 준비 확인 (optional)
-docker exec spring-backend-template-postgres-dev pg_isready -U postgres
+docker exec template-spring-postgres-dev pg_isready -U postgres
 
 # 3. .env 를 shell 환경변수로 로드 (Spring Boot 는 .env 를 자동으로 읽지 않음)
 set -a; source .env; set +a
@@ -476,7 +476,7 @@ openssl rand -hex 32   # 64자 출력
 
 ## 📖 책 목차 — Journey 2~3단계
 
-[`📚 spring-backend-template — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **2단계 (어떻게 써? 로컬 dev)** 와 **3단계 (클론 후 뭐부터? 첫 앱 모듈 추가)** 입니다.
+[`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **2단계 (어떻게 써? 로컬 dev)** 와 **3단계 (클론 후 뭐부터? 첫 앱 모듈 추가)** 입니다.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|

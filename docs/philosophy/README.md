@@ -1,6 +1,6 @@
 # Repository Philosophy — 책 안내
 
-이 문서는 `spring-backend-template` 이 **왜 현재의 구조를 가지게 되었는지** 설명하는 **ADR(Architecture Decision Record) 카드** 모음입니다.
+이 문서는 `template-spring` 이 **왜 현재의 구조를 가지게 되었는지** 설명하는 **ADR(Architecture Decision Record) 카드** 모음입니다.
 
 각 결정은 추상적인 이론이 아니라 **솔로 인디 개발자가 여러 앱을 빠른 주기로 출시할 때 마주치는 구체적인 고통** 에 대한 답변으로 만들어졌어요. 이 문서를 읽고 나면 "왜 굳이 이렇게 복잡하게 만들었지?" 하는 의문이 풀리기를 바랍니다.
 
@@ -270,7 +270,7 @@ ADR-007 (솔로 친화적 운영)
 
 ## 📖 책 목차 — Journey 1단계
 
-[`📚 spring-backend-template — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **1단계 — 이 레포가 뭐야?** 입니다.
+[`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **1단계 — 이 레포가 뭐야?** 입니다.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|

@@ -1,6 +1,6 @@
 # 버전 규약 & Deprecation 프로세스
 
-이 문서는 `spring-backend-template` 의 semver 버저닝 · CHANGELOG · Deprecation 프로세스를 정의합니다.
+이 문서는 `template-spring` 의 semver 버저닝 · CHANGELOG · Deprecation 프로세스를 정의합니다.
 
 ---
 

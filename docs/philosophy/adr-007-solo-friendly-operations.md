@@ -270,29 +270,29 @@ K8s · 마이크로서비스 · 분산 추적을 거절할 때, "지금 이 순�
 ## Code References
 
 **단일 배포 단위**:
-- [`bootstrap/build.gradle`](https://github.com/storkspear/spring-backend-template/blob/main/bootstrap/build.gradle) — 모든 core-*-impl 포함 · bootJar 구성
-- [`Dockerfile`](https://github.com/storkspear/spring-backend-template/blob/main/Dockerfile) L33, 41 — 단일 이미지 빌드
-- [`docker-entrypoint.sh`](https://github.com/storkspear/spring-backend-template/blob/main/docker-entrypoint.sh) — migration vs 앱 기동 단일 entrypoint
+- [`bootstrap/build.gradle`](https://github.com/storkspear/template-spring/blob/main/bootstrap/build.gradle) — 모든 core-*-impl 포함 · bootJar 구성
+- [`Dockerfile`](https://github.com/storkspear/template-spring/blob/main/Dockerfile) L33, 41 — 단일 이미지 빌드
+- [`docker-entrypoint.sh`](https://github.com/storkspear/template-spring/blob/main/docker-entrypoint.sh) — migration vs 앱 기동 단일 entrypoint
 
 **관리형 서비스 연동**:
-- [`application-prod.yml`](https://github.com/storkspear/spring-backend-template/blob/main/bootstrap/src/main/resources/application-prod.yml) L56-80 — JWT · Resend · FCM · R2 환경변수 기반 주입
-- [`core-auth-impl/email/ResendEmailAdapter.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java) — Resend API 클라이언트
-- [`core-storage-impl/build.gradle`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-storage-impl/build.gradle) — MinIO/S3 SDK
+- [`application-prod.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-prod.yml) L56-80 — JWT · Resend · FCM · R2 환경변수 기반 주입
+- [`core-auth-impl/email/ResendEmailAdapter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java) — Resend API 클라이언트
+- [`core-storage-impl/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-storage-impl/build.gradle) — MinIO/S3 SDK
 
 **로컬 개발 분리**:
-- [`infra/docker-compose.dev.yml`](https://github.com/storkspear/spring-backend-template/blob/main/infra/docker-compose.dev.yml) — 로컬 Postgres + MinIO
-- [`application-dev.yml`](https://github.com/storkspear/spring-backend-template/blob/main/bootstrap/src/main/resources/application-dev.yml) — dev profile 전용 설정
-- [`application-prod.yml`](https://github.com/storkspear/spring-backend-template/blob/main/bootstrap/src/main/resources/application-prod.yml) — prod profile 엄격 설정
+- [`infra/docker-compose.dev.yml`](https://github.com/storkspear/template-spring/blob/main/infra/docker-compose.dev.yml) — 로컬 Postgres + MinIO
+- [`application-dev.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-dev.yml) — dev profile 전용 설정
+- [`application-prod.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-prod.yml) — prod profile 엄격 설정
 
 **자동화 스크립트**:
-- [`tools/new-app/new-app.sh`](https://github.com/storkspear/spring-backend-template/blob/main/tools/new-app/new-app.sh) — 앱 스캐폴딩 한 줄
-- [`tools/dogfooding/setup.sh`](https://github.com/storkspear/spring-backend-template/blob/main/tools/dogfooding/setup.sh) — 도그푸딩 환경 9단계 자동화
-- [`tools/bootstrap.sh`](https://github.com/storkspear/spring-backend-template/blob/main/tools/bootstrap.sh) — 파생 레포 부팅
+- [`tools/new-app/new-app.sh`](https://github.com/storkspear/template-spring/blob/main/tools/new-app/new-app.sh) — 앱 스캐폴딩 한 줄
+- [`tools/dogfooding/setup.sh`](https://github.com/storkspear/template-spring/blob/main/tools/dogfooding/setup.sh) — 도그푸딩 환경 9단계 자동화
+- [`tools/bootstrap.sh`](https://github.com/storkspear/template-spring/blob/main/tools/bootstrap.sh) — 파생 레포 부팅
 
 **CI 정책**:
-- [`.github/workflows/ci.yml`](https://github.com/storkspear/spring-backend-template/blob/main/.github/workflows/ci.yml) — 전체 빌드/테스트/ArchUnit
-- [`.github/workflows/deploy.yml`](https://github.com/storkspear/spring-backend-template/blob/main/.github/workflows/deploy.yml) — main only + workflow_run 게이트
-- [`.github/workflows/security-scan.yml`](https://github.com/storkspear/spring-backend-template/blob/main/.github/workflows/security-scan.yml) — gitleaks + Dependabot
+- [`.github/workflows/ci.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/ci.yml) — 전체 빌드/테스트/ArchUnit
+- [`.github/workflows/deploy.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/deploy.yml) — main only + workflow_run 게이트
+- [`.github/workflows/security-scan.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/security-scan.yml) — gitleaks + Dependabot
 
 **부재 확인 (비목표 증거)**:
 - `infra/kubernetes/` 또는 `infra/helm/` — 없음

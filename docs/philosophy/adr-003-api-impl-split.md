@@ -119,7 +119,7 @@ core/
 
 ### 장치 1 — Port 인터페이스 패턴
 
-`-api` 모듈의 인터페이스는 `*Port` 접미사를 사용합니다 (Hexagonal Architecture 용어). 실제 예시 ([`AuthPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java)):
+`-api` 모듈의 인터페이스는 `*Port` 접미사를 사용합니다 (Hexagonal Architecture 용어). 실제 예시 ([`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java)):
 
 ```java
 public interface AuthPort {
@@ -297,24 +297,24 @@ references class <com.factory.core.user.impl.entity.User>
 ## Code References
 
 **Port 인터페이스** (모두 `-api` 모듈):
-- [`AuthPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 11 메서드, JavaDoc 풍부.
-- [`UserPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/UserPort.java)
-- [`PushPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-push-api/src/main/java/com/factory/core/push/api/PushPort.java)
-- [`EmailPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/EmailPort.java) — 간결. Secondary Adapter 의 대상.
+- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 11 메서드, JavaDoc 풍부.
+- [`UserPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/UserPort.java)
+- [`PushPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-push-api/src/main/java/com/factory/core/push/api/PushPort.java)
+- [`EmailPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/EmailPort.java) — 간결. Secondary Adapter 의 대상.
 
 **Primary Adapter** (`-impl` 모듈):
-- [`AuthServiceImpl.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java)
+- [`AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java)
 
 **Secondary Adapter** (`-impl` 모듈):
-- [`ResendEmailAdapter.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java)
+- [`ResendEmailAdapter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java)
 
 **Build 의존성 증거**:
-- [`core/core-auth-api/build.gradle`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-api/build.gradle) — JPA / Spring 의존 없음.
-- [`core/core-auth-impl/build.gradle`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/build.gradle) — JPA / Spring 전체 의존.
+- [`core/core-auth-api/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/build.gradle) — JPA / Spring 의존 없음.
+- [`core/core-auth-impl/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/build.gradle) — JPA / Spring 전체 의존.
 
 **ArchUnit 규칙**:
-- [`ArchitectureRules.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r6, r9, r10, r11, r13, r14, r15, r17, r21.
+- [`ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r6, r9, r10, r11, r13, r14, r15, r17, r21.
 
 **AutoConfiguration**:
-- [`AuthAutoConfiguration.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — 추출 시 이 파일이 핵심 교체 지점.
+- [`AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — 추출 시 이 파일이 핵심 교체 지점.
 

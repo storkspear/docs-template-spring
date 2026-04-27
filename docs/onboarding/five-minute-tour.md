@@ -144,6 +144,6 @@ postgres (database)
 | **설계 결정의 이유를 읽고 싶다** | [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 프롤로그 + 테마 1 (ADR-001~004) |
 | **직접 돌려보고 싶다** | [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 환경 셋업 |
 | **구조의 전체 레퍼런스** | [`Architecture Reference`](../structure/architecture.md) — 파일 트리 + 의존 그래프 |
-| **Developer Journey 전체 순서** | [`📚 spring-backend-template — 책 목차 (Developer Journey)`](./README.md) |
+| **Developer Journey 전체 순서** | [`📚 template-spring — 책 목차 (Developer Journey)`](./README.md) |
 
 "관심은 있는데 지금은 시간 없음" → 이 2 개 Level 0 문서로 충분. 필요할 때 돌아오세요.

@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~10분
 
-이 문서는 `spring-backend-template` 및 그 파생 레포가 **초기 데이터(seed data)** 를 관리하는 전략을 정리합니다. Flyway 스키마 마이그레이션과 구분되는 "데이터 채우기" 작업의 위치, 권장 방식, 피해야 할 함정을 다룹니다.
+이 문서는 `template-spring` 및 그 파생 레포가 **초기 데이터(seed data)** 를 관리하는 전략을 정리합니다. Flyway 스키마 마이그레이션과 구분되는 "데이터 채우기" 작업의 위치, 권장 방식, 피해야 할 함정을 다룹니다.
 
 스키마 변경 자체는 Flyway 마이그레이션의 영역이며, 상세한 마이그레이션 가이드는 [`Migration Guides`](./migration.md) 에서 관리합니다. 여기서는 **"스키마는 이미 있다, 이제 어떤 데이터를 넣을 것인가"** 에 집중합니다.
 
@@ -10,7 +10,7 @@
 
 ## 개요
 
-`spring-backend-template` 및 파생 레포의 **초기/테스트 데이터 관리 전략**. Flyway 반복 마이그레이션 / ApplicationRunner / Testcontainers fixture 3 종 비교.
+`template-spring` 및 파생 레포의 **초기/테스트 데이터 관리 전략**. Flyway 반복 마이그레이션 / ApplicationRunner / Testcontainers fixture 3 종 비교.
 
 ---
 
@@ -29,7 +29,7 @@
 
 **없습니다.**
 
-`spring-backend-template` 은 데모/샘플 데이터를 포함하지 않습니다. 현재 제공되는 Flyway 마이그레이션은 모두 스키마 정의(DDL)에 해당하고, INSERT 문은 없습니다.
+`template-spring` 은 데모/샘플 데이터를 포함하지 않습니다. 현재 제공되는 Flyway 마이그레이션은 모두 스키마 정의(DDL)에 해당하고, INSERT 문은 없습니다.
 
 | 모듈 | 마이그레이션 | 성격 |
 |---|---|---|

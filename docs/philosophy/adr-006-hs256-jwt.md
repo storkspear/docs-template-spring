@@ -283,15 +283,15 @@ secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 ## Code References
 
 **JWT 발급 / 검증**:
-- [`JwtService.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtService.java) — `issueAccessToken()` L42-56, `validateAccessToken()` L65-85
-- [`JwtProperties.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtProperties.java) — compact constructor 에서 32자 검증
-- [`JwtAuthFilter.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtAuthFilter.java) — Bearer 파싱 + 검증 + SecurityContext 주입
+- [`JwtService.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtService.java) — `issueAccessToken()` L42-56, `validateAccessToken()` L65-85
+- [`JwtProperties.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtProperties.java) — compact constructor 에서 32자 검증
+- [`JwtAuthFilter.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtAuthFilter.java) — Bearer 파싱 + 검증 + SecurityContext 주입
 
 **의존성 / 설정**:
-- [`common/common-security/build.gradle`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-security/build.gradle) — jjwt 0.13.0
-- [`bootstrap/src/main/resources/application-prod.yml`](https://github.com/storkspear/spring-backend-template/blob/main/bootstrap/src/main/resources/application-prod.yml) — prod strict 설정
-- [`bootstrap/src/main/resources/application-dev.yml`](https://github.com/storkspear/spring-backend-template/blob/main/bootstrap/src/main/resources/application-dev.yml) — dev 기본값
-- [`.env.example`](https://github.com/storkspear/spring-backend-template/blob/main/.env.example) — `JWT_SECRET` 생성 명령 포함
+- [`common/common-security/build.gradle`](https://github.com/storkspear/template-spring/blob/main/common/common-security/build.gradle) — jjwt 0.13.0
+- [`bootstrap/src/main/resources/application-prod.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-prod.yml) — prod strict 설정
+- [`bootstrap/src/main/resources/application-dev.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-dev.yml) — dev 기본값
+- [`.env.example`](https://github.com/storkspear/template-spring/blob/main/.env.example) — `JWT_SECRET` 생성 명령 포함
 
 **로테이션 가이드**:
 - [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) — 6개월 주기, 교체 절차

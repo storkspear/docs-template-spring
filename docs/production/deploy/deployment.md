@@ -257,7 +257,7 @@ curl -I https://log.<도메인>                                   # 302 (CF Acce
 
 ## 📖 책 목차 — Journey 7단계
 
-[`📚 spring-backend-template — 책 목차 (Developer Journey)`](../../onboarding/README.md) 의 **7단계 — 이제 use this template** 입니다. 파생 레포 첫 운영 배포.
+[`📚 template-spring — 책 목차 (Developer Journey)`](../../onboarding/README.md) 의 **7단계 — 이제 use this template** 입니다. 파생 레포 첫 운영 배포.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|

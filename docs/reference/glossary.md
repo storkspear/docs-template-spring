@@ -201,7 +201,7 @@
 
 | 용어 | 설명 |
 |---|---|
-| **템플릿 레포** | `spring-backend-template` 본 레포. GitHub Template Repository 로 "Use this template" 버튼으로 복제됨 |
+| **템플릿 레포** | `template-spring` 본 레포. GitHub Template Repository 로 "Use this template" 버튼으로 복제됨 |
 | **파생 레포** | 템플릿 레포를 "Use this template" 으로 만든 본인 프로젝트 레포. 예: `sumtally-backend` |
 | **앱 모듈** | `apps/app-<slug>` 디렉토리. 한 모바일 앱의 도메인 로직. 템플릿엔 비어있고 파생 레포에서 생성 |
 | **appSlug** | 앱 식별자 문자열. URL (`/api/apps/{appSlug}/...`) 과 DB schema 이름과 JWT claim 에 일관 사용 |

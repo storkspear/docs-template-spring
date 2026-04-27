@@ -4,7 +4,7 @@
 
 **설계 근거**: [`ADR-013 (앱별 인증 엔드포인트)`](../../philosophy/adr-013-per-app-auth-endpoints.md) · [`ADR-006 (HS256 JWT)`](../../philosophy/adr-006-hs256-jwt.md)
 
-이 문서는 Flutter 앱이 `spring-backend-template` 기반 백엔드와 통신할 때 알아야 할 **백엔드 관점의 계약** 을 설명합니다. 엔드포인트 경로, 인증 방식, 토큰 갱신 규약, appSlug 매칭 규칙 등이 포함됩니다.
+이 문서는 Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할 **백엔드 관점의 계약** 을 설명합니다. 엔드포인트 경로, 인증 방식, 토큰 갱신 규약, appSlug 매칭 규칙 등이 포함됩니다.
 
 응답 포맷의 세부 구조(`{data, error}`)는 [`API Response Format`](./api-response.md), 에러 코드 체계는 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리하므로 중복되지 않게 **Flutter 입장에서 특별히 알아야 할 것** 만 정리합니다.
 
@@ -12,7 +12,7 @@
 
 ## 개요
 
-Flutter 앱이 `spring-backend-template` 기반 백엔드와 통신할 때 알아야 할 **백엔드 관점의 계약**. URL 규칙 · 인증 엔드포인트 · Bearer 토큰 · 401 처리 · appSlug 검증.
+Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할 **백엔드 관점의 계약**. URL 규칙 · 인증 엔드포인트 · Bearer 토큰 · 401 처리 · appSlug 검증.
 
 ---
 

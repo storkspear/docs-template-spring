@@ -270,8 +270,8 @@ h1 바로 아래에 **한 줄 블록** 필수:
 
 | 용어 | 표기 | 설명 |
 |---|---|---|
-| 템플릿 레포 | `spring-backend-template` | 본 레포 (GitHub Template Repository) |
-| 파생 레포 | `backend-server`, `sumtally-backend` 등 | 템플릿에서 "Use this template" 으로 분기된 레포 |
+| 템플릿 레포 | `template-spring` | 본 레포 (GitHub Template Repository) |
+| 파생 레포 | `server-factory`, `sumtally-backend` 등 | 템플릿에서 "Use this template" 으로 분기된 레포 |
 | 앱 모듈 | `apps/app-<slug>` | 하나의 서비스 도메인을 담는 모듈 |
 | core 모듈 | `core/core-*-api`, `core/core-*-impl` | 공통 도메인 (auth/user/device 등) |
 | common 모듈 | `common/common-*` | 도메인 없는 공통 인프라 |
@@ -422,7 +422,7 @@ Code References 마지막에 `**관련 ADR**:` 블록으로 수렴:
 - [ ] 옛 섹션명 본문 참조 없음 (`grep -E '한 문장 직관|Consequences 에서|...'`)
 - [ ] 링크가 실제 파일에 도달 (내부 · 외부 모두)
 - [ ] Code References 의 파일 경로가 실존 (`ls` 확인)
-- [ ] `diff -rq` 로 3 레포 (template / backend-server / docs-viewer) 동기화 확인
+- [ ] `diff -rq` 로 3 레포 (template / server-factory / docs-viewer) 동기화 확인
 - [ ] `docs-viewer/docs/manifest.json` 의 사이드바 엔트리 추가 (새 문서인 경우)
 - [ ] 커밋 메시지 Conventional Commits 포맷 + subject 72자 이하
 

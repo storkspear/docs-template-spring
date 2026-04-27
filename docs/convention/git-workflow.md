@@ -1,6 +1,6 @@
 # Git 워크플로우 (Git Workflow)
 
-이 문서는 `spring-backend-template` 의 Git 사용 규약을 정의합니다.
+이 문서는 `template-spring` 의 Git 사용 규약을 정의합니다.
 
 ---
 

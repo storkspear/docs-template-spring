@@ -1,6 +1,6 @@
 # 계약 테스트 (Contract Testing)
 
-이 문서는 `spring-backend-template` 의 **3층 테스트 구조** 와 계약 테스트 작성·강제 규약을 정의합니다.
+이 문서는 `template-spring` 의 **3층 테스트 구조** 와 계약 테스트 작성·강제 규약을 정의합니다.
 
 ---
 

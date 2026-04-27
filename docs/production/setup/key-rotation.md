@@ -74,7 +74,7 @@
 1. Mac mini 의 `~/.ssh/authorized_keys` 에서 `gha-deploy@<service>` 줄 삭제:
    ```bash
    ssh -i ~/.ssh/macmini storkspear@100.X.X.X \
-     "sed -i '' '/gha-deploy@spring-backend-template/d' ~/.ssh/authorized_keys"
+     "sed -i '' '/gha-deploy@template-spring/d' ~/.ssh/authorized_keys"
    ```
 2. 로컬에서 옛 키 파일 삭제:
    ```bash

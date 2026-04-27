@@ -44,6 +44,6 @@ Level 0 두 문서를 다 읽었다면:
 | 내 노트북에서 돌려보기 | [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 개발 환경 셋업 |
 | 먼저 구조를 이해하고 싶음 | [`Architecture Reference`](../structure/architecture.md) — 모듈 · 기술 스택 |
 | 왜 이렇게 설계됐는지 궁금 | [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 16 개 ADR |
-| 전체 읽기 순서를 알고 싶음 | [`📚 spring-backend-template — 책 목차 (Developer Journey)`](./README.md) — Developer Journey |
+| 전체 읽기 순서를 알고 싶음 | [`📚 template-spring — 책 목차 (Developer Journey)`](./README.md) — Developer Journey |
 
 "나한테 안 맞는다" 가 결론이어도 OK — 이 레벨의 의도 자체가 **빠른 필터링**이에요.

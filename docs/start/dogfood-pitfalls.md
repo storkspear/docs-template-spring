@@ -180,7 +180,7 @@ KAMAL_REGISTRY_PASSWORD=$GHCR_TOKEN
 
 **증상 #10a**:
 ```
-docker pull ghcr.io/ghcr.io/storkspear/spring-backend-template:<sha>
+docker pull ghcr.io/ghcr.io/storkspear/template-spring:<sha>
                 ↑↑↑ 이중 prefix
 ```
 
@@ -192,7 +192,7 @@ registry:
 ```
 kamal 은 최종 이미지 URL 로 `${registry.server}/${image}:${version}` 을 만든다. `KAMAL_IMAGE` 에 `ghcr.io/owner/repo` 처럼 ghcr.io 까지 포함하면 → `ghcr.io/ghcr.io/owner/repo:<sha>` 이중화.
 
-**해결**: `KAMAL_IMAGE` 를 `owner/repo` 만 (예: `storkspear/spring-backend-template`).
+**해결**: `KAMAL_IMAGE` 를 `owner/repo` 만 (예: `storkspear/template-spring`).
 
 **증상 #10b**:
 ```

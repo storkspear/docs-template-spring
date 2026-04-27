@@ -39,7 +39,7 @@
 
 ## 1. 개요
 
-**역할**: spring-backend-template 기반 파생레포의 24/7 운영 호스트. 여러 파생레포의 Spring Boot JAR 컨테이너를 blue/green 무중단 배포로 서빙하며, 자체 관측성 스택도 같이 실행한다.
+**역할**: template-spring 기반 파생레포의 24/7 운영 호스트. 여러 파생레포의 Spring Boot JAR 컨테이너를 blue/green 무중단 배포로 서빙하며, 자체 관측성 스택도 같이 실행한다.
 
 **철학 요약** (자세한 근거는 [`Repository Philosophy — 책 안내`](../../philosophy/README.md) 의 [`ADR-007 (솔로 친화적 운영)`](../../philosophy/adr-007-solo-friendly-operations.md) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../deploy/decisions-infra.md)):
 - 솔로 개발자가 여러 앱을 빠르게 출시하는 "앱 공장" 전략 → **저비용 홈서버**
@@ -240,7 +240,7 @@
 
 ```
 ┌─── GitHub ────────────────────────────────────────────────────┐
-│  <your-github-account>/spring-backend-template   (template 레포)           │
+│  <your-github-account>/template-spring   (template 레포)           │
 │  <your-github-account>/<your-repo>                 (실제 배포 타겟)            │
 │  ghcr.io/<your-github-account>/<your-repo>         (이미지 레지스트리)           │
 └───────────────────────────────────────────────────────────────┘
@@ -258,8 +258,8 @@
 │                                                                │
 │  Docker (OrbStack) 네트워크 `kamal`:                            │
 │    ├─ kamal-proxy                        (:80 호스트 바인드)     │
-│    ├─ spring-backend-template-web-<sha>  (Blue)                 │
-│    ├─ spring-backend-template-web-<sha>  (Green, 배포 중)        │
+│    ├─ template-spring-web-<sha>  (Blue)                 │
+│    ├─ template-spring-web-<sha>  (Green, 배포 중)        │
 │    ├─ observability-prometheus           (:9090 외부 노출)       │
 │    ├─ observability-loki                 (:3100)                │
 │    ├─ observability-grafana              (:3000)                │

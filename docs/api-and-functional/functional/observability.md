@@ -4,7 +4,7 @@
 
 **설계 근거**: [`ADR-007 (솔로 친화적 운영)`](../../philosophy/adr-007-solo-friendly-operations.md)
 
-이 문서는 `spring-backend-template` 의 **메트릭·로그·알림** 규약을 정의합니다.
+이 문서는 `template-spring` 의 **메트릭·로그·알림** 규약을 정의합니다.
 
 > 인프라 스택 구성 / 프로비저닝 상태: [`인프라 (Infrastructure)`](../../production/deploy/infrastructure.md)
 > 셋업 가이드 (도커 기동, 대시보드 프로비저닝): [`운영 모니터링 셋업 가이드`](../../production/setup/monitoring-setup.md)
@@ -13,7 +13,7 @@
 
 ## 한 문장 요약
 
-이 문서는 `spring-backend-template` 의 **메트릭 · 로그 · 알림 3 대 축** 규약을 정의합니다. `appSlug` 태깅 의무 + 로그 레벨 가이드 + 알림 임계치.
+이 문서는 `template-spring` 의 **메트릭 · 로그 · 알림 3 대 축** 규약을 정의합니다. `appSlug` 태깅 의무 + 로그 레벨 가이드 + 알림 임계치.
 
 ---
 

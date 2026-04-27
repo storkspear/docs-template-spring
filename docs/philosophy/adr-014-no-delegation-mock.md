@@ -321,18 +321,18 @@ void issueAndValidate_happyPath() {
 ## Code References
 
 **Port 계약 테스트 구조**:
-- [`core-auth-impl/test/AuthServiceImplContractTest.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/test/java/com/factory/core/auth/impl/AuthServiceImplContractTest.java) — AuthPort 계약 구현 테스트
-- [`core-auth-api/test/AbstractAuthPortContractTest`](https://github.com/storkspear/spring-backend-template/tree/main/core/core-auth-api/src/test) — 추상 계약 정의
+- [`core-auth-impl/test/AuthServiceImplContractTest.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/test/java/com/factory/core/auth/impl/AuthServiceImplContractTest.java) — AuthPort 계약 구현 테스트
+- [`core-auth-api/test/AbstractAuthPortContractTest`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-api/src/test) — 추상 계약 정의
 
 **Fake adapter 예시**:
-- [`core-auth-impl/test/.../InMemoryEmailAdapter`](https://github.com/storkspear/spring-backend-template/tree/main/core/core-auth-impl/src/test) — Resend 대체 fake
+- [`core-auth-impl/test/.../InMemoryEmailAdapter`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/test) — Resend 대체 fake
 - JpaAuthFixtures — 테스트 픽스처 공통 유틸
 
 **순수 단위 테스트 (허용 패턴)**:
-- [`common-security/test/JwtServiceTest.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-security/src/test/java/com/factory/common/security/jwt/JwtServiceTest.java) — JWT 서명/검증
-- [`common-security/test/PasswordHasherTest.java`](https://github.com/storkspear/spring-backend-template/tree/main/common/common-security/src/test/java/com/factory/common/security) — BCrypt 암호화
-- [`core-auth-impl/test/RefreshTokenServiceTest.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/test/java/com/factory/core/auth/impl/service/RefreshTokenServiceTest.java) — rotation 알고리즘
-- [`core-auth-impl/test/AppleSignInServiceTest.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/test/java/com/factory/core/auth/impl/service/AppleSignInServiceTest.java) — Apple JWKS RSA 검증
+- [`common-security/test/JwtServiceTest.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/test/java/com/factory/common/security/jwt/JwtServiceTest.java) — JWT 서명/검증
+- [`common-security/test/PasswordHasherTest.java`](https://github.com/storkspear/template-spring/tree/main/common/common-security/src/test/java/com/factory/common/security) — BCrypt 암호화
+- [`core-auth-impl/test/RefreshTokenServiceTest.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/test/java/com/factory/core/auth/impl/service/RefreshTokenServiceTest.java) — rotation 알고리즘
+- [`core-auth-impl/test/AppleSignInServiceTest.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/test/java/com/factory/core/auth/impl/service/AppleSignInServiceTest.java) — Apple JWKS RSA 검증
 
 **전략 문서**:
 - [`Testing Strategy`](../production/test/testing-strategy.md) — 4층 전략 전체

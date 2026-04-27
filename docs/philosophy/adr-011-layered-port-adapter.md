@@ -244,26 +244,26 @@ Hexagonal 원문은 "Primary Adapter" 라고 부르지만, Spring 생태계 관�
 ## Code References
 
 **Port 인터페이스** (`core-*-api/`):
-- [`AuthPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java)
-- [`EmailPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/EmailPort.java)
-- [`UserPort.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/UserPort.java)
+- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java)
+- [`EmailPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/EmailPort.java)
+- [`UserPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/UserPort.java)
 
 **Primary Adapter** (ServiceImpl):
-- [`AuthServiceImpl.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java)
+- [`AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java)
 
 **Secondary Adapter**:
-- [`ResendEmailAdapter.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java)
+- [`ResendEmailAdapter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java)
 
 **Repository / Entity 패턴**:
-- [`core-auth-impl/repository/`](https://github.com/storkspear/spring-backend-template/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/repository) — Spring Data JPA 인터페이스
-- [`core-auth-impl/entity/`](https://github.com/storkspear/spring-backend-template/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/entity) — @Entity 클래스들
+- [`core-auth-impl/repository/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/repository) — Spring Data JPA 인터페이스
+- [`core-auth-impl/entity/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/entity) — @Entity 클래스들
 
 **Config 패턴**:
-- [`AuthAutoConfiguration.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java)
+- [`AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java)
 
 **스캐폴딩 소스** (런타임 bean 아님):
-- [`AuthController.java`](https://github.com/storkspear/spring-backend-template/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — `new-app.sh` 가 참조하는 템플릿
+- [`AuthController.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — `new-app.sh` 가 참조하는 템플릿
 
 **ArchUnit 레이어 위치 규칙** (`ArchitectureRules.java` 의 r13~r17, r21):
-- [`ArchitectureRules.java`](https://github.com/storkspear/spring-backend-template/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java)
+- [`ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java)
 

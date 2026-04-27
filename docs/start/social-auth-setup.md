@@ -207,7 +207,7 @@ docker restart factory-app
 
 ## 📖 책 목차 — Journey 4단계
 
-[`📚 spring-backend-template — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **4단계 — 발급은 어디서?** 의 첫 항목 (소셜 로그인) 입니다.
+[`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **4단계 — 발급은 어디서?** 의 첫 항목 (소셜 로그인) 입니다.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|

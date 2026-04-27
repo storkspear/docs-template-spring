@@ -104,7 +104,7 @@ curl http://localhost:9090/api/v1/targets
 # Spring 컨테이너 상태 + actuator 경로 응답 확인.
 # 호스트에서 컨테이너 :8080 에 직접 접근하려면 docker exec 로 내부 진입하거나
 # public 엔드포인트 (kamal-proxy 경유) 로 확인.
-ssh storkspear@<mac-mini-ip> 'docker ps --filter label=service=spring-backend-template --format "{{.Names}}\t{{.Status}}"'
+ssh storkspear@<mac-mini-ip> 'docker ps --filter label=service=template-spring --format "{{.Names}}\t{{.Status}}"'
 curl -sI https://server.<domain>/actuator/health/liveness
 ```
 

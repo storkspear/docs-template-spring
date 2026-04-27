@@ -1,6 +1,6 @@
 # 크로스 레포 Cherry-pick 가이드
 
-이 문서는 `spring-backend-template` 의 변경을 파생 레포(Use this template 으로 복제한 서비스 레포)로 가져오는 플로우 또는 역방향을 설명합니다.
+이 문서는 `template-spring` 의 변경을 파생 레포(Use this template 으로 복제한 서비스 레포)로 가져오는 플로우 또는 역방향을 설명합니다.
 
 ---
 
@@ -19,7 +19,7 @@
 ```markdown
 ## Template base
 
-Based on [spring-backend-template](https://github.com/<you>/spring-backend-template) `template-v0.3.0`.
+Based on [template-spring](https://github.com/<you>/template-spring) `template-v0.3.0`.
 
 Last synced: 2026-04-25
 Pending sync: v0.4.0 (auth.isPremium 필요)
@@ -36,7 +36,7 @@ Pending sync: v0.4.0 (auth.isPremium 필요)
 ```bash
 # 파생 레포에서 시작 (최초 1회만 remote 등록)
 cd ~/workspace/app-sumtally
-git remote add template git@github.com:<you>/spring-backend-template.git
+git remote add template git@github.com:<you>/template-spring.git
 git fetch template --tags
 
 # 1. 내 버전 확인 — README 의 "Based on" 확인
@@ -70,7 +70,7 @@ git commit -m "fix(auth): race condition in refresh token rotation"
 # SHA: abc9999
 
 # 2. 템플릿 레포로 이동
-cd ~/workspace/spring-backend-template
+cd ~/workspace/template-spring
 
 # 3. 파생 레포를 remote 로 등록 (최초 1회)
 git remote add app-sumtally git@github.com:<you>/app-sumtally.git
@@ -140,7 +140,7 @@ git push origin fix/refresh-token-race
 
 ## 📖 책 목차 — Journey 7단계 (마지막)
 
-[`📚 spring-backend-template — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **7단계 — 이제 use this template** 의 마무리 문서입니다.
+[`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **7단계 — 이제 use this template** 의 마무리 문서입니다.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|
