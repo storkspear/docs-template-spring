@@ -272,6 +272,8 @@ OPTIONAL feature 가 `.env.prod` 에서 비어있으면 SKIP (예: `RESEND_API_K
 
 이 결과까지 UP 이면 도그푸딩 e2e 한 사이클 통과. dev 프로파일은 `application-dev.yml` 의 default 값으로 동작 (DB: `localhost:5433/postgres`, JWT_SECRET: 자동 default 등) — `.env` 에 값이 있으면 override.
 
+**자동 검증 (선택)**: `bash tools/verify-local.sh` — postgres ready (REQUIRED) / MinIO health (REQUIRED) / WireMock (OPTIONAL, OAuth dev-mock) / Spring Boot bootRun (OPTIONAL) 4 단계 자동 검증. 운영용 `verify-server.sh` 와 같은 패턴.
+
 ---
 
 ## 9. (선택) 옛 자동화 — `tools/dogfooding/setup.sh + cleanup.sh`
