@@ -1,16 +1,21 @@
 # 소셜 로그인 설정 가이드
 
-앱 추가 시 Google/Apple 소셜 로그인을 위한 credential 설정 방법입니다.
+앱 추가 시 4 provider 소셜 로그인 (Google · Apple · Kakao · Naver) 을 위한 credential 설정 방법입니다.
 
 ---
 
 ## 전체 흐름
 
 ```
-1. Google Cloud / Apple Developer 에서 credential 발급
-2. .env.prod 에 환경변수 추가
-3. 재배포 (코드 수정 없음)
+1. 활성화할 provider 결정 (글로벌이면 Google+Apple, 한국이면 +Kakao+Naver)
+2. 각 provider 콘솔에서 credential 발급
+3. .env.prod 에 환경변수 추가
+4. 재배포 (코드 수정 없음)
 ```
+
+> **활성 안 한 provider 는 이 가이드의 해당 섹션 전부 생략 가능**. 예: 글로벌 시장 앱이면 Kakao/Naver 섹션은 무시하고 Google + Apple 만 따라가면 됩니다.
+
+> **OAuth 키 발급 전 e2e 시연** 이 필요하면 [dev-mock 모드 섹션](#oauth-키-발급-전-e2e-시연-dev-mock-모드) 을 먼저 참조하세요. WireMock 컨테이너로 4 provider 를 통째 가짜로 띄워 키 없이도 백엔드 → JWT 발급 흐름을 검증할 수 있습니다.
 
 ---
 
@@ -144,6 +149,154 @@ APP_CREDENTIALS_SUMTALLY_APPLE_BUNDLE_ID=com.twosun.sumtally
 
 ---
 
+## Kakao Sign In
+
+> 한국 시장 앱이면 거의 항상 활성화. 글로벌 전용이면 이 섹션 생략.
+
+### ⚠️ Kakao 만 키 2개 — 헷갈림 주의
+
+카카오 디벨로퍼스 콘솔의 **같은 앱 등록 페이지**에서 두 개의 식별자가 발급됩니다:
+
+| 키 | 형태 | 어디에 들어가나 |
+|---|---|---|
+| **Native App Key** | 32자 문자열 (예: `1234567890abcdef1234567890abcdef`) | **프론트만** — Flutter 의 `kakao{KEY}` redirect scheme + `KakaoSdk.init()` |
+| **App ID** | 숫자 (예: `1234567`) | **백엔드만** — 토큰 검증 시 `/v1/user/access_token_info` 응답의 `app_id` 매칭 |
+
+콘솔 대시보드에 둘 다 나란히 표시됩니다. **둘 다 복사해서 각자 자리에 등록**해야 동작합니다. 한 쪽만 등록하면 검증 실패.
+
+### 1단계: Kakao Developers 앱 등록 (앱별 1회)
+
+1. https://developers.kakao.com 접속 → 카카오 계정 로그인
+2. **내 애플리케이션** → **애플리케이션 추가하기**
+3. 입력:
+   - 앱 이름: `Sumtally` (앱 표시명, 자유롭게)
+   - 사업자명: 본인 또는 조직명
+   - 카테고리: 앱 성격에 맞게
+4. **저장** → 앱 대시보드 진입
+5. **앱 키** 메뉴에서 두 값 확인:
+   - **앱 키** 섹션의 **네이티브 앱 키** (32자 문자열) — 프론트용
+   - **앱 ID** (숫자) — 백엔드용 (페이지 상단 또는 URL `/applications/{ID}` 의 ID)
+
+### 2단계: 플랫폼 등록
+
+1. 앱 대시보드 → **플랫폼** 메뉴
+2. **iOS 플랫폼 등록** → 번들 ID 입력 (`com.twosun.sumtally`)
+3. **Android 플랫폼 등록** → 패키지명 입력 (`com.twosun.sumtally`) + 키 해시 등록
+   - 디버그 키 해시:
+     ```bash
+     keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android -keypass android | openssl sha1 -binary | openssl base64
+     ```
+   - 릴리스 키 해시: 본인 keystore 로 동일 명령
+
+### 3단계: 카카오 로그인 활성화
+
+1. 앱 대시보드 → **제품 설정** → **카카오 로그인**
+2. **활성화 설정** ON
+3. **OpenID Connect 활성화** ON (선택, JWT 검증 활용 시)
+4. **동의 항목** → 닉네임 + 이메일 활성화 (이메일은 "선택" 또는 "필수")
+   - "필수" 권장 — 백엔드가 이메일 누락 시 `email_required` 401 응답
+
+### 4단계: .env.prod 에 추가
+
+```bash
+# sumtally 앱 — Kakao Sign In
+APP_CREDENTIALS_SUMTALLY_KAKAO_APP_ID=1234567   # 숫자 (Native App Key 아님!)
+```
+
+서버는 Kakao access token 으로 `/v1/user/access_token_info` 호출 → 응답의 `app_id` 가 이 값과 일치하는지 검증합니다.
+
+> 프론트 (Flutter) 에는 Native App Key (문자열) 가 따로 들어갑니다 — `template-flutter` 의 `auth-kit.md` 참조.
+
+---
+
+## Naver Sign In
+
+> 한국 시장 + 30~50대 포털 사용자 비중 높을 때만 추가. 20~30대 모바일 위주면 보통 Kakao 만으로 충분.
+
+### 1단계: Naver Developers 앱 등록 (앱별 1회)
+
+1. https://developers.naver.com 접속 → 네이버 계정 로그인
+2. **Application** → **애플리케이션 등록**
+3. 입력:
+   - 애플리케이션 이름: `Sumtally`
+   - 사용 API: **네이버 로그인** 선택
+   - 제공 정보: **이메일 주소** 필수 (백엔드가 이메일 미동의 시 거부)
+   - 환경 추가: **iOS 설정** + **Android 설정**
+     - iOS: 다운로드 URL (App Store URL — 없으면 임시 placeholder), 번들 ID
+     - Android: 다운로드 URL, 패키지명
+4. 등록 완료 후:
+   - **Client ID** 확인 (예: `abcDEF123_xyz`)
+   - **Client Secret** 확인 (백엔드 미사용이지만 발급은 됨)
+   - **URL Scheme** (iOS 용, 자동 발급)
+
+### 2단계: .env.prod 에 추가
+
+```bash
+# sumtally 앱 — Naver Sign In
+APP_CREDENTIALS_SUMTALLY_NAVER_CLIENT_ID=abcDEF123_xyz
+```
+
+서버는 Naver access token 으로 `/v1/nid/me` 호출 → 응답 `resultcode=00` + 이메일 검증. Naver 가 자체적으로 토큰 발급 client 검증을 하므로 (다른 client 토큰은 401) Client Secret 은 백엔드에 등록 안 합니다.
+
+---
+
+## OAuth 키 발급 전 e2e 시연 (dev-mock 모드)
+
+파생 레포 만든 첫날, 위 4 provider 의 콘솔 작업이 **하나도 안 된 상태**에서도 백엔드 + 프론트 종단 흐름을 시연할 수 있습니다. WireMock standalone 컨테이너가 Google/Kakao/Naver 의 4 endpoint 를 가짜 응답으로 stub 하고, Apple 만 별도 `MockAppleSignInService` 가 RS256 검증을 우회합니다.
+
+### 1단계: WireMock 컨테이너 띄우기
+
+```bash
+cd infra
+docker compose -f docker-compose.dev.yml up -d postgres wiremock
+```
+
+`infra/wiremock/mappings/` 의 4개 stub JSON (google-tokeninfo, kakao-token-info, kakao-user-me, naver-nid-me) 이 자동 로드됩니다.
+
+### 2단계: 백엔드 dev-mock 모드로 부팅
+
+```bash
+export APP_OAUTH_DEV_MOCK=true
+export APP_OAUTH_GOOGLE_TOKENINFO_URL='http://localhost:9999/tokeninfo?id_token='
+export APP_OAUTH_KAKAO_TOKEN_INFO_URL='http://localhost:9999/v1/user/access_token_info'
+export APP_OAUTH_KAKAO_USER_ME_URL='http://localhost:9999/v2/user/me'
+export APP_OAUTH_NAVER_USER_ME_URL='http://localhost:9999/v1/nid/me'
+
+./gradlew :apps:app-template:bootRun
+```
+
+`app.oauth.dev-mock=true` 가 `MockAppleSignInService` 를 활성화 — 어떤 identity_token 이 와도 고정 fake user (`dev-apple-mock-user` / `dev-apple@example.com`) 로 통과시킵니다.
+
+### 3단계: 프론트 dev-mock 빌드
+
+```bash
+flutter run --dart-define=AUTH_DEV_MOCK=true
+```
+
+프론트의 `DevMock*Gate` 가 즉시 dummy 토큰 반환 → 백엔드 → WireMock 통과 → JWT 발급 → /home 자동 리다이렉트.
+
+### 안전장치
+
+| 환경변수 / dart-define | 미주입 시 동작 |
+|---|---|
+| `APP_OAUTH_DEV_MOCK=true` (백엔드) | `MockAppleSignInService` 비활성, 실 Apple JWKS 사용 |
+| `APP_OAUTH_*_URL` (백엔드) | `application.yml` 의 default (실 provider URL) 사용 |
+| `--dart-define=AUTH_DEV_MOCK=true` (프론트) | 실 SDK 어댑터 사용 |
+
+→ **운영 빌드는 영향 0**. prod profile 은 wiremock URL 환경변수 미주입 시 실 provider URL 로 fallback (안전망).
+
+### 안전 확인용 부팅 로그
+
+dev-mock 모드 활성 시 다음 WARN 로그가 출력됩니다:
+```
+WARN  MockAppleSignInService activated — Apple RS256 verification is BYPASSED.
+      DO NOT enable this in production.
+```
+
+이 로그가 운영 환경에서 보이면 즉시 셧다운 + 환경변수 점검.
+
+---
+
 ## 앱 추가 체크리스트
 
 새 앱 `my-new-app` 을 추가할 때:
@@ -158,12 +311,31 @@ APP_CREDENTIALS_SUMTALLY_APPLE_BUNDLE_ID=com.twosun.sumtally
 - [ ] Xcode → Signing & Capabilities 에서 **Sign in with Apple** 추가
 - [ ] `.env.prod` 에 Bundle ID 추가
 
+### Kakao (한국 시장 앱일 때만)
+- [ ] Kakao Developers → 애플리케이션 추가 → 플랫폼 (iOS + Android) 등록
+- [ ] **카카오 로그인** 활성화 + 동의 항목 (이메일 필수)
+- [ ] **App ID (숫자)** 복사 → 백엔드용
+- [ ] **Native App Key (문자열)** 복사 → 프론트용 (template-flutter)
+- [ ] `.env.prod` 에 App ID 추가
+
+### Naver (한국 시장 앱 + 포털 사용자 비중 높을 때만)
+- [ ] Naver Developers → 애플리케이션 등록 → 사용 API: 네이버 로그인
+- [ ] 제공 정보: **이메일 주소 필수**
+- [ ] iOS / Android 환경 추가
+- [ ] **Client ID** 복사
+- [ ] `.env.prod` 에 Client ID 추가
+
 ### .env.prod 추가 내용
 
 ```bash
+# 필수 (글로벌·한국 모두)
 APP_CREDENTIALS_MYNEWAPP_GOOGLE_CLIENT_IDS_0=xxx-ios.apps.googleusercontent.com
 APP_CREDENTIALS_MYNEWAPP_GOOGLE_CLIENT_IDS_1=xxx-android.apps.googleusercontent.com
 APP_CREDENTIALS_MYNEWAPP_APPLE_BUNDLE_ID=com.twosun.mynewapp
+
+# 한국 시장 앱일 때 추가
+APP_CREDENTIALS_MYNEWAPP_KAKAO_APP_ID=1234567               # 숫자 (Native App Key 아님!)
+APP_CREDENTIALS_MYNEWAPP_NAVER_CLIENT_ID=abcDEF123_xyz
 ```
 
 ### 재배포
@@ -195,13 +367,38 @@ docker restart factory-app
 
 없습니다. `AppCredentialProperties` 가 환경변수를 `Map<String, AppCredential>` 로 자동 바인딩하고, 서비스가 요청의 `appSlug` 로 조회합니다. 환경변수 추가 + 재배포만 하면 됩니다.
 
+### Q: Kakao 의 키 두 개가 헷갈립니다. 어디에 어느 걸 넣나요?
+
+콘솔에서 발급되는 두 키의 위치가 다릅니다:
+- **Native App Key (32자 문자열)** → 프론트 (Flutter) 의 `Info.plist` URL scheme + `KakaoSdk.init()` 에만
+- **App ID (숫자)** → 백엔드 (이 문서) 의 `APP_CREDENTIALS_<SLUG>_KAKAO_APP_ID` 에만
+
+둘 다 같은 카카오 콘솔 대시보드에서 나란히 보입니다. 한 쪽이라도 빠지거나 바뀌면 동작 안 합니다.
+
+### Q: dev-mock 모드는 운영 빌드에 영향이 있나요?
+
+없습니다. `app.oauth.dev-mock=true` 환경변수가 명시적으로 주입돼야만 `MockAppleSignInService` 가 활성화됩니다. prod profile 에서는 wiremock URL 환경변수도 미주입이 정상이라 `application.yml` 의 default (실 provider URL) 로 fallback 됩니다.
+
+### Q: dev-mock 모드 활성 여부는 어떻게 확인하나요?
+
+부팅 로그에서 다음 WARN 한 줄이 나오면 dev-mock 모드:
+```
+WARN  MockAppleSignInService activated — Apple RS256 verification is BYPASSED.
+```
+운영 환경에서 이 로그가 보이면 즉시 셧다운 + `APP_OAUTH_DEV_MOCK` 환경변수 점검.
+
 ---
 
 ## 관련 코드
 
-- `AppCredentialProperties.java` — 환경변수 → `Map<String, AppCredential>` 바인딩
+- `AppCredentialProperties.java` — 환경변수 → `Map<String, AppCredential>` 바인딩 (4 provider 의 client id/secret 통합 관리)
+- `AuthAutoConfiguration.java` — 4 SignInService bean 등록. dev profile + `app.oauth.dev-mock=true` 일 때 `MockAppleSignInService` 로 교체
 - `GoogleSignInService.java` — appSlug 로 Client ID 리스트 조회 후 `aud` 검증
-- `AppleSignInService.java` — appSlug 로 Bundle ID 조회 후 `aud` 검증
+- `AppleSignInService.java` — appSlug 로 Bundle ID 조회 + JWKS 기반 RS256 서명 검증
+- `KakaoSignInService.java` — `/v1/user/access_token_info` (app_id 매칭) + `/v2/user/me` (이메일 + 닉네임) 2회 호출
+- `NaverSignInService.java` — `/v1/nid/me` 호출 + `resultcode=00` 검증 (Naver 가 자체적으로 client 검증)
+- `dev/MockAppleSignInService.java` — dev 전용. RS256 검증 우회 + 고정 fake user (`app.oauth.dev-mock=true` 일 때만 활성)
+- `infra/wiremock/mappings/*.json` — Google/Kakao/Naver stub 응답 (dev-mock 모드용)
 
 ---
 
