@@ -11,10 +11,12 @@
 ### Q1. "use this template" 으로 만든 파생 레포에서도 도그푸딩 해야 하나요?
 
 **권장**. 이유:
-- template 의 `setup.sh` / `cleanup.sh` 는 그대로 복사되지만 **GitHub Settings (Variables/Secrets) / Mac mini 의 SSH 키 / GHCR 패키지** 는 파생 레포가 직접 셋업해야 함.
+- template 의 `tools/init-server.sh` 등 자동화 코드는 그대로 복사되지만 **GitHub Settings (Variables/Secrets) / Mac mini 의 SSH 키 / GHCR 패키지** 는 파생 레포가 직접 셋업해야 함.
 - 첫 실배포 전에 도그푸딩으로 한 번 검증하면 실제 사용자 트래픽 들어오기 전에 모든 함정을 잡을 수 있음.
 
-수행: `bash tools/dogfooding/setup.sh` → 검증 후 `bash tools/dogfooding/cleanup.sh`.
+수행: 첫 작업자가 `bash tools/init-server.sh <owner>/<repo>` 1·2회차 → `verify-server.sh` 6/6 PASS → `./gradlew :bootstrap:bootRun` UP 까지 검증. 자세한 흐름은 [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md).
+
+(임시 trial 환경을 한 번에 cleanup 하고 싶을 때만 옛 `tools/dogfooding/setup.sh + cleanup.sh` 사용 — 새 흐름과 별개.)
 
 ---
 
@@ -122,7 +124,7 @@ curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
 
 ### Q11. 11회 시도했다는데 다시 셋업하면 또 11번 걸리나요?
 
-**1번에 끝납니다**. 11회 함정 중 8개는 워크플로우/스크립트 코드에 박혀 영구 회피, 3개는 외부 발급 (PAT / Tailscale OAuth / DB URL 형식) 이고 가이드 §3 에 정확한 절차 + 함정 강조.
+**1번에 끝납니다**. 11회 함정 중 8개는 워크플로우/스크립트 코드에 박혀 영구 회피, 3개는 외부 발급 (PAT / Tailscale OAuth / DB URL 형식) 이고 가이드 §3 에 정확한 절차 + 함정 강조. JDK 26 함정 ([`pitfalls #12`](./dogfood-pitfalls.md)) 만 사람이 JDK 21 환경 보장 필요.
 
 → 가이드 따라 1번에 setup → 자동 trigger → 배포 success 가 정상 흐름.
 
@@ -130,9 +132,79 @@ curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
 
 ---
 
+### Q12. 공동 작업자/fresh clone 받은 두 번째 작업자도 `init-server.sh` 를 돌려야 하나요? <a id="q12"></a>
+
+**아니요**. 이미 첫 작업자가 셋업해서 main 에 push 한 레포를 fresh clone 한 두 번째+ 작업자는 운영 secrets 를 다시 push 할 필요가 없습니다 (이미 GitHub Secrets 에 등록됨).
+
+`init-server.sh` 를 그대로 돌리면 **공동 작업자 모드**가 자동 감지됩니다 — 다음 세 단서가 모두 만족할 때:
+1. `settings.gradle` 에 sentinel `template-spring` 매칭 0 (이미 rename 됨)
+2. `PROJECT_README_TEMPLATE.md` 부재 (이미 README.md 로 교체)
+3. `.env.prod` 부재 (이 작업자는 운영 secrets 가 필요 없음)
+
+이 모드에서는 `Step 5 (.env.prod 생성)` / `Step 6 (Secrets push)` / `Step 10 (verify-server.sh)` 를 자동 skip 하고 **로컬 dev 환경 (.env + docker compose + postgres ready) 만 준비**합니다.
+
+```bash
+# 두 번째+ 작업자: REPO 인자 없이 실행 가능
+bash tools/init-server.sh
+```
+
+또는 더 가벼운 흐름:
+```bash
+cp .env.example .env       # (없으면)
+bash tools/start-server.sh # docker compose + postgres ready 만
+./gradlew :bootstrap:bootRun
+```
+
+**최초 셋업 흐름을 강제로 다시 돌려야 한다면** (운영 secrets 갈아엎기 등):
+```bash
+bash tools/init-server.sh <owner>/<repo> --reinit
+```
+⚠️ `--reinit` 은 운영 secrets 가 무작위 새 값(`JWT_SECRET`/`DB_PASSWORD`)으로 덮어쓰일 수 있어 팀과 충분히 협의 후 사용 — 모든 발급된 토큰이 무효화될 수 있음.
+
+---
+
+### Q13. `verify-server.sh` 의 6 단계는 무엇을 검증하나요?
+
+`init-server.sh` Step 10 에서 자동 호출 (단독 실행도 가능: `bash tools/verify-server.sh`).
+
+| Step | 분류 | 항목 | PASS 의미 |
+|---|---|---|---|
+| 1 | REQUIRED | backend health (kamal-proxy → `/actuator/health`) | 운영 Spring 컨테이너가 200 OK + `status:UP` |
+| 2 | REQUIRED | DB 연결 (HikariCP) | backend health UP 이면 indirect PASS |
+| 3 | OPTIONAL: deploy | SSH + Tailscale (`kamal app version`) | GHA → Mac mini Tailscale 도달 OK |
+| 4 | OPTIONAL: storage | MinIO 업로드 (PUT/STAT/DEL) | storage feature 정상 |
+| 5 | OPTIONAL: email | Resend API 발송 | email feature 정상 |
+| 6 | OPTIONAL: logging | Loki readiness | logging feature 정상 |
+
+REQUIRED fail = 즉시 중단 (운영 backend 가 응답 안 함). OPTIONAL fail = 경고 + 계속.
+
+**OPTIONAL feature 가 `.env.prod` 에서 비어있으면 자동 SKIP** — 그 feature 를 안 쓴다는 뜻으로 간주 (예: `RESEND_API_KEY=` 비어있으면 Step 5 SKIP, "feature 비활성화" 로 취급). 따라서 SKIP 결과는 **fail 이 아닙니다**. 활성화하고 싶으면 해당 키들을 `.env.prod` 에 채우고 `init-server.sh` 재실행.
+
+기대 결과 (DEPLOY_ENABLED=true + 모든 OPTIONAL 활성화 시): **6/6 PASS** (`✅ 운영 가용 상태 — 활성 기능 모두 작동`).
+
+---
+
+### Q14. `init-server.sh` 1회차/2회차는 어떻게 자동 분기되나요?
+
+`init-server.sh` 는 명시 플래그 없이 **`.env.prod` 의 상태**로 1·2회차를 idempotent 하게 분기합니다.
+
+| 상태 | 판정 | 동작 |
+|---|---|---|
+| `.env.prod` 부재 | **1회차 (또는 공동 작업자)** | Step 5 에서 `.env.prod` 생성 + JWT_SECRET / DB_PASSWORD 자동 발급. 단, sentinel rename 완료 + PROJECT_README_TEMPLATE.md 부재면 공동 작업자로 감지해 Step 5 도 skip ([Q12](#q12) 참조) |
+| `.env.prod` 존재 + REQUIRED 5 비어있음 | **1회차 직후 (사용자가 채우는 중)** | Step 6 에서 안내만 출력 후 종료 (Step 7~10 도달 안 함) |
+| `.env.prod` 존재 + REQUIRED 5 채움 | **2회차** | Step 6 에서 GitHub Secrets/Variables push → Step 7~10 까지 진행 |
+
+판정 키:
+- **REQUIRED 5**: `APP_DOMAIN`, `DB_URL`, `DB_USER`, `GHCR_TOKEN`, `SSH_PRIVATE_KEY` (사용자 채우기). `JWT_SECRET` / `DB_PASSWORD` 는 자동 발급되므로 사용자 입력 대상 아님.
+- **idempotent 보장**: Step 4 (.env), Step 5 (.env.prod) 둘 다 "이미 존재하면 skip", `gh secret set` 은 overwrite, husky 훅도 이미 활성화면 skip.
+
+따라서 같은 명령을 여러 번 안전하게 재실행 가능. 잘못된 값으로 secrets 를 push 했다면 `.env.prod` 의 해당 키만 갱신 후 다시 돌리면 그 키만 overwrite 됩니다.
+
+---
+
 ## 개요
 
-도그푸딩 환경 셋업 시 자주 묻는 질문 11 개 모음. 본 가이드 ([`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md)) 를 따라가다 막히는 지점별 해결 포인터.
+도그푸딩 환경 셋업 시 자주 묻는 질문 14 개 모음. 본 가이드 ([`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md)) 를 따라가다 막히는 지점별 해결 포인터.
 
 ---
 

@@ -53,8 +53,10 @@ Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할
 |---|---|---|---|
 | POST | `/api/apps/{appSlug}/auth/email/signup` | 불필요 | 이메일 가입 (201) |
 | POST | `/api/apps/{appSlug}/auth/email/signin` | 불필요 | 이메일 로그인 |
-| POST | `/api/apps/{appSlug}/auth/apple` | 불필요 | Apple 로그인 |
-| POST | `/api/apps/{appSlug}/auth/google` | 불필요 | Google 로그인 |
+| POST | `/api/apps/{appSlug}/auth/apple` | 불필요 | Apple 로그인 (`identityToken`) |
+| POST | `/api/apps/{appSlug}/auth/google` | 불필요 | Google 로그인 (`idToken`) |
+| POST | `/api/apps/{appSlug}/auth/kakao` | 불필요 | Kakao 로그인 (`accessToken`) |
+| POST | `/api/apps/{appSlug}/auth/naver` | 불필요 | Naver 로그인 (`accessToken`) |
 | POST | `/api/apps/{appSlug}/auth/refresh` | 불필요 | 토큰 갱신 |
 | POST | `/api/apps/{appSlug}/auth/withdraw` | 필요 | 회원 탈퇴 (204) |
 | POST | `/api/apps/{appSlug}/auth/verify-email` | 불필요 | 이메일 인증 (204) |

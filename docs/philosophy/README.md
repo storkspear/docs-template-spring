@@ -94,8 +94,9 @@
 | "테스트는 어떻게 쓰나?" | [`ADR-014: Delegation mock 금지`](./adr-014-no-delegation-mock.md) |
 | "커밋 메시지 규칙은?" | [`ADR-015: Conventional Commits + SemVer`](./adr-015-conventional-commits-semver.md) |
 | "DTO 변환은 어떻게 하나?" | [`ADR-016: DTO Mapper 금지`](./adr-016-dto-mapper-forbidden.md) |
+| "OAuth (Google/Apple/Kakao/Naver) 는 어떻게 통합?" | [`ADR-017: OAuth 2.0 통합`](./adr-017-oauth-integration.md) |
 
-> **16 개 ADR 모두 작성 완료**. 테마별로 그룹화되어 있으며, 각 카드는 독립적으로 읽을 수 있어요.
+> **17 개 ADR 모두 작성 완료**. 테마별로 그룹화되어 있으며, 각 카드는 독립적으로 읽을 수 있어요.
 
 ### ADR 카드의 읽는 법
 
@@ -213,10 +214,16 @@ ADR-006 (HS256 JWT 대칭키)
    ▼
 ADR-013 (앱별 인증 엔드포인트)
   "/api/apps/{slug}/auth/*. core-auth-impl 은 라이브러리"
+   │
+   │ 이메일/비번 외에 OAuth 도 지원하려면?
+   ▼
+ADR-017 (OAuth 2.0 통합)
+  "Google/Apple/Kakao/Naver. provider 별 Service 복제 패턴"
 ```
 
 - [`ADR-006 · HS256 JWT (대칭키)`](./adr-006-hs256-jwt.md)
 - [`ADR-013 · 앱별 인증 엔드포인트 (core-auth 는 라이브러리 역할)`](./adr-013-per-app-auth-endpoints.md)
+- [`ADR-017 · OAuth 2.0 통합 (Google / Apple / Kakao / Naver)`](./adr-017-oauth-integration.md)
 
 **테마 4 의 결론**: 단일 JVM 모놀리스 전제에서 JWT 는 HS256 대칭키로 단순화 — 관리 대상은 `JWT_SECRET` 환경변수 하나. 엔드포인트는 `/api/apps/{slug}/auth/*` 경로로 appSlug 를 URL 에 명시하고, Controller 는 각 앱 모듈이 소유. 실제 인증 로직은 `core-auth-impl/AuthServiceImpl` 한 곳에 집중되며, core-auth-impl 은 앱이 가져다 쓰는 **라이브러리** 로 작동. `AppSlugVerificationFilter` ([`ADR-012`](./adr-012-per-app-user-model.md)) 가 JWT-URL 경계를 런타임에 강제.
 

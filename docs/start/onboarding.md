@@ -51,7 +51,7 @@ cd myapp-backend
 
 이 프로젝트는 Java Gradle 기반이지만 **커밋 메시지 규약 도구 (husky / commitlint / commitizen)** 를 npm 으로 관리합니다.
 
-`./tools/bootstrap.sh` 실행 시 내부적으로 `npm install` 을 자동 수행하므로 **별도로 수동 실행할 필요가 없습니다**. 대신 **Node 18+ 가 필수** — bootstrap 이 Node 를 찾지 못하면 즉시 fail 합니다.
+`./tools/init-server.sh` 실행 시 내부적으로 `npm install` 을 자동 수행하므로 **별도로 수동 실행할 필요가 없습니다**. 대신 **Node 18+ 가 필수** — bootstrap 이 Node 를 찾지 못하면 즉시 fail 합니다.
 
 자동 수행되는 것:
 - `node_modules/` 디렉토리 생성 (약 50 MB, `.gitignore` 포함)
@@ -125,13 +125,13 @@ APP_STORAGE_MINIO_BUCKETS_2=rny-avatars
 
 Gradle 첫 빌드는 모든 모듈의 의존성을 다운로드합니다. 두 번째부터는 캐시 사용.
 
-### 4.2 빠른 경로 — `./tools/bootstrap.sh` (권장)
+### 4.2 빠른 경로 — `./tools/init-server.sh` (권장)
 
 > **TL;DR — 이 스크립트 한 줄이 아래 §4.3 의 1~2단계 (+ §4.4 의 관측성 기동까지)를 자동화합니다.**
 
 ```bash
-./tools/bootstrap.sh                        # postgres only
-./tools/bootstrap.sh --with-observability   # postgres + loki/grafana/prometheus/alertmanager
+./tools/init-server.sh                        # postgres only
+./tools/init-server.sh --with-observability   # postgres + loki/grafana/prometheus/alertmanager
 ```
 
 자동 수행:
