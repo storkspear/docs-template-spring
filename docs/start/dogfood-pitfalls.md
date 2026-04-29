@@ -256,7 +256,7 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 
 쉘 환경에 영구 반영하려면 `~/.zshrc` 등에 export 추가. IntelliJ / VS Code 사용 시 프로젝트 SDK 도 21 로 명시.
 
-**자동화 한계**: `init-server.sh` Step 1 의 prereq 검증은 `JAVA_VERSION ≥ 21` 만 보고 상한 미검증 → JDK 26 단독 환경에선 prereq PASS 후 build 시점에 fail. (상한 검증 추가는 별도 PR 후보.)
+**자동화 적용**: `init-server.sh` Step 1 의 prereq 검증이 `21 ≤ JAVA_VERSION < 26` 로 좁혀져 있어 JDK 26 단독 환경에선 prereq 단계에서 즉시 fail (`Java 21~25 필요`). 빌드까지 가서 깨지는 일은 없음.
 
 **결정 카드**: 권장 범위 `21 ≤ major < 26`. JDK 22~25 도 사용 가능하지만 LTS 인 21 권장.
 
