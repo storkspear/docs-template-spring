@@ -237,6 +237,7 @@ bash tools/init-server.sh <owner>/<repo>
 - **Step 8** — `docker compose -f infra/docker-compose.dev.yml up -d postgres minio`
 - **Step 9** — Postgres ready 대기 (최대 60초)
 - **Step 10** — `verify-server.sh` 자동 호출 → 운영 환경 e2e 검증 (다음 §7)
+- **Step 11** — `verify-local.sh` 자동 호출 → 로컬 dev 환경 e2e 검증 (postgres / minio / wiremock / Spring Boot, 모드 무관). Spring Boot 는 이 시점에 안 띄워졌으므로 SKIP — 사용자가 별도 터미널에서 `./gradlew :bootstrap:bootRun` 띄운 뒤 `bash tools/verify-local.sh` 다시 돌리면 4/4 PASS
 
 ---
 
