@@ -115,7 +115,7 @@ feat(auth):add field   → 콜론 뒤 공백 없음
 
 **설정 (최초 1회)**:
 ```bash
-./tools/bootstrap.sh     # 내부적으로 npm install 실행 → husky 자동 활성화
+./tools/init-server.sh     # 내부적으로 npm install 실행 → husky 자동 활성화
 git config --local commit.template .gitmessage
 ```
 
