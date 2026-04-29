@@ -131,20 +131,85 @@ public class ResendEmailAdapter implements EmailPort {
 
 `sendRequest` 는 protected 로 노출되어 있어 테스트에서 spy 로 stub 할 수 있습니다.
 
-### 자동 구성
+### 자동 구성 (graceful + 운영 안전망)
 
-`AuthAutoConfiguration` 이 `EmailPort` 빈이 없을 때 `ResendEmailAdapter` 를 등록합니다.
+`AuthAutoConfiguration` 이 환경에 따라 두 어댑터 중 하나를 등록합니다.
 
 ```java
 // core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java
+
+// (1) Resend API key 가 비어있지 않을 때만 ResendEmailAdapter 등록
 @Bean
+@ConditionalOnExpression("'${app.email.resend.api-key:}' != ''")
 @ConditionalOnMissingBean(EmailPort.class)
 public ResendEmailAdapter resendEmailAdapter(ResendProperties resendProperties) {
     return new ResendEmailAdapter(resendProperties);
 }
+
+// (2) dev / local 환경 fallback — key 가 비어있을 때 LoggingEmailAdapter 등록
+@Bean
+@Profile("!prod")
+@ConditionalOnMissingBean(EmailPort.class)
+public LoggingEmailAdapter loggingEmailAdapter() {
+    return new LoggingEmailAdapter();
+}
 ```
 
-테스트 등에서 `EmailPort` 를 mock 으로 주입하면 `@ConditionalOnMissingBean` 이 Resend 어댑터 등록을 생략합니다.
+| 환경 | Resend key | 등록 어댑터 | 부팅 |
+|---|---|---|---|
+| dev / local | 있음 | `ResendEmailAdapter` | OK — 실제 발송 |
+| dev / local | 없음 | `LoggingEmailAdapter` | OK — 메일이 콘솔 로그로 출력 |
+| prod | 있음 | `ResendEmailAdapter` | OK — 실제 발송 |
+| prod | 없음 | (없음) | **부팅 실패** — `application-prod.yml` 의 strict `${RESEND_API_KEY}` placeholder 가 풀리지 않아 의도된 안전망 |
+
+테스트 등에서 `EmailPort` 를 mock 으로 주입하면 `@ConditionalOnMissingBean` 이 두 어댑터 등록을 모두 생략합니다.
+
+#### LoggingEmailAdapter (dev fallback)
+
+`RESEND_API_KEY` 가 비어있는 dev / local 환경에서 활성됩니다. 실제 메일을 발송하지 않고 수신자/제목/HTML 본문을 `WARN` 로그로 출력합니다 — 인증 링크나 비밀번호 재설정 링크를 콘솔에서 바로 확인 가능.
+
+```
+[DEV-EMAIL] Email captured to logs (Resend API key not configured)
+  To: user@example.com
+  Subject: 이메일 인증을 완료해주세요
+  Body:
+  <a href="https://localhost:8081/auth/verify?token=abc123...">이메일 인증하기</a>
+```
+
+#### dev 응답에 raw token 노출
+
+`LoggingEmailAdapter` 의 `isDevCapture()` 가 `true` 를 반환하므로 호출자는 raw token 을 응답으로 노출할 수 있습니다 (운영 어댑터는 항상 `false` — 노출 안 됨).
+
+| 엔드포인트 | 노출 위치 | 형태 |
+|---|---|---|
+| `POST /auth/email/signup` | 응답 body | `AuthResponse.devVerificationToken` (`@JsonInclude(NON_NULL)`) |
+| `POST /auth/password-reset/request` | 응답 헤더 | `X-Dev-Reset-Token: <raw>` |
+| `POST /auth/resend-verification` | 응답 헤더 | `X-Dev-Verification-Token: <raw>` |
+
+dev 환경에서 swagger UI 로 회원가입 → 응답 body 의 `devVerificationToken` 을 그대로 복사하여 즉시 `verify-email` 호출 가능. 별도 메일 수신이나 로그 파싱 불필요.
+
+운영(prod profile + Resend key 있음) 환경에서는 위 필드/헤더가 항상 비어있습니다 — `ResendEmailAdapter.isDevCapture()` 가 `false` 라서 호출자가 토큰을 무시합니다.
+
+> ⚠️ **테스트 통과 ≠ 운영 가용성**: dev 모드에서 회원가입 / 비밀번호 재설정 플로우가 동작한다고 운영에서도 동작한다는 뜻이 아닙니다. 운영은 `RESEND_API_KEY` 가 반드시 채워져 있어야 부팅됩니다 (yml strict placeholder 가 부팅을 막음).
+
+### 다른 이메일 SaaS 사용 시
+
+`EmailPort` 는 추상화되어 있어 SendGrid, AWS SES, Mailgun, SMTP 등 다른 서비스로 교체 가능합니다. 자기 어댑터를 등록하면 `ResendEmailAdapter` / `LoggingEmailAdapter` 둘 다 자동으로 비활성됩니다 (`@ConditionalOnMissingBean(EmailPort.class)` 패턴).
+
+```java
+@Component
+public class SendGridEmailAdapter implements EmailPort {
+    @Override
+    public void send(String to, String subject, String htmlBody) {
+        // SendGrid SDK 또는 HTTP API 호출
+    }
+
+    // dev 응답 노출이 필요하면 isDevCapture() override.
+    // 보통은 운영 어댑터이므로 default(false) 유지.
+}
+```
+
+별도 설정/배제 작업 불필요 — 빈을 등록하기만 하면 자동 라우팅됩니다.
 
 ---
 
