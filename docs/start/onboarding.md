@@ -435,7 +435,7 @@ openssl rand -hex 32   # 64자 출력
 | **이메일/비밀번호 가입/로그인** | ✅ 완전 동작 | - |
 | **Apple / Google 소셜 로그인** | ✅ 완전 동작 (credential 설정 시) | `.env` 에 `APP_CREDENTIALS_<SLUG>_*` 필요 |
 | **JWT 발급/회전** | ✅ 완전 동작 | - |
-| **이메일 발송** (Resend) | ⚠️ API key 필요 | `.env` 에 `RESEND_API_KEY` 필요 (없으면 로그만 남고 발송 X) |
+| **이메일 발송** (Resend) | dev: optional / prod: 필수 | 키 없으면 `LoggingEmailAdapter` fallback (콘솔 로그 + dev 응답에 raw token 노출). prod 는 strict — 키 누락 시 부팅 실패. 자세히: [`email-verification.md`](../api-and-functional/functional/email-verification.md) |
 | **오브젝트 스토리지** | ⚠️ endpoint 필요 | 없으면 InMemory fallback |
 | **Billing (IAP)** | 🚧 Stub only | `StubBillingAdapter` 가 `UnsupportedOperationException`. Phase 1 에서 StoreKit / Play 실제 검증 |
 | **Push Notification** | 🚧 NoOp | `NoOpPushAdapter` 가 로그만. FCM 설정 시 `FcmPushAdapter` 활성 |
