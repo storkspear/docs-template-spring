@@ -132,7 +132,7 @@ template-spring/
 │   │   ├── cross-repo-cherry-pick.md  # 템플릿 → 파생 레포 동기화
 │   │   └── philosophy/                # 17 개 ADR (설계 결정)
 │   │       ├── README.md              # ADR 인덱스 + 테마별 그룹
-│   │       └── adr-001 ~ adr-016.md   # 16 개 Architecture Decision Records
+│   │       └── adr-001 ~ adr-017.md   # 17 개 Architecture Decision Records
 │   ├── api-contract/                  # API 응답/JSON/버저닝/Flutter 통합
 │   ├── architecture/                  # 모듈 의존성, ArchUnit 규칙, 멀티테넌트
 │   ├── conventions/                   # 네이밍, DTO factory, 예외, git-workflow 등

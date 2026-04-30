@@ -311,7 +311,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
   - 배포 중 다운타임 관측 (blue/green 스왑 실패) → 원인 조사 후 롤백 전략 재점검
 - **관련 문서**:
   - `../infra/infrastructure.md §4, §4.2` — 운영 구성도, blue/green 설명
-  - `../journey/deployment.md` — 파생레포 onboarding
+  - `./deployment.md` — 파생레포 onboarding
   - `../infra/runbook.md` — 배포/롤백/장애 대응 절차
   - `config/deploy.yml`, `.github/workflows/deploy.yml`, `Dockerfile`, `docker-entrypoint.sh`
   - `bootstrap/src/main/java/com/factory/bootstrap/MigrateOnlyRunner.java` — out-of-band migration 엔트리
@@ -338,9 +338,9 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
   - GitHub 의 GHCR + GITHUB_TOKEN 권한 매핑 개선 발표
   - PAT expiration 관리 자동화 필요해짐 (3개월 주기 reminder 만으론 부족)
 - **관련 문서**:
-  - `../journey/dogfood-setup.md §3.1` — PAT 발급 절차
+  - `../../start/dogfood-setup.md §3.1` — PAT 발급 절차
   - `../infra/key-rotation.md` — rotation 정책
-  - `../journey/dogfood-pitfalls.md #5 ~ #7` — 403 함정 분석
+  - `../../start/dogfood-pitfalls.md #5 ~ #7` — 403 함정 분석
   - `../../.github/workflows/deploy.yml` — 사용 위치
 
 ---
@@ -367,7 +367,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 - **관련 문서**:
   - `../../Dockerfile` — multi-stage 풀빌드
   - `../../Dockerfile.runtime` — runtime 전용
-  - `../journey/dogfood-setup.md §5` — GHA 자동 경로
+  - `../../start/dogfood-setup.md §5` — GHA 자동 경로
   - `../infra/runbook.md` — 로컬 수동 배포 절차
 
 ---
@@ -393,7 +393,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 - **관련 문서**:
   - `../infra/ci-cd-flow.md §6` — workflow_run + deploy phase
   - `../../.github/workflows/ci.yml`, `../../.github/workflows/deploy.yml`
-  - `../journey/dogfood-pitfalls.md #1, #2` — artifact 함정
+  - `../../start/dogfood-pitfalls.md #1, #2` — artifact 함정
 
 ---
 
@@ -419,7 +419,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 - **관련 문서**:
   - `../../.github/workflows/deploy.yml` — `docker/build-push-action` + `kamal deploy --skip-push`
   - `../../Dockerfile.runtime`
-  - `../journey/dogfood-pitfalls.md #10a #10b` — image 경로 / service label 함정
+  - `../../start/dogfood-pitfalls.md #10a #10b` — image 경로 / service label 함정
   - https://kamal-deploy.org/docs/commands/deploy/
 
 ---
@@ -446,8 +446,8 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
   - Tailscale 의 OAuth API 변경 (scope 이름 바뀜 등)
   - GHA runner 가 tailscale 없이 Mac mini 에 도달 가능한 다른 경로 등장 (예: Cloudflare Tunnel SSH)
 - **관련 문서**:
-  - `../journey/dogfood-setup.md §3.2` — 발급 절차 (ACL HuJSON 포함)
-  - `../journey/dogfood-pitfalls.md #3 #4` — 함정 분석
+  - `../../start/dogfood-setup.md §3.2` — 발급 절차 (ACL HuJSON 포함)
+  - `../../start/dogfood-pitfalls.md #3 #4` — 함정 분석
   - `../infra/key-rotation.md` — rotation
   - https://tailscale.com/kb/1215/oauth-clients
 
