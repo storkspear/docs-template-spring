@@ -171,9 +171,10 @@ public LoggingEmailAdapter loggingEmailAdapter() {
 ```
 [DEV-EMAIL] Email captured to logs (Resend API key not configured)
   To: user@example.com
-  Subject: 이메일 인증을 완료해주세요
+  Subject: 이메일 인증 코드
   Body:
-  <a href="https://localhost:8081/auth/verify?token=abc123...">이메일 인증하기</a>
+  <span style="font-size: 32px; font-weight: bold;">042193</span>
+  이 코드는 5분 동안 유효합니다.
 ```
 
 #### dev 응답에 raw token 노출
@@ -253,35 +254,45 @@ public AuthResponse signUp(SignUpRequest request) {
 
 ```java
 // core/core-auth-impl/src/main/java/com/factory/core/auth/impl/service/EmailVerificationService.java
-public void sendVerificationEmail(long userId, String email) {
-    String rawToken = TokenGenerator.generateRawToken();
-    String tokenHash = TokenGenerator.sha256Hex(rawToken);
+public Optional<String> sendVerificationEmail(long userId, String email) {
+    String rawCode = TokenGenerator.generateNumericCode(6);
+    String tokenHash = TokenGenerator.sha256Hex(rawCode);
     Instant expiresAt = Instant.now().plus(tokenTtl);
 
     EmailVerificationToken entity = new EmailVerificationToken(userId, tokenHash, expiresAt);
     tokenRepository.save(entity);
 
-    String verificationLink = appDomain + "/auth/verify?token=" + rawToken;
-    String subject = "이메일 인증을 완료해주세요";
-    String htmlBody = buildVerificationEmailHtml(verificationLink);
+    long ttlMinutes = Math.max(1, tokenTtl.toMinutes());
+    String subject = "이메일 인증 코드";
+    String htmlBody = buildVerificationEmailHtml(rawCode, ttlMinutes);
 
     emailPort.send(email, subject, htmlBody);
     log.debug("Verification email sent to userId={}", userId);
+
+    return emailPort.isDevCapture() ? Optional.of(rawCode) : Optional.empty();
 }
 ```
 
-핵심 보안 규칙은 **raw token 은 이메일 본문에만 들어가고, DB 에는 SHA-256 해시만 저장** 한다는 것입니다. DB 가 유출되어도 해시에서 raw token 을 역산할 수 없습니다.
+핵심 보안 규칙은 **raw 6자리 코드는 이메일 본문에만 들어가고, DB 에는 SHA-256 해시만 저장** 한다는 것입니다. DB 가 유출되어도 해시에서 raw 코드를 역산할 수 없습니다.
 
-`TokenGenerator` 는 `SecureRandom` 으로 32바이트 엔트로피를 만들고 URL-safe Base64 로 인코딩합니다.
+`TokenGenerator` 는 두 가지 방식을 제공합니다:
+
+- `generateRawToken()` — 256-bit URL-safe Base64. **RefreshTokenService 가 사용** (앱-서버 내부 refresh flow 라 사용자 노출 없음).
+- `generateNumericCode(6)` — `SecureRandom` 기반 6자리 숫자 (앞자리 0 포함). **EmailVerification / PasswordReset 이 사용** — 사용자가 메일에서 받아 직접 입력.
 
 ```java
 // core/core-auth-impl/src/main/java/com/factory/core/auth/impl/service/TokenGenerator.java
-public static String generateRawToken() {
-    byte[] bytes = new byte[DEFAULT_TOKEN_BYTES];
-    SECURE_RANDOM.nextBytes(bytes);
-    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+public static String generateNumericCode(int digits) {
+    if (digits < 1) {
+        throw new IllegalArgumentException("digits must be >= 1, got: " + digits);
+    }
+    long upperBound = (long) Math.pow(10, digits);
+    long value = (SECURE_RANDOM.nextLong() & Long.MAX_VALUE) % upperBound;
+    return String.format("%0" + digits + "d", value);
 }
 ```
+
+> 6자리는 1,000,000 가지 → brute-force 평균 500,000 회 요청. **TTL 5분 + per-user rate limit (별도 정책)** 으로 방어합니다.
 
 ### 3. 토큰 엔티티
 
@@ -306,9 +317,9 @@ public class EmailVerificationToken {
 - `usedAt` 이 null 이 아니면 이미 사용된 토큰 — 재사용 불가
 - `expiresAt` 이 현재보다 과거면 만료
 
-### 4. 링크 클릭 → 토큰 검증
+### 4. 사용자가 6자리 입력 → 토큰 검증
 
-유저가 이메일에서 링크를 클릭하면 클라이언트가 `POST /api/apps/{appSlug}/auth/verify-email` 을 호출합니다.
+유저가 메일에서 받은 6자리 코드를 앱에서 입력하면 클라이언트가 `POST /api/apps/{appSlug}/auth/verify-email` 을 body `{token: "042193"}` 으로 호출합니다.
 
 ```java
 // core/core-auth-impl/src/main/java/com/factory/core/auth/impl/service/EmailVerificationService.java
@@ -335,16 +346,16 @@ public long verify(String rawToken) {
 
 ### TTL 설정
 
-기본 TTL 은 **24시간**이며 `app.auth.email-verification-ttl` 로 override 할 수 있습니다.
+기본 TTL 은 **5분**이며 `app.auth.email-verification-ttl` 로 override 할 수 있습니다. 6자리 코드의 brute-force 표면을 줄이기 위한 짧은 만료입니다.
 
 ```java
 // core/core-auth-impl/src/main/java/com/factory/core/auth/impl/service/EmailVerificationService.java
-public static final Duration DEFAULT_TOKEN_TTL = Duration.ofHours(24);
+public static final Duration DEFAULT_TOKEN_TTL = Duration.ofMinutes(5);
 ```
 
 ```java
 // AuthAutoConfiguration
-@Value("${app.auth.email-verification-ttl:PT24H}") Duration emailVerificationTtl
+@Value("${app.auth.email-verification-ttl:PT5M}") Duration emailVerificationTtl
 ```
 
 ---
@@ -368,16 +379,16 @@ public void requestReset(String email) {
 
     UserAccount user = userOpt.get();
 
-    String rawToken = TokenGenerator.generateRawToken();
-    String tokenHash = TokenGenerator.sha256Hex(rawToken);
+    String rawCode = TokenGenerator.generateNumericCode(6);
+    String tokenHash = TokenGenerator.sha256Hex(rawCode);
     Instant expiresAt = Instant.now().plus(tokenTtl);
 
     PasswordResetToken entity = new PasswordResetToken(user.id(), tokenHash, expiresAt);
     tokenRepository.save(entity);
 
-    String resetLink = appDomain + "/auth/password-reset?token=" + rawToken;
-    String subject = "비밀번호를 재설정하세요";
-    String htmlBody = buildResetEmailHtml(resetLink);
+    long ttlMinutes = Math.max(1, tokenTtl.toMinutes());
+    String subject = "비밀번호 재설정 코드";
+    String htmlBody = buildResetEmailHtml(rawCode, ttlMinutes);
 
     try {
         emailPort.send(email, subject, htmlBody);
@@ -425,13 +436,13 @@ public void confirmReset(String rawToken, String newPassword) {
 
 ### TTL 설정
 
-비밀번호 재설정 토큰은 TTL 이 **1시간**으로 더 짧습니다.
+비밀번호 재설정 토큰의 TTL 은 **5분** 입니다. 이메일 인증과 동일하게 6자리 코드의 brute-force 방어를 위해 짧게 설정.
 
 ```java
-public static final Duration DEFAULT_TOKEN_TTL = Duration.ofHours(1);
+public static final Duration DEFAULT_TOKEN_TTL = Duration.ofMinutes(5);
 ```
 
-override: `app.auth.password-reset-ttl` (`PT1H` ISO-8601 duration 형식).
+override: `app.auth.password-reset-ttl` (`PT5M` ISO-8601 duration 형식).
 
 ---
 
@@ -499,8 +510,8 @@ EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다");
 
 - `EmailPort` 는 `send(to, subject, htmlBody)` 단 하나의 메서드만 가진 최소 인터페이스입니다.
 - 기본 구현은 `ResendEmailAdapter`, Resend HTTP API 에 POST 합니다. 2xx 외 응답은 `AuthException(EMAIL_DELIVERY_FAILED)` 으로 변환됩니다.
-- 토큰은 **raw 를 이메일에만, SHA-256 해시를 DB 에** 저장합니다. `TokenGenerator` 가 공통 유틸입니다.
-- 이메일 인증 토큰 TTL 은 24시간, 비밀번호 재설정은 1시간이 기본입니다.
+- 토큰은 **raw 6자리 코드를 이메일에만, SHA-256 해시를 DB 에** 저장합니다. `TokenGenerator.generateNumericCode(6)` 사용.
+- 이메일 인증 토큰 / 비밀번호 재설정 모두 TTL 은 **5분** 기본 (6자리 brute-force 방어용 짧은 만료).
 - 비밀번호 재설정 성공 시 해당 유저의 모든 refresh token 이 무효화됩니다.
 - 존재하지 않는 이메일로 재설정 요청이 와도 동일한 응답을 반환합니다 (enumeration 방지).
 - 가입 시 이메일 발송이 실패해도 가입 자체는 성공합니다.
