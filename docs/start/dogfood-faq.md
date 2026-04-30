@@ -184,7 +184,7 @@ REQUIRED fail = 즉시 중단 (운영 backend 가 응답 안 함). OPTIONAL fail
 
 ---
 
-### Q14. `init-server.sh` 1회차/2회차는 어떻게 자동 분기되나요?
+### Q14. `init-server.sh` 1회차/2회차는 어떻게 자동 분기되나요? <a id="q14"></a>
 
 `init-server.sh` 는 명시 플래그 없이 **`.env.prod` 의 상태**로 1·2회차를 idempotent 하게 분기합니다.
 
@@ -202,9 +202,43 @@ REQUIRED fail = 즉시 중단 (운영 backend 가 응답 안 함). OPTIONAL fail
 
 ---
 
+### Q15. `RESEND_TEST_ADMIN_USER_EMAIL` 은 왜 `init-server.sh` 카탈로그에 없나요? <a id="q15"></a>
+
+이 키는 **운영 deploy 자동화에 필요 없는** 검증 전용입니다 — `verify-server.sh` Step 5 (이메일 발송) 가 Resend API 로 테스트 메일을 보낼 *수신자* 로만 사용됩니다.
+
+| 키 | 용도 | init-server.sh 카탈로그 | GitHub Secrets push |
+|---|---|---|---|
+| `RESEND_API_KEY` | 운영 발송 + 검증 | ✓ (email feature) | ✓ |
+| `RESEND_FROM_ADDRESS` | 운영 발송 + 검증 | ✓ (email feature) | ✓ |
+| `RESEND_FROM_NAME` | 운영 발송 | ✓ (email feature) | ✓ |
+| **`RESEND_TEST_ADMIN_USER_EMAIL`** | **`verify-server.sh` 검증만** | ✗ (의도) | ✗ |
+
+`verify-server.sh` 를 운영 환경에서 SSH 로 실행할 때 `.env.prod` 를 직접 source 하므로 GitHub Secrets 에 push 할 필요 없습니다. 비어있으면 Step 5 가 자동 SKIP — 운영 동작에 영향 없음.
+
+채우려면 `.env.prod` 에 본인 이메일을 직접 입력 (Secrets push 안 됨).
+
+---
+
+### Q16. 원본 `template-spring` 자체를 clone 받으면 어떻게 동작하나요? <a id="q16"></a>
+
+template 개발자가 원본 `storkspear/template-spring` repo 를 그대로 clone 받아 `init-server.sh` 를 돌리면 **공동 작업자 모드가 아닌 1회차 모드** 로 진입합니다 — 의도된 동작입니다.
+
+| 검사 항목 | 원본 template-spring | 파생 레포 fresh clone |
+|---|---|---|
+| `settings.gradle` sentinel `template-spring` 매칭 | ✓ (rename 안 됨) → 1회차 후보 | ✗ (rename 완료) → 공동작업자 후보 |
+| `PROJECT_README_TEMPLATE.md` 부재 | ✗ (있음) → 1회차 후보 | ✓ (이미 삭제됨) → 공동작업자 후보 |
+| `.env.prod` 부재 | ✓ → 1회차 후보 | ✓ → 공동작업자 후보 |
+| **결과** | **1회차 모드** | **공동 작업자 모드** |
+
+따라서 원본 repo 를 clone 받으면 `bash tools/init-server.sh <test-org>/<test-repo>` 처럼 REPO 인자가 필요하고, 실행 시 settings.gradle 등이 `<test-repo>` 이름으로 rename 됩니다 — 즉 *원본을 이름만 바꿔 시험하는* 흐름. 시험 후엔 변경을 commit 하지 말고 `git restore .` 로 되돌리면 됩니다.
+
+이 동작을 강제로 막으려면 `--reinit` 없이 `init-server.sh` (REPO 인자 없음) 를 시도하면 인자 누락으로 usage 출력 → 의도치 않은 rename 방지.
+
+---
+
 ## 개요
 
-도그푸딩 환경 셋업 시 자주 묻는 질문 14 개 모음. 본 가이드 ([`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md)) 를 따라가다 막히는 지점별 해결 포인터.
+도그푸딩 환경 셋업 시 자주 묻는 질문 16 개 모음. 본 가이드 ([`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md)) 를 따라가다 막히는 지점별 해결 포인터.
 
 ---
 
