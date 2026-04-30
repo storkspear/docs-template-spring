@@ -339,7 +339,7 @@ public String issueAccessToken(...) {
 ### 내부 링크는 **상대 경로**
 
 - 같은 디렉토리: `[`ADR-005`](../adr-005-db-schema-isolation.md)` ← ADR 파일에서 다른 ADR 참조
-- 상위 경로: `[`testing-strategy`](../../../testing/testing-strategy.md)` ← `journey/philosophy/` 에서 `docs/testing/` 참조
+- 상위 경로: `[`contract-testing`](../../production/test/contract-testing.md)` ← `docs/philosophy/` 에서 `docs/production/test/` 참조
 - 절대 경로 · 전체 URL 금지 (레포 이름 바뀌면 깨짐)
 
 ### 앵커 링크

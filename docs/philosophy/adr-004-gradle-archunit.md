@@ -115,7 +115,7 @@ if (name.startsWith('test')) return
 if (name.startsWith('testFixtures')) return
 ```
 
-이유: 테스트에서는 **교차 모듈 의존이 필요한 경우** 가 있습니다. 예를 들어 `core-auth-impl` 의 테스트는 `core-user-impl` 의 V001/V002 마이그레이션이 필요 → `testImplementation project(':core:core-user-impl')` 필수. 일반 규칙을 적용하면 테스트 작성 불가능. 이 예외는 [`contract-testing.md`](https://github.com/storkspear/template-spring/blob/main/docs/testing/contract-testing.md) 에 공식화.
+이유: 테스트에서는 **교차 모듈 의존이 필요한 경우** 가 있습니다. 예를 들어 `core-auth-impl` 의 테스트는 `core-user-impl` 의 V001/V002 마이그레이션이 필요 → `testImplementation project(':core:core-user-impl')` 필수. 일반 규칙을 적용하면 테스트 작성 불가능. 이 예외는 [`contract-testing.md`](https://github.com/storkspear/template-spring/blob/main/docs/production/test/contract-testing.md) 에 공식화.
 
 ### 나머지 ArchUnit 규칙 (r16, r18~r22) — 네이밍/DTO/메타데이터
 
@@ -286,6 +286,6 @@ ArchUnit 규칙은 `r1`, `r2`, ..., `r22` 처럼 **번호로** 참조합니다.
 - [`BootstrapArchitectureTest.java`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/test/java/com/factory/bootstrap/BootstrapArchitectureTest.java)
 
 **관련 스펙 문서**:
-- [`docs/conventions/module-dependencies.md`](https://github.com/storkspear/template-spring/blob/main/docs/conventions/module-dependencies.md)
-- [`docs/testing/contract-testing.md`](https://github.com/storkspear/template-spring/blob/main/docs/testing/contract-testing.md)
+- [`docs/structure/module-dependencies.md`](https://github.com/storkspear/template-spring/blob/main/docs/structure/module-dependencies.md)
+- [`docs/production/test/contract-testing.md`](https://github.com/storkspear/template-spring/blob/main/docs/production/test/contract-testing.md)
 

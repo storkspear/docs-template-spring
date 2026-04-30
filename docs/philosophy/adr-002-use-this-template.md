@@ -293,9 +293,9 @@ public class SumtallyAuthHook implements AuthHook {
 
 ### 부정적 결과
 
-**자동 전파 없음** — 공통 개선을 각 파생 레포로 전파하려면 **사람이 cherry-pick** 해야 함. 완화: [`cross-repo-cherry-pick.md`](https://github.com/storkspear/template-spring/blob/main/docs/journey/cross-repo-cherry-pick.md) 가이드로 절차화.
+**자동 전파 없음** — 공통 개선을 각 파생 레포로 전파하려면 **사람이 cherry-pick** 해야 함. 완화: [`cross-repo-cherry-pick.md`](https://github.com/storkspear/template-spring/blob/main/docs/start/cross-repo-cherry-pick.md) 가이드로 절차화.
 
-**커밋 위생의 강제 부담** — "공통 코드 수정" 과 "도메인 수정" 이 한 커밋에 섞이면 cherry-pick 사고. 완화: [`git-workflow.md`](https://github.com/storkspear/template-spring/blob/main/docs/conventions/git-workflow.md) 의 "한 커밋 = 한 논리적 변경" 규칙.
+**커밋 위생의 강제 부담** — "공통 코드 수정" 과 "도메인 수정" 이 한 커밋에 섞이면 cherry-pick 사고. 완화: [`git-workflow.md`](https://github.com/storkspear/template-spring/blob/main/docs/convention/git-workflow.md) 의 "한 커밋 = 한 논리적 변경" 규칙.
 
 **버전 추적 수동화** — 파생 레포마다 "내가 template-v0.X.Y 까지 반영했다" 를 README 에 직접 적어야 함.
 
@@ -307,7 +307,7 @@ public class SumtallyAuthHook implements AuthHook {
 
 **2026 초반 — 파생 레포 전파 실험 초기에 발견한 3가지 함정.**
 
-1. **한 PR 에 공통 코드 + 도메인 코드 섞어 커밋했다가 cherry-pick 할 때 분리 불가능** 했던 사례. 이후 [`git-workflow.md`](https://github.com/storkspear/template-spring/blob/main/docs/conventions/git-workflow.md) 에 "한 커밋 = 한 논리적 변경" 규칙을 명시화.
+1. **한 PR 에 공통 코드 + 도메인 코드 섞어 커밋했다가 cherry-pick 할 때 분리 불가능** 했던 사례. 이후 [`git-workflow.md`](https://github.com/storkspear/template-spring/blob/main/docs/convention/git-workflow.md) 에 "한 커밋 = 한 논리적 변경" 규칙을 명시화.
 
 2. **Breaking change 를 major bump 로 바로 도입**했다가 파생 레포 업그레이드가 "다음 분기로 미뤄진" 사례. 이후 Deprecation 유예 기간 1 minor 의무화.
 
@@ -342,8 +342,8 @@ public class SumtallyAuthHook implements AuthHook {
 - [`CHANGELOG.md`](https://github.com/storkspear/template-spring/blob/main/CHANGELOG.md)
 
 **파생 레포 전파 도구**:
-- [`docs/journey/cross-repo-cherry-pick.md`](https://github.com/storkspear/template-spring/blob/main/docs/journey/cross-repo-cherry-pick.md)
-- [`docs/conventions/git-workflow.md`](https://github.com/storkspear/template-spring/blob/main/docs/conventions/git-workflow.md)
+- [`docs/start/cross-repo-cherry-pick.md`](https://github.com/storkspear/template-spring/blob/main/docs/start/cross-repo-cherry-pick.md)
+- [`docs/convention/git-workflow.md`](https://github.com/storkspear/template-spring/blob/main/docs/convention/git-workflow.md)
 
 **ArchUnit 템플릿 순수성 강제**:
 - [`ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) 의 r7, r8, r20
