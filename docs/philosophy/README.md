@@ -263,6 +263,7 @@ ADR-007 (솔로 친화적 운영)
 - **실제 비즈니스 로직** 을 이 레포에 쓰지 않는다 — 그건 파생 레포의 역할이다. 여기에는 뼈대, 포트 인터페이스, 공통 인프라만 둔다.
 - **구체적인 스펙 문서** (특정 앱이 언급되는 요구사항/API 문서 등) 를 여기 두지 않는다.
 - **운영 환경 변수 파일 (`.env.prod`, `.env.production` 등) 을 커밋하지 않는다.** 운영용 값은 GHA Repository Secrets 만 사용.
+- **`docs/planned/archive/` 는 template-spring 전용 history** — 파생 레포 (server-factory 등) 와 docs 뷰어 레포 (docs-template-spring) 에는 미반영. `tools/sync-docs.sh` 가 자동 exclude 한다.
 
 이유의 배경은 [`ADR-002`](./adr-002-use-this-template.md) 참조.
 
