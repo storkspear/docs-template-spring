@@ -352,7 +352,7 @@ cleanup.sh 동작 (default):
 ## 관련 문서
 
 - [`CI / CD 전체 플로우 — commit 부터 운영 반영까지`](../production/deploy/ci-cd-flow.md) — commit→배포 전체 다이어그램
-- [`도그푸딩 함정 모음 (사고 실록)`](./dogfood-pitfalls.md) — 11회 시도 함정 모음 + JDK 26 함정
+- [`도그푸딩 함정 모음 (사고 실록)`](./dogfood-pitfalls.md) — 12 함정 (11회 시도 + JDK 26 호환성 1건)
 - [`도그푸딩 FAQ`](./dogfood-faq.md) — 자주 묻는 질문
 - [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) — 키 교체 절차
 - [`운영 배포 가이드 (파생레포 onboarding)`](../production/deploy/deployment.md) — 운영 배포 (cloudflared 셋업, observability 등)

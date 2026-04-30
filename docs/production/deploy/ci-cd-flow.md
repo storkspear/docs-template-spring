@@ -12,7 +12,7 @@
 
 ## 한 문장 요약
 
-이 문서는 **`main` 브랜치 push 부터 운영 배포까지** 의 전체 CI/CD 흐름을 다이어그램과 Phase 별로 추적합니다. 함정 11 개 + 시간 분석 포함.
+이 문서는 **`main` 브랜치 push 부터 운영 배포까지** 의 전체 CI/CD 흐름을 다이어그램과 Phase 별로 추적합니다. 함정 12 개 + 시간 분석 포함.
 
 ---
 
@@ -364,7 +364,7 @@ cloudflared tunnel 이 외부 도메인을 Mac mini :80 으로 outbound 연결. 
 
 ---
 
-## 6. 함정 11개 (자세히 → [`pitfalls`](../../start/dogfood-pitfalls.md))
+## 6. 함정 12개 (자세히 → [`pitfalls`](../../start/dogfood-pitfalls.md))
 
 | # | 단계 | 키워드 | 자동화로 회피? |
 |---|---|---|---|

@@ -124,7 +124,7 @@ curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
 
 ### Q11. 11회 시도했다는데 다시 셋업하면 또 11번 걸리나요?
 
-**1번에 끝납니다**. 11회 함정 중 8개는 워크플로우/스크립트 코드에 박혀 영구 회피, 3개는 외부 발급 (PAT / Tailscale OAuth / DB URL 형식) 이고 가이드 §3 에 정확한 절차 + 함정 강조. JDK 26 함정 ([`pitfalls #12`](./dogfood-pitfalls.md)) 만 사람이 JDK 21 환경 보장 필요.
+**1번에 끝납니다**. 11회 시도 중 8 함정은 워크플로우/스크립트 코드에 박혀 영구 회피, 3개는 외부 발급 (PAT / Tailscale OAuth / DB URL 형식) 이고 가이드 §3 에 정확한 절차 + 함정 강조. 12 번째 JDK 26 함정 ([`pitfalls #12`](./dogfood-pitfalls.md)) 만 사람이 JDK 21 환경 보장 필요.
 
 → 가이드 따라 1번에 setup → 자동 trigger → 배포 success 가 정상 흐름.
 
