@@ -87,14 +87,16 @@ HHH000204: Processing PersistenceUnitInfo ...
 ## 6. Tomcat 서버 시작
 
 ```
-Tomcat initialized with port(s): 8080 (http)
+Tomcat initialized with port(s): 8081 (http)
 Starting service [Tomcat]
 Starting Servlet engine: [Apache Tomcat/10.x.x]
 Root WebApplicationContext: initialization completed
-Tomcat started on port(s): 8080 (http) with context path ''
+Tomcat started on port(s): 8081 (http) with context path ''
 ```
 
-**의미**: 내장 Tomcat 이 8080 포트에서 HTTP 요청 대기. **이 줄이 나오면 앱 준비 완료**.
+**의미**: 내장 Tomcat 이 8081 포트에서 HTTP 요청 대기. **이 줄이 나오면 앱 준비 완료**.
+
+> 왜 8081? Spring Boot 기본은 8080 이지만 다른 로컬 서비스와 자주 충돌해 `application.yml` 에서 8081 로 고정. prod 컨테이너 내부는 Dockerfile EXPOSE 와 일치하도록 SERVER_PORT ENV 로 8080 override (`config/deploy.yml`).
 
 포트 충돌 시: `application-dev.yml` 의 `server.port` 를 변경하거나 다른 프로세스 종료.
 
@@ -111,7 +113,7 @@ Started FactoryApplication in 3.842 seconds (process running for 4.521)
 다른 터미널에서:
 
 ```bash
-curl http://localhost:8080/actuator/health
+curl http://localhost:8081/actuator/health
 ```
 
 **성공 응답**:
@@ -124,7 +126,7 @@ curl http://localhost:8080/actuator/health
 ## 9. 인증 필요한 엔드포인트 호출
 
 ```bash
-curl http://localhost:8080/api/apps/sumtally/users/me
+curl http://localhost:8081/api/apps/sumtally/users/me
 ```
 
 **응답**:
@@ -166,7 +168,7 @@ HikariPool-1 - Shutdown completed.
 - [ ] `BUILD SUCCESSFUL` 이 뜸
 - [ ] `HikariPool-1 - Start completed.` 가 뜸
 - [ ] `Successfully applied N migrations to schema "core"` 가 뜸
-- [ ] `Tomcat started on port(s): 8080` 가 뜸
+- [ ] `Tomcat started on port(s): 8081` 가 뜸
 - [ ] `Started FactoryApplication` 이 뜸
 - [ ] `curl .../actuator/health` → `{"status":"UP"}` 받음
 

@@ -59,10 +59,13 @@ docker compose -f infra/docker-compose.dev.yml up -d postgres
 docker run --rm -it \
   --name backend-test \
   -p 8080:8080 \
+  -e SERVER_PORT=8080 \
   --env-file .env \
   --network host \
   my-backend-template:local
 ```
+
+> 왜 `SERVER_PORT=8080`? 로컬 bootRun 은 `application.yml` default 인 8081 (8080 충돌 회피용) 을 쓰지만, 컨테이너는 Dockerfile `EXPOSE 8080` 과 일치시키기 위해 prod 와 동일하게 8080 으로 override (`config/deploy.yml` 도 동일).
 
 **결과**: `./gradlew bootRun` 과 똑같은 로그가 나오지만, 이번엔 **컨테이너 안에서** 실행.
 
