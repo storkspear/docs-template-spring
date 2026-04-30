@@ -170,7 +170,7 @@ public static final String CORE_BASE = "/api/v1/core";
 
 ### 부정적 결과
 
-**업계 표준과 다른 URL** — 외부 개발자가 우리 레포를 보고 "왜 v1 없지?" 라고 의아해할 수 있음. 완화: 본 ADR 이 답변. `docs/api-contract/versioning.md` 에도 교차 참조.
+**업계 표준과 다른 URL** — 외부 개발자가 우리 레포를 보고 "왜 v1 없지?" 라고 의아해할 수 있음. 완화: 본 ADR 이 답변. `docs/api-and-functional/api/versioning.md` 에도 교차 참조.
 
 **도입 시점 판단의 모호함** — "외부 개발자가 쓰기 시작" 은 스펙트럼이다. 몇 명부터 "필요한 시점" 인가? 완화: 도입 체크리스트의 3개 신호 중 하나라도 관찰되면 ADR 재검토.
 

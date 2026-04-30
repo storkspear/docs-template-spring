@@ -333,7 +333,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
   - **Docker Hub 전환** — 한도 더 넉넉하지만 외부 의존성 추가. 탈락 (현 단계 불필요).
 - **Trade-off**:
   - PAT expiration 관리 부담 (90일 권장).
-  - 노출 시 즉시 폐기 + 재발급 필요 (`docs/infra/key-rotation.md` 참조).
+  - 노출 시 즉시 폐기 + 재발급 필요 (`docs/production/setup/key-rotation.md` 참조).
 - **재검토 트리거**:
   - GitHub 의 GHCR + GITHUB_TOKEN 권한 매핑 개선 발표
   - PAT expiration 관리 자동화 필요해짐 (3개월 주기 reminder 만으론 부족)
@@ -441,7 +441,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
   - **Self-hosted runner on Mac mini** — Tailscale 자체가 불필요. 탈락 ([I-12](#결정-i-12-workflow_run-게이트--jar-artifact-패스) 와 같은 이유).
 - **Trade-off**:
   - OAuth client scope 변경 시 client 재발급 필요 (편집 불가).
-  - 노출 시 즉시 폐기 (`docs/infra/key-rotation.md`).
+  - 노출 시 즉시 폐기 (`docs/production/setup/key-rotation.md`).
 - **재검토 트리거**:
   - Tailscale 의 OAuth API 변경 (scope 이름 바뀜 등)
   - GHA runner 가 tailscale 없이 Mac mini 에 도달 가능한 다른 경로 등장 (예: Cloudflare Tunnel SSH)

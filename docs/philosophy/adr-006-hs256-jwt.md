@@ -1,6 +1,6 @@
 # ADR-006 · HS256 JWT (대칭키)
 
-**Status**: Accepted. 2026-04-24 기준 `common-security/jwt/JwtService.java` 에서 HS256 로 발급/검증. jjwt 0.13.0 사용. 서명 키는 환경변수 `JWT_SECRET` 주입. 로테이션 전략은 `docs/infra/key-rotation.md` 에 기록.
+**Status**: Accepted. 2026-04-24 기준 `common-security/jwt/JwtService.java` 에서 HS256 로 발급/검증. jjwt 0.13.0 사용. 서명 키는 환경변수 `JWT_SECRET` 주입. 로테이션 전략은 `docs/production/setup/key-rotation.md` 에 기록.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -197,7 +197,7 @@ try {
 
 ### 키 로테이션 전략
 
-`docs/infra/key-rotation.md` 에 상세. 요약:
+`docs/production/setup/key-rotation.md` 에 상세. 요약:
 
 - **주기**: 6개월 권장
 - **grace period 없음** — 새 키로 교체 = 모든 기존 access/refresh 토큰 즉시 무효화 = 유저 재로그인 강제

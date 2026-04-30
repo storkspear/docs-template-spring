@@ -476,7 +476,7 @@ fi
 1. .env 의 placeholder 값 실제 값으로 교체:
    - <SLUG_UPPER>_DB_URL 의 <host> (Supabase pooler 호스트 등)
    - APP_CREDENTIALS_<SLUG_UPPER>_GOOGLE_CLIENT_IDS_0/1, _APPLE_BUNDLE_ID
-   → 발급 방법: docs/journey/social-auth-setup.md
+   → 발급 방법: docs/start/social-auth-setup.md
 
 2. 도메인 테이블 작성:
    apps/app-<slug>/src/main/resources/db/migration/<slug>/V007__init_domain.sql
@@ -511,7 +511,7 @@ fi
 2. .env 의 placeholder 값 실제 값으로 교체:
    - <SLUG_UPPER>_DB_URL 의 <host> (Supabase pooler 호스트 등)
    - APP_CREDENTIALS_<SLUG_UPPER>_GOOGLE_CLIENT_IDS_0/1, _APPLE_BUNDLE_ID
-   → 발급 방법: docs/journey/social-auth-setup.md
+   → 발급 방법: docs/start/social-auth-setup.md
 
 3. 도메인 테이블 작성:
    apps/app-<slug>/src/main/resources/db/migration/<slug>/V007__init_domain.sql

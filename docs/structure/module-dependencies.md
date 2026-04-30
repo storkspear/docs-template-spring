@@ -167,7 +167,7 @@ dependencies {
   config : implementation
   depends: :core:core-auth-impl
   reason : forbidden pattern
-See docs/architecture/module-dependencies.md
+See docs/structure/module-dependencies.md
 ```
 
 → 해결: `project(':core:core-auth-impl')` 을 `project(':core:core-auth-api')` 로 교체.

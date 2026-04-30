@@ -176,7 +176,7 @@ kamal app boot                # 마지막 배포 버전으로 다시 기동
 5. 재발 방지 체크 / 테스트 / 모니터링 개선
 6. 이 런북에 추가할 내용
 
-`docs/infra/edge-cases.md` 와 `docs/reference/backlog.md` 에 해당 항목 반영 또는 추가.
+`docs/reference/edge-cases.md` 와 `docs/planned/backlog.md` 에 해당 항목 반영 또는 추가.
 
 ---
 

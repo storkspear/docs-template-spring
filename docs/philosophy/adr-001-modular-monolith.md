@@ -211,7 +211,7 @@ dependencies {
   config : implementation
   depends: :core:core-auth-impl
   reason : forbidden pattern
-See docs/conventions/module-dependencies.md
+See docs/convention/module-dependencies.md
 
 > FAILURE: Build failed with an exception.
 ```

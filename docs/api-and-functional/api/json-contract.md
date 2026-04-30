@@ -224,7 +224,7 @@ ISO-8601 문자열 강제:
 
 - 이런 변경은 **Item 3 (버저닝) 의 breaking change** 에 해당.
 - `@Deprecated` 로 기존 필드 유지하고 새 필드 추가 → 한 번에 교체 금지.
-- 자세한 절차는 `docs/api-contract/versioning.md` (향후 추가 예정, Item 3 구현 시).
+- 자세한 절차는 `docs/api-and-functional/api/versioning.md` (향후 추가 예정, Item 3 구현 시).
 
 ### 필드 제거
 
