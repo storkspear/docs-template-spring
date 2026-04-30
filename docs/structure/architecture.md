@@ -1,6 +1,6 @@
 # Architecture Reference
 
-이 문서는 `template-spring` 의 **실제 구조** 를 설명합니다. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 16 개 ADR 에 기록되어 있습니다.
+이 문서는 `template-spring` 의 **실제 구조** 를 설명합니다. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 17 개 ADR 에 기록되어 있습니다.
 
 > **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내합니다. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 먼저 참고.
 
@@ -130,7 +130,7 @@ template-spring/
 │   │   ├── dogfood-setup.md           # 도그푸딩 셋업 (+ faq, pitfalls)
 │   │   ├── social-auth-setup.md       # Google/Apple 소셜 인증
 │   │   ├── cross-repo-cherry-pick.md  # 템플릿 → 파생 레포 동기화
-│   │   └── philosophy/                # 16 개 ADR (설계 결정)
+│   │   └── philosophy/                # 17 개 ADR (설계 결정)
 │   │       ├── README.md              # ADR 인덱스 + 테마별 그룹
 │   │       └── adr-001 ~ adr-016.md   # 16 개 Architecture Decision Records
 │   ├── api-contract/                  # API 응답/JSON/버저닝/Flutter 통합
@@ -755,7 +755,7 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든
 ## 관련 문서
 
 ### 핵심 레퍼런스
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 16 개 ADR 설계 결정의 근거
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 17 개 ADR 설계 결정의 근거
 - [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) — 문서 작성 규칙
 - [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 개발 환경 셋업
 

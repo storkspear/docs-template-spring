@@ -6,7 +6,7 @@
 
 | 문서 | 범위 |
 |---|---|
-| [`Repository Philosophy — 책 안내`](../../philosophy/README.md) | **코드 설계 결정 (16 ADR)** — 모듈 구조, 포트/어댑터, Mapper 금지, 테스트 전략 등 |
+| [`Repository Philosophy — 책 안내`](../../philosophy/README.md) | **코드 설계 결정 (17 ADR)** — 모듈 구조, 포트/어댑터, Mapper 금지, 테스트 전략 등 |
 | **`decisions-infra.md`** (이 문서) | **물리/운영 인프라 결정** — DB, 오브젝트 스토리지, 운영 호스트, 엣지, 관측성 |
 
 경계 케이스 (예: 서비스별 schema — 코드 규약이자 인프라 결정) 는 양쪽에서 상호 참조합니다.
@@ -67,7 +67,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
   - 파생레포 소유자가 이미 보유한 Postgres 인프라 (회사 RDS 등) 재사용하고 싶을 때
 - **관련 문서**:
   - `infrastructure.md §2, §10` — 현재 상태, 연결 방식
-  - `../journey/onboarding.md §4.5` — 운영 DB provider 선택 가이드 (provider 별 connection string + 준비 체크리스트)
+  - `../../start/onboarding.md §4.5` — 운영 DB provider 선택 가이드 (provider 별 connection string + 준비 체크리스트)
   - `infra/scripts/keep-alive.sh` — Supabase Free tier 7일 pause 방지 (Supabase 이외 provider 는 불요)
 
 ---
@@ -277,7 +277,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
   - HikariCP pool size 튜닝이 파생 레포에서 빈번 → yml externalization 도입
   - 전체 pool 합이 Supabase pooler limit 접근 → `poolSize()` override 로 5 로 낮추거나 Pro 전환
 - **관련 문서**:
-  - `../journey/architecture.md` (Multi-DataSource Wiring 섹션)
+  - `../../structure/architecture.md` (Multi-DataSource Wiring 섹션)
   - `common/common-persistence/` (abstract 구현)
   - `bootstrap/src/main/java/com/factory/bootstrap/config/CoreDataSourceConfig.java` (@Primary core 선언)
   - `tools/new-app/new-app.sh` Step 13.5 (Config 자동 생성)
@@ -488,7 +488,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 
 ## 관련 문서
 
-- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 코드 설계 결정 (16 ADR)
+- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 코드 설계 결정 (17 ADR)
 - [`인프라 (Infrastructure)`](./infrastructure.md) — 인프라 현재 상태 + 구성도
 - [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md) — 2-tier bucket 상세 규약
 - [`Observability 규약`](../../api-and-functional/functional/observability.md) — 관측성 규약
