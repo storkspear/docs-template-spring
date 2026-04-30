@@ -219,6 +219,41 @@ REQUIRED fail = 즉시 중단 (운영 backend 가 응답 안 함). OPTIONAL fail
 
 ---
 
+### Q17. `APP_CREDENTIALS_<SLUG>_*` 를 `.env.prod` 에 추가하면 운영에 자동 반영되나요? <a id="q17"></a>
+
+**아니오. `init-server.sh` 가 GitHub Secrets push 까지만 자동**, 운영 컨테이너 inject 는 현재 *수동 작업* 입니다.
+
+| 흐름 | 자동/수동 | 위치 |
+|---|---|---|
+| `.env.prod` 에 `APP_CREDENTIALS_<SLUG>_GOOGLE_CLIENT_IDS_0` 등 추가 | 수동 | 사용자 |
+| `init-server.sh` 2회차 실행 시 정규식으로 자동 발견 + GitHub Secrets push | ✅ 자동 | init-server.sh L376~395 |
+| `config/deploy.yml` 의 `env.secret` 목록에 같은 키 추가 | ❌ **수동** | 파생 레포 |
+| `.kamal/secrets.example` 에 같은 키 매핑 추가 | ❌ **수동** | 파생 레포 |
+| Kamal 이 컨테이너에 inject → Spring relaxed binding 으로 `app.credentials.<slug>.google-client-ids[0]` 으로 받음 | ✅ 자동 | Spring |
+
+**즉 GitHub Secrets 에 push 됐다고 운영에서 동작하는 게 아닙니다.** `config/deploy.yml` + `.kamal/secrets` 의 env.secret 목록에 같은 키를 명시해야 Kamal 이 환경변수로 컨테이너에 전달합니다.
+
+이 두 파일은 **파생 레포가 직접 append** 해야 합니다 (template 의 두 파일에 코멘트로 "Phase 2 자동 append 예정" 명시 — 현재는 미구현). 새 앱 모듈을 `tools/new-app/new-app.sh <slug>` 로 추가한 뒤:
+
+```yaml
+# config/deploy.yml 의 env.secret 끝에 추가
+- APP_CREDENTIALS_GYMLOG_GOOGLE_CLIENT_IDS_0
+- APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID
+- APP_CREDENTIALS_GYMLOG_KAKAO_APP_ID
+- APP_CREDENTIALS_GYMLOG_NAVER_CLIENT_ID
+```
+
+```bash
+# .kamal/secrets 에도 같은 매핑 추가 ($VAR 는 GHA env 에서 resolve)
+APP_CREDENTIALS_GYMLOG_GOOGLE_CLIENT_IDS_0=$APP_CREDENTIALS_GYMLOG_GOOGLE_CLIENT_IDS_0
+APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID=$APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID
+# Kakao/Naver 동일
+```
+
+또 `.github/workflows/deploy.yml` 의 env 블록에도 같은 키를 `${{ secrets.APP_CREDENTIALS_<SLUG>_* }}` 형태로 export 해야 GHA runtime 에 노출됩니다 (Phase 2 자동화 전까지).
+
+---
+
 ### Q16. 원본 `template-spring` 자체를 clone 받으면 어떻게 동작하나요? <a id="q16"></a>
 
 template 개발자가 원본 `storkspear/template-spring` repo 를 그대로 clone 받아 `init-server.sh` 를 돌리면 **공동 작업자 모드가 아닌 1회차 모드** 로 진입합니다 — 의도된 동작입니다.
