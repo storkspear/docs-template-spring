@@ -14,7 +14,7 @@
 - template 의 `tools/init-server.sh` 등 자동화 코드는 그대로 복사되지만 **GitHub Settings (Variables/Secrets) / Mac mini 의 SSH 키 / GHCR 패키지** 는 파생 레포가 직접 셋업해야 함.
 - 첫 실배포 전에 도그푸딩으로 한 번 검증하면 실제 사용자 트래픽 들어오기 전에 모든 함정을 잡을 수 있음.
 
-수행: 첫 작업자가 `bash tools/init-server.sh <owner>/<repo>` 1·2회차 → `verify-server.sh` 6/6 PASS → `./gradlew :bootstrap:bootRun` UP 까지 검증. 자세한 흐름은 [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md).
+수행: 첫 작업자가 `bash tools/init-server.sh <owner>/<repo>` 1·2회차 → `verify-server.sh` 7/7 PASS → `./gradlew :bootstrap:bootRun` UP 까지 검증. 자세한 흐름은 [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md).
 
 (임시 trial 환경을 한 번에 cleanup 하고 싶을 때만 옛 `tools/dogfooding/setup.sh + cleanup.sh` 사용 — 새 흐름과 별개.)
 
@@ -163,7 +163,7 @@ bash tools/init-server.sh <owner>/<repo> --reinit
 
 ---
 
-### Q13. `verify-server.sh` 의 6 단계는 무엇을 검증하나요?
+### Q13. `verify-server.sh` 의 7 단계는 무엇을 검증하나요?
 
 `init-server.sh` Step 10 에서 자동 호출 (단독 실행도 가능: `bash tools/verify-server.sh`).
 
@@ -175,12 +175,13 @@ bash tools/init-server.sh <owner>/<repo> --reinit
 | 4 | OPTIONAL: storage | MinIO 업로드 (PUT/STAT/DEL) | storage feature 정상 |
 | 5 | OPTIONAL: email | Resend API 발송 | email feature 정상 |
 | 6 | OPTIONAL: logging | Loki readiness | logging feature 정상 |
+| 7 | OPTIONAL: alertmanager | Alertmanager 컨테이너 Up 확인 | Discord 도착은 기술 불가 — 알람 수동 trigger 후 채널 확인 |
 
 REQUIRED fail = 즉시 중단 (운영 backend 가 응답 안 함). OPTIONAL fail = 경고 + 계속.
 
 **OPTIONAL feature 가 `.env.prod` 에서 비어있으면 자동 SKIP** — 그 feature 를 안 쓴다는 뜻으로 간주 (예: `RESEND_API_KEY=` 비어있으면 Step 5 SKIP, "feature 비활성화" 로 취급). 따라서 SKIP 결과는 **fail 이 아닙니다**. 활성화하고 싶으면 해당 키들을 `.env.prod` 에 채우고 `init-server.sh` 재실행.
 
-기대 결과 (DEPLOY_ENABLED=true + 모든 OPTIONAL 활성화 시): **6/6 PASS** (`✅ 운영 가용 상태 — 활성 기능 모두 작동`).
+기대 결과 (DEPLOY_ENABLED=true + 모든 OPTIONAL 활성화 시): **7/7 PASS** (`✅ 운영 가용 상태 — 활성 기능 모두 작동`).
 
 ---
 
@@ -219,6 +220,23 @@ REQUIRED fail = 즉시 중단 (운영 backend 가 응답 안 함). OPTIONAL fail
 
 ---
 
+### Q16. 원본 `template-spring` 자체를 clone 받으면 어떻게 동작하나요? <a id="q16"></a>
+
+template 개발자가 원본 `storkspear/template-spring` repo 를 그대로 clone 받아 `init-server.sh` 를 돌리면 **공동 작업자 모드가 아닌 1회차 모드** 로 진입합니다 — 의도된 동작입니다.
+
+| 검사 항목 | 원본 template-spring | 파생 레포 fresh clone |
+|---|---|---|
+| `settings.gradle` sentinel `template-spring` 매칭 | ✓ (rename 안 됨) → 1회차 후보 | ✗ (rename 완료) → 공동작업자 후보 |
+| `PROJECT_README_TEMPLATE.md` 부재 | ✗ (있음) → 1회차 후보 | ✓ (이미 삭제됨) → 공동작업자 후보 |
+| `.env.prod` 부재 | ✓ → 1회차 후보 | ✓ → 공동작업자 후보 |
+| **결과** | **1회차 모드** | **공동 작업자 모드** |
+
+따라서 원본 repo 를 clone 받으면 `bash tools/init-server.sh <test-org>/<test-repo>` 처럼 REPO 인자가 필요하고, 실행 시 settings.gradle 등이 `<test-repo>` 이름으로 rename 됩니다 — 즉 *원본을 이름만 바꿔 시험하는* 흐름. 시험 후엔 변경을 commit 하지 말고 `git restore .` 로 되돌리면 됩니다.
+
+이 동작을 강제로 막으려면 `--reinit` 없이 `init-server.sh` (REPO 인자 없음) 를 시도하면 인자 누락으로 usage 출력 → 의도치 않은 rename 방지.
+
+---
+
 ### Q17. `APP_CREDENTIALS_<SLUG>_*` 를 `.env.prod` 에 추가하면 운영에 자동 반영되나요? <a id="q17"></a>
 
 **아니오. `init-server.sh` 가 GitHub Secrets push 까지만 자동**, 운영 컨테이너 inject 는 현재 *수동 작업* 입니다.
@@ -254,23 +272,6 @@ APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID=$APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID
 
 ---
 
-### Q16. 원본 `template-spring` 자체를 clone 받으면 어떻게 동작하나요? <a id="q16"></a>
-
-template 개발자가 원본 `storkspear/template-spring` repo 를 그대로 clone 받아 `init-server.sh` 를 돌리면 **공동 작업자 모드가 아닌 1회차 모드** 로 진입합니다 — 의도된 동작입니다.
-
-| 검사 항목 | 원본 template-spring | 파생 레포 fresh clone |
-|---|---|---|
-| `settings.gradle` sentinel `template-spring` 매칭 | ✓ (rename 안 됨) → 1회차 후보 | ✗ (rename 완료) → 공동작업자 후보 |
-| `PROJECT_README_TEMPLATE.md` 부재 | ✗ (있음) → 1회차 후보 | ✓ (이미 삭제됨) → 공동작업자 후보 |
-| `.env.prod` 부재 | ✓ → 1회차 후보 | ✓ → 공동작업자 후보 |
-| **결과** | **1회차 모드** | **공동 작업자 모드** |
-
-따라서 원본 repo 를 clone 받으면 `bash tools/init-server.sh <test-org>/<test-repo>` 처럼 REPO 인자가 필요하고, 실행 시 settings.gradle 등이 `<test-repo>` 이름으로 rename 됩니다 — 즉 *원본을 이름만 바꿔 시험하는* 흐름. 시험 후엔 변경을 commit 하지 말고 `git restore .` 로 되돌리면 됩니다.
-
-이 동작을 강제로 막으려면 `--reinit` 없이 `init-server.sh` (REPO 인자 없음) 를 시도하면 인자 누락으로 usage 출력 → 의도치 않은 rename 방지.
-
----
-
 ## 개요
 
 도그푸딩 환경 셋업 시 자주 묻는 질문 16 개 모음. 본 가이드 ([`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md)) 를 따라가다 막히는 지점별 해결 포인터.
@@ -280,7 +281,7 @@ template 개발자가 원본 `storkspear/template-spring` repo 를 그대로 clo
 ## 더 궁금한 게 있다면
 
 - [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) — 정상 흐름
-- [`도그푸딩 함정 모음 (사고 실록)`](./dogfood-pitfalls.md) — 11회 함정 자세히
+- [`도그푸딩 함정 모음 (사고 실록)`](./dogfood-pitfalls.md) — 12 함정 자세히 (11회 시도 + JDK 26 호환성 1건)
 - [`CI / CD 전체 플로우 — commit 부터 운영 반영까지`](../production/deploy/ci-cd-flow.md) — 다이어그램
 - [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) — 키 교체
 - [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) — 결정 근거 (I-09 ~ I-14)
