@@ -194,13 +194,13 @@ Successfully applied 1 migration
 TOKEN="..."
 
 # 프로필 업데이트
-curl -X PATCH http://localhost:8080/api/apps/sumtally/users/me \
+curl -X PATCH http://localhost:8081/api/apps/sumtally/users/me \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"nickname":"new_nickname"}'
 
 # 프로필 조회
-curl http://localhost:8080/api/apps/sumtally/users/me \
+curl http://localhost:8081/api/apps/sumtally/users/me \
   -H "Authorization: Bearer $TOKEN"
 
 # → { "data": { "userId": 1, "nickname": "new_nickname", ... } }

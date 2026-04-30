@@ -425,7 +425,7 @@ Cloudflare 엣지 (TLS 종료, DDoS 방어)
 Cloudflare Tunnel → 맥미니
       │
       ▼
-Spring Boot (bootstrap JAR, localhost:8080)
+Spring Boot (bootstrap JAR, prod 컨테이너 내부 :8080 — 로컬 bootRun 은 8081)
       │
       ▼
 [MdcFilter]                             (common-logging)
