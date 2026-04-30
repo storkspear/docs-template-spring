@@ -193,7 +193,7 @@ bash tools/init-server.sh <owner>/<repo>
 5. **Step 5**: `.env.prod.example` → `.env.prod` 복사 + `JWT_SECRET` / `DB_PASSWORD` 자동 발급
 6. **Step 6 (1회차 종료)**: `.env.prod` 의 REQUIRED 5 가 비어있으니 **에디터로 채우라고 안내 후 종료** (`exit 0`)
 
-> 1회차 시점에 `Step 7~10` 까지는 도달하지 않습니다. `.env.prod` 채운 뒤 같은 명령을 다시 돌리는 것이 2회차.
+> 1회차 시점에 `Step 7~11` 까지는 도달하지 않습니다. `.env.prod` 채운 뒤 같은 명령을 다시 돌리는 것이 2회차.
 
 ---
 
@@ -249,7 +249,7 @@ VARIABLE — Variables 로 등록 (Secrets 와 별도, 비민감):
 bash tools/init-server.sh <owner>/<repo>
 ```
 
-이번엔 `.env.prod` REQUIRED 5 가 다 채워져 있어 Step 6 ~ 10 까지 진행:
+이번엔 `.env.prod` REQUIRED 5 가 다 채워져 있어 Step 6 ~ 11 까지 진행:
 
 - **Step 6** — GitHub Secrets push (REQUIRED 7 + 활성 OPTIONAL features) + Variables push (5)
   - REQUIRED 7: `APP_DOMAIN`, `DB_PASSWORD`, `DB_URL`, `DB_USER`, `GHCR_TOKEN`, `JWT_SECRET`, `SSH_PRIVATE_KEY`

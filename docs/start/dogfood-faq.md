@@ -192,8 +192,8 @@ REQUIRED fail = 즉시 중단 (운영 backend 가 응답 안 함). OPTIONAL fail
 | 상태 | 판정 | 동작 |
 |---|---|---|
 | `.env.prod` 부재 | **1회차 (또는 공동 작업자)** | Step 5 에서 `.env.prod` 생성 + JWT_SECRET / DB_PASSWORD 자동 발급. 단, sentinel rename 완료 + PROJECT_README_TEMPLATE.md 부재면 공동 작업자로 감지해 Step 5 도 skip ([Q12](#q12) 참조) |
-| `.env.prod` 존재 + REQUIRED 5 비어있음 | **1회차 직후 (사용자가 채우는 중)** | Step 6 에서 안내만 출력 후 종료 (Step 7~10 도달 안 함) |
-| `.env.prod` 존재 + REQUIRED 5 채움 | **2회차** | Step 6 에서 GitHub Secrets/Variables push → Step 7~10 까지 진행 |
+| `.env.prod` 존재 + REQUIRED 5 비어있음 | **1회차 직후 (사용자가 채우는 중)** | Step 6 에서 안내만 출력 후 종료 (Step 7~11 도달 안 함) |
+| `.env.prod` 존재 + REQUIRED 5 채움 | **2회차** | Step 6 에서 GitHub Secrets/Variables push → Step 7~11 까지 진행 |
 
 판정 키:
 - **REQUIRED 5**: `APP_DOMAIN`, `DB_URL`, `DB_USER`, `GHCR_TOKEN`, `SSH_PRIVATE_KEY` (사용자 채우기). `JWT_SECRET` / `DB_PASSWORD` 는 자동 발급되므로 사용자 입력 대상 아님.
