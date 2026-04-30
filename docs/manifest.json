@@ -47,7 +47,7 @@
     {
       "name": "Level 3 - Philosophy",
       "files": [
-        { "path": "philosophy/README.md",             "title": "개요",                 "desc": "프롤로그 (3 제약) + 사용법 + 16 ADR 인덱스" },
+        { "path": "philosophy/README.md",             "title": "개요",                 "desc": "프롤로그 (3 제약) + 사용법 + 17 ADR 인덱스" },
         { "title": "모듈 설계", "children": [
             { "path": "philosophy/adr-001-modular-monolith.md",       "title": "Modular Monolith","desc": "ADR-001 · 한 JAR 에 여러 앱 공존 + 경계 강제" },
             { "path": "philosophy/adr-002-use-this-template.md",      "title": "Use this template","desc": "ADR-002 · 파생 레포 패턴 + cherry-pick 전파" },
@@ -58,7 +58,8 @@
             { "path": "philosophy/adr-005-db-schema-isolation.md",    "title": "Postgres Schema Isolation","desc": "ADR-005 · 단일 database + 앱당 schema + 5중 방어선" },
             { "path": "philosophy/adr-006-hs256-jwt.md",              "title": "HS256 JWT","desc": "ADR-006 · 단일 JVM 전제 · 비밀키 1개 · 15분/30일 TTL" },
             { "path": "philosophy/adr-012-per-app-user-model.md",     "title": "Per-App User Model","desc": "ADR-012 · 통합 계정 폐기, appSlug claim + 검증 필터" },
-            { "path": "philosophy/adr-013-per-app-auth-endpoints.md", "title": "Per-App Auth Endpoints","desc": "ADR-013 · /api/apps/{slug}/auth/* · core-auth 라이브러리 역할" }
+            { "path": "philosophy/adr-013-per-app-auth-endpoints.md", "title": "Per-App Auth Endpoints","desc": "ADR-013 · /api/apps/{slug}/auth/* · core-auth 라이브러리 역할" },
+            { "path": "philosophy/adr-017-oauth-integration.md",      "title": "OAuth 2.0 통합","desc": "ADR-017 · Google/Apple/Kakao/Naver · 앱별 credentials" }
         ]},
         { "title": "운영 철학", "children": [
             { "path": "philosophy/adr-007-solo-friendly-operations.md","title": "Solo-Friendly Operations","desc": "ADR-007 · 모든 운영 결정의 상위 기준 + 비목표 선언" },
