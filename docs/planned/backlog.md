@@ -70,12 +70,47 @@
 - [ ] [DX] Inventory 기계 추출 파일 `docs/.inventory.yml` — Item 9 plan 의 embed 인벤토리 drift 방지 (2026-04-18)
 - [ ] [DX] Multi-app 로컬 병렬 개발 가이드 (포트 충돌, IntelliJ run config 공유) — 여러 앱 동시 기동 (2026-04-18)
 - [ ] [DX] Pre-push hook (build 자동 실행) — CI 실패 전 로컬 차단 (2026-04-18)
+- [x] ~~WireMock opt-in 정책 문서 정정~~ — 본 사이클 (S12) 완료. `cli-guide.md` / `onboarding.md` 의 "wiremock 자동 기동" 표기를 "(옵션) wiremock" 으로 정정 (2026-05-03)
+- [x] ~~`<repo> local stop` / `<repo> local restart` 명령 신규~~ — `factory:376~384` 에 구현 완료. `restart` 는 `docker compose ... up -d --build spring` 으로 강제 rebuild (2026-05-03)
+- [ ] [DX] `<repo> prod db-backup [slug]` / `<repo> prod storage-backup [slug]` 명령 — `prod force-clear` (이번 사이클 추가) 의 Step 3 백업 안내가 manual `pg_dump` / `mc cp` 로 출력. 자동화 시 일관된 백업 위치 + tar.gz 압축 + retention 정책 가능. force-clear 와 짝 (clear/init 의 symmetry 와 같이). 본 사이클은 force-clear 만 추가 — 백업 자동화는 별도 사이클 (2026-05-02)
+- [x] ~~multi-app prod env 자동 derive 패턴~~ — `common-persistence/AbstractAppDataSourceConfig.deriveSlugUrl` 에 구현 완료. `<SLUG>_DB_URL` 비우면 `${DB_URL}` 의 `currentSchema=<slug>` 자동 교체, USER/PASSWORD 는 core 그대로 재사용 (2026-05-03)
+- [x] ~~`tools/deploy.sh` 시작 시 uncommitted 경고~~ — `tools/deploy.sh` Step 0 에 정보성 warning 으로 구현 완료. 운영 빌드는 origin/main SHA 기준이라 로컬 working tree 무관, warning 만 출력하고 차단 X (2026-05-03)
+- [ ] [DX] `<repo> prod force-clear <slug>` 의 관측성 데이터 처리 — 현재 슬러그 지정 시에도 `[3/5]` 단계가 *모든 관측성 데이터* (Grafana / Loki / Prometheus / Alertmanager) 삭제 confirm 을 묻는다. 관측성 스택은 모든 슬러그가 공유하므로 *특정 슬러그 정리 시* 보존이 자연스러움. slug 지정 케이스에선 `[3/5]` 자동 skip + 안내 또는 *해당 슬러그의 dashboard / log stream 만 분리 정리* 가 정확. 현재 운영자가 실수로 'y' 입력 시 *전체 모니터링 히스토리* 손실 가능. force-clear 와 함께 들어간 사이클에 후속 보강 권장 (2026-05-03)
+- [ ] [DX] `factory install` 의 alias 이름 입력 단계에 *bash 빌트인·예약어 충돌 검증* — 운영자가 `test` 같은 빌트인 명령을 입력하면 `~/.local/bin/test` symlink 가 등록되어도 bash 가 빌트인을 우선해 `test init` 이 no-op 으로 동작 (조건 검사로 해석되어 0 exit). 차단 대상 후보: `test`, `[`, `[[`, `true`, `false`, `cd`, `pwd`, `echo`, `set`, `eval`, `source`, `.`, `:`, `command`, `type`, `which`, `time`, `exec`, `exit`, `kill`, `jobs`, `bg`, `fg`, `wait`, `read`, `local`, `export`, `unset`, `alias`, `unalias`, `history`, `let`, `printf`. 입력 후 `compgen -b <name>` 또는 hardcoded 목록으로 검증 → 매치 시 *재입력 요구*. 도그푸딩 사이클에서 `test` 입력으로 발견됨 (2026-05-03)
+- [ ] [DX] `init-server.sh` 의 partial-fail 인지성 강화 — 현재 Step 6 끝의 `[OK] GitHub Secrets / Variables 등록 완료` 가 *최종 성공* 처럼 보여 사용자가 그 뒤의 Step 9.5 (observability deploy) / Step 10 (verify-server) 가 안 돈 partial fail 을 놓치는 케이스 발생. 보강 방향: ①중간 step 메시지를 `[OK] Step 6 완료` 처럼 단계 표시로 약화. ②`trap EXIT` 추가해 비정상 종료 시 `❌ init 비정상 종료 (exit=$rc) — re-run 권장` 명시. ③최종 success 마커를 박스 형태로 강조 (없으면 곧 실패). 도그푸딩 사이클에서 line 559 bash 에러로 init 이 partial 종료됐는데 deploy 는 decoupled 라 정상 동작 → 사용자가 init 결함을 늦게 발견 (2026-05-03)
 
 ### 템플릿 진화
 
 - [ ] [Template] Roll-forward 가이드 보강 (`cross-repo-cherry-pick.md` 에 인프라 변경 반영법) — 파생 레포가 template 업데이트 가져가는 법 (2026-04-18)
 - [ ] [Template] Release cadence 규칙 (`template-v` 태그 찍는 주기) — 의도적 cadence 정의 (2026-04-18)
 - [ ] [Template] 파생 레포 "inventory 자동 업데이트" 가이드 — 본인 파생 레포가 새 env/service 추가 시 문서 동기화 (2026-04-18)
+- [ ] [Template] template-spring-lite-example sample 파생 레포 — ADR-034 의 lite 변형 (PAYMENT/IAP/2FA 비활성) 시나리오를 fresh fork 환경에서 1회 검증 + 결과 docs 화. 본 template repo 는 fork 받는 출발점이므로 sample repo 생성은 사용자 GitHub 영역 — 본 repo 안에는 docs 만 (사용자 작업 후 결과 backlog 갱신) (2026-05-02)
+
+### 단순 가정 → 검증 미흡 (2026-05 사이클 — ADR-021~035)
+
+> 본 사이클 진행 중 추측/가정으로 진행된 부분. 실 검증 별도 task 로 분리 (사용자 피드백 2026-05-02).
+
+- [ ] [DX] `tools/monitor-local.sh` P95 의 정확한 quantile 계산 — 현재 "0.5 bucket 비율" 단순 근사. histogram_quantile 정확 구현 또는 명시적 "approximate" 표기 강화 (2026-05-02)
+- [ ] [DX] `tools/api-smoke-test.sh` 실 실행 검증 — 도그푸딩 또는 fresh 파생 레포 환경에서 11 step PASS 확인 필요 (2026-05-02)
+  - 본 사이클 (2026-05-02) 에서 시도 — 기존 junwoo-service container 가 8081 점유 + 옛 fork 라 ADR-031 controller 미존재 → 의미 있는 실행 불가
+  - 자동화 가능 부분은 통합 테스트로 대체 완료: FeatureToggleTest (8 test), NotificationPreferenceControllerTest (6 test), BillingServiceImplContractTest, FactoryApplicationTests, HealthEndpointsTest
+  - 11 step 전체 e2e 는 사용자 도그푸딩 환경 (별도 fresh repo + WireMock + .env.prod) 에서 1회 실행 후 결과 backlog 에 기록 — 본 작업이 backlog 의 잔여 검증
+- [x] [Feature] WireMock stub 응답 backend 호환 검증 — 본 사이클 (2026-05-02) audit 결과 명시 + 후속 task 분리:
+  - `apple-server-notification-v2.json` 의 outer JWS body decode OK (notificationType=REFUND, signedDate, data 등 schema 정합).
+  - 그러나 `data.signedTransactionInfo: "smoke-txn"` 은 JWS 형식 아님 + outer payload 의 `dev-signature` 가 실 cert chain 검증 통과 X.
+  - 본 stub 은 **운영자 reproducer 용** (dev 환경에서 endpoint round-trip 시연). 실 decoder 통과 검증은 별도 task 로 분리.
+- [x] [Feature] IAP adapter (Apple) 의 dev-mock 모드 추가 — `app.iap.apple.dev-mock=true` 시 AppleJwsVerifier 가 cert chain + ES256 signature 검증 우회. WireMock stub payload 가 실 decoder 통과 검증 (5+2 test PASS). prod 절대 금지 명시. **Google RTDN dev-mock 은 후속** (완료일: 2026-05-02 — Apple only)
+- [x] [Feature] Google RTDN 의 dev-mock 모드 검증 — audit 결과: GoogleNotificationDecoder 자체는 서명 검증 X (별도 layer GoogleWebhookAuthFilter 가 verifyToken=true 일 때만 등록, default false). 즉 Apple 의 dev-mock 동등 기능이 이미 default 상태에 구현되어 있음. WireMock stub 호환 4 test 추가로 검증 완료 (완료일: 2026-05-02, GoogleNotificationDecoderStubTest 4 test PASS)
+- [ ] [Ops] `tools/migrate-prod.sh` checksum 알고리즘 실 Flyway 비교 검증 — 본 사이클 (2026-05-02) audit 결과:
+  - 현재 python3 zlib.crc32 (CRLF 제거 후) 사용
+  - Flyway 의 `org.flywaydb.core.internal.resource.ResourceProvider` 정확 알고리즘 (라인별 trim + CRC32 누적) 과 1:1 매칭 보장 X
+  - mismatch 시 부팅 시 `Migration checksum mismatch` → 운영자가 `schema_history.checksum` UPDATE 후 재 deploy
+  - 본 task 처리 결과: `migrate-prod.sh` + `flyway-runbook.md` 의 mismatch 절차 상세 문서화 (2026-05-02)
+  - 후속: Flyway library 직접 호출 Java helper — 본 사이클 (2026-05-02) audit 결과: Flyway 의 정확 checksum = internal API (`org.flywaydb.core.internal.resource.LoadableResource`) 사용 — 버전 의존 위험. 운영 절차 (flyway-runbook.md §4-3 의 schema_history.checksum UPDATE) 가 mismatch 시 안전망. nice-to-have 로 별도 사이클 — 운영 환경에서 첫 mismatch 사례 발생 후 priority 재평가
+- [ ] [Feature] ADR-031 controller 실 endpoint 호출 검증 — `/me/notification-preferences` GET/PATCH 의 컴파일/spotless 만 검증됐고 실 부팅 후 200/204 응답 미확인 (2026-05-02)
+- [ ] [Feature] ADR-034 non-leaf 토글 invasive 작업 — payment/iap/email/2fa 를 `ObjectProvider` 변환 + `ApiError.FEATURE_DISABLED` (CMN_009 신규) 추가 → 부팅 fail 없이 토글 가능하게 (2026-05-02)
+- [ ] [DX] `bootstrap/FeatureToggleTest` 의 leaf domain 외 검증 추가 — billing-notification / password-policy 도 disable 시 정상 부팅 + bean 미등록 명시 검증 (2026-05-02)
+- [x] [DX] GlobalExceptionHandler 에 ConversionFailedException + MethodArgumentTypeMismatchException → 422 (CMN_001) 매핑 — details 에 param/rejected/allowed 포함. NotificationPreferenceControllerTest 의 invalid kind 케이스 정확 검증 (완료일: 2026-05-02, commit: 4c2f1a3 예정)
 
 ---
 

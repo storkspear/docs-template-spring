@@ -6,6 +6,7 @@
 
 > 결정 근거: [`인프라 결정 기록 (Decisions — Infrastructure) I-10, I-14`](../deploy/decisions-infra.md)
 > 셋업 가이드: [`도그푸딩 환경 셋업 가이드`](../../start/dogfood-setup.md)
+> 키 발급 통합: [`운영 키 발급 통합 가이드`](./key-issuance.md) — 각 키의 *최초 발급 절차* (이 문서는 *재발급 / 폐기* 만 다룸)
 
 ---
 

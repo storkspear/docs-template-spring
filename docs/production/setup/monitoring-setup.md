@@ -128,6 +128,53 @@ docker compose -f infra/docker-compose.observability.yml ps
 - Loki log retention 감소
 - 그래도 빠듯하면 I-06 재검토 트리거 도달 → NAS 로 관측성 분리 고려
 
+## Lifecycle — `prod init` / `prod clear` 자동화 + multi-repo 안전
+
+### 자동 deploy (`prod init`)
+
+`<repo> prod init` 의 Step 9.5 가 Mac mini 측 observability stack 을 자동 deploy:
+
+```
+1. infra/ 디렉토리를 DEPLOY_HOST 로 rsync (compose + alertmanager/grafana/loki/prometheus config)
+2. ssh + docker compose -f infra/docker-compose.observability.yml up -d
+3. DISCORD_WEBHOOK_URL 채워졌으면 --profile alertmanager 도 함께 활성
+```
+
+이미 떠있으면 docker compose up 가 idempotent — 재기동 X.
+
+### 자동 destroy 와 multi-repo 안전 — `--include-observability` flag 가 의도적인 이유
+
+`<repo> prod clear` 의 default 는 observability **유지**. `--include-observability` flag 명시할 때만 4 컨테이너 + grafana-data volume 까지 함께 destroy. 이는 **여러 backend 가 1 대 Mac mini 를 공유하는 시나리오** 안전 위함.
+
+#### 시나리오 — Mac mini 1 대에 backend 2 개 운영
+
+```
+Mac mini (예: 100.76.10.127)
+├─ kamal app: gymlog-backend  →  gymlog.user.com
+├─ kamal app: booklog-backend →  booklog.user.com
+└─ observability stack (Loki / Grafana / Prometheus, alertmanager 옵션)
+   └─ 두 backend 의 로그/메트릭을 모두 수집 → Grafana 대시보드 1 개에서
+      label (app=gymlog / app=booklog) 로 구분
+```
+
+#### `prod clear` 동작 비교
+
+| 명령 (gymlog repo 에서 실행) | 결과 |
+|---|---|
+| `gymlog-backend prod clear` (default) | gymlog kamal app + Cloudflare DNS/ingress 만 제거. observability 살아있어 **booklog 의 메트릭/로그 계속 수집** ✅ |
+| `gymlog-backend prod clear --include-observability` | gymlog 정리 + observability 4 컨테이너 + grafana-data 까지 제거 → **booklog 의 dashboard/alert 끊김** ❌ |
+
+→ multi-repo 환경에서 `--include-observability` 는 **다른 backend 의 관측성을 끊는 사고**를 일으킬 수 있어 default 제외. 명시적 flag 입력으로만 활성.
+
+#### single-repo 사용자 (Mac mini 에 backend 1 개) 흐름
+
+```bash
+<repo> prod clear --include-observability   # observability 도 함께 destroy
+<repo> prod init                              # observability 자동 재배치 (Step 9.5)
+```
+
+dogfood 또는 1 backend 운영 시 매 reset 시 flag 명시. `prod init` 이 자동 재배치하므로 사이클 짧음.
+
 ## 다음 단계
 
 - 평시/장애 대응: [`운영 런북 (Runbook)`](../deploy/runbook.md)

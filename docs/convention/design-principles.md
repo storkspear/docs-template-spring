@@ -103,7 +103,9 @@ class ResendEmailAdapter implements EmailPort {
 - `EmailPort` — 이메일 서비스(Resend/SendGrid/AWS SES) 교체 가능성
 - `PushPort` — 푸시 서비스(FCM/APNs/OneSignal) 교체 가능성
 - `StoragePort` — 객체 저장소 (MinIO/AWS S3 호환) 교체 가능성. 현재 구현: `MinIOStorageAdapter` + `InMemoryStorageAdapter`. Signed URL 패턴으로 업로드/다운로드는 클라이언트가 직접 수행.
-- `BillingPort` — 결제 백엔드(Apple/Google/RevenueCat) 교체 가능성
+- `BillingPort` — 구독/플랜 정책 layer (subscription 활성화 / 취소 / webhook 처리). 채널 무관 비즈로직 (ADR-019/020)
+- `IapPort` — Apple StoreKit / Google Play receipt 검증 채널 (stub, 다음 사이클)
+- `PaymentPort` — PG (포트원) 직접 결제 채널 — verify / refund
 
 반대로 분리하지 않은 것들:
 
@@ -281,7 +283,7 @@ public ApiResponse<DeviceDto> getDevice(@PathVariable Long id, ...) {
 
 Phase 0 에서 다음을 **명시적으로 제외** 했습니다.
 
-- `core-billing-impl` 실제 구현 → 첫 유료 앱 준비 시점까지 대기
+- `core-iap-impl` 실제 구현 (Apple StoreKit 2 / Google Play Verifier) → 첫 IAP 앱 준비 시점까지 대기. PG (포트원) 와 billing 정책은 ADR-019/020 에서 Phase 1 완료.
 - `core-sync-*` 델타 동기화 → 첫 앱이 진짜 필요로 할 때
 - Kakao Sign In → 한국 타겟 앱 출시 직전
 - 관리자 대시보드 UI → 직접 psql 로 충분
