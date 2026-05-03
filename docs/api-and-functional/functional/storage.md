@@ -16,6 +16,24 @@
 
 ---
 
+## Local 개발 — MinIO 접근
+
+`<repo> local start` 또는 `<repo> local init` 이 docker-compose 로 MinIO 컨테이너를 자동 기동합니다. Spring 부팅 시점에 `BucketProvisioner` 가 `APP_STORAGE_MINIO_BUCKETS_*` 환경변수에 명시된 버킷을 자동으로 생성합니다 (`core-storage-impl/.../BucketProvisioner.java`).
+
+| 항목 | 로컬 default |
+|---|---|
+| MinIO API endpoint | `http://localhost:9000` |
+| MinIO 콘솔 (브라우저) | `http://localhost:9001` |
+| Access Key | `.env` 의 `APP_STORAGE_MINIO_ACCESS_KEY` (default `minioadmin`) |
+| Secret Key | `.env` 의 `APP_STORAGE_MINIO_SECRET_KEY` (default `minioadmin`) |
+| 자동 생성 bucket | `.env` 의 `APP_STORAGE_MINIO_BUCKETS_0`, `_1`, ... 에 명시 |
+
+`.env` 의 buckets 키가 비어 있으면 `BucketProvisioner` 가 graceful skip 으로 빠지므로 부팅 자체는 통과하지만 bucket 은 만들어지지 않습니다. `<repo> new <slug>` 로 새 슬러그를 추가하면 `_0`, `_1` 다음의 비어 있는 인덱스에 새 bucket 이름이 자동으로 append 됩니다 (`tools/new-app/new-app.sh`).
+
+**Prod 차이** — 운영에서는 endpoint 가 NAS 의 MinIO (예: `http://100.X.X.X:9000`) 나 별도의 S3 호환 서비스로 바뀌고, access key 와 secret key 도 운영용으로 별도 발급한 값을 사용합니다. Bucket 자동 생성 동작 자체는 환경변수 기반으로 동일하게 작동합니다. 자세한 절차는 [`스토리지 셋업 가이드`](../../production/setup/storage-setup.md) 를 참조하세요.
+
+---
+
 ## Signed URL 패턴 (권장)
 
 **업로드**:

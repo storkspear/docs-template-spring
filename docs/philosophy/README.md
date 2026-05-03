@@ -58,7 +58,7 @@
 
 ## 이 문서의 사용법
 
-이 문서는 **17개의 ADR 카드** 로 구성되어 있으며, 각 카드는 하나의 설계 결정을 다룹니다. 전체를 순서대로 읽는 것이 가장 좋지만, 독자의 상황과 목적에 따라 진입점이 달라질 수 있어요.
+이 문서는 **20개의 ADR 카드** 로 구성되어 있으며, 각 카드는 하나의 설계 결정을 다룹니다. 전체를 순서대로 읽는 것이 가장 좋지만, 독자의 상황과 목적에 따라 진입점이 달라질 수 있어요.
 
 ### 독자별 추천 경로
 
@@ -95,8 +95,11 @@
 | "커밋 메시지 규칙은?" | [`ADR-015: Conventional Commits + SemVer`](./adr-015-conventional-commits-semver.md) |
 | "DTO 변환은 어떻게 하나?" | [`ADR-016: DTO Mapper 금지`](./adr-016-dto-mapper-forbidden.md) |
 | "OAuth (Google/Apple/Kakao/Naver) 는 어떻게 통합?" | [`ADR-017: OAuth 2.0 통합`](./adr-017-oauth-integration.md) |
+| "슬러그별 schema 를 service-layer 까지 어떻게 격리?" | [`ADR-018: SchemaRoutingDataSource`](./adr-018-schema-routing-datasource.md) |
+| "결제 도메인 (billing/iap/payment) 은 왜 셋으로 나뉘었지?" | [`ADR-019: billing/iap/payment 도메인 분리`](./adr-019-billing-iap-payment-separation.md) |
+| "구독/결제 모델은 어디 두고 webhook 은 어떻게 안전하게?" | [`ADR-020: Subscription/Payment 도메인 모델 + Webhook 보안`](./adr-020-subscription-domain-model.md) |
 
-> **17 개 ADR 모두 작성 완료**. 테마별로 그룹화되어 있으며, 각 카드는 독립적으로 읽을 수 있어요.
+> **20 개 ADR 모두 작성 완료**. 테마별로 그룹화되어 있으며, 각 카드는 독립적으로 읽을 수 있어요.
 
 ### ADR 카드의 읽는 법
 
@@ -199,8 +202,9 @@ ADR-012 (앱별 독립 유저 모델)
 
 - [`ADR-005 · 단일 Postgres + 앱당 schema`](./adr-005-db-schema-isolation.md)
 - [`ADR-012 · 앱별 독립 유저 모델 (통합 계정 폐기)`](./adr-012-per-app-user-model.md)
+- [`ADR-018 · SchemaRoutingDataSource (service-layer 까지 라우팅)`](./adr-018-schema-routing-datasource.md)
 
-**테마 3 의 결론**: 한 Postgres 인스턴스 · 한 database 안에서 앱마다 schema 를 분리하고, 유저 테이블도 그 schema 에 독립 소유. DB role · DataSource · Flyway · 포트 · ArchUnit 의 5중 방어선으로 경계를 강제. JWT 의 단일 `appSlug` claim 과 `AppSlugVerificationFilter` 로 런타임 오용을 차단. ThreadLocal 기반 동적 라우팅은 전면 폐기.
+**테마 3 의 결론**: 한 Postgres 인스턴스 · 한 database 안에서 앱마다 schema 를 분리하고, 유저 테이블도 그 schema 에 독립 소유. DB role · DataSource · Flyway · 포트 · ArchUnit 의 5중 방어선으로 경계를 강제. JWT 의 단일 `appSlug` claim 과 `AppSlugVerificationFilter` 로 런타임 오용을 차단. service-layer 까지 격리는 `SchemaRoutingDataSource` (ThreadLocal `SlugContext` + Spring `AbstractRoutingDataSource`) 로 — controller 만이 아니라 INSERT/SELECT 전부가 슬러그 schema 에 자동 라우팅 (ADR-018).
 
 ### 테마 4 — 인증 & 보안 ✅ 완료
 
@@ -251,6 +255,25 @@ ADR-007 (솔로 친화적 운영)
 - [`ADR-015 · Conventional Commits + 템플릿 전체 semver`](./adr-015-conventional-commits-semver.md)
 
 **테마 5 의 결론**: "솔로 한 사람이 감당 가능한가?" 를 모든 운영 결정의 상위 기준으로 두고, 비목표 (HA 99.99%, 멀티 리전, 무중단 배포, 분산 추적) 를 명시 선언. 이 원칙 아래 API 버전 관리는 YAGNI 로 미도입, 테스트는 delegation mock 금지로 리팩토링 안전망 유지, 커밋/버전 관리는 파생 레포 cherry-pick 을 위한 기계 쿼리 가능 형태 (Conventional Commits + template-v* 태그) 로 강제. 초기 셋업 비용은 1회성, 장기 운영 부담 감소의 복리 효과.
+
+### 테마 6 — 결제 / 구독 도메인 ✅ 완료
+
+**이 테마가 답하는 물음**: "구독형 SaaS 의 결제 도메인은 어떻게 모델링하고 webhook 보안은 어떻게 다지는가?"
+
+```
+ADR-019 (billing/iap/payment 분리)
+  "정책 (billing) vs 채널 (IAP, PG) 의 layer 분리"
+   │
+   │ 위 분리 위에 비즈로직과 보안은?
+   ▼
+ADR-020 (Subscription/Payment 도메인 모델 + Webhook 보안)
+  "슬러그별 schema 4 테이블 + HMAC + idempotency + 트랜잭션 phase 분리"
+```
+
+- [`ADR-019 · billing / iap / payment 도메인 분리`](./adr-019-billing-iap-payment-separation.md)
+- [`ADR-020 · Subscription / Plan / PaymentRecord 도메인 모델 + Webhook 보안`](./adr-020-subscription-domain-model.md)
+
+**테마 6 의 결론**: 결제 도메인은 "정책 (Billing — subscription/plan)" 위에 "채널 (IAP — Apple/Google, Payment — PG=포트원)" 두 갈래를 두는 layer 구조로 분리. Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블은 [`ADR-005`](./adr-005-db-schema-isolation.md) 정합으로 슬러그별 schema 에 위치. Webhook 은 HMAC SHA-256 + timestamp tolerance + (source, externalId) UNIQUE 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 점유하지 않도록 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 `TransactionTemplate` 으로 phase 마다 자기 트랜잭션 시작.
 
 ---
 

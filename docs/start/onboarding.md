@@ -125,32 +125,51 @@ APP_STORAGE_MINIO_BUCKETS_2=rny-avatars
 
 Gradle 첫 빌드는 모든 모듈의 의존성을 다운로드합니다. 두 번째부터는 캐시 사용.
 
-### 4.2 빠른 경로 — `./tools/init-server.sh` (권장)
+### 4.2 빠른 경로 — `./factory init` (권장)
 
-> **TL;DR — 이 스크립트 한 줄이 아래 §4.3 의 수동 단계를 모두 자동화합니다 (관측성 제외 — §4.4 참고).**
-
-```bash
-./tools/init-server.sh <owner>/<repo>   # 최초 셋업 (1·2회차)
-./tools/init-server.sh                  # 공동 작업자 모드 (자동 감지)
-```
-
-자동 수행 (Step 1~11):
-- prereqs 검증 (JDK 21~25 / Docker / Node 18+ / gh CLI) — 누락 시 설치 명령 안내
-- `.env` / `.env.prod` 없으면 자동 생성 + `JWT_SECRET` / `DB_PASSWORD` 자동 발급
-- (2회차) `.env.prod` REQUIRED 검증 후 GitHub Secrets / Variables 자동 push
-- `docker compose up -d postgres minio`
-- Postgres `pg_isready` 대기 (최대 60초)
-- 완료 후 `verify-server.sh` (운영) / `verify-local.sh` (로컬) 자동 호출
-
-완료 후 별도 터미널에서:
+> **TL;DR — 한 줄이 아래 §4.3 의 수동 단계를 모두 자동화합니다 (관측성 제외 — §4.4 참고).**
+> **로컬 → 운영 단계적 셋업** 으로 첫 사용자가 운영값까지 한 번에 채울 부담 없음.
 
 ```bash
-set -a; source .env; set +a
-./gradlew :bootstrap:bootRun
-curl http://localhost:8081/actuator/health    # → UP
+# ── 로컬 셋업 (운영값 미요구) ────────────────────────────
+./factory init <owner>/<repo>           # = ./factory local init
+#  → .env 생성 + docker(postgres + minio + spring, 옵션: wiremock) 기동
+#    + verify-local 자동 호출 + ~/.local/bin/<repo> symlink 등록
+#  이후 어디서든:    <repo> test / <repo> new <slug> / <repo> start
+
+# ── 운영 셋업 (.env.prod REQUIRED 채운 후) ─────────────
+<repo> prod init
+#  → CLOUDFLARE_API_TOKEN 으로 ZONE_ID/ACCOUNT_ID/TUNNEL_ID 자동 추출
+#    + DNS CNAME + Tunnel ingress 자동 등록
+#    + GitHub Secrets / Variables push + verify-server 자동 호출
+
+# ── (legacy 호환) 한 번에 모두 ─────────────────────────
+<repo> all init
+#  → 위 둘 한 번에 (이전 init-server.sh 의 동작)
 ```
 
-아래 §4.3 (수동 최소 기동) 은 **`init-server.sh` 를 쓰지 않고 단계를 직접 확인하고 싶을 때** 참고.
+자동 수행:
+- **prereqs 검증** (JDK 21~25 / Docker / Node 18+ / gh CLI) — 누락 시 설치 명령 안내
+  - JDK 부재 시 brew openjdk@21 자동 탐지 + JAVA_HOME 자동 export
+- **`.env` / `.env.prod` 자동 생성** + `JWT_SECRET` / `DB_PASSWORD` 자동 발급
+- **`BASE_DOMAIN` + `SUBDOMAIN` 으로 `PUBLIC_HOSTNAME` / `APP_DOMAIN` 자동 조립**
+- **`CLOUDFLARE_API_TOKEN` 1개로 모든 ID + DNS + Tunnel 자동** (prod init)
+- **GitHub Secrets / Variables 자동 push** (transient retry 3회) (prod init)
+- **docker compose up** + Postgres ready 대기 (local init)
+- **Spring 컨테이너 기동** (`infra/docker-spring-dev-entrypoint.sh` 가 .env 의 host 자동 변환)
+- **`verify-server.sh` (운영) / `verify-local.sh` (로컬) 자동 호출**
+
+완료 후:
+
+```bash
+<repo> test         # 로컬 e2e 4/4 PASS 재검증
+<repo> new gymlog   # 새 앱 모듈 (schema + V001~V007 + admin user 시드 + SELECT)
+<repo> prod deploy  # kamal blue/green 배포 (.env.prod 채워진 상태에서)
+```
+
+📖 명령어 전체 매트릭스: [`docs/start/cli-guide.md`](./cli-guide.md)
+
+아래 §4.3 (수동 최소 기동) 은 **wrapper 안 쓰고 단계 직접 확인하고 싶을 때** 참고.
 
 ---
 
@@ -453,7 +472,7 @@ openssl rand -hex 32   # 64자 출력
 |---|---|
 | 코드 아키텍처 (포트/어댑터, 모듈 의존) | [`Architecture Reference`](../structure/architecture.md) |
 | 인프라 구성 (DB/스토리지/관측성 전체 상태) | [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) |
-| 설계 철학 (17 개 ADR) | [`Repository Philosophy — 책 안내`](../philosophy/README.md) |
+| 설계 철학 (20 개 ADR) | [`Repository Philosophy — 책 안내`](../philosophy/README.md) |
 | 문서 작성 규칙 | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) |
 | 인프라 결정 근거 (Supabase/NAS/맥미니 등) | [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) |
 | 코딩 규약 (naming, DTO, exception 등) | [`../convention/`](../convention/) |
@@ -487,4 +506,4 @@ openssl rand -hex 32   # 64자 출력
 | → 다음 | [`소셜 로그인 설정 가이드`](./social-auth-setup.md) | 4단계 — 외부 자격 증명 발급 (Google/Apple) |
 
 **막혔을 때**: §6 흔한 에러 / [`도그푸딩 함정`](./dogfood-pitfalls.md) / [`FAQ`](./dogfood-faq.md)
-**왜 이렇게?**: [`Repository Philosophy — 책 안내`](../philosophy/README.md) (17 개 ADR · 테마 1~5) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) (I-01~I-13)
+**왜 이렇게?**: [`Repository Philosophy — 책 안내`](../philosophy/README.md) (20 개 ADR · 테마 1~5) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) (I-01~I-13)

@@ -2,6 +2,8 @@
 
 앱 추가 시 4 provider 소셜 로그인 (Google · Apple · Kakao · Naver) 을 위한 credential 설정 방법입니다.
 
+> 이 문서는 *콘솔 화면 단계까지 자세하게* 4 provider 의 OAuth 자격을 발급·등록하는 절차를 다룹니다. 운영 환경에서 발급해야 하는 다른 키들 (Cloudflare / Resend / PortOne / Apple IAP / Google IAP / MinIO 등) 의 발급 목적과 절차를 한 곳에서 보고 싶다면 [`운영 키 발급 통합 가이드`](../production/setup/key-issuance.md) 를 먼저 확인하세요. 이 가이드는 그 통합 가이드의 §4.3 (소셜 로그인) 의 *상세 보충* 입니다.
+
 ---
 
 ## 전체 흐름

@@ -383,10 +383,10 @@
 **영향:** UX 결정 필요. 기존 유저 이탈 가능.
 
 **해결:**
-- `User.isPremium` 필드로 무료/유료 구분 (이미 존재).
-- 기존 유저는 `isPremium = false` 유지 → 무료 기능만 사용.
-- 구독 결제 완료 시 `isPremium = true` → 프리미엄 기능 해제.
-- **Grandfathering**: 초기 유저에게 일정 기간 무료 프리미엄 제공 가능 (비즈니스 결정).
+- ADR-020 의 Subscription 모델로 권한 판단. `BillingPort.findActiveSubscription(userId)` 가 status=ACTIVE 또는 CANCELLED-but-not-expired 인 구독 반환.
+- 기존 무료 유저는 `subscriptions` row 없음 → 무료 기능만 사용 ('free' plan default seed).
+- 결제 완료 시 `BillingPort.activateFromPayment(userId, planCode, paymentResult)` 가 Subscription 활성 → 프리미엄 기능 해제.
+- **Grandfathering**: 초기 유저에게 운영자가 SQL 로 직접 Subscription INSERT (status=ACTIVE, expires_at=N개월 후) 하여 무료 프리미엄 제공 가능. (admin endpoint + RBAC 는 다음 사이클.)
 
 ---
 
@@ -426,7 +426,7 @@
 
 ## 관련 문서
 
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 17 개 ADR 인덱스 (설계 결정의 이유)
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 20 개 ADR 인덱스 (설계 결정의 이유)
 - [`Architecture Reference`](../structure/architecture.md) — 시스템 구조
 - [`API Response Format`](../api-and-functional/api/api-response.md) — API 응답 포맷
 - [`Design Principles`](../convention/design-principles.md) — 설계 원칙
