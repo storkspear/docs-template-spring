@@ -2,11 +2,11 @@
 
 > **유형**: How-to · **독자**: Level 2 · **읽는 시간**: ~12분
 
-**설계 근거**: [`ADR-006 (HS256 JWT)`](../../philosophy/adr-006-hs256-jwt.md) · [`ADR-013 (앱별 인증 엔드포인트)`](../../philosophy/adr-013-per-app-auth-endpoints.md)
+**설계 근거**: [`ADR-006 (HS256 JWT)`](../../philosophy/adr-006-hs256-jwt.md) · [`ADR-013 (앱별 인증 엔드포인트)`](../../philosophy/adr-013-per-app-auth-endpoints.md) · [`ADR-024 (core-email 도메인 추출)`](../../philosophy/adr-024-email-domain-extraction.md)
 
 이 문서는 이메일 발송 아키텍처와 이메일 인증/비밀번호 재설정 플로우를 정리합니다.
 
-템플릿은 트랜잭셔널 이메일을 **Port/Adapter 패턴**으로 추상화합니다. 도메인 서비스(`EmailVerificationService`, `PasswordResetService`) 는 `EmailPort` 인터페이스만 의존하고, 실제 발송은 `ResendEmailAdapter` 가 [Resend](https://resend.com) HTTP API 로 수행합니다.
+템플릿은 트랜잭셔널 이메일을 **Port/Adapter 패턴**으로 추상화합니다. 도메인 서비스(`EmailVerificationService`, `PasswordResetService`) 는 `core-email-api` 의 `EmailPort` 인터페이스만 의존하고, 실제 발송은 `core-email-impl` 의 `ResendEmailAdapter` 가 [Resend](https://resend.com) HTTP API 로 수행합니다 (ADR-024 — auth 와 별도 도메인으로 분리).
 
 ---
 
@@ -27,25 +27,28 @@
 
 | 모듈 | 역할 |
 |---|---|
-| `core/core-auth-api` | `EmailPort` 인터페이스, `AuthError` |
-| `core/core-auth-impl/email` | `ResendEmailAdapter`, `ResendProperties` |
-| `core/core-auth-impl/service` | `EmailVerificationService`, `PasswordResetService`, `VerificationEmailSender` |
+| `core/core-email-api` | `EmailPort` 인터페이스, `EmailError` (EMAIL_001~) |
+| `core/core-email-impl` | `ResendEmailAdapter`, `LoggingEmailAdapter`, `ResendProperties`, `EmailAutoConfiguration` |
+| `core/core-auth-impl/service` | `EmailVerificationService`, `PasswordResetService`, `VerificationEmailSender` (EmailPort 소비) |
 
 ### EmailPort
 
 인터페이스는 최소한으로 설계되었습니다. HTML 본문과 수신자, 제목만 받습니다.
 
 ```java
-// core/core-auth-api/src/main/java/com/factory/core/auth/api/EmailPort.java
+// core/core-email-api/src/main/java/com/factory/core/email/api/EmailPort.java
 public interface EmailPort {
 
     /**
      * HTML 형식의 이메일 발송.
      *
-     * @throws com.factory.core.auth.api.exception.AuthException
-     *         발송 실패 시 (AuthError.EMAIL_DELIVERY_FAILED)
+     * @throws com.factory.core.email.api.exception.EmailException
+     *         발송 실패 시 (EmailError.EMAIL_DELIVERY_FAILED)
      */
     void send(String to, String subject, String htmlBody);
+
+    /** dev fallback adapter 면 true — 호출자가 raw token 을 응답에 노출 가능. */
+    default boolean isDevCapture() { return false; }
 }
 ```
 
@@ -60,7 +63,7 @@ public interface EmailPort {
 `ResendProperties` 는 `app.email.resend` prefix 의 설정을 읽습니다.
 
 ```java
-// core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendProperties.java
+// core/core-email-impl/src/main/java/com/factory/core/email/impl/ResendProperties.java
 @ConfigurationProperties("app.email.resend")
 public record ResendProperties(String apiKey, String fromAddress, String fromName) {
     public ResendProperties {
@@ -90,7 +93,7 @@ Resend 대시보드에서 발신 도메인을 먼저 등록(SPF/DKIM 검증) 해
 Java 표준 `HttpClient` 를 써서 별도 SDK 의존을 피했습니다.
 
 ```java
-// core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java
+// core/core-email-impl/src/main/java/com/factory/core/email/impl/ResendEmailAdapter.java
 public class ResendEmailAdapter implements EmailPort {
 
     private static final String RESEND_API_URL = "https://api.resend.com/emails";
@@ -112,31 +115,31 @@ public class ResendEmailAdapter implements EmailPort {
         try {
             response = sendRequest(request);
         } catch (IOException e) {
-            throw new AuthException(AuthError.EMAIL_DELIVERY_FAILED, e);
+            throw new EmailException(EmailError.EMAIL_DELIVERY_FAILED, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new AuthException(AuthError.EMAIL_DELIVERY_FAILED, e);
+            throw new EmailException(EmailError.EMAIL_DELIVERY_FAILED, e);
         }
 
         int statusCode = response.statusCode();
         if (statusCode < 200 || statusCode >= 300) {
-            throw new AuthException(AuthError.EMAIL_DELIVERY_FAILED);
+            throw new EmailException(EmailError.EMAIL_DELIVERY_FAILED);
         }
     }
     // ...
 }
 ```
 
-2xx 가 아닌 응답이나 I/O 예외는 모두 `AuthException(AuthError.EMAIL_DELIVERY_FAILED)` 로 변환되어 HTTP 503 응답으로 이어집니다.
+2xx 가 아닌 응답이나 I/O 예외는 모두 `EmailException(EmailError.EMAIL_DELIVERY_FAILED)` (`EMAIL_001`, HTTP 503) 로 변환됩니다.
 
 `sendRequest` 는 protected 로 노출되어 있어 테스트에서 spy 로 stub 할 수 있습니다.
 
 ### 자동 구성 (graceful + 운영 안전망)
 
-`AuthAutoConfiguration` 이 환경에 따라 두 어댑터 중 하나를 등록합니다.
+`EmailAutoConfiguration` 이 환경에 따라 두 어댑터 중 하나를 등록합니다.
 
 ```java
-// core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java
+// core/core-email-impl/src/main/java/com/factory/core/email/impl/EmailAutoConfiguration.java
 
 // (1) Resend API key 가 비어있지 않을 때만 ResendEmailAdapter 등록
 @Bean
@@ -477,14 +480,18 @@ public record PasswordResetConfirmRequest(
 
 ## 에러 처리
 
-이메일 관련 에러는 `AuthError` enum 에 정의되어 있습니다.
+이메일 인증/재설정 토큰 관련 에러는 `AuthError` enum 에, 이메일 발송 자체의 에러는 `EmailError` enum 에 정의되어 있습니다 (ADR-024 — 도메인 분리).
 
 ```java
 // core/core-auth-api/src/main/java/com/factory/core/auth/api/exception/AuthError.java
 TOKEN_EXPIRED(401, "ATH_002", "토큰이 만료되었습니다"),
 INVALID_TOKEN(401, "ATH_003", "유효하지 않은 토큰입니다"),
 EMAIL_NOT_VERIFIED(401, "ATH_005", "이메일 인증이 필요합니다"),
-EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다");
+@Deprecated(forRemoval = true)
+EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다 (deprecated, see EmailError.EMAIL_001)");
+
+// core/core-email-api/src/main/java/com/factory/core/email/api/exception/EmailError.java
+EMAIL_DELIVERY_FAILED(503, "EMAIL_001", "이메일 발송에 실패했습니다");
 ```
 
 | 코드 | HTTP | 발생 상황 |
@@ -492,7 +499,8 @@ EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다");
 | `ATH_002` TOKEN_EXPIRED | 401 | 인증/재설정 토큰 만료 |
 | `ATH_003` INVALID_TOKEN | 401 | 토큰 미존재, 이미 사용됨, 조작됨 |
 | `ATH_005` EMAIL_NOT_VERIFIED | 401 | 이메일 인증이 필요한 엔드포인트에 미인증 유저 접근 |
-| `ATH_006` EMAIL_DELIVERY_FAILED | 503 | Resend API 장애, 2xx 외 응답, 네트워크 에러 |
+| `EMAIL_001` EMAIL_DELIVERY_FAILED | 503 | Resend API 장애, 2xx 외 응답, 네트워크 에러 |
+| ~~`ATH_006`~~ | ~~503~~ | **deprecated** — `EMAIL_001` 로 대체. 다음 major release 에서 제거 |
 
 `ATH_001`(잘못된 자격 증명) 을 포함한 전체 에러 코드는 [`exception-handling.md`](../../convention/exception-handling.md) 를 참조하세요.
 

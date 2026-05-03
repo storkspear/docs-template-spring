@@ -24,15 +24,22 @@ CI 가 실패하면 deploy 시작 안 함 (gate 차단). Test fail 코드는 절
 - Repo → Actions → deploy workflow → "Run workflow" → `version` 에 commit SHA 입력 (또는 비우면 현재 HEAD).
 - 해당 SHA 의 이미지가 GHCR 에 있어야 함 (최신 2개만 유지하므로 그 이상 옛 SHA 면 없음 → 로컬 수동 경로 사용).
 
-**수동 배포** (로컬, hotfix 시):
-```bash
-set -a; source .env; set +a
-kamal deploy                    # 기존 Dockerfile (full build) 사용
-kamal deploy --version <sha>    # 특정 커밋 재배포
-```
-로컬 경로는 GHA 와 별개로 기존 `Dockerfile` (multi-stage) 을 사용한다.
+**수동 배포** (로컬, GHA 우회 / hotfix):
 
-배포 중 실시간 로그: `kamal app logs -f`
+```bash
+<your-backend> prod deploy              # 권장 — 자동으로 origin/main SHA 기준
+<your-backend> prod deploy --version <sha>  # 특정 SHA 재배포 (rollback 등)
+```
+
+내부 동작 (`tools/deploy.sh` Step 0) 은 다음 순서로 진행됩니다.
+
+1. `git fetch origin main` 으로 최신 SHA 를 가져와 `ORIGIN_SHA` 변수에 담습니다.
+2. `--version` 이 명시되지 않은 경우 `VERSION=$ORIGIN_SHA` 로 자동 설정됩니다.
+3. `kamal deploy --version=$VERSION` 이 호출되어, kamal 이 `Dockerfile` (multi-stage) 로 그 SHA 의 코드를 git clone + reset --hard 한 뒤 빌드합니다.
+
+이 흐름의 핵심은 **로컬 working tree 와 HEAD 가 빌드에 영향을 주지 않는다는 점** 입니다. commit·push 는 사용자의 책임이며 deploy 는 항상 origin 코드를 기준으로 동작합니다. 로컬에 미커밋 변경이 있어도 빌드 결과는 동일하고 (정보성 warning 만 출력됩니다), GHA 경로의 `Dockerfile.runtime` 과는 빌드 dockerfile 부터 별개의 흐름입니다.
+
+배포 중 실시간 로그는 `<your-backend> prod logs` 또는 `kamal app logs -f` 로 확인할 수 있습니다.
 
 ---
 
@@ -163,6 +170,71 @@ launchctl kickstart -k gui/$(id -u)/site.<파생레포>.cloudflared
 docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 kamal app boot                # 마지막 배포 버전으로 다시 기동
 ```
+
+---
+
+## 운영 환경 정리 — clear / force-clear
+
+도그푸딩이 끝났거나 운영 환경을 처음부터 다시 구성해야 할 때 사용합니다. 두 명령은 *삭제 범위* 가 다르므로 상황에 맞게 선택해야 합니다.
+
+`prod clear` 는 *인프라만* 정리합니다. Cloudflare 의 DNS 레코드와 Tunnel ingress 를 제거하고, Mac mini 에서 `kamal app remove` 로 컨테이너를 내립니다. 데이터 (DB schema 와 Object Storage bucket) 와 관측성 데이터는 보존됩니다.
+
+```bash
+<your-backend> prod clear              # 'YES' 명시 confirm 후 진행
+```
+
+`prod force-clear` 는 *clear 의 모든 동작에 더해* 데이터와 관측성까지 영구 삭제합니다. 슬러그를 지정하면 해당 앱의 schema 와 bucket 만, 슬러그를 생략하면 모든 앱과 core 까지 모두 삭제됩니다.
+
+```bash
+<your-backend> prod force-clear myapp   # 해당 앱만 (myapp schema + myapp-* bucket)
+<your-backend> prod force-clear         # 모든 앱 + core 전부 삭제
+```
+
+`force-clear` 는 5 단계의 confirm 을 차례로 거치며, 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 됩니다. 단계는 DB 데이터 / Storage 데이터 / 관측성 데이터 / 백업 의향 / 최종 확인 순서입니다. 백업 의향 단계에서 'y' 를 선택하면 manual 백업 명령을 출력하고 종료하며, 자동 백업은 현재 개발 중이어서 manual 절차만 안내됩니다.
+
+### 왜 `clear` 는 관측성 (로그·메트릭) 을 보존하는가
+
+관측성 스택 (Grafana 대시보드, Loki 로그 스트림, Prometheus 메트릭) 은 *모든 슬러그가 공유하는 단일 인스턴스* 입니다. 슬러그 하나만 정리하려는 운영자가 관측성을 함께 지우면 다른 슬러그의 모니터링 히스토리까지 잃게 되므로, `clear` 는 의도적으로 관측성을 건드리지 않습니다. 데이터도 같은 이유로 보존합니다 — DB 의 `core` schema 와 Object Storage 의 공통 bucket 은 여러 슬러그가 함께 사용하기 때문입니다.
+
+`force-clear` 는 *모든 슬러그를 한꺼번에 정리할 때* (예: 도그푸딩 환경 전체 초기화) 를 위해 관측성까지 삭제 옵션을 제공합니다. 슬러그를 지정하지 않은 경우 (`prod force-clear` 단독 호출) 가 그 시나리오에 해당합니다.
+
+> **⚠ 슬러그 지정 시의 현재 한계** — `prod force-clear <slug>` 로 *특정 슬러그만* 정리하려는 경우라도 `[3/5]` 관측성 단계가 *동일한 confirm prompt* 를 띄웁니다. 'y' 를 입력하면 다른 슬러그의 관측성 히스토리까지 모두 삭제되므로, 슬러그 지정 시에는 `[3/5]` 단계에서 *반드시 'n' 입력* 으로 건너뛰어야 합니다. 슬러그별 분리 정리 (해당 슬러그의 dashboard / log stream 만 제거) 는 backlog 에 등록되어 있으며 후속 사이클에 보강될 예정입니다.
+
+운영자 본인의 정적 페이지 (`homepage-nginx`) 와 다른 도메인의 DNS 레코드, bluebirds NAS 등 다른 머신은 어느 쪽 명령으로도 영향받지 않습니다. 자세한 동작은 `tools/cleanup-server.sh` 와 `tools/force-clear-server.sh` 의 첫 30 줄 주석에서 확인할 수 있습니다.
+
+---
+
+## 백업 — 현재 수동
+
+운영 데이터의 백업은 현재 자동화되어 있지 않습니다. `prod force-clear` 의 4 단계 (백업 의향) 에서 'y' 를 선택하면 다음과 같은 manual 백업 명령을 출력하고 종료합니다. 운영자가 직접 실행한 뒤 force-clear 를 다시 시도하는 흐름입니다.
+
+### DB 백업 (모든 schema)
+
+```bash
+# .env.prod 의 DB_URL/USER/PASSWORD 를 환경변수로 export 한 뒤
+PGPASSWORD="$DB_PASSWORD" pg_dump \
+    "postgresql://$DB_USER@${DB_HOST}:${DB_PORT}/postgres" \
+    > backup-$(date +%s).sql
+```
+
+특정 슬러그 schema 만 받으려면 `--schema=<slug>` 옵션을 추가하면 됩니다.
+
+### Storage 백업 (모든 bucket)
+
+MinIO 의 `mc` (MinIO Client) 도구를 docker 로 호출합니다. `.env.prod` 의 endpoint / access key / secret key 를 alias 에 등록한 뒤 mirror 로 로컬에 복사합니다.
+
+```bash
+docker run --rm --network host \
+    -e MC_HOST_bb="http://$APP_STORAGE_MINIO_ACCESS_KEY:$APP_STORAGE_MINIO_SECRET_KEY@${MINIO_HOST}:${MINIO_PORT}" \
+    -v $PWD/backup:/backup \
+    minio/mc mirror --remove bb /backup
+```
+
+bucket 단위로 받으려면 `bb` 대신 `bb/<bucket-name>` 을 지정하면 됩니다.
+
+### 자동화 계획
+
+`<your-backend> prod db-backup [slug]` 와 `<your-backend> prod storage-backup [slug]` 두 명령은 backlog 에 등록되어 있으며 별도 사이클에 추가될 예정입니다. 자동화가 도입되면 일관된 백업 위치 (예: `~/backups/<repo>/<timestamp>/`) 와 tar.gz 압축, retention 정책 (예: 최근 7 회 유지) 이 함께 적용됩니다. 그전까지는 위 manual 절차를 사용하시면 됩니다.
 
 ---
 

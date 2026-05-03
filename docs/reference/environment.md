@@ -182,6 +182,15 @@ Spring Boot 3.5.13 BOM 으로 버전 일괄 관리.
 | **APNs (Apple)** | iOS 인증 토큰 RS256 검증 (소셜 로그인) | `APP_CREDENTIALS_<SLUG>_APPLE_BUNDLE_ID` |
 | **Google OAuth** | 소셜 로그인 ID 토큰 검증 | `APP_CREDENTIALS_<SLUG>_GOOGLE_CLIENT_IDS_*` |
 | **Resend** | 트랜잭셔널 이메일 | `RESEND_API_KEY`, `RESEND_FROM_ADDRESS`, `RESEND_FROM_NAME` |
+| **PortOne** | 한국 PG 통합 SDK (그 아래 나이스/토스/이니시스 등 자유 활성). 월 거래 5천만원 미만 무료. | `APP_PAYMENT_PORTONE_API_URL`, `APP_PAYMENT_PORTONE_CUSTOMER_CODE`, `APP_PAYMENT_PORTONE_API_V1_KEY/SECRET`, `APP_PAYMENT_PORTONE_API_V2_KEY`, `APP_PAYMENT_PORTONE_WEBHOOK_SECRET`, `APP_PAYMENT_PORTONE_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS` |
+| **Subscription Scheduler** | 구독 만료 자동 sweep (`@Scheduled` cron). 운영만 활성 권장. | `APP_BILLING_SCHEDULER_ENABLED` (default false), `APP_BILLING_SCHEDULER_EXPIRATION_CRON` (default 매시 정각) |
+| **Apple App Store Server API** | IAP 영수증 검증 + Notification V2 (ADR-022) | `APP_IAP_APPLE_KEY_ID_<SLUG>`, `APP_IAP_APPLE_ISSUER_ID_<SLUG>`, `APP_IAP_APPLE_BUNDLE_ID_<SLUG>`, `APP_IAP_APPLE_PRIVATE_KEY_<SLUG>` |
+| **Google Play Developer API** | IAP 구매 검증 + RTDN Pub/Sub (ADR-022) | `APP_IAP_GOOGLE_SERVICE_ACCOUNT_JSON_<SLUG>`, `APP_IAP_GOOGLE_PACKAGE_NAME_<SLUG>`, `APP_IAP_GOOGLE_WEBHOOK_VERIFY_TOKEN`, `APP_IAP_GOOGLE_WEBHOOK_AUDIENCE`, `APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS` |
+| **Billing Notification** | 갱신 실패/성공/환불 → Push + Email 채널 토글 (ADR-023/025/031) | `APP_BILLING_NOTIFICATION_PUSH_ENABLED`, `APP_BILLING_NOTIFICATION_EMAIL_ENABLED` |
+| **Auth Password Policy** | 비밀번호 정책 (ADR-029) | `APP_SECURITY_PASSWORD_MIN_LENGTH`, `APP_SECURITY_PASSWORD_REQUIRE_UPPERCASE`, `APP_SECURITY_PASSWORD_REQUIRE_DIGIT`, `APP_SECURITY_PASSWORD_REQUIRE_SPECIAL` |
+| **Auth 2FA TOTP** | 2단계 인증 (ADR-030, RFC 6238) | `APP_AUTH_TOTP_ISSUER` (앱 이름, Authenticator 표시용) |
+| **Audit** | 감사 로그 활성 toggle (ADR-028) | `APP_AUDIT_ENABLED` (default true) |
+| **APP_PACKAGE_PREFIX** | 파생 앱 Java package prefix (`new-app.sh` 가 기본 도메인 → 패키지 자동 도출). | `APP_PACKAGE_PREFIX` (default `com.factory`) |
 | **Discord** | Alertmanager 알림 채널 | `DISCORD_WEBHOOK_URL` |
 | **Tailscale** | GHA → Mac mini VPN | `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET` |
 | **GHCR** | 컨테이너 이미지 호스팅 | `GHCR_TOKEN` |
@@ -197,11 +206,15 @@ Spring Boot 3.5.13 BOM 으로 버전 일괄 관리.
 - `common-persistence` — QueryDsl · Flyway · JPA 공통
 
 **core/** — 도메인 포트/어댑터 (각 `-api`/`-impl` 페어):
-- `core-auth` — 인증 (소셜 로그인, JWT)
+- `core-auth` — 인증 (소셜 로그인, JWT, 2FA TOTP — ADR-030)
 - `core-user` — 유저 도메인
 - `core-device` — 디바이스 등록
 - `core-push` — 푸시 알림 (FCM)
-- `core-billing` — 결제 (현재 stub)
+- `core-email` — 이메일 발송 (Resend, ADR-024 — auth 에서 추출)
+- `core-audit` — 감사 로그 (AOP `@Audited`, ADR-028)
+- `core-billing` — 구독/플랜 정책 + 갱신 실패 알림 (ADR-019/020/021/023/025/031)
+- `core-iap` — Apple App Store Server V2 + Google Play RTDN (ADR-022)
+- `core-payment` — PG 결제 채널 (포트원 어댑터)
 - `core-storage` — 오브젝트 스토리지
 
 **bootstrap/** — Fat JAR 조립 지점 (모든 `-impl` 의존 허용, ArchUnit r-series 로 방어)

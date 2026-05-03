@@ -1,6 +1,6 @@
 # Architecture Reference
 
-이 문서는 `template-spring` 의 **실제 구조** 를 설명합니다. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 17 개 ADR 에 기록되어 있습니다.
+이 문서는 `template-spring` 의 **실제 구조** 를 설명합니다. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 20 개 ADR 에 기록되어 있습니다.
 
 > **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내합니다. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 먼저 참고.
 
@@ -15,7 +15,7 @@
 | 종류 | 위치 | 역할 | 상태 |
 |---|---|---|---|
 | `common/*` | `common/common-*/` | 뼈대 유틸리티 (웹/보안/로깅/영속성/스토리지/테스트) | 상태 없음 |
-| `core/*` | `core/core-*-api/` + `core/core-*-impl/` | 공유 플랫폼 기능 (인증/유저/디바이스/푸시/결제/스토리지) | 상태 있음, -api / -impl 쌍 |
+| `core/*` | `core/core-*-api/` + `core/core-*-impl/` | 공유 플랫폼 기능 (인증/이메일/유저/디바이스/푸시/billing/iap/payment/스토리지/감사) | 상태 있음, -api / -impl 쌍 |
 | `apps/*` | `apps/app-<slug>/` | 앱별 도메인 로직 | 템플릿엔 비어있음. 파생 레포에서 `new-app.sh` 로 추가 |
 | `bootstrap` | `bootstrap/` | Spring Boot 엔트리 포인트 | 모든 core-impl + common 을 조립 |
 
@@ -35,7 +35,7 @@
 
 ### core-* 와 apps/* 의 역할 분리
 
-**`core-*`** — 모든 앱이 공유하는 **플랫폼 로직 라이브러리**. 인증, 유저 관리, 디바이스 등록, 푸시, 결제, 스토리지. 템플릿에 포함되며, 파생 레포 생성 시 그대로 상속됩니다.
+**`core-*`** — 모든 앱이 공유하는 **플랫폼 로직 라이브러리**. 인증 (2FA TOTP 포함), 이메일 발송 (Resend, [`ADR-024`](../philosophy/adr-024-email-domain-extraction.md)), 유저 관리, 디바이스 등록, 푸시 (FCM), billing (구독/플랜 정책), iap (Apple/Google 채널 + webhook bearer 검증), payment (PG=포트원 채널), 스토리지 (MinIO/R2), 감사 로그 (AOP, [`ADR-028`](../philosophy/adr-028-audit-log-domain.md)). 템플릿에 포함되며, 파생 레포 생성 시 그대로 상속됩니다.
 
 **`apps/app-<slug>`** — 각 앱의 **고유 도메인 로직 + 해당 앱의 인증/유저 Controller**. 파생 레포에서만 작성되며, 템플릿에는 빈 디렉토리만 존재 ([`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md)).
 
@@ -130,9 +130,9 @@ template-spring/
 │   │   ├── dogfood-setup.md           # 도그푸딩 셋업 (+ faq, pitfalls)
 │   │   ├── social-auth-setup.md       # Google/Apple 소셜 인증
 │   │   ├── cross-repo-cherry-pick.md  # 템플릿 → 파생 레포 동기화
-│   │   └── philosophy/                # 17 개 ADR (설계 결정)
+│   │   └── philosophy/                # 20 개 ADR (설계 결정)
 │   │       ├── README.md              # ADR 인덱스 + 테마별 그룹
-│   │       └── adr-001 ~ adr-017.md   # 17 개 Architecture Decision Records
+│   │       └── adr-001 ~ adr-020.md   # 20 개 Architecture Decision Records
 │   ├── api-contract/                  # API 응답/JSON/버저닝/Flutter 통합
 │   ├── architecture/                  # 모듈 의존성, ArchUnit 규칙, 멀티테넌트
 │   ├── conventions/                   # 네이밍, DTO factory, 예외, git-workflow 등
@@ -224,34 +224,37 @@ template-spring/
 │   │           ├── V002__init_social_identities.sql
 │   │           └── V003__add_users_email_index.sql
 │   │
-│   ├── core-auth-api/                 # 인증 포트 (11 메서드)
+│   ├── core-auth-api/                 # 인증 포트 (signup/signin/2FA/refresh/withdraw)
 │   │   └── src/main/java/com/factory/core/auth/api/
-│   │       ├── AuthPort.java                      # signUp/signIn/refresh/withdraw/... (ADR-013)
-│   │       ├── EmailPort.java                     # 이메일 발송 추상
-│   │       ├── dto/                               # 13개 Request/Response DTO
-│   │       └── exception/                         # InvalidCredentials, EmailAlreadyExists 등
+│   │       ├── AuthPort.java                      # ADR-013 + ADR-030 (2FA)
+│   │       ├── dto/                               # Request/Response DTO + TwoFactor* (setup/verify/login)
+│   │       └── exception/                         # AuthError (ATH_001~ATH_010 + 2FA error codes)
 │   │
 │   ├── core-auth-impl/                # 인증 로직 라이브러리
 │   │   └── src/main/java/com/factory/core/auth/impl/
-│   │       ├── AuthServiceImpl.java               # AuthPort 구현 (9 서비스 조합)
+│   │       ├── AuthServiceImpl.java               # AuthPort 구현 (서비스 조합)
 │   │       ├── service/
-│   │       │   ├── EmailAuthService.java          # 이메일 signup/signin
+│   │       │   ├── EmailAuthService.java          # 이메일 signup/signin (ValidPassword 정책 — ADR-029)
 │   │       │   ├── AppleSignInService.java        # Apple identity token 검증 (RS256)
 │   │       │   ├── AppleJwksClient.java           # Apple JWKS 조회 + 캐시
 │   │       │   ├── GoogleSignInService.java       # Google id token 검증
 │   │       │   ├── RefreshTokenService.java       # 회전 + 탈취 감지
-│   │       │   ├── EmailVerificationService.java
+│   │       │   ├── EmailVerificationService.java  # core-email-api 의 EmailPort 사용 (ADR-024)
 │   │       │   ├── PasswordResetService.java
 │   │       │   └── WithdrawService.java           # soft delete
+│   │       ├── totp/                              # 2FA TOTP (ADR-030, RFC 6238)
+│   │       │   ├── TotpService.java               # secret 생성 + HOTP/TOTP 코드 검증
+│   │       │   └── TwoFactorService.java          # setup/verify/disable + backup codes (8개)
+│   │       ├── password/
+│   │       │   └── ValidPassword.java             # Bean Validation custom (ADR-029)
 │   │       ├── entity/
-│   │       │   ├── RefreshToken.java              # <slug>.refresh_tokens
+│   │       │   ├── RefreshToken.java
 │   │       │   ├── EmailVerificationToken.java
-│   │       │   └── PasswordResetToken.java
+│   │       │   ├── PasswordResetToken.java
+│   │       │   └── TwoFactorBackupCode.java       # backup codes (1회용 hash)
 │   │       ├── repository/
 │   │       ├── controller/
 │   │       │   └── AuthController.java            # 레퍼런스 소스 (런타임 미등록, ADR-013)
-│   │       ├── email/
-│   │       │   └── ResendEmailAdapter.java        # EmailPort 구현 (Resend API)
 │   │       └── AuthAutoConfiguration.java         # Controller 는 @Import 안 함
 │   │
 │   ├── core-device-api/               # 디바이스 포트 (푸시 토큰 등록)
@@ -286,11 +289,80 @@ template-spring/
 │   │       ├── MinioProperties.java
 │   │       └── StorageAutoConfiguration.java
 │   │
-│   ├── core-billing-api/              # 결제 포트 (Phase 0 스텁)
-│   │   └── BillingPort.java + dto/ + exception/
+│   ├── core-email-api/                # 이메일 발송 포트 (ADR-024)
+│   │   └── EmailPort.java + exception/EmailError (EMAIL_001~)
 │   │
-│   └── core-billing-impl/             # 결제 스텁
-│       └── StubBillingAdapter.java                # UnsupportedOperationException
+│   ├── core-email-impl/               # 이메일 발송 구현 (Resend)
+│   │   └── src/main/java/com/factory/core/email/impl/
+│   │       ├── ResendEmailAdapter.java            # EmailPort 구현 (Resend HTTP API)
+│   │       ├── LoggingEmailAdapter.java           # dev fallback (콘솔 + raw token 노출)
+│   │       ├── ResendProperties.java              # RESEND_API_KEY / RESEND_FROM_ADDRESS / RESEND_FROM_NAME
+│   │       └── EmailAutoConfiguration.java
+│   │
+│   ├── core-audit-api/                # 감사 로그 포트 (ADR-028)
+│   │   ├── AuditPort.java                         # record/recordWithResult
+│   │   ├── AuditResult.java                       # SUCCESS / FAILURE
+│   │   └── dto/AuditRecordRequest
+│   │
+│   ├── core-audit-impl/               # 감사 로그 구현 (AOP)
+│   │   └── src/main/java/com/factory/core/audit/impl/
+│   │       ├── AuditAspect.java                   # @Around("@annotation(Audited)") 자동 기록
+│   │       ├── AuditServiceImpl.java              # AuditPort 구현
+│   │       ├── entity/AuditLog.java               # <slug>.audit_logs
+│   │       ├── repository/AuditLogRepository.java
+│   │       └── AuditAutoConfiguration.java
+│   │
+│   ├── core-billing-api/              # 구독/플랜 정책 포트 (ADR-019)
+│   │   ├── BillingPort.java                       # activateFromPayment / findActiveSubscription / cancelSubscription / handleWebhook
+│   │   ├── SubscriptionState / PaymentChannel / PaymentRecordStatus  # 도메인 enum (api 루트 — ArchUnit r18 정합)
+│   │   ├── dto/ {Plan,Subscription,PaymentRecord}Dto                 # records
+│   │   └── exception/ BillingError (BIL_001~BIL_010) + BillingException
+│   │
+│   ├── core-billing-impl/             # 구독 정책 layer (ADR-020 + ADR-021/023/025/026/031)
+│   │   ├── BillingServiceImpl.java                # TransactionTemplate phase 분리
+│   │   ├── entity/ {Plan,Subscription,PaymentRecord,WebhookEvent,RenewalAttempt} (BaseEntity 상속)
+│   │   ├── repository/ Spring Data JPA
+│   │   ├── scheduler/SubscriptionExpirationScheduler  # @Scheduled cron + slug iter
+│   │   ├── listener/SubscriptionNotificationListener  # 갱신 실패/성공 → Push + Email 발송
+│   │   ├── notification/                          # 사용자 알림 toggle (ADR-031)
+│   │   │   ├── NotificationKind.java              # RENEWAL_FAILED / RENEWAL_SUCCESS / REFUND
+│   │   │   ├── NotificationPreference.java        # 사용자별 채널 on/off
+│   │   │   └── NotificationPreferenceService.java
+│   │   ├── BillingNotificationProperties.java     # APP_BILLING_NOTIFICATION_*
+│   │   └── BillingAutoConfiguration
+│   │
+│   ├── core-iap-api/                  # IAP 채널 포트 (Apple/Google receipt 검증)
+│   │   └── IapPort.java + dto/
+│   │
+│   ├── core-iap-impl/                 # IAP 구현 (ADR-022 + Google Pub/Sub webhook)
+│   │   └── src/main/java/com/factory/core/iap/impl/
+│   │       ├── IapAdapter.java                    # IapPort 구현 (채널 라우팅)
+│   │       ├── AppleAppStoreAdapter.java          # Apple App Store Server API
+│   │       ├── AppleJwsVerifier.java              # Apple V2 signedPayload JWS 검증
+│   │       ├── AppleNotificationDecoder.java      # ASS Notification V2 디코드
+│   │       ├── GooglePlayAdapter.java             # Google Play Developer API
+│   │       ├── GoogleNotificationDecoder.java     # RTDN Pub/Sub 메시지 디코드
+│   │       ├── google/                            # Google Pub/Sub push 인증
+│   │       │   ├── GoogleWebhookAuthFilter.java   # Bearer JWT 검증 (RS256 + JWKS + audience + email)
+│   │       │   ├── GoogleJwksClient.java          # Google JWKS 조회 + 캐시
+│   │       │   └── GoogleWebhookProperties.java
+│   │       ├── StubIapAdapter.java                # 미설정 환경 fallback
+│   │       ├── IapProperties.java
+│   │       ├── IapAppCredentialProperties.java    # 앱별 Apple/Google 자격
+│   │       └── IapAutoConfiguration.java
+│   │
+│   ├── core-payment-api/              # PG 채널 포트 (포트원)
+│   │   ├── PaymentPort.java                       # verify / refund
+│   │   ├── PortOneWebhookVerifier.java            # HMAC SHA-256 + timestamp
+│   │   ├── PaymentStatus.java                     # READY / PAID / FAILED / CANCELLED / VBANK_ISSUED
+│   │   └── dto/ PaymentResult / RefundRequest / RefundResult / WebhookMessage
+│   │
+│   └── core-payment-impl/             # PortOneAdapter (REST V1)
+│       ├── PortOneAdapter.java                    # PaymentPort 구현
+│       ├── PortOneApiClient.java                  # 토큰 캐시 + verify/cancel
+│       ├── PortOneProperties.java                 # APP_PAYMENT_PORTONE_API_V1_KEY/SECRET / V2_KEY / WEBHOOK_SECRET
+│       ├── StubPaymentAdapter.java                # dev fallback (key 미설정 시)
+│       └── PaymentAutoConfiguration               # PortOneProdConfigGuard (prod 부팅 fail-fast)
 │
 ├── apps/                              # 앱별 도메인 모듈
 │   ├── README.md                      # "new-app.sh 로 추가" 안내
@@ -363,7 +435,8 @@ bootstrap                              # 최상위 (모든 것을 조립)
    ├──→ core-auth-impl                 # 서비스 라이브러리 (Controller 는 레퍼런스만)
    │       ├──→ common-*
    │       ├──→ core-auth-api          #   자기 api
-   │       └──→ core-user-api          #   다른 core 는 api 만 의존 (impl 금지)
+   │       ├──→ core-user-api          #   다른 core 는 api 만 의존 (impl 금지)
+   │       └──→ core-email-api         #   EmailPort (인증 메일/비번 재설정 — ADR-024)
    │
    ├──→ core-device-impl
    │       ├──→ common-*
@@ -378,8 +451,25 @@ bootstrap                              # 최상위 (모든 것을 조립)
    │       ├──→ common-*
    │       └──→ core-storage-api
    │
-   ├──→ core-billing-impl              # Phase 0: 스텁
-   │       └──→ core-billing-api
+   ├──→ core-email-impl                # 이메일 어댑터 (ADR-024)
+   │       └──→ core-email-api
+   │
+   ├──→ core-audit-impl                # 감사 로그 (ADR-028)
+   │       └──→ core-audit-api
+   │
+   ├──→ core-billing-impl              # 구독 정책 layer (ADR-020/021/023/025/031)
+   │       ├──→ core-billing-api
+   │       ├──→ core-payment-api       #   PaymentPort.verify (PG 결제 검증 → activateFromPayment)
+   │       ├──→ core-user-api          #   user FK
+   │       ├──→ core-push-api          #   갱신 실패/성공 푸시 (ADR-023)
+   │       └──→ core-email-api         #   갱신 실패/성공 이메일 (ADR-025)
+   │
+   ├──→ core-iap-impl                  # IAP 채널 (Apple ASS V2 + Google RTDN, ADR-022)
+   │       ├──→ core-iap-api
+   │       └──→ core-billing-api       #   IAP webhook → BillingPort.handleWebhook
+   │
+   ├──→ core-payment-impl              # PG 채널 = 포트원
+   │       └──→ core-payment-api
    │
    └──→ apps/app-<slug>                # 파생 레포에서 추가
            ├──→ common-*               #   공통 유틸
@@ -755,7 +845,7 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든
 ## 관련 문서
 
 ### 핵심 레퍼런스
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 17 개 ADR 설계 결정의 근거
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 20 개 ADR 설계 결정의 근거
 - [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) — 문서 작성 규칙
 - [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 개발 환경 셋업
 

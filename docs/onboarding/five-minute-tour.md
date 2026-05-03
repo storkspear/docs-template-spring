@@ -31,7 +31,9 @@
        │   ├── core-device-{api,impl}    → 디바이스 등록 (푸시)
        │   ├── core-push-{api,impl}      → FCM 푸시 전송
        │   ├── core-storage-{api,impl}   → 파일 업로드/다운로드
-       │   └── core-billing-{api,impl}   → 결제 (Phase 0 스텁)
+       │   ├── core-billing-{api,impl}   → 구독/플랜 정책 (ADR-019/020)
+       │   ├── core-iap-{api,impl}       → Apple/Google IAP 채널 (stub, 다음 사이클)
+       │   └── core-payment-{api,impl}   → PG 채널 (포트원 어댑터)
        │
        └── apps/               ← 앱별 도메인 (템플릿에는 비어있음)
            ├── app-sumtally       → 가계부 앱 (예시)
