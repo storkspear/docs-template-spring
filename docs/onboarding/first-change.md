@@ -10,6 +10,13 @@
 >
 > **배우는 것**: Flyway 마이그레이션 쓰는 법 · 엔티티와 DB 매핑 · DTO 변환 패턴 · 테스트 추가
 
+> **이 튜토리얼을 읽기 전 알아야 할 것들** — 처음 보는 용어가 등장하면 [`Glossary`](../reference/glossary.md) 에서 빠르게 확인 가능해요:
+> - [`JPA Entity`](../reference/glossary.md#데이터베이스) — `@Entity` 클래스가 DB 테이블과 매핑되는 패턴
+> - [`Flyway 마이그레이션`](../reference/glossary.md#데이터베이스) — `V001__init.sql` 같은 SQL 파일을 순서대로 한 번씩 실행
+> - [`DTO`](../reference/glossary.md#코드-패턴) — 계층 간 데이터 전송 객체. 본 레포는 `record` 로 선언
+> - [`DTO Factory`](../reference/glossary.md#코드-패턴) — DTO 생성을 *Entity 의 static 메서드* (`UserResponse.of(user)`) 로 처리하는 패턴 ([`ADR-016`](../philosophy/adr-016-dto-mapper-forbidden.md))
+> - [`@Column` / `@MappedSuperclass`](../reference/glossary.md#spring-어노테이션--런타임) — 필드와 DB 컬럼 매핑 / 공통 부모 클래스 (BaseEntity)
+
 ## 변경 범위 한눈에
 
 `users` 테이블에 `nickname VARCHAR(50)` 컬럼 하나 추가. 수정할 파일 6 곳:

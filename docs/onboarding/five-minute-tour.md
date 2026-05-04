@@ -85,7 +85,7 @@ apps/app-gymlog/                             ← 새 앱 모듈 디렉토리
 
 ## 3. DB 가 분리되어 있다는 것
 
-한 Postgres 인스턴스 안에 **schema 라는 논리 경계** 가 앱마다 하나씩:
+한 Postgres 인스턴스 안에 [**schema**](../reference/glossary.md#데이터베이스) (논리 경계) 가 앱마다 하나씩:
 
 ```
 postgres (database)
@@ -113,7 +113,7 @@ postgres (database)
 
 1. **같은 이메일** 이 sumtally 와 rny 에 있어도 **서로 다른 유저** ([`ADR-012`](../philosophy/adr-012-per-app-user-model.md))
 2. **DB role** 이 분리되어 있어서 sumtally 코드가 rny schema 에 접근하려 하면 **PostgreSQL 이 거절**
-3. **HikariCP 커넥션 풀** 도 앱별로 따로 — 한 앱이 DB 를 과부하시켜도 다른 앱은 무사
+3. [**HikariCP**](../reference/glossary.md#데이터베이스) **커넥션 풀** 도 앱별로 따로 — 한 앱이 DB 를 과부하시켜도 다른 앱은 무사
 
 이것이 [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 **5중 방어선** 중 핵심 내용.
 

@@ -61,6 +61,10 @@
 | **Supabase** | 클라우드 Postgres + Auth + Storage 서비스. 이 레포는 Postgres 부분만 사용 (Supabase Pooler 경유) |
 | **Supabase Pooler** | PgBouncer 기반의 연결 풀러. transaction mode (짧은 트랜잭션) 와 session mode (긴 세션) 두 가지. 각각 특성이 다름 |
 | **N+1 쿼리 문제** | JPA 에서 목록을 가져온 후 각 항목의 연관 객체를 하나씩 추가 쿼리로 가져오는 성능 이슈. `fetch join` 또는 배치 로딩으로 해결 |
+| **Baseline (Flyway)** | 이미 구축된 schema 의 version checkpoint. 신규 환경에선 V001 부터, 기존 환경엔 baseline 위 마이그레이션부터 실행 |
+| **Validate-only (Flyway)** | 마이그레이션 *실행 없이* checksum + history 검증만 수행. 운영 환경 안전 모드 ([`ADR-033`](../philosophy/adr-033-flyway-hybrid-policy.md)) |
+| **Checksum (Flyway)** | 마이그레이션 파일 integrity 체크값. 파일 수정 감지 — 이미 실행된 V 파일이 변경되면 부팅 실패 |
+| **AbstractRoutingDataSource** | Spring 의 다중 DataSource 라우팅 클래스. 요청에서 appSlug 읽어 올바른 schema 의 DataSource 로 연결. 이 레포의 `SchemaRoutingDataSource` 가 이걸 상속 ([`ADR-018`](../philosophy/adr-018-schema-routing-datasource.md)) |
 
 ## 인증 / 보안
 
@@ -79,6 +83,13 @@
 | **Cloudflare Access** | Cloudflare 의 Zero-Trust 접근 제어. 관리자 전용 엔드포인트에 "구글 계정으로 인증해야 통과" 같은 정책 부여 |
 | **TLS / HTTPS** | 전송 구간 암호화. CF Tunnel 이 edge 에서 처리 → 내부 구간은 평문 가능 (trade-off 존재) |
 | **SPF / DKIM** | 메일 서버가 "이 메일이 정당한 발신자로부터 왔다" 고 증명하는 DNS 레코드. 이 레포는 Resend 를 통해 자동 구성 |
+| **JWS (JSON Web Signature)** | JWT 의 상위 개념. payload + signature 구조. Apple App Store webhook 이 JWS 형식으로 전송 ([`ADR-022`](../philosophy/adr-022-iap-server-notifications.md)) |
+| **JWKS (JSON Web Key Set)** | 공개키 집합 endpoint. OAuth provider (Apple / Google) 가 자기 공개키를 JWKS URL 로 노출 — 서버가 RS256 JWT 서명 검증 시 fetch |
+| **Audience (JWT claim, `aud`)** | JWT 의 수신자 식별 claim. OAuth 토큰 검증 시 *우리 앱 ID* 와 일치 확인 — audience 다르면 다른 앱의 토큰 |
+| **Webhook signature** | webhook 요청의 인증 도장. 외부 서비스가 비밀키로 서명, 우리 서버가 검증해 *정당한 발신자 확인* |
+| **Service Account (Google Cloud)** | Google Cloud 의 서비스용 계정 (사람 X). Pub/Sub webhook 인증 주체 — `@my-project.iam.gserviceaccount.com` 형식 |
+| **TOTP (Time-based One-Time Password)** | 2FA 표준 (RFC 6238). 30초마다 갱신되는 6자리 코드. Google Authenticator / Authy 등 호환 ([`ADR-030`](../philosophy/adr-030-2fa-totp.md)) |
+| **Backup codes** | 2FA 비상용 일회성 코드. TOTP 기기 분실 시 로그인 수단. 8개 발급, 사용 후 무효화 |
 
 ## 운영 / 인프라
 
@@ -106,6 +117,21 @@
 | **Cloudflare R2** | Cloudflare 의 S3 호환 오브젝트 스토리지. Egress 비용 무료가 특징 |
 | **Webhook** | "이벤트 발생 시 지정한 URL 로 HTTP POST" 하는 콜백 메커니즘. GHA, Discord 알림 등에 사용 |
 | **Discord Webhook** | Discord 채널에 메시지를 자동 전송하는 URL. 이 레포는 알림 채널로 활용 |
+| **Idempotency key** | 같은 요청을 여러 번 받아도 *한 번만 처리* 하기 위한 식별자. webhook 중복 수신 방지 — `webhook_events` 테이블의 `externalId` uniqueness |
+| **Feature toggle / Lite mode** | 기능 on/off 플래그. `app.features.<X>=true|false` 환경변수로 도메인 단위 활성화 제어. 작은 비즈니스용 *Lite mode* 지원 ([`ADR-034`](../philosophy/adr-034-feature-toggle-lite-mode.md)) |
+| **SPEL (Spring Expression Language)** | Spring 설정에서 조건문 / 표현식 언어. `@ConditionalOnExpression("${a} and ${b}")` 같이 두 flag AND/OR 조합 |
+
+## 결제 / IAP / 구독
+
+| 용어 | 설명 |
+|---|---|
+| **PG (Payment Gateway)** | 카드 결제 중개 서비스. 한국에선 PortOne (구 iamport) 가 다수 PG (나이스 / 토스 / 이니시스 등) 를 통합 제공 |
+| **PortOne** | 한국형 결제 통합 SDK / 콘솔. v1 API base URL = `api.iamport.kr` (옛 iamport 시절 명세). 본 레포 v1 사용 ([`ADR-019`](../philosophy/adr-019-billing-iap-payment-separation.md)) |
+| **IAP (In-App Purchase)** | 앱 스토어 내결제. Apple App Store / Google Play 가 결제 처리, 수수료 30% 차감. 외부 PG 는 사용 불가 (앱 스토어 정책) |
+| **Subscription / Renewal** | 정기 구독 모델. 월/년 단위 자동 갱신 (renewal). 본 레포의 `BillingPort` 핵심 도메인 ([`ADR-020`](../philosophy/adr-020-subscription-domain-model.md), [`ADR-021`](../philosophy/adr-021-renewal-failure-policy.md)) |
+| **RTDN (Real-Time Developer Notifications)** | Google Play 의 결제 webhook. 구독 상태 변화 (갱신 / 환불 / 취소) 를 Google Pub/Sub 로 실시간 push ([`ADR-022`](../philosophy/adr-022-iap-server-notifications.md)) |
+| **App Store Server Notifications V2** | Apple 의 결제 webhook (RTDN 의 Apple 버전). JWS 형식. SignedDate / SignedTransactionInfo 검증 |
+| **OPT-IN / OPT-OUT** | 기능 활성화 정책. *opt-in* = 사용자가 명시적으로 켜야 활성 (예: 2FA — 사용자 주도). *opt-out* = 기본 활성, 사용자가 꺼야 비활성 (예: 결제 알림 — 기본 발송) |
 
 ## CI / 배포 파이프라인
 
@@ -155,6 +181,7 @@
 | **Delegation Mock** | "A 가 B 를 호출하는지" 만 확인하는 테스트 (껍데기만 검증). 이 레포는 금지 ([`ADR-014`](../philosophy/adr-014-no-delegation-mock.md)) |
 | **Round-trip** | JSON 직렬화 ↔ 역직렬화 왕복 테스트. 필드 손실/추가 방지 |
 | **Canonical JSON** | 정규화된 JSON 표현 (키 정렬, 공백 제거). 계약 테스트의 비교 기준 |
+| **Fake Adapter** | 테스트용 Port 구현체. HTTP 호출 대신 in-memory 구현 (예: `InMemoryEmailAdapter`). Mock 과 달리 *진짜 동작 함* — 호출 횟수 verify 가 아니라 *결과 상태* 검증 ([`ADR-014`](../philosophy/adr-014-no-delegation-mock.md)) |
 
 ## 코드 패턴
 
@@ -187,6 +214,9 @@
 | **Hexagonal Architecture (Port / Adapter)** | "비즈니스 로직(Port)" 과 "외부 연결(Adapter)" 분리. 이 레포의 `-api` vs `-impl` 구조 ([`ADR-003`](../philosophy/adr-003-api-impl-split.md), [`ADR-011`](../philosophy/adr-011-layered-port-adapter.md)) |
 | **Layered Architecture** | Controller → Service → Repository 계층형 구조. 이 레포는 Hexagonal 과 결합 |
 | **Multitenant (멀티테넌트)** | 한 서버/DB 에서 여러 "테넌트 (앱)" 의 데이터를 분리해 서비스하는 구조. 이 레포는 schema-per-app 방식 |
+| **Tenant** | 멀티테넌트 구조의 *각 격리 단위*. 본 레포에서는 *하나의 앱* (slug 단위) 이 한 tenant. tenant 별로 schema / role / bucket / DataSource 격리 |
+| **Audit log** | 사용자 행동 기록 (admin refund / role 변경 등). 준법성 / 보안 추적용. AOP `@Audited` 어노테이션 + AuditAspect 자동 기록 ([`ADR-028`](../philosophy/adr-028-audit-log-domain.md)) |
+| **Port / Adapter** | Hexagonal Architecture 의 핵심 패턴. *Port* = 인터페이스 contract (`AuthPort`), *Adapter* = 외부 시스템 어댑터 구현체 (`AuthServiceImpl`, `ResendEmailAdapter`). 본 레포의 `-api` / `-impl` 모듈 분리가 이걸 강제 |
 
 ## 개발 프로세스
 

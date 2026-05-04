@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-인증은 앱마다 **자기 Controller** 가 있습니다. sumtally 는 `SumtallyAuthController` 가 `/api/apps/sumtally/auth/*` 를 처리하고, rny 는 `RnyAuthController` 가 `/api/apps/rny/auth/*` 를 처리합니다. 그런데 실제 **로직은 한 곳에 있어요** — `core-auth-impl` 의 `AuthServiceImpl` (`AuthPort` 구현) 이 11개 메서드로 인증 도메인 전체를 담당. 각 앱 Controller 는 **얇은 HTTP 어댑터** 로 `AuthPort` 를 주입받아 호출만 합니다. 즉 **core-auth-impl 은 "앱이 가져다 쓰는 라이브러리"** 역할이고, Controller 런타임 등록은 앱 모듈이 담당해요.
+인증은 앱마다 **자기 Controller** 가 있습니다. sumtally 는 `SumtallyAuthController` 가 `/api/apps/sumtally/auth/*` 를 처리하고, rny 는 `RnyAuthController` 가 `/api/apps/rny/auth/*` 를 처리합니다. 그런데 실제 **로직은 한 곳에 있어요** — `core-auth-impl` 의 `AuthServiceImpl` (`AuthPort` 구현) 이 17개 메서드로 인증 도메인 전체를 담당. 각 앱 Controller 는 **얇은 HTTP 어댑터** 로 `AuthPort` 를 주입받아 호출만 합니다. 즉 **core-auth-impl 은 "앱이 가져다 쓰는 라이브러리"** 역할이고, Controller 런타임 등록은 앱 모듈이 담당해요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -122,10 +122,12 @@ HTTP 요청
             AuthPort (core-auth-api 인터페이스)
                  │ 구현체
                  ▼
-            AuthServiceImpl (core-auth-impl, 11 메서드)
+            AuthServiceImpl (core-auth-impl, 17 메서드)
                  │ 위임
                  ▼
-            EmailAuthService / SocialAuthService / TokenService ... (9개 서비스)
+            EmailAuthService / Apple/Google/Kakao/NaverSignInService / RefreshTokenService /
+            EmailVerificationService / PasswordResetService / WithdrawService /
+            TwoFactorService (10개 서비스)
 ```
 
 ### 엔드포인트 경로 상수화 — `ApiEndpoints`
@@ -151,7 +153,7 @@ public static final class Auth {
 - URL 패턴을 **상수** 로 관리 — 오타 방지 + IDE "Find Usages" 추적 가능
 - `PUBLIC_PATTERNS` 는 `SecurityConfig` 가 permitAll 화이트리스트로 사용
 
-### `AuthPort` — 11개 메서드 (core-auth-api)
+### `AuthPort` — 17개 메서드 (core-auth-api)
 
 ```java
 // core-auth-api/AuthPort.java
@@ -198,7 +200,7 @@ public class AuthServiceImpl implements AuthPort {
 }
 ```
 
-- **한 클래스에 인증 로직 전체** — 11개 메서드가 9개 서비스에 분기
+- **한 클래스에 인증 로직 전체** — 17개 메서드가 10개 서비스에 분기
 - `@Transactional` — 인증 흐름 (가입, 로그인, 비밀번호 변경 등) 의 일관성 보장
 - **bean 자체는 `AuthAutoConfiguration` 이 등록** — `@ConditionalOnMissingBean` 으로 커스터마이즈 가능
 
@@ -297,7 +299,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 | 구성요소 | 런타임 등록? | 역할 |
 |---|---|---|
 | `core-auth-impl/AuthServiceImpl` (AuthPort 구현) | ✅ 등록 (bean) | 실제 인증 로직 전체 담당 |
-| `core-auth-impl/EmailAuthService`, `AppleSignInService` 등 9개 서비스 | ✅ 등록 | 도메인 분할 책임 |
+| `core-auth-impl/EmailAuthService`, `AppleSignInService` 등 10개 서비스 | ✅ 등록 | 도메인 분할 책임 |
 | `core-auth-impl/AuthController` | ❌ **미등록** | 앱 Controller 의 **템플릿 소스** |
 
 즉 core-auth-impl 은 **"앱이 가져다 쓰는 라이브러리"** 로 작동:
@@ -360,8 +362,8 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 - [`common/common-web/ApiEndpoints.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) — `APP_BASE`, `Auth.BASE`, 11개 경로 상수 + `PUBLIC_PATTERNS`
 
 **Port + Service**:
-- [`core-auth-api/AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 11개 메서드 인터페이스
-- [`core-auth-impl/AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java) — 9개 서비스 위임, `@Transactional`
+- [`core-auth-api/AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 17개 메서드 인터페이스
+- [`core-auth-impl/AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java) — 10개 서비스 위임, `@Transactional`
 - [`core-auth-impl/AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — bean 등록 (Controller 는 import **안 함**)
 
 **Controller (레퍼런스 + 앱별)**:

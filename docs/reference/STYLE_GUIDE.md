@@ -60,6 +60,11 @@ h1 바로 아래에 **한 줄 블록** 필수:
 
 독자가 클릭하자마자 "이건 어떤 성격의 문서인가" 를 즉시 인지하게 함. 유형별 규격 차이가 **혼란이 아니라 목적에 맞는 구조** 로 받아들여짐.
 
+**예외 — README / 인덱스 진입점**:
+- `docs/README.md` (GitHub 진입점) 은 메타블록 생략 가능. 사용자의 첫 진입 동선이라 *유형 라벨* 보다 *바로 인덱스* 가 자연스러움
+- `docs/{group}/README.md` (그룹 인덱스) 는 메타블록 권장 (인덱스 자체도 *Reference* 유형)
+- 예외 적용 시 *왜 메타블록이 없는지* 한 줄 주석으로 명시 권장
+
 ### 2.A — ADR (Architecture Decision Record)
 
 **대상**: `philosophy/` 의 설계 결정 카드. 17 파일.
@@ -78,6 +83,16 @@ h1 바로 아래에 **한 줄 블록** 필수:
 6. **교훈** — 3~4 개 정도. 각 교훈은 `### 교훈 제목` 서브섹션 + 구체 일화 + `**교훈**:` 한 줄 요약.
 7. **관련 사례 (Prior Art)** — 업계 레퍼런스 5~7 개 외부 링크.
 8. **Code References** — 실제 파일/라인 링크. GitHub raw URL 사용.
+
+### 축약형 ADR — 대안 부재 사유 노트 의무
+
+ADR 의 결정이 **한 방향적** 이라 (예: 도메인 분리 / 모듈 추출) *진짜 대안 비교* 가 무의미한 경우, 섹션 3 (고민했던 대안들) 을 *축약 / 생략* 가능. 단:
+
+- **축약 사유 노트 필수** — 섹션 3 진입부에 `> **대안 분석의 한계**` 또는 `> **이 ADR 은 *한 방향적 결정*** ` 같이 *왜 정형 대안 비교가 부적합한지* 한 단락 명시
+- **고려한 형태 짧게** — *진짜 대안 X* 라도 *고려한 형태* (예: "auth 안에 두기", "별도 microservice") 를 짧게 기록. reader 가 *왜 이 형태가 부적합한가* 이해 가능
+- **다른 7 섹션은 보유 의무** — 결론부터 / 왜 / 결정 / 이 선택이 가져온 것 / 교훈 / Prior Art / Code References 는 그대로
+
+참조: [`ADR-024`](../philosophy/adr-024-email-domain-extraction.md) — 도메인 추출의 한 방향적 결정 + 대안 부재 사유 노트 사례
 
 ### 파일 헤더 (h1 + Status 줄)
 
@@ -296,6 +311,22 @@ h1 바로 아래에 **한 줄 블록** 필수:
 - 한 번 정의하면 본문에서 계속 같은 표기 유지
 - 약어는 **첫 등장 시 풀어쓰기** + 괄호로 약어: `ADR (Architecture Decision Record)`
 - 같은 개념을 한국어/영어 혼용 지양 — "포트" vs "Port" 중 하나로 고정 (본 프로젝트는 **Port** 영문 유지)
+
+### 어려운 용어 cross-link 정책 (Level 0~1 reader 친화)
+
+본 template 의 docs 는 *N개 파생 레포 / N명 개발자* 가 학습 자료로 사용해요. *처음 보는 사람* 의 학습 곡선 부담을 줄이기 위해:
+
+- **L0~L1 진입 docs** (`onboarding/*`, `start/*`) — 어려운 용어 *첫 등장 시* `[term](../reference/glossary.md#section-anchor)` 형태로 cross-link **의무**
+- **L2~L3 docs** (`structure/*`, `convention/*`, `philosophy/adr-*`) — 어려운 용어 *첫 등장 시* cross-link **권장** (Level 3 reader 가정이라 너무 많은 link 는 가독성 저해 — 핵심 *외부 도메인 용어* 만)
+- **glossary 미커버 용어** — 발견 즉시 `docs/reference/glossary.md` 에 추가. 새 용어가 첫 등장하면 reader 가 막힘
+- **반복 등장 시 link 생략** — 같은 ADR 안에서 같은 용어가 여러 번 등장하면 첫 1회만 link
+
+**어려운 용어** 의 기준:
+- 외부 도메인 용어 (Spring 관용 / Hexagonal / TOTP / IAP / RTDN / Kamal 등)
+- 본 레포 고유 용어 (appSlug / 도그푸딩 / template-v* 태그)
+- 첫 등장 시 비유 / 정의가 본문에 없는 경우
+
+참조: [`first-change.md`](../onboarding/first-change.md) 의 *필수 선이해* 박스 — L0 진입 docs 의 cross-link 사례
 
 ---
 

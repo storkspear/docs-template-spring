@@ -269,7 +269,7 @@ references class <com.factory.core.user.impl.entity.User>
 
 **DTO ↔ Entity 변환 비용** — Port 가 Entity 반환 금지이므로 `-impl` 내부에서 Entity 를 DTO 로 변환해야 함. 완화: ADR-016 (DTO Mapper 금지, Entity 메서드 패턴) 이 이 비용을 최소화.
 
-**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **11 메서드** (email 가입 / 이메일·Apple·Google 로그인 / refresh / 탈퇴 / password reset 3개 (요청·확인·변경) / email verify 2개 (검증·재발송)). 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 됨. 완화: 인터페이스가 20+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 **책임 기반 분할** 고려. 현재 11 메서드는 적정 수준.
+**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **17 메서드** (email 가입 / 이메일·Apple·Google·Kakao·Naver 로그인 / refresh / 탈퇴 / password reset 3개 (요청·확인·변경) / email verify 2개 (검증·재발송) / 2FA TOTP 4개 (setup·verify·disable·login)). 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 됨. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 **책임 기반 분할** 고려. 현재 17 메서드는 관리 가능한 수준.
 
 ### 감당 가능성 판단
 
@@ -297,7 +297,7 @@ references class <com.factory.core.user.impl.entity.User>
 ## Code References
 
 **Port 인터페이스** (모두 `-api` 모듈):
-- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 11 메서드, JavaDoc 풍부.
+- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 17 메서드, JavaDoc 풍부.
 - [`UserPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/UserPort.java)
 - [`PushPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-push-api/src/main/java/com/factory/core/push/api/PushPort.java)
 - [`EmailPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/EmailPort.java) — 간결. Secondary Adapter 의 대상.
