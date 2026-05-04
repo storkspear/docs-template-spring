@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+Flyway 마이그레이션 정책을 *환경별 분리* — dev = `auto` (자동 적용), prod = `validate-only` (적용 X / checksum 검증만). 운영자가 *명시적으로* SQL 적용 (`tools/migrate-prod.sh` Phase 2-3 예정 / 현재는 SSH + psql 수동).
+
+이유: 운영 환경에서 *자동 마이그레이션* 은 *예측 못한 schema 변경* 위험. *validate-only* 로 *부팅 전 일관성만 검증* 하고, 적용은 사람이 *시점 결정*.
+
+---
+
 ## 배경
 
 현재 (ADR-033 이전) — 모든 환경 (dev / test / prod) 에서 부팅 시 Flyway 가 자동 `migrate()`. `AbstractAppDataSourceConfig.buildFlyway()` 가 `Flyway.configure().load()` 만 반환하고 concrete subclass 가 `@Bean(initMethod = "migrate")` 로 매 부팅에 실행.

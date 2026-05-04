@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+Apple App Store Server Notifications V2 + Google Play Real-Time Developer Notifications (RTDN) webhook 을 통합 처리. Apple/Google 의 raw 이벤트 type (예: `DID_RENEW` / `EXPIRED` / `REFUND` / `REVOKE`) 을 본 레포의 *통합 type* (8 개) 로 매핑해 같은 listener 가 두 channel 처리.
+
+`DID_RENEW` 같은 갱신 이벤트는 user 식별 정보를 포함하지 않으므로 *originalTransactionId* / *purchaseToken* 으로 기존 PaymentRecord 조회 후 user 추적. webhook 중복은 `(source, externalId)` UNIQUE 로 차단.
+
+---
+
 ## 배경
 
 D 사이클 = IAP **영수증 검증** (사용자 결제 직후 1회 호출). 그러나 **갱신 / 환불 / 취소** 는 Apple/Google 이 백엔드에 직접 webhook (server notification) 보냄 — 받지 않으면 우리는 영구 모름.

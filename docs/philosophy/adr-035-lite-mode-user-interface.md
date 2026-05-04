@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+Lite 모드의 *사용자 인터페이스* — 현재는 *CLI + .env* (사용자가 `app.features.X=false` 직접 편집). GUI / 결제게이트 (구독 결제로 unlock 등) 는 *future*.
+
+이유: ADR-002 의 *심플 출발점* 정신 + ADR-007 의 *solo-friendly* — *솔로 운영자가 * 빠르게 활용* 가능한 가장 가벼운 형태가 *환경변수 토글*. GUI / 결제는 *복잡도 vs 가치* 검증 후 별도 사이클.
+
+---
+
 ## 배경
 
 ADR-034 가 backend 토글 메커니즘 (`@ConditionalOnProperty` + `app.features.*` env) 결정. 본 ADR 는 **운영자/사용자가 어떻게 토글을 조작하는가** 결정.

@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+사용자가 알림 종류별 *on/off* 토글 (예: `RENEWAL_FAILED` / `RENEWAL_SUCCESS` / `MARKETING`). `NotificationKind` enum + `user_notification_preferences` 테이블 — default=ON.
+
+발송 직전 listener 가 *user preference* 조회해 OFF 면 silent skip. API endpoint (`PATCH /me/notifications/preferences`) 는 본 사이클 scope 외 — *Phase 2-3* 에서 추가.
+
+---
+
 ## 배경
 
 L 사이클로 push + email 듀얼 알림 구현. 그러나 **사용자가 끌 수 없음**. 운영 시:

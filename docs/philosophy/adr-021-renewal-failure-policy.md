@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+자동 갱신 실패 시 *3회 백오프* (1h → 6h → 24h) 로 재시도. 실패 누적이 3 attempt 도달하면 `ABANDONED` 로 분류되고 구독은 `auto-cancel`. 회복 가능 실패 (네트워크 / 카드 한도 일시) 와 영구 실패 (카드 만료 / 사용자 결제 거부) 의 구분이 백오프 간격에 녹아 있어요.
+
+`RenewalAttempt` 도메인 모델로 *재시도 횟수 / 마지막 시도 시각 / 실패 사유* 를 영속. webhook ↔ scheduler 동시성은 advisory lock 으로 직렬화.
+
+---
+
 ## 배경
 
 G 사이클로 `BillingServiceImpl.renewSubscription` 가 PortOne `chargeAgain` 호출까지 완성. 그러나 결제 실패 시 처리가 비어있음 — `log.error` + `Optional.empty()` 반환으로 끝. 운영 시:

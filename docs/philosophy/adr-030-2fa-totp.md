@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+2FA TOTP 추가 (RFC 6238 표준 — Google Authenticator / Authy 호환). 30초 윈도우 6자리 코드 + 백업 코드 8개 (BCrypt 해시 저장).
+
+가입 / 로그인 흐름 그대로 유지 + *2FA 활성 사용자만* signin → twoFactorToken (5분, type="2fa-pending") → `/auth/2fa/login` 로 정식 토큰. 단계 추가가 *기존 흐름을 깨지 않음*.
+
+---
+
 ## 배경
 
 비밀번호 단독 인증의 한계:

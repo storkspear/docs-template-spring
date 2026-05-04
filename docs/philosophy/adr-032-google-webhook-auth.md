@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+Google Pub/Sub webhook 의 `Authorization: Bearer <JWT>` 검증 추가 — Google 서비스 계정의 RS256 JWT 를 JWKS 공개키로 verify + audience / issuer 일치 검증.
+
+JWKS 는 24h cache (rotation 대응). `allowed-service-account-emails` whitelist 로 *우리 plzkt 의 서비스 계정 만* 허용. webhook 위조 / replay 공격 차단.
+
+---
+
 ## 배경
 
 ADR-022 의 `/iap/google/webhook` endpoint = Google Play RTDN Pub/Sub push 받음. 그러나 **인증 무방비**:

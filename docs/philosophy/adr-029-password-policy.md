@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+비밀번호 정책 (`@ValidPassword` Bean Validation) 강화 — *최소 10자* / *common-passwords.txt blacklist* (10K 항목) / *property override 가능*.
+
+기본값은 `min=10` (보안 baseline). 파생 레포가 *느슨하게* 또는 *엄격하게* 둘 수 있도록 `app.security.password.min-length` 등 property 로 조정 가능. 검증은 `@Valid` 표준 흐름 — Controller / Service 어디서든 동일.
+
+---
+
 ## 배경
 
 기존 정책 = `@Size(min=8, max=72)` 만:

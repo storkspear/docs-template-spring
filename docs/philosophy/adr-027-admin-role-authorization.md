@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+운영자 전용 endpoint 를 보호하는 *@AdminOnly* meta annotation + JWT `role` claim 검증. Spring Security 의 `@PreAuthorize("hasRole('ADMIN')")` 보다 *간결 + 도메인 의도 명시*.
+
+`role` claim 은 JWT 발급 시 user.role 에서 복사 (`"user"` / `"admin"`). AppSlugVerificationFilter 와 같은 chain 에서 검증되어 *앱 단위 + role 단위* 이중 격리.
+
+---
+
 ## 배경
 
 기존 인증/권한 시스템:

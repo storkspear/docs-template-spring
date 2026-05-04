@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+결제 알림 발송에 *3 라벨* (channel × kind × result) 의 Prometheus 메트릭 추가 — `billing_notification_total{channel="push|email", kind="renewal_failed|...", result="sent|failed|skipped"}`.
+
+운영자가 *알림이 가긴 갔나* / *어느 채널이 막혔나* / *어떤 이벤트가 자주 실패하나* 즉답 가능. Alertmanager 임계치 (예: failed > 5% / 5분) 도 라벨 단위 분리 가능.
+
+---
+
 ## 배경
 
 L 사이클로 push + email 둘 다 발송 가능. 그러나 운영 시:

@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+ADR-023 의 listener 에 *email 채널* 을 추가해 push + email 듀얼 발송. ADR-024 의 core-email 추출 후 billing 이 EmailPort 자유롭게 import 가능.
+
+`@ConditionalOnBean` 의 *OR* 처리로 PushPort / EmailPort 중 *하나라도 있으면* listener 등록. 둘 다 있으면 *모두 발송*. Email 발송 실패는 *silent skip* (push 성공만으로도 알림 의무 충족).
+
+---
+
 ## 배경
 
 ADR-023 = listener 가 push 만 발송. email 은 별도 사이클로 미룸 (당시 EmailPort 가 core-auth 안에 묻혀있어 billing 이 import 불가).

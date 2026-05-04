@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+ADR-021 / ADR-022 가 발행한 결제 도메인 이벤트 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEvent` / `RefundEvent` / `RevokeEvent`) 를 push 알림으로 변환하는 listener 를 추가합니다.
+
+email 채널은 별도 사이클 (ADR-024 → ADR-025) 로 미루고 push 만 우선. 이유: 당시 EmailPort 가 core-auth 안에 묶여 있어 billing 이 import 불가. Idempotency 는 Spring `@TransactionalEventListener(AFTER_COMMIT)` 으로 보장.
+
+---
+
 ## 배경
 
 H 사이클 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEvent`) 과 I 사이클 (REFUND / REVOKE 처리) 이 모두 **이벤트는 발행되나 listener 부재**. 운영 시:

@@ -4,6 +4,8 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
+> 📎 **연관 ADR**: [`ADR-002 (Use this template)`](./adr-002-use-this-template.md) — 본 ADR 이 *거버넌스 메커니즘* (commitlint / template-v* 태그 / SemVer / Deprecation lifecycle) 을 다루고, ADR-002 가 *그 패턴 자체* (GitHub Template / cherry-pick 전파) 를 다뤄요. 두 ADR 은 *상호 의존* — 함께 읽으면 *템플릿 → 파생 레포 전파* 의 전체 그림이 잡혀요.
+
 ## 결론부터
 
 커밋 메시지 포맷을 기계가 강제하고 (`commitlint`), 버전은 **모듈별이 아니라 템플릿 레포 전체** 를 한 단위로 SemVer 관리합니다. 이렇게 한 이유는 단 하나 — **파생 레포의 cherry-pick 을 가능하게 만들기 위해서**. Conventional Commits 는 "어느 커밋이 공통 코드 개선인지" 를 `git log --grep="^feat\\|^fix"` 같은 명령으로 기계가 읽을 수 있게 해줘요. 파생 레포는 "template-v0.3.0 기반" 한 줄로 간단하게 추적. Breaking change 는 반드시 Deprecation 3단계 (Active → Deprecated → Removed) 를 거치며, ArchUnit r20 이 `@Deprecated(since, forRemoval)` 선언을 기계 강제.

@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+7 도메인 (audit / push / billing-notification / password-policy / email / payment / iap / 2fa) 의 *feature toggle* — Spring profile + `@ConditionalOnProperty` 기반. `app.features.<X>=false` 한 줄로 도메인 전체 비활성.
+
+Leaf 모듈 (의존 받지 않음) 은 단순 `ConditionalOnProperty`. Non-leaf 모듈 (의존 받음) 은 의존 측에서 `ObjectProvider<Port>` 로 lazy 의존 — toggle off 시에도 컴파일 / 부팅 OK.
+
+---
+
 ## 배경
 
 본 template 은 SaaS 백엔드의 **공통 baseline** — 결제 / IAP / 푸시 / 이메일 / 2FA / audit / 비밀번호 정책 / billing notification 등 거의 모든 도메인을 internal 으로 가짐. 단점: **작은 비즈니스가 가져갔을 때 미사용 도메인이 부담**.

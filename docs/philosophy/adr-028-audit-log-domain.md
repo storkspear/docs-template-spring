@@ -8,6 +8,14 @@
 
 ---
 
+## 결론부터
+
+운영 액션 (admin refund / role 변경 / force-clear 등) 을 *AOP 자동 기록* 으로 audit log 에 영속. `@Audited` meta annotation + AuditAspect 로 *boilerplate 0* 기록 + *비즈 로직과 격리*.
+
+audit 기록은 `@Transactional(REQUIRES_NEW)` 로 *별도 트랜잭션* — 비즈 트랜잭션 rollback 시에도 audit 만 보존. AuditPort interface 로 *DB / external SaaS / S3* 구현 교체 가능.
+
+---
+
 ## 배경
 
 ADR-027 의 `@AdminOnly` 로 admin 권한 체크는 정립. 하지만:
