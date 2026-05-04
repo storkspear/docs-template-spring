@@ -26,15 +26,17 @@ void signUp_delegatesToEmailAuthService() {
 }
 ```
 
-이런 테스트는 **회귀 방지 가치는 있음** (메서드 이름 오타 등을 잡음) 하지만 **리팩토링 안전망은 무너뜨립니다**:
+이런 테스트는 **회귀 방지 가치는 있어요** — 메서드 이름 오타 같은 실수를 잡아 줍니다. 다만 **리팩토링 안전망은 무너뜨려요**. 다음 세 시나리오가 그 위험을 보여줍니다.
 
-- `EmailAuthService.signUp` 을 `EmailAuthService.register` 로 이름 변경 → 테스트 깨짐 (행위는 동일)
-- `EmailAuthService` 를 `AuthController` 내부로 인라인화 → 테스트 깨짐 (행위는 동일)
-- `EmailAuthService` 를 `SignUpService` + `EmailService` 로 쪼갬 → 테스트 다 수정 (행위는 동일)
+| 리팩토링 시나리오 | delegation mock 테스트 결과 | 외부 행위 |
+|---|---|---|
+| `EmailAuthService.signUp` 을 `register` 로 이름 변경 | ❌ 테스트 깨짐 | 동일 |
+| `EmailAuthService` 를 `AuthController` 내부로 인라인화 | ❌ 테스트 깨짐 | 동일 |
+| `EmailAuthService` 를 `SignUpService` + `EmailService` 로 분리 | ❌ 테스트 전부 수정 필요 | 동일 |
 
-즉 테스트가 **구현 내부 (how)** 에 결합됨. Kent Beck 의 "Tests should be about what, not how" 와 정면 충돌.
+세 경우 모두 *외부 관측 가능한 행위* 는 같지만 *내부 구조* 가 변하는 순간 테스트가 빨갛게 떨어져요. 즉 테스트가 **구현 내부 (how)** 에 결합돼 있다는 뜻이고, Kent Beck 의 "Tests should be about what, not how" 와 정면으로 충돌합니다.
 
-또 다른 관점: [`ADR-011 (레이어드 + 포트/어댑터)`](./adr-011-layered-port-adapter.md) 의 핵심은 **"Port 가 계약, 내부는 자유"** 예요. delegation mock 테스트는 "내부 구조를 계약으로 굳혀버리는" 행위라 ADR-011 의 의도와 충돌.
+또 다른 관점도 있어요. [`ADR-011 (레이어드 + 포트/어댑터)`](./adr-011-layered-port-adapter.md) 의 핵심은 **"Port 가 계약, 내부는 자유"** 라는 정신이에요. delegation mock 테스트는 *내부 구조를 사실상 계약으로 굳혀버리는* 행위라 ADR-011 의 의도와 직접 충돌해요.
 
 이 결정이 답할 물음은 이거예요.
 
