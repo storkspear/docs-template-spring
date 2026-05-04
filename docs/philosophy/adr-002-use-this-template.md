@@ -46,11 +46,11 @@
   - 특정 앱의 비즈니스 로직이 다른 앱 코드 옆에 쌓임 — 도메인 언어가 섞임.
   - 한 앱이 배포 사고를 내면 같은 CI 파이프라인에서 다른 앱 PR 도 막힘.
   - 원본 레포를 **공개 템플릿** 으로 쓸 수 없음 — 특정 도메인 코드가 박혀있으니.
-- **탈락 이유**: 솔로 인디 전제와 맞지 않음. Google/Meta 같은 대기업의 모노레포는 강력한 빌드 인프라가 있어 가능. 솔로는 감당 불가.
+- **탈락 이유**: 솔로 인디 전제와 맞지 않아요. Google / Meta 같은 대기업의 모노레포는 강력한 빌드 인프라가 있어 가능하지만, 솔로는 감당할 수 없어요.
 
 ### Option 2 — GitHub Fork 사용
 
-각 앱은 원본을 Fork 해서 만듦. 원본에 공통 코드 개선이 생기면 upstream 에서 merge.
+각 앱은 원본을 Fork 해서 만들어요. 원본에 공통 코드 개선이 생기면 upstream 에서 merge 합니다.
 
 - **장점**: git 수준에서 원본과 연결돼요. 업스트림 변경 추적이 자동이에요 (`git fetch upstream` + `git merge`).
 - **단점**:
@@ -248,7 +248,7 @@ references class <com.factory.apps.sumtally.hooks.SumtallyAuthHook>
 **이 규칙이 의미하는 것**:
 
 1. **의존 방향은 항상 `apps → core`** (위에서 아래). 반대 방향 (`core → apps`) 은 core 가 특정 앱에 종속되는 것이라 **재사용성 파괴**. 템플릿이 한 도메인에 물들면 다른 파생 레포에서 그 core 를 못 씀.
-2. **앱별 hook 이 필요하면 Dependency Inversion 으로 해결** — core 에 `AuthHook` Port 인터페이스 정의, 각 앱이 구현체를 Spring 빈으로 등록. core 는 Port 만 알고 구현체 이름은 모름. 이건 [`ADR-003`](./adr-003-api-impl-split.md) 의 포트/어댑터 패턴 그대로 적용.
+2. **앱별 hook 이 필요하면 Dependency Inversion 으로 해결해요** — core 에 `AuthHook` Port 인터페이스를 정의하고, 각 앱이 구현체를 Spring 빈으로 등록합니다. core 는 Port 만 알고 구현체 이름은 몰라요. 이건 [`ADR-003`](./adr-003-api-impl-split.md) 의 포트 / 어댑터 패턴을 그대로 적용한 형태예요.
 
 **고치는 방법**:
 

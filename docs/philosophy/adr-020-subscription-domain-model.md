@@ -52,6 +52,8 @@
 
 ## 결정 2 — DB 모델
 
+4 테이블의 컬럼은 *결제 도메인의 영구 상태* 를 표현하는 영역이라 *어떤 정보를 어디에 두는지* 가 명확해야 해요. `plans` 는 *플랜 정의* (코드, 가격, 기간) 의 마스터 테이블이고, `subscriptions` 는 *사용자별 구독 상태* (어떤 plan / 언제 시작 / 언제 만료 / 현재 상태), `payment_records` 는 *결제 거래 이력* (channel, external_id, 금액, 상태), `webhook_events` 는 *외부 시스템 알림의 멱등성 보장 기록* 입니다. 외래 키는 *subscriptions → users / plans*, *subscriptions.payment_record_id → payment_records* 의 단방향만 두어 *cross-table cascade* 의 까다로운 영역을 회피했어요.
+
 ```sql
 -- V008: plans (각 앱 schema 의 plan 정의)
 CREATE TABLE plans (
@@ -115,7 +117,11 @@ Hibernate 6 의 `@JdbcTypeCode(SqlTypes.JSON)` 으로 `String` 필드에 직접 
 
 ## 결정 3 — 트랜잭션 경계: handleWebhook 의 phase 분리
 
-순진한 구현은 외부 HTTP 호출이 DB 트랜잭션 안에 있어 connection 점유 + race + 실패 로그 롤백의 3중 문제를 일으킵니다:
+webhook 처리 메서드의 트랜잭션 경계는 *결제 도메인에서 가장 까다로운 영역* 이에요. 한 메서드 안에서 *DB 작업 (멱등성 기록)* 과 *외부 HTTP 호출 (PG 검증)* 과 *DB 작업 (PaymentRecord / Subscription 동기화)* 이 순차로 일어나는데, 이들을 *한 트랜잭션* 으로 묶으면 *외부 응답 대기 동안 DB connection 을 점유* 하고, *완전히 분리* 하면 *부분 실패 시 어디까지 commit 됐는지 추적이 어려워* 져요.
+
+채택한 패턴은 *3 단계 phase 분리* 입니다. Phase 1 은 *멱등성 기록* (`WebhookEvent` INSERT — 이미 있으면 skip) 을 자기 트랜잭션에서 처리하고, Phase 2 는 *외부 HTTP 호출* 을 트랜잭션 밖에서 수행하고, Phase 3 는 *결과 동기화* (`PaymentRecord` / `Subscription` 갱신 + `markProcessed`) 를 또 자기 트랜잭션에서 commit 합니다. class-level `@Transactional` 위에 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 override 해서 *기본 트랜잭션을 끄고*, 내부에서 `TransactionTemplate` 으로 phase 마다 명시적으로 트랜잭션을 시작하는 형태예요.
+
+순진한 구현이 가져오는 3 중 문제를 보면 이 분리의 가치가 명확해져요:
 
 ```java
 // ❌ 순진한 구현
@@ -160,6 +166,10 @@ public void handleWebhook(String source, String externalId, String payloadJson) 
 - **실패 로깅 보존**: Phase 2 실패 시 markFailed 가 자기 TX 에서 commit → main throw 가 outer TX 롤백 시 영향을 받지 않아요 (`processed_at` 은 NULL 로 유지 → retry 가능)
 
 ## 결정 4 — Webhook 보안 (3중 방어)
+
+webhook endpoint 는 *공개 인터넷에 노출* 된 상태라 *인증 없이는 누구든 가짜 페이로드로 결제 상태를 조작* 할 수 있어요. 결제 도메인의 webhook 은 *환불 / 취소* 같은 사용자 자산에 직접 영향을 주는 영역이라 *3 중 방어선* 으로 위조 / replay / 중복 처리를 동시에 차단해야 합니다.
+
+세 방어선은 *다른 공격 벡터* 를 막아요. *HMAC SHA-256 서명* 은 *페이로드 자체의 무결성* 을 보증해 가짜 페이로드를 차단하고, *timestamp 검증* 은 *과거에 캡처한 진짜 페이로드를 다시 보내는 replay 공격* 을 차단하며, *(source, externalId) UNIQUE idempotency* 는 *PG 측 재전송 / 우리 측 동시 처리* 시에도 *같은 거래가 두 번 처리되지 않게* 보장합니다. 어느 한 방어선이 우회되어도 다른 두 방어선이 작동하는 *defense in depth* 패턴이에요.
 
 ### 1. HMAC SHA-256 서명 검증
 

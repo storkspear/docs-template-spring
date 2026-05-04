@@ -65,7 +65,7 @@ public AuthResponse signup(SignUpRequest req) {
 
 ### Option 2 — 런타임 전략 패턴 (Spring `@Qualifier`)
 
-단일 모듈 유지하되 `@Primary`, `@Qualifier`, `@Conditional` 같은 Spring 어노테이션으로 런타임 구현체 선택.
+단일 모듈을 유지하되 `@Primary`, `@Qualifier`, `@Conditional` 같은 Spring 어노테이션으로 런타임 구현체를 선택하는 형태예요.
 
 - **장점**: 유연성이 높아요. 런타임에 구현 교체가 가능해요.
 - **단점**:
@@ -75,7 +75,7 @@ public AuthResponse signup(SignUpRequest req) {
 
 ### Option 3 — Java 9+ 모듈 시스템 (`module-info.java`)
 
-Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 외부 접근 허용.
+Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 외부에서 접근하도록 허용해요.
 
 - **장점**: Java 언어 레벨에서 강제돼요.
 - **단점**: **Spring Boot + Java 9 모듈 시스템 궁합이 어려워요**. classpath vs module path 혼재 문제가 있고, 디버깅도 까다로워요.
@@ -249,7 +249,7 @@ Method <com.factory.core.auth.api.AuthPort.signInWithEmail(SignInRequest)>
 references class <com.factory.core.user.impl.entity.User>
 ```
 
-**고치는 방법**: User 엔티티 대신 `UserSummary` DTO 를 `core-user-api/dto/` 에 정의해서 반환.
+**고치는 방법**: User 엔티티 대신 `UserSummary` DTO 를 `core-user-api/dto/` 에 정의해서 반환해요.
 
 ## 이 선택이 가져온 것
 
@@ -309,8 +309,8 @@ references class <com.factory.core.user.impl.entity.User>
 - [`ResendEmailAdapter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java)
 
 **Build 의존성 증거**:
-- [`core/core-auth-api/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/build.gradle) — JPA / Spring 의존 없음.
-- [`core/core-auth-impl/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/build.gradle) — JPA / Spring 전체 의존.
+- [`core/core-auth-api/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/build.gradle) — JPA / Spring 의존이 없어요.
+- [`core/core-auth-impl/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/build.gradle) — JPA / Spring 전체에 의존해요.
 
 **ArchUnit 규칙**:
 - [`ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r6, r9, r10, r11, r13, r14, r15, r17, r21.

@@ -15,7 +15,7 @@
 [`ADR-002 (Use this template)`](./adr-002-use-this-template.md) 에서 우리는 **파생 레포 패턴** 을 채택했어요:
 
 - 템플릿 레포 (본 레포) 에서 공통 코드 개선
-- 파생 레포 (`sumtally-backend`, `rny-backend` 등) 가 그 개선을 **cherry-pick** 으로 받음
+- 파생 레포 (`sumtally-backend`, `rny-backend` 등) 가 그 개선을 **cherry-pick** 으로 받아요
 
 이 전파 메커니즘이 작동하려면 핵심 질문 하나가 해결되어야 해요:
 
@@ -44,7 +44,7 @@
 
 ### Option 1 — 자유 형식 커밋 + 모듈별 SemVer
 
-각 모듈 (core-auth-api, common-web 등) 이 자기 버전을 가짐. 커밋 메시지 포맷은 강제 없음.
+각 모듈 (core-auth-api, common-web 등) 이 자기 버전을 가져요. 커밋 메시지 포맷은 강제가 없어요.
 
 - **장점**:
   - 개발 자유도 높음
@@ -64,7 +64,7 @@
   - 매 커밋이 릴리스 단위. 극도로 fine-grained 추적
   - 완전 자동화
 - **단점**:
-  - **태그 수 폭증** — 1년에 태그 수천 개. `git tag --list` 가 쓸모없음
+  - **태그 수 폭증** — 1 년에 태그 수천 개가 쌓여 `git tag --list` 가 쓸모없어져요
   - 실제로 **"의미있는 버전"** 은 커밋마다 찍히지 않음 — 누적된 변경이 의미 있을 때가 버전 단위
   - 세밀함이 곧 혼란 — 파생 레포가 "v0.3.47 과 v0.3.48 중 뭘 써?" 라고 물으면 답이 어려움
 - **탈락 이유**: fine-grained 의 함정. 버전 정보의 가치는 **집약된 의미** 에서 나옴.
@@ -275,7 +275,7 @@ Versioning: [SemVer](https://semver.org/).
 - ...
 ```
 
-**`[Unreleased]` 섹션** — 모든 PR 이 머지 전에 업데이트. `changelog-check.yml` workflow 가 검증.
+**`[Unreleased]` 섹션** — 모든 PR 이 머지 전에 업데이트해요. `changelog-check.yml` workflow 가 자동으로 검증합니다.
 
 ## 이 선택이 가져온 것
 
@@ -333,7 +333,7 @@ Deprecation 의 핵심은 "**최소 1 minor 버전 유예**" 예요. 예:
 
 **교훈**: AI 도구 사용은 **사람의 판단 + 검토** 를 전제로만 정당화됨. 트레일러로 AI 를 공동 저자로 표기하는 건 이 전제를 흐림. 정책을 husky 로 기계 강제.
 
-(docs-viewer 레포는 예외 — husky 없음. 별도 정책.)
+(docs-viewer 레포는 예외예요 — husky 가 없고 별도 정책을 따라요.)
 
 ### Scope 리스트는 warning level
 
@@ -355,7 +355,7 @@ scope-enum 을 `[2, ...]` (error) 로 설정하면 새 모듈 (`common-notificat
 - 태그가 섞이면 `git tag --list` 가 혼돈
 - `git tag --list 'template-v*'` 으로 **템플릿 릴리스만 필터** 가능
 
-파생 레포로 cherry-pick 해도 템플릿 태그는 건너뛰므로 (태그는 커밋에 속하지만 prefix 차이로 구분) 섞이지 않음.
+파생 레포로 cherry-pick 해도 템플릿 태그는 건너뛰므로 (태그는 커밋에 속하지만 prefix 차이로 구분) 섞이지 않아요.
 
 **교훈**: 태그 이름 규칙은 단순해 보이지만, **여러 레포 워크플로우** 에서 크리티컬. prefix 가 prefix 인 이유는 "레포들 간 충돌 없이 공존" 때문.
 

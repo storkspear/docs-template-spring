@@ -15,7 +15,7 @@
 ### 축 1 — URL 경로: 앱을 어디에 표현할 것인가?
 
 - `/api/core/auth/email/signup` + body/header 에 appSlug — **앱이 URL 에서 안 보임**
-- `/api/auth/{slug}/email/signup` — flat slug, `core/apps` 구분 없음
+- `/api/auth/{slug}/email/signup` — flat slug, `core / apps` 구분이 없어요
 - `/api/apps/{slug}/auth/email/signup` — appSlug 가 **URL path 의 명시적 세그먼트**
 
 ### 축 2 — Controller 위치: bean 은 어디에?
@@ -51,7 +51,7 @@
 
 ### Option 2 — 경로에 `{slug}` + 통합 Controller (런타임 활성)
 
-`/api/apps/{slug}/auth/email/signup` 경로로 가되, `core-auth-impl/AuthController` 하나가 모든 앱의 요청을 받음. `@PathVariable String slug` 로 앱 구분.
+`/api/apps/{slug}/auth/email/signup` 경로로 가되, `core-auth-impl/AuthController` 하나가 모든 앱의 요청을 받아요. `@PathVariable String slug` 로 앱을 구분합니다.
 
 ```java
 @RestController
@@ -249,7 +249,7 @@ public class ${SLUG_PASCAL}AuthController {
 EOF
 ```
 
-생성 결과: `apps/app-<slug>/src/main/java/com/factory/apps/<slug>/auth/<Slug>AuthController.java`. 런타임 bean 으로 자동 등록.
+생성 결과: `apps/app-<slug>/src/main/java/com/factory/apps/<slug>/auth/<Slug>AuthController.java` 가 만들어지고, 런타임 bean 으로 자동 등록돼요.
 
 ### ArchUnit r13 — Controller 위치 강제
 
@@ -274,23 +274,23 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 ### 긍정적 결과
 
-**앱 추가 시 인증 코드 0줄** — `./tools/new-app/new-app.sh sumtally` 한 줄이면 `SumtallyAuthController` 11개 엔드포인트 메서드가 자동 생성. 인증 로직은 건드릴 필요 없음. **솔로 운영자의 앱 시작 시간 = 인증 플로우 기준 1분 이내**.
+**앱 추가 시 인증 코드 0 줄** — `./tools/new-app/new-app.sh sumtally` 한 줄이면 `SumtallyAuthController` 11 개 엔드포인트 메서드가 자동 생성됩니다. 인증 로직은 건드릴 필요가 없어요. **솔로 운영자의 앱 시작 시간 = 인증 플로우 기준 1 분 이내** 예요.
 
-**URL 이 설명적** — 로그/분석/디버깅에서 `/api/apps/rny/auth/email/signin` 를 보면 "rny 앱의 이메일 로그인" 이 즉시 보임. Swagger UI 도 앱별로 그룹핑 (`@Tag(name = "rny-auth")`).
+**URL 이 설명적** — 로그 / 분석 / 디버깅에서 `/api/apps/rny/auth/email/signin` 를 보면 "rny 앱의 이메일 로그인" 이 즉시 드러나요. Swagger UI 도 앱별로 그룹핑돼요 (`@Tag(name = "rny-auth")`).
 
 **core-auth-impl 변경 영향 분석 가능** — 인증 로직 수정 = `AuthServiceImpl` 또는 하위 서비스 수정. 모든 앱이 동일 `AuthPort` bean 을 주입받으므로 수정 즉시 전파. 그러나 Controller 는 앱별로 있어서 **런타임 추가 등록 없이** 이행 완료.
 
-**Controller 레벨 앱별 커스터마이징 가능** — 특정 앱에서 "회원가입 전 이메일 도메인 제한" 같은 정책이 필요하면, 그 앱의 Controller 에서 바로 validation 추가. 다른 앱 영향 없음.
+**Controller 레벨 앱별 커스터마이징 가능** — 특정 앱에서 "회원가입 전 이메일 도메인 제한" 같은 정책이 필요하면, 그 앱의 Controller 에서 바로 validation 을 추가해요. 다른 앱에 영향이 가지 않아요.
 
-**템플릿 상태의 최소 공격 표면** — 앱 0개인 template 레포를 그대로 배포해도 인증 엔드포인트가 노출되지 않음. `core-auth-impl` 의 AuthController 는 런타임 미등록.
+**템플릿 상태의 최소 공격 표면** — 앱 0 개인 template 레포를 그대로 배포해도 인증 엔드포인트가 노출되지 않아요. `core-auth-impl` 의 AuthController 는 런타임에 미등록 상태예요.
 
 ### 부정적 결과
 
-**Controller 파일 N 개** — 앱이 10개면 Controller 파일 10개. 코드 중복처럼 보임. 완화: `new-app.sh` 가 생성하므로 손으로 쓸 일 없음. 인증 스펙 변경은 `AuthPort` + `AuthServiceImpl` 수정이면 끝.
+**Controller 파일 N 개** — 앱이 10 개면 Controller 파일도 10 개예요. 코드 중복처럼 보일 수 있어요. 완화: `new-app.sh` 가 자동 생성하므로 손으로 쓸 일이 없어요. 인증 스펙 변경은 `AuthPort` + `AuthServiceImpl` 수정이면 끝나요.
 
 **"런타임 미등록 Controller" 의 혼란성** — 처음 레포를 보는 사람이 `core-auth-impl/AuthController.java` 의 `@RestController` + `@RequestMapping` 을 보고 "이게 실제 엔드포인트" 라고 오해. 완화: 파일 상단 JavaDoc 에 명시 ("런타임에 등록되지 않습니다") + 본 ADR 에 근거 기록 + [`ADR-012 의 교훈`](./adr-012-per-app-user-model.md#교훈) 에서도 동일 이슈 언급.
 
-**`AuthPort` 변경의 파급** — Port 메서드 시그니처 변경 시 모든 앱 Controller 가 영향. 완화: `AuthPort` 는 **인증 도메인 인터페이스** 라 변경 빈도 낮음. 추가 메서드는 가능 (기존 Controller 에 영향 없음), 기존 메서드 변경은 [`ADR-015 의 Deprecation 프로세스`](./README.md#테마-5--운영--개발-방법론-작성-예정) 로 관리.
+**`AuthPort` 변경의 파급** — Port 메서드 시그니처 변경 시 모든 앱 Controller 가 영향을 받아요. 완화: `AuthPort` 는 **인증 도메인 인터페이스** 라 변경 빈도가 낮아요. 추가 메서드는 가능하고 (기존 Controller 에 영향 없음), 기존 메서드 변경은 [`ADR-015 의 Deprecation 프로세스`](./README.md#테마-5--운영--개발-방법론-작성-예정) 로 관리합니다.
 
 ### core-auth-impl 의 이중 역할 — "라이브러리" 로 이해하기
 
@@ -316,7 +316,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 그래서 3중 표시:
 
-1. **파일 상단 JavaDoc** — 오픈 시점에 즉시 보임
+1. **파일 상단 JavaDoc** — 오픈 시점에 즉시 보여요
 2. **Bean 등록 차단** — `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 를 **하지 않음** (기술적 실상)
 3. **본 ADR + [`ADR-012`](./adr-012-per-app-user-model.md#교훈) 에 기록** — 구조적 맥락 설명
 
@@ -334,18 +334,18 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 인증 도메인은 메서드 수를 강제로 줄이는 것보다 **동일 책임 그룹화** 가 적합해요.
 
-**교훈**: Port 의 메서드 수를 미리 걱정해서 쪼개지 말 것. "하나의 소비자 관점에서 일관된 단위" 를 유지하는 게 우선. 쪼개는 건 **관리 한계에 이르렀을 때** 해도 늦지 않음.
+**교훈**: Port 의 메서드 수를 미리 걱정해서 쪼개지 마세요. "하나의 소비자 관점에서 일관된 단위" 를 유지하는 게 우선이에요. 쪼개는 건 **관리 한계에 이르렀을 때** 해도 늦지 않아요.
 
-### `AppSlugVerificationFilter` 가 없으면 경로 분리 의미 없음
+### `AppSlugVerificationFilter` 가 없으면 경로 분리가 의미 없어요
 
-"앱별 Controller + URL 에 slug" 만으로는 **실제 경계가 강제되지 않아요**. 예: sumtally 에서 발급된 JWT 를 가지고 `/api/apps/rny/users/me` 를 치면, rny Controller 가 받긴 받습니다. 만약 인증된 사용자 정보를 JWT 에서만 가져오면 rny 앱에 sumtally 유저가 접근하는 사고 발생.
+"앱별 Controller + URL 에 slug" 만으로는 **실제 경계가 강제되지 않아요**. 예를 들어 sumtally 에서 발급된 JWT 를 가지고 `/api/apps/rny/users/me` 를 치면, rny Controller 가 받긴 받습니다. 만약 인증된 사용자 정보를 JWT 에서만 가져오면 rny 앱에 sumtally 유저가 접근하는 사고가 발생해요.
 
 그래서 [`ADR-012`](./adr-012-per-app-user-model.md#구현--appslugverificationfilter-로-경계-강제) 의 `AppSlugVerificationFilter` 가 필수:
 
 - URL path 의 `{slug}` 와 JWT 의 `appSlug` claim 이 **다르면 403**
 - 필터 체인: `JwtAuthFilter → AppSlugMdcFilter → AppSlugVerificationFilter → Controller`
 
-**교훈**: "경로 분리" 와 "인증 경계 강제" 는 **독립된 두 문제**. 경로만 분리하고 필터를 빠뜨리면 설계 의도가 무너짐. 본 ADR 과 ADR-012 는 한 쌍으로 동작하는 결정.
+**교훈**: "경로 분리" 와 "인증 경계 강제" 는 **독립된 두 문제** 예요. 경로만 분리하고 필터를 빠뜨리면 설계 의도가 무너져요. 본 ADR 과 ADR-012 는 한 쌍으로 동작하는 결정이에요.
 
 ## 관련 사례 (Prior Art)
 

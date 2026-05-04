@@ -32,7 +32,7 @@ Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`
 
 ##### Option 2 — Git pre-commit hook (로컬)
 
-husky 같은 도구로 로컬 커밋 순간 검증.
+husky 같은 도구로 로컬 커밋 순간에 검증해요.
 
 - **장점**: 가장 빠른 피드백 (커밋 순간).
 - **단점**: `git commit --no-verify` 로 우회 가능. CI 환경과 로컬 환경 규칙 동기화 어려움.
@@ -229,7 +229,7 @@ CI 는 녹색인데 실제로는 규칙 위반이 main 까지 올라갑니다.
 
 ### 긍정적 결과
 
-**컨벤션의 사람 의존성 제거** — "규칙 지켜주세요" 가 필요 없음. 규칙 어기면 빌드가 알아서 막습니다.
+**컨벤션의 사람 의존성 제거** — "규칙 지켜주세요" 같은 부탁이 필요 없어요. 규칙을 어기면 빌드가 알아서 막아요.
 
 **규칙 canonical 위치 단일화** — `DependencyRules.groovy` (1 파일) + `ArchitectureRules.java` (1 파일) 두 곳만 보면 **모든 아키텍처 규칙** 확인 가능.
 
@@ -239,7 +239,7 @@ CI 는 녹색인데 실제로는 규칙 위반이 main 까지 올라갑니다.
 
 ### 부정적 결과
 
-**러닝 커브** — DSL + Gradle lifecycle + ArchUnit 문법 세 가지를 이해해야 완전 파악. 완화: 단순해서 건드릴 일 거의 없음.
+**러닝 커브** — DSL + Gradle lifecycle + ArchUnit 문법 세 가지를 이해해야 완전히 파악할 수 있어요. 완화: 단순해서 건드릴 일이 거의 없어요.
 
 **ArchUnit 은 bootstrap 테스트에만 의존** — r1~r22 의 실제 스캔은 `BootstrapArchitectureTest` 에서만 완전히 작동. 개별 모듈 테스트에서는 자기 classpath 안의 클래스만 보여서 일부 규칙은 vacuously true. 완화: CI 에서 반드시 `./gradlew :bootstrap:test` 실행.
 

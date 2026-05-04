@@ -91,7 +91,7 @@ core.linked_accounts (별도 테이블, 명시적 매핑)
 - **단점**:
   - **현재 시점에서 쓸 데가 없음** — [`제약 3`](./README.md#제약-3--복권-사기-모델) 에서 앱들은 서로 독립이 기본. 연동이 가치가 있는 건 앱 2~3개가 같은 유저군을 공유하게 된 이후.
   - `linked_account_id` 컬럼을 미리 깔아두는 건 YAGNI
-- **탈락 이유**: 지금 당장은 Option 3 과 동일한 동작. 추가 컬럼은 필요해진 시점에 추가해도 늦지 않음. [`제약 2`](./README.md#제약-2--시간이-가장-희소한-자원) (미래 복잡성 선제 도입 금지).
+- **탈락 이유**: 지금 당장은 Option 3 과 동일한 동작이에요. 추가 컬럼은 필요해진 시점에 추가해도 늦지 않아요 ([`제약 2`](./README.md#제약-2--시간이-가장-희소한-자원) — 미래 복잡성 선제 도입 금지).
 
 ### Option 3 — 앱별 독립 유저 + 단일 appSlug claim ★ (채택)
 
@@ -100,7 +100,7 @@ core.linked_accounts (별도 테이블, 명시적 매핑)
 - **장점**:
   - UX 가 직관적 — 각 앱은 독립 서비스
   - GDPR 이 단순 — 앱 탈퇴 = 그 앱 데이터만 삭제
-  - ThreadLocal 불필요 — DataSource 는 앱 모듈이 **DI 로 정적 주입** 받음
+  - ThreadLocal 이 불필요해요 — DataSource 는 앱 모듈이 **DI 로 정적 주입** 받아요
   - [`ADR-005`](./adr-005-db-schema-isolation.md) 의 schema 경계와 **완전 정합** — users 도 도메인 테이블도 같은 schema
   - [`ADR-004`](./adr-004-gradle-archunit.md) 의 ArchUnit r2 (앱 간 의존 금지) 와도 정합
   - 5중 방어선이 모든 레이어에서 일관되게 작동
@@ -211,9 +211,9 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 ### 긍정적 결과
 
-**ThreadLocal 복잡도 완전 제거** — 코드베이스 전체에 `ThreadLocal`, `AbstractRoutingDataSource`, `TenantContext` 흔적 **0개** (grep 확인 완료). 비동기 경계 (`@Async`, Virtual Thread) 에서 컨텍스트 유실 걱정 없음. 테스트에서 컨텍스트 오염 걱정 없음.
+**ThreadLocal 복잡도 완전 제거** — 코드베이스 전체에 `ThreadLocal`, `AbstractRoutingDataSource`, `TenantContext` 흔적이 **0 개** 예요 (grep 확인 완료). 비동기 경계 (`@Async`, Virtual Thread) 에서 컨텍스트 유실 걱정이 없고, 테스트에서 컨텍스트 오염 걱정도 없어요.
 
-**유저 모델과 schema 경계의 완전 정합** — users 테이블도 schema 단위로 완전 격리. [`ADR-005`](./adr-005-db-schema-isolation.md) 5중 방어선이 예외 없이 작동. "유저 테이블만 다른 schema" 같은 특수 케이스 없음.
+**유저 모델과 schema 경계의 완전 정합** — users 테이블도 schema 단위로 완전 격리됩니다. [`ADR-005`](./adr-005-db-schema-isolation.md) 5 중 방어선이 예외 없이 작동하고, "유저 테이블만 다른 schema" 같은 특수 케이스가 없어요.
 
 **GDPR 대응 단순** — "X 앱에서 저를 삭제해주세요" 요청 = `<slug>.users`, `<slug>.social_identities` 등에서 해당 이메일 삭제. 교차 앱 영향 0.
 
@@ -243,7 +243,7 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 ### ThreadLocal 기반 멀티테넌시는 처음부터 피할 것
 
-**대안 — `AbstractRoutingDataSource` + ThreadLocal 조합** 의 한계: 구현은 되지만 **테스트가 새어나갑니다**. Spring Security 필터 체인 · `@Async` · 테스트 fixture 정리 등 각 경계마다 ThreadLocal 관리 코드가 필요하고, 한 군데만 빠뜨려도 통합 테스트에서 미스터리한 실패 발생.
+**대안 — `AbstractRoutingDataSource` + ThreadLocal 조합** 의 한계: 구현은 되지만 **테스트가 새어나갑니다**. Spring Security 필터 체인 · `@Async` · 테스트 fixture 정리 등 각 경계마다 ThreadLocal 관리 코드가 필요하고, 한 군데만 빠뜨려도 통합 테스트에서 미스터리한 실패가 발생해요.
 
 그 시점에 "통합 계정 모델을 버리면 ThreadLocal 자체가 불필요해진다" 를 깨달은 게 Option 3 채택의 트리거였어요.
 
