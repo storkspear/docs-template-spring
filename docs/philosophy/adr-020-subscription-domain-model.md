@@ -42,15 +42,13 @@
 
 > **결제 도메인 모델을 슬러그별 schema 에 어떻게 정착시키고, webhook 의 멱등성·트랜잭션 경계·보안을 어떻게 다층으로 방어할 것인가?**
 
-## 결정 1 — Subscription/Plan/PaymentRecord = 슬러그별 schema
+## 결정 1 — Subscription / Plan / PaymentRecord 를 슬러그별 schema 에
 
-[`ADR-005`](./adr-005-db-schema-isolation.md) (앱당 schema 격리) + [`ADR-012`](./adr-012-per-app-user-model.md) (앱별 독립 유저) 정합:
+결제 도메인의 4 테이블을 *어디에 두는가* 의 결정은 [`ADR-005`](./adr-005-db-schema-isolation.md) 의 *앱당 schema 격리* 와 [`ADR-012`](./adr-012-per-app-user-model.md) 의 *앱별 독립 유저 모델* 에 의해 사실상 결정돼요. `subscriptions.user_id` 가 `users(id)` 를 FK 로 참조해야 하는데, `users` 테이블이 슬러그별 schema 에 위치하므로 *subscriptions 도 같은 schema* 에 두지 않으면 *cross-schema FK 참조* 라는 PostgreSQL 에서도 까다로운 영역으로 들어가게 됩니다.
 
-- `subscriptions.user_id` 가 `users(id)` 를 FK 참조 → 같은 schema 안에 위치해야 cross-schema FK 회피
-- 다른 앱과 cross-app subscription 무의미 (앱마다 독립 비즈니스)
-- core schema 통합 시 `appSlug` column + WHERE 절 강제 필요 → row-level 격리 (사용자가 [`ADR-012`](./adr-012-per-app-user-model.md) 에서 거부한 옵션)
+도메인 의미 측면에서도 슬러그별 schema 가 자연스러워요. *앱마다 독립적인 비즈니스* 라 *어느 앱의 구독이 다른 앱의 구독과 연결될 일이 거의 없고*, *cross-app subscription* 같은 개념도 우리 환경에는 등장하지 않습니다. core schema 에 통합하는 대안은 *appSlug 컬럼을 모든 행에 추가하고 모든 쿼리에 WHERE 절을 강제* 하는 row-level 격리가 되는데, 이는 [`ADR-012`](./adr-012-per-app-user-model.md) 가 *유저 모델에서 이미 거부한 패턴* 이라 결제 도메인에서도 같은 거부 이유가 그대로 적용돼요.
 
-→ V008/V009/V010 마이그레이션이 모든 슬러그 schema 에 자동 적용 (인증 V001~V006 패턴 재사용). `tools/new-app/new-app.sh` 가 신규 앱 생성 시 자동으로 4개 테이블 + 'free' plan seed 까지 생성.
+채택한 형태는 *plans / subscriptions / payment_records / webhook_events* 4 테이블을 모든 슬러그 schema 에 동일하게 두는 형태입니다. V008 / V009 / V010 마이그레이션이 *기존 인증 도메인의 V001~V006 패턴* 과 같은 방식으로 모든 슬러그 schema 에 자동 적용되고, `tools/new-app/new-app.sh` 가 신규 앱을 생성할 때마다 *4 개 테이블 + free plan seed 까지 자동으로 만들어* 줍니다. 운영자가 새 앱을 추가할 때 별도 SQL 작업이 필요 없어요.
 
 ## 결정 2 — DB 모델
 
