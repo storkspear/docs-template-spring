@@ -1,12 +1,10 @@
-# 첫 수정 — nickname 컬럼 추가 (예시 패턴 학습)
+# 첫 수정 — nickname 컬럼 추가
 
 > **유형**: Tutorial · **독자**: Level 0~1 · **읽는 시간**: ~10분
 
-"뭐 하나 바꿔보고 싶다" 는 단계. 이 문서는 **`users` 테이블에 `nickname` 컬럼을 추가** 하는 **엔드투엔드 흐름 패턴** 을 따라갑니다. DB · 엔티티 · DTO · Controller · 테스트 — 한 변경이 **몇 곳** 을 건드리는지 실감할 수 있어요.
+"뭐 하나 바꿔보고 싶다" 는 단계. 이 문서는 **`users` 테이블에 `nickname` 컬럼을 추가** 하는 **엔드투엔드 흐름** 을 따라갑니다. DB · 엔티티 · DTO · Controller · 테스트 — 한 변경이 **몇 곳** 을 건드리는지 실감할 수 있어요.
 
-> **⚠️ 본 튜토리얼은 *패턴 학습용 예시* 예요.** template 의 현재 `User` 엔티티에 `nickname` 필드는 *없어요* (필드: `email / passwordHash / displayName / emailVerified / isPremium / role / createdAt / updatedAt / deletedAt / totp_*`). 본 튜토리얼은 *컬럼 추가 시 5단계 패턴* (Flyway → Entity → DTO → Factory → Test) 을 보여주는 *가상 시나리오* 라 — 그대로 실행하면 *이미 V001 에 통합된 다른 컬럼* 과 충돌해요.
->
-> **본인 시나리오 적용 시**: `nickname` 자리에 본인이 추가하려는 컬럼 (예: `bio`, `avatar_url`, `last_login_ip` 등) 을 대입하고 *V001 다음 V 번호* (현재 V001 ~ V008 사용 중 — V009 이상) 로 마이그레이션 작성하세요.
+> **본 튜토리얼은 template 에 *실제 적용된 변경* 입니다** — `V003__add_users_nickname.sql` + `User.nickname` 필드 + `UserProfile.nickname` + `UpdateProfileRequest.nickname` 모두 코드에 존재. 따라하면서 *이미 적용된 결과* 와 비교하거나, 본인 시나리오 (예: `bio`, `avatar_url` 등) 의 *동일 5단계 패턴* 으로 응용하세요.
 
 > **전제**: [`첫 실행 결과 해석`](./first-run.md) 의 부팅까지 성공 + 앱 모듈 하나 추가 (`new-app.sh sumtally`).
 >
@@ -35,19 +33,16 @@
 ## 1단계 — Flyway 마이그레이션
 
 ```bash
-# 파일 새로 만들기 (번호는 현재 최대 +1)
-touch core/core-user-impl/src/main/resources/db/migration/core/V004__add_users_nickname.sql
+# 파일 새로 만들기 (현재 최대 V008 → 신규 V009 또는 비어있는 번호)
+# 본 튜토리얼은 V003 (squash 후 비어있는 번호) 사용 — 본인 시나리오는 다음 비어있는 V 번호로
+touch core/core-user-impl/src/main/resources/db/migration/core/V003__add_users_nickname.sql
 ```
 
 내용:
 ```sql
--- V004__add_users_nickname.sql
-ALTER TABLE users
-    ADD COLUMN nickname VARCHAR(50);
-
--- index 는 조회 패턴에 따라 (필요 없으면 생략)
-CREATE INDEX IF NOT EXISTS idx_users_nickname ON users(nickname)
-    WHERE nickname IS NOT NULL;
+-- nickname 컬럼 추가 — first-change.md 튜토리얼의 첫 수정 시나리오.
+-- displayName (필수) 외에 사용자가 자유롭게 쓰는 별명 (nullable, 50자 제한).
+ALTER TABLE users ADD COLUMN nickname VARCHAR(50);
 ```
 
 **왜 `NOT NULL` 안 붙이나?**: 기존 유저 레코드들이 이미 있을 수 있어서. "뒤로 호환" 원칙 ([`운영 런북 (Runbook) Expand/Contract 규율`](../production/deploy/runbook.md) 참조). 필수로 만들려면 "2 단계 배포" 를 거쳐야 함.
@@ -189,13 +184,13 @@ void updateProfile_updatesNickname() {
 # 2. 전체 빌드 + ArchUnit
 ./gradlew build
 
-# 3. 기동 — Flyway 가 V004 자동 실행
+# 3. 기동 — Flyway 가 V003 자동 실행
 ./gradlew bootRun
 ```
 
 기동 로그에서:
 ```
-Migrating schema "core" to version "4 - add users nickname"
+Migrating schema "core" to version "3 - add users nickname"
 Successfully applied 1 migration
 ```
 

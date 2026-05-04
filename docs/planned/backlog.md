@@ -84,7 +84,7 @@
 - [ ] [Template] **ADR 형식 통일 사이클** — ADR-021~035 의 *결론부터* 섹션 헤더 명시 (현재는 *상태* 다음 단락으로 통합). ADR-018 같은 *명시 헤더* 형식과 일관성 맞추기 — 15+ 파일 산문 재구성 (생성일: 2026-05-04, audit T9 발견)
 - [x] ~~[Template] ADR Code Reference 보강~~ — T14 재검증 결과 *이미 충실* (모든 ADR 이 file 경로 + 클래스 + 메서드 + line 번호 보유). audit T9 의 누락 분류는 과도 엄격이었음. **불필요로 closed** (2026-05-04)
 - [ ] [Template] **ADR-002 + ADR-015 consolidation** — *Template Governance + Versioning* 으로 통합. 현재 두 ADR 이 *commitlint / template-v* 태그 / CHANGELOG / Deprecation* 의 같은 메커니즘을 별도로 기록 (~70% 중복). 단일 ADR 로 통합 (생성일: 2026-05-04, audit T9 발견)
-- [ ] [Template] **Lite 모드 검증 강화** — ADR-034 의 `password-policy` + `billing-notification` 도 `FeatureToggleTest` 추가. 현재 6/8 도메인만 검증 (생성일: 2026-05-04, audit T10 발견)
+- [x] ~~[Template] Lite 모드 검증 강화~~ — `FeatureToggleTest` 정독 결과 *이미 8 도메인 모두 검증* (audit, push, payment, iap, email, 2fa, billing-notification, password-policy). audit T10 진단은 ADR-034 line 117 의 stale backlog 인용에서 비롯. **이미 완료, backlog closed** (2026-05-04)
 
 ### 템플릿 진화
 
