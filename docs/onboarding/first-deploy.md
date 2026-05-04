@@ -8,6 +8,13 @@
 >
 > **목표 시간**: 20 분.
 
+> **이 튜토리얼을 읽기 전 알아야 할 것들** — 처음 보는 용어가 등장하면 [`Glossary`](../reference/glossary.md) 에서 빠르게 확인 가능해요:
+> - [`Docker`](../reference/glossary.md#운영--인프라) / [`Docker Compose`](../reference/glossary.md#운영--인프라) — 컨테이너 패키징 + 다중 서비스 동시 기동
+> - [`Kamal`](../reference/glossary.md#운영--인프라) / [`kamal-proxy`](../reference/glossary.md#운영--인프라) — Docker + SSH + blue/green 배포 도구
+> - [`Blue/Green 배포`](../reference/glossary.md#운영--인프라) — 기존 (Blue) 옆에 새 (Green) 띄우고 순간 전환
+> - [`GHCR`](../reference/glossary.md#운영--인프라) (GitHub Container Registry) — Docker 이미지 저장소
+> - [`Graceful Shutdown`](../reference/glossary.md#운영--인프라) — 처리 중인 요청은 끝낸 후 종료
+
 ## 1. "배포" 란 뭘 하나
 
 한 줄로: **"내 컴퓨터에서 돌던 코드를 **서버** 에서 돌게 만든다."**

@@ -38,7 +38,7 @@ The following 1 profile is active: "dev"
 
 **의미**: Spring Boot 가 시작했어요. 활성 프로필이 `dev` 면 `application-dev.yml` 의 설정을 사용해요.
 
-## 3. DB 연결 (HikariCP)
+## 3. DB 연결 ([HikariCP](../reference/glossary.md#데이터베이스))
 
 ```
 HikariPool-1 - Starting...
@@ -53,7 +53,7 @@ HikariPool-1 - Start completed.
 - `Connection refused` → Docker Postgres 가 안 켜져 있어요. `docker compose -f infra/docker-compose.dev.yml up -d postgres`
 - `password authentication failed` → `.env` 의 `DATABASE_URL` 또는 POSTGRES_PASSWORD 가 일치하지 않아요.
 
-## 4. Flyway 마이그레이션
+## 4. [Flyway](../reference/glossary.md#데이터베이스) 마이그레이션
 
 ```
 Flyway Community Edition 10.x.x by Redgate
@@ -78,7 +78,7 @@ Successfully applied 6 migrations to schema "sumtally"
 ```
 각 앱 schema 마다 독립적인 이력을 관리해요.
 
-## 5. Hibernate ORM
+## 5. [Hibernate ORM](../reference/glossary.md#데이터베이스)
 
 ```
 HHH000412: Hibernate ORM core version 6.x.x

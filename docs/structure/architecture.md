@@ -6,6 +6,12 @@
 
 > **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내해요. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 를 먼저 참고하세요.
 
+> **ADR 첫 독서 안내** — 본 reference 의 결정 근거 (ADR) 진입 시 자주 등장하는 핵심 패턴 미리 알아두면 좋아요:
+> - [`Modular Monolith`](../reference/glossary.md#아키텍처-용어) — 한 프로세스 안의 격리 구획. ADR-001 의 핵심
+> - [`Port / Adapter`](../reference/glossary.md#아키텍처-용어) — `-api` (Port = 인터페이스 contract) / `-impl` (Adapter = 구현체) 분리. ADR-003, ADR-011
+> - [`AbstractRoutingDataSource`](../reference/glossary.md#데이터베이스) — Spring 의 다중 DataSource 라우팅. ADR-018 (멀티테넌트 schema)
+> - [`Multitenant`](../reference/glossary.md#아키텍처-용어) / [`Tenant`](../reference/glossary.md#아키텍처-용어) — 한 DB 의 여러 schema 격리. 본 레포는 *schema-per-app* 방식
+
 ---
 
 ## 전체 구성 요약
