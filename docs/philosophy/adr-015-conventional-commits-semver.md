@@ -1,6 +1,6 @@
 # ADR-015 · Conventional Commits + 템플릿 전체 semver
 
-**Status**: Accepted. 2026-04-24 기준 모든 커밋에 Conventional Commits 포맷 강제 (commitlint + husky + CI). Git 태그는 `template-v<major>.<minor>.<patch>` 템플릿 레포 전체 단위. CHANGELOG 는 Keep a Changelog 포맷. Breaking change 는 Deprecation 3단계 경유 (ArchUnit r20 강제).
+**Status**: Accepted. 모든 커밋에 Conventional Commits 포맷이 강제돼요 (commitlint + husky + CI). Git 태그는 `template-v<major>.<minor>.<patch>` 형태로 템플릿 레포 전체 단위로 찍힙니다. CHANGELOG 는 Keep a Changelog 포맷을 따르고, Breaking change 는 Deprecation 3 단계를 거쳐야 해요 (ArchUnit r20 이 강제).
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

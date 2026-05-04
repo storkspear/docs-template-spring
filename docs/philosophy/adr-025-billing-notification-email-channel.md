@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**Status**: Accepted. `SubscriptionNotificationListener` 가 push + email 듀얼 채널을 발송. `@AnyNestedCondition` 으로 PushPort 또는 EmailPort 중 하나만 있어도 listener 등록.
+**Status**: Accepted. `SubscriptionNotificationListener` 가 push + email 듀얼 채널을 발송해요. `@AnyNestedCondition` 으로 PushPort 또는 EmailPort 중 하나만 있어도 listener 가 등록됩니다.
 
 ---
 

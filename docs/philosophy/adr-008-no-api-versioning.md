@@ -1,6 +1,6 @@
 # ADR-008 · API 버전 관리는 Phase 0 에서 미도입
 
-**Status**: Accepted. 2026-04-24 기준 모든 API 경로에서 `/v1/` 같은 버전 접두사 **없음**. 현재 경로는 `/api/core/*`, `/api/apps/{appSlug}/*` 두 가지 prefix 만. 미래 도입 경로 (Cloudflare 리버스 프록시 경유 또는 `@RequestMapping` prefix 변경) 는 한 줄 작업으로 열려 있음.
+**Status**: Accepted. 모든 API 경로에서 `/v1/` 같은 버전 접두사를 쓰지 않아요. 현재 경로는 `/api/core/*`, `/api/apps/{appSlug}/*` 두 가지 prefix 뿐이에요. 미래 도입 경로 (Cloudflare 리버스 프록시 경유 또는 `@RequestMapping` prefix 변경) 는 한 줄 작업으로 열려 있어요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

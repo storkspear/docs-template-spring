@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. dev / test = `Flyway.migrate()` 자동 적용. prod = `Flyway.validate()` 만 호출 (checksum 검증). prod 적용은 운영자가 `tools/migrate-prod.sh` 또는 SSH + psql 로 명시적 수행.
+**Status**: Accepted. dev / test 환경에서는 `Flyway.migrate()` 가 자동으로 적용되고, prod 환경에서는 `Flyway.validate()` 만 호출돼요 (checksum 검증). prod 적용은 운영자가 `tools/migrate-prod.sh` 또는 SSH + psql 로 명시적으로 수행합니다.
 
 ---
 

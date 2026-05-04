@@ -1,6 +1,6 @@
 # ADR-001 · 모듈러 모놀리스 (Modular Monolith)
 
-**Status**: Accepted. 현재 유효. 2026-04-20 기준 22개 ArchUnit 규칙 + 5개 Gradle convention plugin 으로 정교화 완료.
+**Status**: Accepted. 22개 ArchUnit 규칙 + 5개 Gradle convention plugin 으로 모듈 경계를 강제하고 있어요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

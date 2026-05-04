@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**Status**: Accepted. `user_notification_preferences` 테이블 + `NotificationKind` enum 으로 사용자별 알림 종류별 push/email 토글. listener 가 발송 직전 preference 를 조회해 OFF 면 silent skip + skipped 메트릭 증가.
+**Status**: Accepted. `user_notification_preferences` 테이블 + `NotificationKind` enum 으로 사용자별 알림 종류별 push/email 을 토글해요. listener 가 발송 직전 preference 를 조회해 OFF 면 silent skip 으로 처리하고 skipped 메트릭을 증가시킵니다.
 
 ---
 

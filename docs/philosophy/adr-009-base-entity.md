@@ -1,6 +1,6 @@
 # ADR-009 · BaseEntity 공통 슈퍼클래스
 
-**Status**: Accepted. 현재 유효. 2026-04-20 기준 `common-persistence/entity/BaseEntity.java` 에 구현. 모든 `@Entity` 가 이를 상속.
+**Status**: Accepted. `common-persistence/entity/BaseEntity.java` 에 구현돼 있고, 모든 `@Entity` 가 이를 상속합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

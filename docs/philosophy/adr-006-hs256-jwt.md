@@ -1,6 +1,6 @@
 # ADR-006 · HS256 JWT (대칭키)
 
-**Status**: Accepted. 2026-04-24 기준 `common-security/jwt/JwtService.java` 에서 HS256 로 발급/검증. jjwt 0.13.0 사용. 서명 키는 환경변수 `JWT_SECRET` 주입. 로테이션 전략은 `docs/production/setup/key-rotation.md` 에 기록.
+**Status**: Accepted. `common-security/jwt/JwtService.java` 에서 HS256 로 발급 / 검증을 처리해요. jjwt 0.13.0 을 사용하고, 서명 키는 환경변수 `JWT_SECRET` 으로 주입됩니다. 로테이션 전략은 `docs/production/setup/key-rotation.md` 에 기록되어 있어요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~8분
 
-**Status**: Accepted. RFC 6238 TOTP (HMAC-SHA1, 30 초 window, 6자리) + backup codes 8 개 (BCrypt 해시). OPT-IN 활성화. 2FA 활성 사용자는 signin → twoFactorToken (`type="2fa_pending"`, 5 분) → `/auth/2fa/login` → 정식 token.
+**Status**: Accepted. RFC 6238 TOTP (HMAC-SHA1, 30 초 window, 6 자리) + backup codes 8 개 (BCrypt 해시 저장) 로 구성돼 있어요. OPT-IN 으로 활성화하고, 2FA 활성 사용자는 signin → twoFactorToken (`type="2fa_pending"`, 5 분) → `/auth/2fa/login` → 정식 token 흐름을 따릅니다.
 
 ---
 

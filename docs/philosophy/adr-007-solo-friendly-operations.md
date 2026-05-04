@@ -1,6 +1,6 @@
 # ADR-007 · 솔로 친화적 운영
 
-**Status**: Accepted. 2026-04-24 기준 운영 모든 결정의 **상위 판단 기준**. 개별 ADR 들은 이 원칙의 구체 적용이에요. 단일 bootstrap JAR + 관리형 서비스 스택 + 한 Postgres 인스턴스 + 하나의 GitHub Actions CI 로 운영 중.
+**Status**: Accepted. 운영 모든 결정의 **상위 판단 기준** 이에요. 개별 ADR 들은 이 원칙의 구체 적용이고, 실제로는 단일 bootstrap JAR + 관리형 서비스 스택 + 한 Postgres 인스턴스 + 하나의 GitHub Actions CI 로 운영하고 있어요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

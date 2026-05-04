@@ -1,6 +1,6 @@
 # ADR-003 · core 모듈을 `-api` / `-impl` 로 분리
 
-**Status**: Accepted. 2026-04-20 기준 core × 6 도메인 (user, auth, device, push, billing, storage) 전부 -api/-impl 쌍으로 구성. ArchUnit 9개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 구조 강제.
+**Status**: Accepted. core × 6 도메인 (user, auth, device, push, billing, storage) 모두 `-api` / `-impl` 쌍으로 구성돼 있어요. ArchUnit 9 개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 구조를 강제합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

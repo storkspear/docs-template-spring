@@ -1,6 +1,6 @@
 # ADR-010 · SearchCondition + QueryDslPredicateBuilder 공통 조회 인프라
 
-**Status**: Accepted. 현재 유효. 2026-04-20 기준 `common-web/search/` + `common-persistence/QueryDsl*.java` 에 구현. 8개 연산자 지원.
+**Status**: Accepted. `common-web/search/` + `common-persistence/QueryDsl*.java` 에 구현돼 있고, 8 개 연산자 (`eq` / `gte` / `lte` / `gt` / `lt` / `like` / `isNull` / `isNotNull`) 를 지원합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

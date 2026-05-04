@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**Status**: Accepted. `GoogleWebhookAuthFilter` 가 `/iap/google/webhook` 의 `Authorization: Bearer <JWT>` 헤더를 RS256 + JWKS + audience + email whitelist 4 단계로 검증.
+**Status**: Accepted. `GoogleWebhookAuthFilter` 가 `/iap/google/webhook` 의 `Authorization: Bearer <JWT>` 헤더를 RS256 + JWKS + audience + email whitelist 의 4 단계로 검증합니다.
 
 ---
 

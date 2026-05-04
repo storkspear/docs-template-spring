@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. `core-audit-api` + `core-audit-impl` 별도 도메인. `@Audited` meta annotation + Spring AOP `@Around` 가 `audit_logs` 테이블에 자동 기록. `Propagation.REQUIRES_NEW` 로 비즈 트랜잭션과 격리.
+**Status**: Accepted. `core-audit-api` + `core-audit-impl` 별도 도메인으로 분리돼 있어요. `@Audited` meta annotation + Spring AOP `@Around` 가 `audit_logs` 테이블에 자동 기록하고, `Propagation.REQUIRES_NEW` 로 비즈 트랜잭션과 격리됩니다.
 
 ---
 

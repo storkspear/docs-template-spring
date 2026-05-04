@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**Status**: Accepted. `SubscriptionNotificationListener` 가 `MeterRegistry` 를 주입받아 `billing.notification.sent` Counter 를 *channel × kind × result* 라벨로 발행. Prometheus / Grafana 자동 scrape.
+**Status**: Accepted. `SubscriptionNotificationListener` 가 `MeterRegistry` 를 주입받아 `billing.notification.sent` Counter 를 *channel × kind × result* 라벨로 발행해요. Prometheus / Grafana 가 자동으로 scrape 합니다.
 
 ---
 

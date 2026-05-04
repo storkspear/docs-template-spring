@@ -1,7 +1,7 @@
 # ADR-004 · Gradle 모듈 경계 + ArchUnit 22규칙으로 의존 강제
 
 
-**Status**: Accepted. 2026-04-20 기준 [`DependencyRules.groovy`](https://github.com/storkspear/template-spring/blob/main/build-logic/src/main/groovy/com/factory/DependencyRules.groovy) DSL + [`ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) 22 규칙 공존.
+**Status**: Accepted. [`DependencyRules.groovy`](https://github.com/storkspear/template-spring/blob/main/build-logic/src/main/groovy/com/factory/DependencyRules.groovy) DSL + [`ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) 22 규칙이 공존합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

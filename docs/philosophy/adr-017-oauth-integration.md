@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~8분
 
-**Status**: Accepted. 현재 유효. 2026-04-28 기준 Google · Apple · Kakao · Naver 4 provider 모두 구현 완료. `core-auth-impl/service/{Google,Apple,Kakao,Naver}SignInService.java` + `AuthPort.signInWith{Google,Apple,Kakao,Naver}` + `AppCredentialProperties` 의 `googleClientIds` / `appleBundleId` / `kakaoAppId` / `naverClientId` 필드. WireMock 통합 테스트로 HttpClient 라이프사이클 검증.
+**Status**: Accepted. Google · Apple · Kakao · Naver 4 provider 가 모두 구현돼 있어요. `core-auth-impl/service/{Google,Apple,Kakao,Naver}SignInService.java` + `AuthPort.signInWith{Google,Apple,Kakao,Naver}` + `AppCredentialProperties` 의 `googleClientIds` / `appleBundleId` / `kakaoAppId` / `naverClientId` 필드로 구성됩니다. WireMock 통합 테스트로 HttpClient 라이프사이클을 검증해요.
 
 ## 결론부터
 

@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. `BillingServiceImpl.renewSubscription` 이 3 회 백오프 (1h → 6h → 24h) 재시도 + ABANDONED 시 auto-cancel + 3 종 이벤트 발행. `renewal_attempts` 테이블에 시도 이력 영속.
+**Status**: Accepted. `BillingServiceImpl.renewSubscription` 이 3 회 백오프 (1h → 6h → 24h) 재시도 + ABANDONED 시 auto-cancel + 3 종 이벤트를 발행해요. `renewal_attempts` 테이블에 시도 이력이 영속됩니다.
 
 ---
 

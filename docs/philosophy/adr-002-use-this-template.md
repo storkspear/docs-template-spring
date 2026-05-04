@@ -1,6 +1,6 @@
 # ADR-002 · GitHub Template Repository 패턴 (Use this template)
 
-**Status**: Accepted. 현재 유효. 2026-04-20 기준 `template-v*` 태그 + 자동 Release 워크플로우 + `cross-repo-cherry-pick.md` 가이드 로 정교화 완료.
+**Status**: Accepted. `template-v*` 태그 + 자동 Release 워크플로우 + `cross-repo-cherry-pick.md` 가이드로 cherry-pick 전파 흐름을 운영합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

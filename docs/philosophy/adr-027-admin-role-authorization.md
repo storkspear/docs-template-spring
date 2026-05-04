@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**Status**: Accepted. `@AdminOnly` meta annotation 이 `@PreAuthorize("hasRole('ADMIN')")` 을 래핑. JWT `role` claim 으로 GrantedAuthority 매핑 + Spring Security 가 권한 검증.
+**Status**: Accepted. `@AdminOnly` meta annotation 이 `@PreAuthorize("hasRole('ADMIN')")` 을 래핑해요. JWT `role` claim 이 GrantedAuthority 로 매핑되고 Spring Security 가 권한을 검증합니다.
 
 ---
 

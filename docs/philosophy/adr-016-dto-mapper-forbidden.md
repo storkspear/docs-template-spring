@@ -1,6 +1,6 @@
 # ADR-016 · DTO 변환은 Entity 메서드로 (Mapper 클래스 금지)
 
-**Status**: Accepted. 2026-04-20 기준 Entity 에 `to<Dto>()` 메서드 패턴 적용. ArchUnit r22 (`NO_MAPPER_CLASSES`) 가 `*Mapper` 클래스를 빌드 시간에 차단.
+**Status**: Accepted. Entity 에 `to<Dto>()` 메서드 패턴을 적용해요. ArchUnit r22 (`NO_MAPPER_CLASSES`) 가 `*Mapper` 클래스를 빌드 시간에 차단합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

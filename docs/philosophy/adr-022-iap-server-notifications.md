@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. Apple V2 / Google RTDN webhook 을 `IapNotification` 통합 모델로 정규화. `BillingPort.handleIapNotification` 단일 진입점으로 정책 layer 가 platform 무관.
+**Status**: Accepted. Apple V2 / Google RTDN webhook 을 `IapNotification` 통합 모델로 정규화해요. `BillingPort.handleIapNotification` 단일 진입점이라 정책 layer 가 platform 에 무관합니다.
 
 ---
 

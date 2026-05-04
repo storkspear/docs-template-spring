@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~8분
 
-**Status**: Accepted. Spring `@ConditionalOnProperty` 기반 feature toggle. `app.features.<domain>=false` 로 8 도메인 (audit / push / billing-notification / password-policy / email / payment / iap / 2fa) 을 개별 비활성. Leaf 모듈은 단순 conditional, non-leaf 는 `ObjectProvider<Port>` 로 lazy 의존.
+**Status**: Accepted. Spring `@ConditionalOnProperty` 기반 feature toggle 을 도입했어요. `app.features.<domain>=false` 한 줄로 8 도메인 (audit / push / billing-notification / password-policy / email / payment / iap / 2fa) 을 개별 비활성화할 수 있어요. Leaf 모듈은 단순 conditional 로, non-leaf 모듈은 `ObjectProvider<Port>` 로 lazy 의존을 처리합니다.
 
 ---
 

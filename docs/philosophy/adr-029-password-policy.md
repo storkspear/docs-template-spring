@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**Status**: Accepted. `@ValidPassword` Bean Validation 어노테이션 + `PasswordValidator` 가 길이 / 복잡도 / common blacklist 를 검증. `app.security.password.*` properties 로 운영자가 강도 조정.
+**Status**: Accepted. `@ValidPassword` Bean Validation 어노테이션 + `PasswordValidator` 가 길이 / 복잡도 / common blacklist 를 검증해요. `app.security.password.*` properties 로 운영자가 강도를 조정합니다.
 
 ---
 
@@ -117,7 +117,7 @@ ChangePasswordRequest         @ValidPassword newPassword
 PasswordResetConfirmRequest   @ValidPassword newPassword
 ```
 
-`currentPassword` (변경 시 검증용) 는 `@NotBlank` 만 — 이미 등록된 비밀번호라 정책 검증 X.
+`currentPassword` (변경 시 검증용) 는 `@NotBlank` 만 적용해요 — 이미 등록된 비밀번호라 정책 재검증은 하지 않아요.
 
 ---
 
@@ -157,28 +157,28 @@ PasswordResetConfirmRequest   @ValidPassword newPassword
 String password
 ```
 
-- ❌ 복잡도 정책 변경 시 코드 변경 (regex 수정)
-- ❌ blacklist 미통합 — 별도 검증 코드
-- ❌ 에러 메시지 1줄 (어떤 정책 위반인지 모름)
+- ❌ 복잡도 정책을 변경하려면 regex 자체를 수정해야 해요
+- ❌ blacklist 가 통합되지 않아 별도 검증 코드가 따로 필요해요
+- ❌ 에러 메시지가 한 줄이라 사용자가 *어떤 정책을 위반했는지* 알 수 없어요
 
 ### 옵션 B — 커스텀 `@ValidPassword` ★ 채택
 
-- 정책 properties 분리 → 운영자가 .env 로 조정
-- blacklist 통합
-- 위반 정책별 메시지 분기
-- ConstraintValidator 1개로 통합
+- 정책을 properties 로 분리해서 운영자가 `.env` 로 조정할 수 있어요
+- blacklist 가 어노테이션 안에 통합돼요
+- 위반한 정책별로 메시지가 분기되어 사용자에게 정확히 안내됩니다
+- 검증 로직이 ConstraintValidator 한 개로 통합됩니다
 
 ### 옵션 C — Spring Security `PasswordEncoder` 수준 검증
 
-- ❌ Spring Security 의 PasswordEncoder 는 hashing/검증만 — 정책 검증 X
-- ❌ 별도 라이브러리 (Passay 등) 필요 — 의존성 ↑
+- ❌ Spring Security 의 `PasswordEncoder` 는 hashing / 매칭만 다루고 정책 검증은 책임이 아니에요
+- ❌ Passay 같은 별도 라이브러리가 필요해 의존성이 늘어나요
 
 ### 옵션 D — haveibeenpwned API (실 leak DB 조회)
 
-- 강력 — 실 leak 된 비밀번호 차단
-- ❌ 외부 API 호출 → 회원가입 latency ↑
-- ❌ k-anonymity 사용해도 응답 size 큼
-- 별도 사이클 (출시 후 비즈니스 결정)
+- ✅ 강력함 — 실제로 leak 된 비밀번호를 차단할 수 있어요
+- ❌ 외부 API 호출이 회원가입 latency 를 늘려요
+- ❌ k-anonymity 를 써도 응답 size 가 커서 부담이 있어요
+- 별도 사이클로 미뤄요 (출시 후 비즈니스 결정 사항)
 
 ---
 

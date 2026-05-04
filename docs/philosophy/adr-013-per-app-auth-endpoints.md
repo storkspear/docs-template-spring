@@ -1,6 +1,6 @@
 # ADR-013 · 앱별 인증 엔드포인트 (core-auth 는 라이브러리 역할)
 
-**Status**: Accepted. 2026-04-24 기준 모든 인증 엔드포인트가 `/api/apps/{appSlug}/auth/*` 형태로 통일. `core-auth-impl/AuthController.java` 는 레퍼런스 소스로만 존재하며 런타임 Bean 이 아님. `new-app.sh` 가 앱 스캐폴딩 시 앱별 Controller 를 자동 생성.
+**Status**: Accepted. 모든 인증 엔드포인트가 `/api/apps/{appSlug}/auth/*` 형태로 통일돼 있어요. `core-auth-impl/AuthController.java` 는 레퍼런스 소스로만 존재하고 런타임 Bean 으로 등록되지 않습니다. `new-app.sh` 가 앱 스캐폴딩 시 앱별 Controller 를 자동 생성해요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

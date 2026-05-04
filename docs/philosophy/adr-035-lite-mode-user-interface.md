@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**Status**: Accepted. Lite 모드 토글 인터페이스는 *CLI* (`<repo> feature list/enable/disable`) 1급 + `.env` 직접 편집 2급. admin GUI / 결제 게이트는 본 ADR scope 밖으로 미룸.
+**Status**: Accepted. Lite 모드 토글 인터페이스는 *CLI* (`<repo> feature list/enable/disable`) 가 1 급, `.env` 직접 편집이 2 급이에요. admin GUI / 결제 게이트는 본 ADR scope 밖으로 미뤘어요.
 
 ---
 

@@ -1,6 +1,6 @@
 # ADR-005 · 단일 Postgres database + 앱당 schema
 
-**Status**: Accepted. 현재 유효. 2026-04-24 기준 `infra/scripts/init-app-schema.sql` + `common-persistence/AbstractAppDataSourceConfig.java` 로 구현. Supabase production 도 동일 구조.
+**Status**: Accepted. `infra/scripts/init-app-schema.sql` + `common-persistence/AbstractAppDataSourceConfig.java` 로 구현되어 있어요. Supabase production 도 동일한 구조를 따릅니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

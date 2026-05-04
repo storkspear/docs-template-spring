@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**Status**: Accepted. `core-email-api` + `core-email-impl` 별도 모듈에서 `EmailPort` / `ResendEmailAdapter` / `EmailException` 관리. 어떤 도메인 (`auth` / `billing` / 운영) 도 ArchUnit r3 위반 없이 의존 가능.
+**Status**: Accepted. `core-email-api` + `core-email-impl` 별도 모듈에서 `EmailPort` / `ResendEmailAdapter` / `EmailException` 을 관리해요. 어떤 도메인 (`auth` / `billing` / 운영) 도 ArchUnit r3 위반 없이 의존할 수 있습니다.
 
 ---
 

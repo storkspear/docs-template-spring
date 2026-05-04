@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**Status**: Accepted. `core-billing-impl/listener/SubscriptionNotificationListener` 가 결제 도메인 이벤트를 push 알림으로 변환. `app.billing.notification.enabled` + `PushPort` bean 조건으로 opt-in 등록.
+**Status**: Accepted. `core-billing-impl/listener/SubscriptionNotificationListener` 가 결제 도메인 이벤트를 push 알림으로 변환해요. `app.billing.notification.enabled` + `PushPort` bean 조건으로 opt-in 등록됩니다.
 
 ---
 
