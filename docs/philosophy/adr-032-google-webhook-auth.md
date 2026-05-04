@@ -8,15 +8,17 @@
 
 ## 결론부터
 
-Google Play 의 RTDN (Real-Time Developer Notifications) webhook 은 *Google Cloud Pub/Sub* 을 통해 우리 백엔드로 push 됩니다. 이 webhook endpoint 는 *공개 인터넷에 노출* 되어 있어 *누구나 임의의 payload 로 POST* 할 수 있는 형태예요. 인증이 없으면 *공격자가 가짜 환불 알림을 보내 사용자 구독을 임의로 취소* 하거나 *가짜 갱신 알림으로 결제 상태를 조작* 할 수 있는 보안 구멍이 됩니다.
+**이 문서는 *Google 의 결제 알림 webhook 이 진짜 Google 에서 온 것인지* 를 우리 백엔드가 어떻게 검증할지 정의합니다.** Google Play 의 결제 시스템은 사용자가 환불 / 갱신 / 취소 같은 사건을 일으킬 때마다 *우리 백엔드의 특정 URL 로 알림을 보내는데*, 그 URL 은 *인터넷에 공개되어 있어* 누구든 그 URL 을 알면 *가짜 알림을 흉내내 보낼* 수 있어요. 이 위조를 막지 않으면 *공격자가 가짜 환불 알림을 보내 다른 사용자의 구독을 임의로 취소* 하거나 *가짜 결제 알림으로 권한을 부정 부여* 할 수 있는 보안 구멍이 됩니다.
 
-본 ADR 은 Google Pub/Sub webhook 의 *Bearer JWT 검증* 을 추가합니다. Google Cloud Pub/Sub 은 push subscription 설정 시 *service account* 를 등록할 수 있고, push 발송 시 *그 service account 의 RS256 서명 JWT 를 `Authorization: Bearer <JWT>` 헤더에 자동 첨부* 합니다. 우리 백엔드는 이 JWT 를 *4 단계로 검증* 해야 진짜 Google 발송으로 신뢰할 수 있어요.
+해결 방법은 *Google 이 보낸 알림에는 Google 의 디지털 서명이 들어 있다* 는 사실을 활용하는 것이에요. 우체국이 등기 우편을 보낼 때 *우체국 도장* 이 찍혀 있어서 *진짜 우체국에서 온 우편* 임을 증명할 수 있는 것과 같은 원리입니다. Google 이 우리에게 알림을 보낼 때마다 *Google 이 가진 비밀 키로 서명한 토큰* 을 함께 첨부하고, 우리는 *Google 이 공개한 검증 키* 로 그 서명이 진짜인지 확인해요. 위조된 알림은 *서명이 맞지 않아* 검증 단계에서 즉시 거절됩니다.
 
-검증의 4 단계는 이렇게 작동합니다. 첫째, *RS256 서명 검증* — Google JWKS endpoint (`https://www.googleapis.com/oauth2/v3/certs`) 의 공개키로 JWT 의 서명을 확인해 *Google 의 service account 가 정말 발급했는지* 를 보증합니다. 둘째, *audience claim 일치 검증* — JWT 의 `aud` claim 이 *우리 webhook URL* 과 일치해야 *다른 시스템용으로 발급된 토큰이 우리에게 replay 되는* 공격을 차단해요. 셋째, *email whitelist 검증* — JWT 의 `email` claim 이 *우리가 사전 등록한 service account 이메일 목록* 에 있어야 *같은 GCP 환경의 다른 프로젝트* 에서 발급한 토큰을 막을 수 있습니다. 넷째, *expiration 검증* — JWT 의 `exp` claim 으로 *오래된 JWT 의 replay* 를 차단해요.
+본 ADR 은 그 검증을 *4 단계 체크* 로 구체화합니다. 첫째, *서명이 진짜 Google 의 것인지* (Google 이 공개한 검증 키로 확인). 둘째, *이 알림이 우리에게 보내진 게 맞는지* (토큰 안의 *받는 사람 주소* 가 우리 webhook URL 과 일치하는지). 셋째, *우리가 사전에 등록한 Google 계정에서 발송된 게 맞는지* (whitelist 한 service account 이메일과 일치하는지). 넷째, *오래된 토큰을 누가 가로채 다시 쓰지 않았는지* (토큰 만료 시각 확인). 이 네 가지를 모두 통과해야 *진짜 Google 발송* 으로 신뢰합니다.
 
-JWKS 공개키는 1 시간 캐시로 두어 *키 회전에 자동 대응* 하면서도 *매 webhook 요청마다 Google JWKS 호출* 하는 비용을 회피합니다. Google 이 권장하는 캐시 주기를 그대로 따른 형태예요. 활성화는 *opt-in* (`app.iap.google.webhook.verify-token=true`) 으로 두어 *개발 / 테스트 환경* 에서는 검증을 끄고 *운영 환경에서만 enable* 하는 형태로 운영자가 통제할 수 있습니다.
+검증에 필요한 *Google 의 공개 검증 키* 는 1 시간 동안 캐시해서 사용해요. Google 이 키를 주기적으로 바꾸기 때문에 *영구 저장* 은 위험하고, 매 알림마다 Google 에 키를 다시 묻기에는 *비용과 응답 시간* 이 부담이라 *1 시간 정도가 균형* 이에요 (Google 공식 권장). 검증 자체는 *운영 환경에서만 활성화* 되도록 옵션을 둬서, *개발 / 테스트 환경* 에서는 검증을 끄고 부담 없이 webhook 을 시뮬레이션할 수 있어요.
 
-이 ADR 의 범위는 Google Pub/Sub push 인증 메커니즘의 본질, 4 단계 검증 흐름의 각 단계 의미, JWKS 캐싱 전략, opt-in 활성화 정책, 그리고 *왜 IP allowlist 같은 단순 대안이 부족한지* 의 트레이드오프 분석까지입니다.
+이 ADR 의 범위는 *왜 단순한 IP 주소 화이트리스트로는 안 되는지*, *Google 이 보낸 알림의 디지털 서명이 어떻게 작동하는지*, *4 단계 검증의 각 단계가 어떤 공격을 막는지*, *공개 키를 어떻게 캐시할지*, 그리고 *Apple 알림과의 차이 (Apple 은 알림 자체에 서명이 내장된 형태라 별도 인증 단계가 필요 없음)* 까지입니다.
+
+> **용어 짧은 정리** — *webhook* 은 외부 시스템이 우리 서버에 *어떤 사건이 일어났음* 을 알려주려고 호출하는 endpoint. *Pub/Sub* 은 Google Cloud 의 메시지 전달 서비스로, RTDN (Real-Time Developer Notifications) 알림이 이 위에서 동작해요. *JWT (JSON Web Token)* 는 *서명이 들어간 작은 정보 토큰* 이고, *RS256* 은 그 서명에 쓰는 알고리즘 이름이에요 (RSA + SHA-256). *JWKS* 는 *Google 이 공개한 검증 키 묶음* 이 모여 있는 endpoint 예요.
 
 ---
 

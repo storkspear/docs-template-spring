@@ -8,6 +8,8 @@
 
 ## 결론부터
 
+**이 문서는 *운영자 전용 endpoint 가 누구에게 허용되는지* 를 한 줄짜리 어노테이션으로 표시하고, JWT 의 role claim 으로 그 권한을 자동 검증하는 컨벤션을 정의합니다. *어느 endpoint 가 admin 만 쓸 수 있는지* 가 코드만 봐도 명확해지는 형태가 목표예요.**
+
 서비스가 자라면 *일반 사용자가 접근하면 안 되는 운영자 전용 endpoint* 가 늘어나요. 결제 강제 환불, 구독 강제 취소, 사용자 role 변경, plan 정의 수정 같은 *시스템 상태를 직접 조작* 하는 기능들이에요. 이런 endpoint 가 일반 사용자 토큰으로 접근 가능하면 *권한 escalation* 이 곧바로 일어나므로, *권한 검증을 컨벤션 수준에서 명시적으로 강제* 하는 메커니즘이 필요합니다.
 
 본 ADR 은 운영자 전용 endpoint 를 표시하는 `@AdminOnly` meta annotation 을 도입합니다. 이 어노테이션은 Spring Security 의 `@PreAuthorize("hasRole('ADMIN')")` 을 한 번 감싼 *도메인 의도가 명시적인* 표기예요. 컨트롤러 메서드나 클래스에 `@AdminOnly` 한 줄을 붙이면 *그 endpoint 가 운영자 전용임* 이 코드만 봐도 명확해지고, 일반 사용자 JWT 가 들어오면 Spring Security 가 *403 Forbidden* 으로 자동 차단합니다.
