@@ -1,5 +1,7 @@
 # ADR-027 — Admin role 권한 시스템 (@AdminOnly)
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-018 (멀티 슬러그 라우팅), 기존 JWT/SecurityConfig 인프라
 **연관**: U 사이클 — 운영자 권한 endpoint

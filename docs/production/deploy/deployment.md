@@ -1,6 +1,16 @@
 # 운영 배포 가이드 (파생레포 onboarding)
 
-template 에서 "Use this template" 으로 만든 파생레포를 Mac mini 홈서버에 처음 배포할 때의 순서.
+> **유형**: How-to · **독자**: Level 2~3 · **읽는 시간**: ~15분
+
+template 에서 "Use this template" 으로 만든 파생레포를 Mac mini 홈서버에 처음 배포할 때의 순서를 정리해요.
+
+> ⚡ **자동화 흐름 (권장)** — 본 문서의 §1~§5 는 *수동 단계별 안내* 입니다. 같은 흐름을 한 번에 자동화한 명령은 다음과 같아요.
+> ```bash
+> ./factory init <owner>/<repo>     # = local init (.env / docker / verify-local)
+> <repo> prod init                  # = §2~§3 (Cloudflare Tunnel / DNS / GitHub Secrets push / verify-server)
+> <repo> prod deploy                # = §5 (origin/main SHA → kamal build/push/blue-green)
+> ```
+> [`도그푸딩 환경 셋업 가이드`](../../start/dogfood-setup.md) 와 [`CLI 가이드`](../../start/cli-guide.md) 가 자동 흐름을 자세히 다룹니다. 본 문서는 *수동 흐름이 무엇을 자동화하는지* 가 궁금할 때 참고하세요.
 
 > 결정 근거: [`인프라 결정 기록 (Decisions — Infrastructure) I-09`](./decisions-infra.md)
 > 전체 구성도: [`인프라 (Infrastructure)`](./infrastructure.md)
@@ -210,16 +220,24 @@ ssh storkspear@<tailscale-ip> 'brew services stop nginx; pkill -f "nginx.*worker
 
 ## 5. 첫 배포
 
-자동: 파생레포 main 에 push → CI 성공 → `deploy` workflow 가 `workflow_run` 으로 자동 트리거.
-- CI: `./gradlew build` (테스트 포함) → bootstrap jar 를 GHA artifact 로 업로드
-- deploy: artifact 다운로드 → `Dockerfile.runtime` 으로 docker build/push (`ghcr.io/.../...:<sha>`) → `kamal deploy --skip-push` (kamal 이 빌드 안 하고 swap 만)
-- 빌드 1회 (CI), 이미지 패키징 1회 (deploy) → 총 ~8분 billed (gradle 중복 제거)
-- 옛 GHCR 이미지 자동 cleanup (최신 2개만 유지 → 500MB packages 한도 안전)
+**자동 흐름 (GHA)** — 파생레포 main 에 push 하면 CI 가 성공한 뒤 `deploy` workflow 가 `workflow_run` 으로 자동 트리거됩니다.
 
-수동 (로컬, 첫 setup 또는 hotfix):
+- CI 가 `./gradlew build` (테스트 포함) 를 실행해서 bootstrap jar 를 GHA artifact 로 업로드합니다.
+- deploy job 이 artifact 를 다운로드한 뒤 `Dockerfile.runtime` 으로 docker build/push (`ghcr.io/.../...:<sha>`) 하고 `kamal deploy --skip-push` 를 실행합니다 (kamal 은 빌드 없이 swap 만).
+- 빌드 1회 (CI), 이미지 패키징 1회 (deploy) 해서 총 ~8분 billed 입니다 (gradle 중복 제거).
+- 옛 GHCR 이미지는 자동으로 cleanup 됩니다 (최신 2개만 유지 → 500MB packages 한도 안전).
+
+**수동 흐름 (factory wrapper, 로컬)**:
+```bash
+<your-backend> prod deploy           # 권장 — origin/main SHA 자동 감지 + kamal --version 명시
+```
+
+내부적으로 `tools/deploy.sh` 가 `git fetch origin main` 으로 최신 SHA 를 가져와서 `kamal deploy --version=$ORIGIN_SHA` 를 호출합니다. 로컬 working tree / HEAD 와 무관하게 **origin 코드 기준** 으로 빌드돼요. 자세한 동작은 [`runbook §평시 배포`](./runbook.md) 를 참조하세요.
+
+**수동 흐름 (legacy, kamal 직접 호출)**:
 ```bash
 set -a; source .env; set +a
-kamal deploy           # 기존 Dockerfile (multi-stage full build) 사용
+kamal deploy           # 기존 Dockerfile (multi-stage full build) 사용 — 로컬 working tree 기준
 ```
 
 성공 확인:

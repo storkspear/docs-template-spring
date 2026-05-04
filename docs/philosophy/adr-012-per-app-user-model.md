@@ -6,11 +6,11 @@
 
 ## 결론부터
 
-같은 사람이 두 앱을 써도 **계정은 완전히 별개**예요. `sumtally` 의 `users` 테이블과 `rny` 의 `users` 테이블은 같은 이메일을 가져도 서로 모르는 레코드입니다. JWT 는 `appSlug` 단일 claim 만 가지고, 다른 앱 엔드포인트를 치면 **필터 하나** 가 403 으로 차단해요. 초기에 생각했던 "통합 계정 + ThreadLocal 라우팅" 모델은 **전부** 폐기했습니다. 이유는 UX · 프라이버시 · 구현 복잡도 세 전선에서 동시에 지고 있었기 때문.
+같은 사람이 두 앱을 써도 **계정은 완전히 별개**예요. `sumtally` 의 `users` 테이블과 `rny` 의 `users` 테이블은 같은 이메일을 가져도 서로 모르는 레코드입니다. JWT 는 `appSlug` 단일 claim 만 가지고, 다른 앱 엔드포인트를 치면 **필터 하나** 가 403 으로 차단해요. *통합 계정 + ThreadLocal 라우팅* 모델은 채택하지 않습니다 — UX · 프라이버시 · 구현 복잡도 3 전선에서 모두 한계 (아래 분석).
 
 ## 왜 이런 고민이 시작됐나?
 
-초기 설계에서는 "유저는 한 명, 앱 접근 권한만 분기" 모델을 먼저 검토했어요. 이상적으로 들리는 그림:
+**대안 1 — 유저는 한 명, 앱 접근 권한만 분기**. 이상적으로 들리지만:
 
 ```
 core.users (공유 테이블)
@@ -35,7 +35,7 @@ core.user_app_access
 
 ### 문제 3 — ThreadLocal 라우팅의 구현 지옥
 
-통합 계정 모델이 성립하려면 "한 사용자의 한 요청이 **어느 앱 schema** 로 가야 하는지" 를 런타임에 결정해야 해요. 이걸 위해 초기 설계에서는:
+통합 계정 모델이 성립하려면 "한 사용자의 한 요청이 **어느 앱 schema** 로 가야 하는지" 를 런타임에 결정해야 해요. 이걸 위해 *고려된 메커니즘*:
 
 - `AbstractRoutingDataSource` + `ThreadLocal<String> currentApp`
 - JWT 에 `apps: ["sumtally", "rny"]` 배열 claim
@@ -233,7 +233,7 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 `core-auth-impl/AuthController.java` 는 "템플릿 소스 전용" 이라는 의도가 있지만, 이 사실은 **코드 자체로는 드러나지 않습니다**. 런타임에 `@RestController` + `@RequestMapping` 을 보면 등록된 것처럼 보이죠.
 
-초기에 한 번 "왜 이 엔드포인트가 호출이 안 되지?" 로 시간을 날린 적이 있어요. 그 이후 다음 세 가지를 동시에 박음:
+엔드포인트 라우팅 디버깅의 어려움을 줄이기 위한 3가지 안전 장치:
 
 1. 파일 상단 주석 — "런타임 미등록, new-app.sh 레퍼런스 전용"
 2. `AuthAutoConfiguration` 에서 `@Import` 하지 않음 — 기술적으로 bean 등록 차단
@@ -243,7 +243,7 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 ### ThreadLocal 기반 멀티테넌시는 처음부터 피할 것
 
-초기 1주일간 `AbstractRoutingDataSource` + ThreadLocal 조합으로 구현 시도했어요. 구현은 되는데 **테스트가 계속 새어나가는** 문제가 있었음. Spring Security 필터 체인 · `@Async` · 테스트 fixture 정리 등 각 경계마다 ThreadLocal 관리 코드가 필요했고, 한 군데만 빠뜨려도 통합 테스트에서 미스터리한 실패 발생.
+**대안 — `AbstractRoutingDataSource` + ThreadLocal 조합** 의 한계: 구현은 되지만 **테스트가 새어나갑니다**. Spring Security 필터 체인 · `@Async` · 테스트 fixture 정리 등 각 경계마다 ThreadLocal 관리 코드가 필요하고, 한 군데만 빠뜨려도 통합 테스트에서 미스터리한 실패 발생.
 
 그 시점에 "통합 계정 모델을 버리면 ThreadLocal 자체가 불필요해진다" 를 깨달은 게 Option 3 채택의 트리거였어요.
 
@@ -251,7 +251,7 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 ### JWT claim 이름 변경은 DB 마이그레이션만큼 중요한 breaking change
 
-초기엔 `apps: ["sumtally"]` 배열 claim 으로 설계했다가 `appSlug: "sumtally"` 단일로 변경. 이 과정에서:
+JWT claim 형태 — `apps` 배열 vs `appSlug` 단일 비교:
 
 - 이미 발급된 리프레시 토큰은 **호환 안 됨** → 전체 토큰 무효화 필요
 - 클라이언트 (Flutter 앱) 의 JWT 파싱 로직 수정 필요
@@ -259,7 +259,7 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 DB 마이그레이션과 달리 JWT 스키마 변경은 **rollout 경로가 없어요** — 배포 시점 전후로 토큰 호환이 끊깁니다. 당시에는 운영 유저가 없어서 그냥 넘어갔지만, 유저가 있는 상태에선 매우 위험한 작업이 됐을 것.
 
-**교훈**: JWT claim 설계는 초기에 확정해야 함. "나중에 이름 바꾸지 뭐" 는 프로덕션 직전 큰 비용으로 돌아옴. Breaking change 는 Deprecation 프로세스 ([`ADR-015`](./README.md#테마-5--운영--개발-방법론-작성-예정)) 경유가 기본이지만, JWT 는 Deprecation 으로도 감당 어려움.
+**원칙**: JWT claim 설계는 첫 발급 시점에 확정해요. "나중에 이름 바꾸지 뭐" 는 프로덕션 직전 큰 비용으로 돌아옴. Breaking change 는 Deprecation 프로세스 ([`ADR-015`](./README.md#테마-5--운영--개발-방법론-작성-예정)) 경유가 기본이지만, JWT 는 Deprecation 으로도 감당 어려움.
 
 ## 관련 사례 (Prior Art)
 

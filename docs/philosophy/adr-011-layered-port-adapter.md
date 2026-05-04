@@ -211,13 +211,13 @@ ADR-004 의 22규칙 중 **5개가 이 결정과 연관** 됩니다.
 
 ## 교훈
 
-### 2026-04-20 — `AuthController` 를 `core-auth-impl` 에서 "스캐폴딩 소스" 로 격하
+### `AuthController` 를 `core-auth-impl` 에서 "스캐폴딩 소스" 로 격하
 
-초기 설계에서는 `core-auth-impl/controller/AuthController` 가 **런타임 Spring bean** 으로 등록되었습니다. `AuthAutoConfiguration` 의 `@Import(AuthController.class)` 를 통해서요. 경로는 `/api/core/auth/*` 로, 모든 앱이 공유했어요.
+**대안 분석** — `core-auth-impl/controller/AuthController` 를 **런타임 Spring bean** 으로 등록하는 구조 (`AuthAutoConfiguration` 의 `@Import(AuthController.class)`) 의 문제: 경로 `/api/core/auth/*` 를 모든 앱이 공유합니다.
 
 문제는 "어느 앱의 인증 요청인지" 를 런타임에 구분해야 했다는 점. 멀티테넌트 라우팅 (`AbstractRoutingDataSource` + `ThreadLocal`) 이 필요했는데, 이게 `@Async` / Virtual Thread 환경에서 컨텍스트 소실 문제를 일으켰습니다.
 
-2026-04-20 에 이 구조를 수정:
+**채택** — 다음 구조로 변경:
 - `AuthAutoConfiguration.class` 에서 `@Import(AuthController.class)` 제거
 - `AuthController.java` 는 파일은 남지만 **런타임 bean 으로 등록 안 됨** — `new-app.sh` 가 참조할 스캐폴딩 소스로만 존재
 - 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 경로는 `/api/apps/<slug>/auth/*` — [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 에서 상세
@@ -226,7 +226,7 @@ ADR-004 의 22규칙 중 **5개가 이 결정과 연관** 됩니다.
 
 ### "Adapter vs ServiceImpl" 네이밍의 의도
 
-Hexagonal 원문은 "Primary Adapter" 라고 부르지만, Spring 생태계 관용은 `*ServiceImpl` 이에요. 초기엔 "Adapter" 로 통일할지 고민했지만, **Spring 관용을 따르는 게 더 익숙** 했습니다.
+Hexagonal 원문은 "Primary Adapter" 이지만, Spring 관용은 `*ServiceImpl`. 우리 플젝은 Spring 관용을 따라요 — 익숙함이 검토 비용을 낮춤.
 
 규칙 정리:
 - **`*ServiceImpl`**: Port 구현 + 비즈니스 로직 (Primary Adapter)

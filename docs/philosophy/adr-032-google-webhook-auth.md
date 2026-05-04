@@ -1,5 +1,7 @@
 # ADR-032 — Google Pub/Sub webhook bearer token 검증
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-022 (IAP server notifications), 기존 GoogleNotificationDecoder
 **연관**: P 사이클 — 운영 보안 baseline

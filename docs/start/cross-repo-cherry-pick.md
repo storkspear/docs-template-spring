@@ -1,20 +1,22 @@
 # 크로스 레포 Cherry-pick 가이드
 
-이 문서는 `template-spring` 의 변경을 파생 레포(Use this template 으로 복제한 서비스 레포)로 가져오는 플로우 또는 역방향을 설명합니다.
+> **유형**: How-to · **독자**: Level 1~2 · **읽는 시간**: ~10분
+
+이 문서는 `template-spring` 의 변경을 파생 레포(Use this template 으로 복제한 서비스 레포) 로 가져오는 플로우 또는 역방향을 설명해요.
 
 ---
 
 ## 전제
 
-이 템플릿은 **Use this template** 모델을 사용합니다. 파생 레포는 git 히스토리가 분리되어 있어 fork 와 달리 merge 로 동기화할 수 없습니다. 공통 코드 개선은 **cherry-pick** 으로 전파합니다.
+이 템플릿은 **Use this template** 모델을 사용해요. 파생 레포는 git 히스토리가 분리되어 있어서 fork 와 달리 merge 로 동기화할 수 없어요. 공통 코드 개선은 **cherry-pick** 으로 전파해요.
 
-자세한 철학: [`ADR-002 (GitHub Template Repository 패턴)`](../philosophy/adr-002-use-this-template.md), [`ADR-015 (Conventional Commits + SemVer)`](../philosophy/adr-015-conventional-commits-semver.md).
+자세한 철학은 [`ADR-002 (GitHub Template Repository 패턴)`](../philosophy/adr-002-use-this-template.md) 와 [`ADR-015 (Conventional Commits + SemVer)`](../philosophy/adr-015-conventional-commits-semver.md) 에서 확인하세요.
 
 ---
 
 ## 파생 레포의 템플릿 마커
 
-파생 레포의 README 최상단에 필수 기재:
+파생 레포의 README 최상단에 다음 마커를 필수로 기재해요.
 
 ```markdown
 ## Template base
@@ -25,13 +27,13 @@ Last synced: 2026-04-25
 Pending sync: v0.4.0 (auth.isPremium 필요)
 ```
 
-이 마커는 "내가 지금 어느 버전까지 반영했는가" 를 명시적으로 기록 — git 대신 사람이 읽는 문서로 관리.
+이 마커는 "내가 지금 어느 버전까지 반영했는가" 를 명시적으로 기록해요. git 대신 사람이 읽는 문서로 관리하는 형태예요.
 
 ---
 
 ## 방향 A: 템플릿 → 파생 레포 (주 방향)
 
-새 공통 기능/수정을 파생 레포에 가져오기.
+새 공통 기능 / 수정을 파생 레포에 가져올 때의 흐름이에요.
 
 ```bash
 # 파생 레포에서 시작 (최초 1회만 remote 등록)
@@ -62,7 +64,7 @@ git cherry-pick <sha1> <sha2> ...
 
 ## 방향 B: 파생 레포 → 템플릿 (역방향)
 
-파생 레포에서 공통 코드 버그/개선 발견 시 템플릿으로 역전파.
+파생 레포에서 공통 코드 버그 / 개선을 발견했을 때 템플릿으로 역전파하는 흐름이에요.
 
 ```bash
 # 1. 파생 레포에서 먼저 fix 커밋 (Conventional Commits 준수)
@@ -98,23 +100,23 @@ git push origin fix/refresh-token-race
 | 원인 | 해결 |
 |---|---|
 | 파일이 파생 레포에서 이미 수정됨 | 수동 merge 후 `git cherry-pick --continue` |
-| 기반 버전이 너무 옛날 (v0.1 → v0.5 점프) | 한 단계씩: v0.1 → v0.2 먼저, 그 다음 v0.2 → v0.3 ... |
+| 기반 버전이 너무 옛날 (v0.1 → v0.5 점프) | 한 단계씩 — v0.1 → v0.2 먼저, 그 다음 v0.2 → v0.3 ... |
 | deprecated API 이미 쓰고 있음 | `docs/features/migration.md` 참고 후 신규 API 로 교체 |
 | 공통 코드와 도메인 코드가 한 커밋에 섞임 | `git cherry-pick -n <sha>` 로 staged 상태만 가져와 선별 |
 
 ### 커밋 위생 원칙
 
-**한 커밋은 한 논리적 변경만.** 파생 레포에서 공통 코드 수정이 도메인 코드 수정과 섞이면 역 cherry-pick 불가.
+**한 커밋은 한 논리적 변경만 담아야 해요.** 파생 레포에서 공통 코드 수정이 도메인 코드 수정과 섞이면 역 cherry-pick 이 불가능해져요.
 
-- 공통 코드 개선 의도면 **먼저 템플릿에서 작성** → 파생 레포로 내려감
-- 파생 레포에서 우연히 공통 코드 고친 경우 **별도 커밋으로 분리**
-- 템플릿 레포는 apps/ 가 비어있어 혼합 위험 없음
+- 공통 코드 개선 의도면 **먼저 템플릿에서 작성** 하고 파생 레포로 내려가는 흐름이 맞아요
+- 파생 레포에서 우연히 공통 코드를 고친 경우엔 **별도 커밋으로 분리**해요
+- 템플릿 레포는 apps/ 가 비어있어 혼합 위험이 없어요
 
 ---
 
 ## 업그레이드 결정 체크리스트
 
-새 템플릿 버전이 나오면 파생 레포에서 검토:
+새 템플릿 버전이 나오면 파생 레포에서 다음 항목을 검토해요.
 
 - [ ] 내 현재 버전 확인 (README "Based on")
 - [ ] 템플릿 최신 태그 확인 (`git tag -l "template-v*" --sort=-v:refname`)
@@ -140,7 +142,7 @@ git push origin fix/refresh-token-race
 
 ## 📖 책 목차 — Journey 7단계 (마지막)
 
-[`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **7단계 — 이제 use this template** 의 마무리 문서입니다.
+[`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **7단계 — 이제 use this template** 의 마무리 문서예요.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|

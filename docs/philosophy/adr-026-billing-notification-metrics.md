@@ -1,5 +1,7 @@
 # ADR-026 — 결제 알림 발송 메트릭
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-023 (push listener), ADR-024 (core-email 추출), ADR-025 (push + email 채널 통합)
 **연관**: M 사이클 — 운영 가시성 (sent / failed / skipped)

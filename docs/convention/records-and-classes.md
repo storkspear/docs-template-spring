@@ -10,7 +10,7 @@
 
 ## 개요
 
-새 Java 타입 정의 시 **`record` 와 `class` 중 어느 것을 쓸지** 결정 기준을 제공합니다. DTO · 값 객체 · 유틸 · 다형 DTO 케이스별 의사결정 트리.
+새 Java 타입 정의 시 **`record` 와 `class` 중 어느 것을 쓸지** 결정 기준을 제공합니다. DTO · 값 객체 · 유틸 · 다형 DTO 케이스별 의사결정 트리예요.
 
 ---
 
@@ -30,13 +30,13 @@
   └── 기타                        → ✓ record
 ```
 
-**기본 원칙**: 모르겠으면 record.
+**기본 원칙** — 모르겠으면 record 를 선택해요.
 
 ---
 
 ## class 허용 리스트
 
-`class` 사용이 허용되는 명시적 경우:
+`class` 사용이 허용되는 명시적인 경우예요.
 
 | 용도 | 위치 | 이유 |
 |---|---|---|
@@ -48,13 +48,13 @@
 | Utility class | 자유 | `final` + `private constructor` 필수 |
 | Custom Exception | `..exception..` | `extends RuntimeException` 필요 |
 
-**이 외**: record 필수. 특히 `..dto..` 패키지는 **ArchUnit 규칙 18** 로 record 강제.
+**이 외에는 record 필수예요**. 특히 `..dto..` 패키지는 **ArchUnit 규칙 18** 로 record 강제예요.
 
 ---
 
 ## Utility class 스타일
 
-static 메서드만 있는 클래스는 **`final` + `private constructor`**:
+static 메서드만 있는 클래스는 **`final` + `private constructor`** 가 필수예요.
 
 ```java
 public final class JsonContractAssertions {
@@ -68,7 +68,7 @@ public final class JsonContractAssertions {
 
 ## sealed interface + record (다형 DTO)
 
-여러 타입을 하나의 계약으로 다룰 때 (현재 사용 없음, 미래 확장):
+여러 타입을 하나의 계약으로 다룰 때 사용해요 (현재 사용 없음, 미래 확장).
 
 ```java
 public sealed interface PaymentResult
@@ -79,17 +79,17 @@ public record PaymentPending(String reference) implements PaymentResult {}
 public record PaymentFailure(String code, String message) implements PaymentResult {}
 ```
 
-Jackson 은 `@JsonSubTypes` 로 직렬화 가능. ArchUnit 규칙 18 도 `sealed interface` 는 예외 처리.
+Jackson 은 `@JsonSubTypes` 로 직렬화가 가능해요. ArchUnit 규칙 18 도 `sealed interface` 는 예외 처리합니다.
 
 ---
 
 ## 왜 record 가 기본인가
 
-1. **불변성 기본값** — Thread-safe, 부작용 없음
-2. **equals / hashCode / toString 자동 생성** — JSON 계약 테스트의 round-trip 검증에 필수
-3. **생성자 파라미터로 명시적 선언** — 필드 순서·타입 명확
+1. **불변성 기본값** — Thread-safe 하고 부작용이 없어요
+2. **equals / hashCode / toString 자동 생성** — JSON 계약 테스트의 round-trip 검증에 필수예요
+3. **생성자 파라미터로 명시적 선언** — 필드 순서·타입이 명확해요
 4. **deconstruction 가능** (Java 21+ pattern matching)
-5. **더 적은 코드** — 같은 역할에 class 는 20줄+, record 는 1줄
+5. **더 적은 코드** — 같은 역할에 class 는 20줄+, record 는 1줄로 끝나요
 
 ---
 
@@ -97,7 +97,7 @@ Jackson 은 `@JsonSubTypes` 로 직렬화 가능. ArchUnit 규칙 18 도 `sealed
 
 ### 필드 수정이 필요하면 `with` 메서드
 
-record 는 불변. 수정하려면 새 instance 생성:
+record 는 불변이에요. 수정하려면 새 instance 를 생성합니다.
 
 ```java
 public record UserProfile(long id, String email, String displayName, /* ... */) {
@@ -107,15 +107,15 @@ public record UserProfile(long id, String email, String displayName, /* ... */) 
 }
 ```
 
-전체 필드에 대해 기계적으로 만들지 말고 **자주 쓰이는 것만**. 자세한 기준은 `dto-factory.md`.
+전체 필드에 대해 기계적으로 만들지 말고 **자주 쓰이는 것만** 만듭니다. 자세한 기준은 [`dto-factory.md`](./dto-factory.md) 를 참조하세요.
 
 ### JPA Entity 와 함께 사용 불가
 
-`@Entity` 는 no-arg constructor + setter 기대. record 는 constructor 고정이라 불가. Entity 는 반드시 class.
+`@Entity` 는 no-arg constructor + setter 를 기대해요. record 는 constructor 가 고정이라 사용할 수 없습니다. Entity 는 반드시 class 로 작성해요.
 
 ### `@JsonProperty` 는 최후 수단
 
-record 컴포넌트 이름이 자동으로 JSON 키가 됨. 네이밍 충돌 시에만 `@JsonProperty` 고려 — 일반적으로는 record 필드 이름을 JSON 규약에 맞춰 조정.
+record 컴포넌트 이름이 자동으로 JSON 키가 됩니다. 네이밍 충돌 시에만 `@JsonProperty` 를 고려하세요. 일반적으로는 record 필드 이름을 JSON 규약에 맞춰 조정하는 게 좋아요.
 
 ---
 
@@ -124,3 +124,4 @@ record 컴포넌트 이름이 자동으로 JSON 키가 됨. 네이밍 충돌 시
 - [`DTO 팩토리 컨벤션`](./dto-factory.md) — DTO 팩토리 패턴
 - [`Naming Conventions`](./naming.md) — 네이밍 규칙
 - [`모듈 의존 규칙 (Module Dependencies)`](../structure/module-dependencies.md) — ArchUnit 규칙 18, 19
+- [`Architecture Rules (ArchUnit)`](../structure/architecture-rules.md) — r18 (DTOS_MUST_BE_RECORDS) / r19 (DTO_NAMING_SUFFIX)

@@ -1,8 +1,10 @@
 # 인프라 (Infrastructure)
 
-프로젝트의 환경별 인프라 구성, 책임 분담, 프로비저닝 상태를 기록합니다. 코드 아키텍처의 **왜** 는 [`philosophy/` 20 개 ADR](../../philosophy/README.md) 에, **무엇/어디** 는 [`Architecture Reference`](../../structure/architecture.md) 에 있으며, 이 문서는 그 위에서 **운영 환경의 실체** 를 다룹니다.
+> **유형**: Reference · **독자**: Level 2~3 · **읽는 시간**: ~12분
 
-> **독자 대상**: Level 2~3. 본인 (미래의 자신) / 파생 레포를 만든 개발자 / 운영 담당 (Phase 1+).
+프로젝트의 환경별 인프라 구성, 책임 분담, 프로비저닝 상태를 기록해요. 코드 아키텍처의 **왜** 는 [`philosophy/` 20 개 ADR](../../philosophy/README.md) 에, **무엇/어디** 는 [`Architecture Reference`](../../structure/architecture.md) 에 있고, 이 문서는 그 위에서 **운영 환경의 실체** 를 다룹니다.
+
+> **독자 대상**: 본인 (미래의 자신) / 파생 레포를 만든 개발자 / 운영 담당 (Phase 1+).
 
 ## 1. 이 문서의 범위
 
@@ -27,7 +29,7 @@
 | 배포 파이프라인 (Kamal + GHA) | `template-ready` | `config/deploy.yml` + `.github/workflows/deploy.yml` 커밋됨. 파생레포가 env + Secrets 채우면 바로 동작. 결정 I-09 |
 | 알림 (Discord webhook) | `provisioned (임계치 미정)` | Alertmanager 컨테이너 · Slack-compat Discord receiver 구성 완료. `DISCORD_WEBHOOK_URL` env 로 즉시 동작. 실제 알림 룰(CPU/메모리/5xx/p95 임계치)은 Phase 2 |
 | 운영 관측성 스택 | `template-ready` | `infra/docker-compose.observability.yml` (retention 7일, mem_limit 명시). Mac mini 에서 `docker compose up -d` 한 번 |
-| 로컬 docker 관측성 | `deprecated` | 로컬에서는 기동하지 않음 (2026-04-19 변경). 운영 전용으로 범위 재조정 (I-06 노트) |
+| 로컬 docker 관측성 | `not-applicable` | 로컬에서는 기동하지 않음 — 운영 전용 (I-06 노트) |
 | 2-tier bucket 정책 | `provisioned` (로컬 `dev-shared`) / `planned` (운영 `{slug}-{category}`) | `BucketProvisioner` 자동 생성. 상세: `features/storage.md` I-07 |
 
 상태 필드 정의 (`planned` / `provisioned` / `in-prod` / `hardware-acquired`) 및 전이 규칙: [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) 참조.
@@ -128,8 +130,9 @@ docker compose -f infra/docker-compose.dev.yml up -d postgres minio
            alertmanager :9093 (loopback 전용)
 ```
 
-**배포 파이프라인**: GitHub Actions → Tailscale 조인 → Kamal → SSH → Mac mini pull + blue/green 스왑.
-**운영 프로세스는 컨테이너 기반** (launchd 대신 docker + Kamal). cloudflared 자체는 여전히 launchd 로 supervise.
+**배포 파이프라인** — GitHub Actions → Tailscale 조인 → Kamal → SSH → Mac mini pull + blue/green 스왑 순서로 진행됩니다.
+
+**운영 프로세스는 컨테이너 기반** 입니다 (launchd 대신 docker + Kamal). cloudflared 자체는 여전히 launchd 로 supervise 합니다.
 
 **외부 서비스 연회비** (운영 전 발생):
 - Apple Developer Program: $99 / 년
@@ -152,9 +155,9 @@ docker compose -f infra/docker-compose.dev.yml up -d postgres minio
 
 **하나의 JVM 이 N 개 앱 모듈을 서브합니다.** [`ADR-001 (모듈러 모놀리스)`](../../philosophy/adr-001-modular-monolith.md) 와 [`ADR-007 (솔로 친화적 운영)`](../../philosophy/adr-007-solo-friendly-operations.md) 의 직접 적용 — 여러 Spring 프로세스를 띄우지 않습니다. 각 앱 모듈은 URL path 로 구분되며 JVM / DB 커넥션 풀 / 배포 / 모니터링을 공유합니다.
 
-**무중단 배포는 blue/green 컨테이너** — Blue (현재 live) 와 Green (새 버전) 이 서로 다른 호스트 포트에 동시 존재, kamal-proxy 가 health check 통과 후 트래픽을 Green 으로 원자 전환, Blue 는 graceful shutdown.
+**무중단 배포는 blue/green 컨테이너** — Blue (현재 live) 와 Green (새 버전) 이 서로 다른 호스트 포트에 동시에 존재합니다. kamal-proxy 가 health check 를 통과한 후 트래픽을 Green 으로 원자적으로 전환하고, Blue 는 graceful shutdown 됩니다.
 
-**파생레포 여러 개 케이스** (외부 팀 협업 or 특정 앱이 MAU 100만 도달로 추출): 그때만 `<slug>.<domain>` 식으로 서브도메인 분리 + 파생레포마다 독립 JVM 컨테이너. 현 MVP 는 파생레포 1개 기준이므로 `server.<domain>` 한 개로 시작.
+**파생레포 여러 개 케이스** (외부 팀 협업 또는 특정 앱이 MAU 100만에 도달해서 추출하는 경우) 에는 그때만 `<slug>.<domain>` 식으로 서브도메인을 분리하고 파생레포마다 독립 JVM 컨테이너를 띄웁니다. 현 MVP 는 파생레포 1개 기준이라서 `server.<domain>` 한 개로 시작합니다.
 
 **cloudflared ingress 예시** (호스트명 → 내부 경로):
 ```yaml
@@ -232,9 +235,9 @@ ingress:
 > 현재 외부 노출 서비스가 없습니다 (개발 단계). 실제 경계 규칙은 Item Ops-1 에서 확정.
 
 ### 8.1 현재 (Phase 0)
-- 로컬 개발만 — 전체 포트가 `localhost` 또는 `192.168.*` LAN
-- NAS MinIO 는 LAN 외부에서 접근 불가 (공유기 NAT 차단)
-- 공개 인터넷 접근 지점 없음
+- 로컬 개발만 — 전체 포트가 `localhost` 또는 `192.168.*` LAN 안에 있어요
+- NAS MinIO 는 LAN 외부에서 접근할 수 없습니다 (공유기 NAT 차단)
+- 공개 인터넷 접근 지점이 없습니다
 
 ### 8.2 운영 설계
 - **외부 노출**: Cloudflare Tunnel 경유 호스트명 — `server.<domain>` (Spring), `log.<domain>` (Grafana, CF Access 게이팅)
@@ -314,15 +317,11 @@ postgres (Supabase or 로컬 docker)
 ```
 V001__init_users.sql
 V002__init_social_identities.sql
-V003__add_users_email_index.sql
 V005__init_refresh_tokens.sql
 V006__init_email_verification_tokens.sql
 V007__init_password_reset_tokens.sql
 V008__init_devices.sql
-V009__add_devices_updated_at.sql
 ```
-
-**V004 는 번호 건너뜀** — 과거에 존재했으나 `87fb8e2` (per-app independent users model 리팩토링) 에서 삭제됨. Flyway 관례 상 번호 재사용 금지 → V004 는 영구 결번.
 
 ### 10.4 서비스별 DataSource
 

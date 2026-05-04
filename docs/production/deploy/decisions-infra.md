@@ -1,6 +1,8 @@
 # 인프라 결정 기록 (Decisions — Infrastructure)
 
-물리/운영 인프라 선택의 결정·근거·대안·재검토 트리거를 추적합니다.
+> **유형**: ADR · **독자**: Level 2~3 · **읽는 시간**: ~25분
+
+물리/운영 인프라 선택의 결정·근거·대안·재검토 트리거를 추적해요.
 
 ## 이 문서의 역할 (philosophy/ 와의 구분)
 
@@ -9,11 +11,11 @@
 | [`Repository Philosophy — 책 안내`](../../philosophy/README.md) | **코드 설계 결정 (20 ADR)** — 모듈 구조, 포트/어댑터, Mapper 금지, 테스트 전략 등 |
 | **`decisions-infra.md`** (이 문서) | **물리/운영 인프라 결정** — DB, 오브젝트 스토리지, 운영 호스트, 엣지, 관측성 |
 
-경계 케이스 (예: 서비스별 schema — 코드 규약이자 인프라 결정) 는 양쪽에서 상호 참조합니다.
+경계 케이스 (예: 서비스별 schema — 코드 규약이자 인프라 결정) 는 양쪽에서 상호 참조해요.
 
 ## 결정 카드 필드 포맷
 
-각 결정은 다음 8개 필드를 채웁니다:
+각 결정은 다음 8개 필드를 채워요.
 
 - **status**: `planned` / `provisioned` / `in-prod` / `hardware-acquired`
 - **결정일**: YYYY-MM-DD
@@ -26,14 +28,14 @@
 
 ## 결정 간 충돌 해결 규칙 (Phase 0 기준)
 
-결정이 서로 충돌할 때 우선순위:
+결정이 서로 충돌할 때의 우선순위는 다음과 같아요.
 
 1. **솔로 친화** ([`ADR-007`](../../philosophy/adr-007-solo-friendly-operations.md)) — 운영 부담 < 기능 완성도
 2. **보안 최소 기준** — 시크릿 분리, JWT, TLS (edge)
 3. **파생 레포 일관성** — breaking 변경은 Item 단위로 묶어서 일괄
 4. **비용** — 클라우드 무료티어 > 유료, 셀프 호스트 > SaaS (Phase 0)
 
-Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
+Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 
 ---
 
@@ -188,7 +190,7 @@ Phase 1+ 에는 우선순위 재조정 (예: 보안 기준 상향).
 ## 결정 I-06. 관측성 스택 — 셀프 호스트 (Loki + Grafana + Prometheus)
 
 - **status**: `provisioned` (운영 `infra/docker-compose.observability.yml` 파일 준비 완료; 실제 기동은 파생레포 onboarding 시 Mac mini 에서)
-- **결정일**: Item 5 (Phase A~M). **2026-04-19 범위 재조정** — 로컬 dev 에서 제거, 운영 전용으로 한정.
+- **적용 범위**: Item 5 — 운영 전용 (로컬 dev 에서는 의미 X 라 제외).
 - **결정**: 로그/메트릭/대시보드/알림 스택은 **셀프 호스트 오픈소스** — Loki, Grafana, Prometheus, Alertmanager. **운영(Mac mini) 전용** 구성. 로컬 개발에서는 활용 빈도 대비 메모리/docker 부담이 크므로 기동하지 않는다 (대시보드 동작 확인은 운영 `log.<domain>` 에서).
 - **근거**:
   - 데이터 주권 — 유저 로그/메트릭이 외부 SaaS 로 나가지 않음

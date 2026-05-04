@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-커밋 메시지 포맷을 기계가 강제하고 (`commitlint`), 버전은 **모듈별이 아니라 템플릿 레포 전체** 를 한 단위로 SemVer 관리해요. 이렇게 한 이유는 단 하나 — **파생 레포의 cherry-pick 을 가능하게 만들기 위해서**. Conventional Commits 는 "어느 커밋이 공통 코드 개선인지" 를 `git log --grep="^feat\\|^fix"` 같은 명령으로 기계가 읽을 수 있게 해줘요. 파생 레포는 "template-v0.3.0 기반" 한 줄로 간단하게 추적. Breaking change 는 반드시 Deprecation 3단계 (Active → Deprecated → Removed) 를 거치며, ArchUnit r20 이 `@Deprecated(since, forRemoval)` 선언을 기계 강제.
+커밋 메시지 포맷을 기계가 강제하고 (`commitlint`), 버전은 **모듈별이 아니라 템플릿 레포 전체** 를 한 단위로 SemVer 관리합니다. 이렇게 한 이유는 단 하나 — **파생 레포의 cherry-pick 을 가능하게 만들기 위해서**. Conventional Commits 는 "어느 커밋이 공통 코드 개선인지" 를 `git log --grep="^feat\\|^fix"` 같은 명령으로 기계가 읽을 수 있게 해줘요. 파생 레포는 "template-v0.3.0 기반" 한 줄로 간단하게 추적. Breaking change 는 반드시 Deprecation 3단계 (Active → Deprecated → Removed) 를 거치며, ArchUnit r20 이 `@Deprecated(since, forRemoval)` 선언을 기계 강제.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -321,23 +321,23 @@ Deprecation 의 핵심은 "**최소 1 minor 버전 유예**" 예요. 예:
 
 ### AI coauthor 트레일러 차단은 실수로 배운 규칙
 
-초기에는 `Co-Authored-By: Claude` 트레일러를 자유롭게 썼음. 외부 감사/리뷰 시점에 문제 인식:
+`Co-Authored-By: Claude` 트레일러는 외부 감사/리뷰 시 다음 문제를 일으킵니다:
 
 - **책임 소재 불명확** — 코드 문제 발생 시 "Claude 가 쓴 줄이라" 같은 책임 회피 여지
 - **감사 추적 노이즈** — 실제 기여한 사람 vs AI 도구 사용이 혼재
 - **법적/라이선스 모호성** — AI 생성 코드의 저작권 판례가 아직 불안정
 
-해결: husky commit-msg hook 에 `Co-Authored-By: Claude` 트레일러를 거부하는 grep 추가. 실수로라도 들어가면 커밋이 막힘.
+그래서 husky commit-msg hook 에 `Co-Authored-By: Claude` 트레일러를 거부하는 grep 을 둡니다. 실수로라도 들어가면 커밋이 막힘.
 
 **교훈**: AI 도구 사용은 **사람의 판단 + 검토** 를 전제로만 정당화됨. 트레일러로 AI 를 공동 저자로 표기하는 건 이 전제를 흐림. 정책을 husky 로 기계 강제.
 
 (docs-viewer 레포는 예외 — husky 없음. 별도 정책.)
 
-### Scope 리스트는 초기엔 warning, 점차 error 로
+### Scope 리스트는 warning level
 
-처음엔 scope-enum 을 `[2, ...]` (error) 로 설정했어요. 그런데 새 모듈 (`common-notification`, `core-billing`) 추가할 때 commitlint 가 즉시 거부 → 커밋 불가 → scope 리스트 업데이트 → 재시도 반복.
+scope-enum 을 `[2, ...]` (error) 로 설정하면 새 모듈 (`common-notification`, `core-billing`) 추가 시 commitlint 가 즉시 거부 → 커밋 불가 → scope 리스트 업데이트 → 재시도 반복의 마찰이 발생합니다.
 
-[1, ...] (warning) 로 낮춤. 변경 결과:
+[1, ...] (warning) 로 두면:
 
 - 새 scope 사용 시 경고만 발생, 커밋은 통과
 - 경고를 본 개발자가 나중에 scope 리스트 업데이트
