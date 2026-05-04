@@ -98,7 +98,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 
 - **status**: `provisioned` (template 관리자 LAN 내부에서만 접근)
 - **결정일**: 2026-04-18
-- **결정**: 오브젝트 스토리지는 시놀로지 NAS 의 MinIO 컨테이너 (`192.168.X.X:9000`). S3 호환이라 추후 AWS S3 / Cloudflare R2 이관 시 endpoint 변경만으로 가능. 외부 네트워크 접근 방식은 **Item Ops-1** 에서 결정.
+- **결정**: 오브젝트 스토리지는 시놀로지 NAS 의 MinIO 컨테이너예요 (`192.168.X.X:9000`). S3 호환이라 추후 AWS S3 / Cloudflare R2 이관 시 endpoint 변경만으로 가능해요. 외부 네트워크 접근 방식은 **Item Ops-1** 에서 결정해요.
 - **근거**:
   - 보유 NAS 활용 — 추가 호스팅비 0
   - S3 호환 — 클라우드 이관 유연성
@@ -161,7 +161,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 
 - **status**: `planned` (Item Ops-1)
 - **결정일**: 2026-04-18 (계획 확정)
-- **결정**: 운영 외부 접근은 **Cloudflare Tunnel** (`cloudflared`) 경유. 공개 IP 노출 없이 홈 네트워크 ↔ 인터넷 연결. TLS/WAF/Rate limit 은 Cloudflare edge 에서 처리.
+- **결정**: 운영 외부 접근은 **Cloudflare Tunnel** (`cloudflared`) 을 경유해요. 공개 IP 노출 없이 홈 네트워크 ↔ 인터넷이 연결돼요. TLS/WAF/Rate limit 은 Cloudflare edge 에서 처리합니다.
 - **근거**:
   - **홈 IP 노출 안 함** — 보안 상 중요
   - TLS 인증서 자동 발급/갱신

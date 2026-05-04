@@ -283,7 +283,7 @@ public ApiResponse<DeviceDto> getDevice(@PathVariable Long id, ...) {
 
 Phase 0 에서 다음을 **명시적으로 제외** 했어요.
 
-- `core-iap-impl` 실제 구현 (Apple StoreKit 2 / Google Play Verifier) → 첫 IAP 앱 준비 시점까지 대기. PG (포트원) 와 billing 정책은 ADR-019/020 에서 Phase 1 완료.
+- `core-iap-impl` 실제 구현 (Apple StoreKit 2 / Google Play Verifier) → 첫 IAP 앱 준비 시점까지 대기예요. PG (포트원) 와 billing 정책은 ADR-019/020 에서 Phase 1 을 완료했어요.
 - `core-sync-*` 델타 동기화 → 첫 앱이 진짜 필요로 할 때
 - Kakao Sign In → 한국 타겟 앱 출시 직전
 - 관리자 대시보드 UI → 직접 psql 로 충분

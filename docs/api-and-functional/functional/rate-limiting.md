@@ -42,7 +42,7 @@
 - `PASSWORD_RESET_REQUEST`, `PASSWORD_RESET_CONFIRM`, `PASSWORD_CHANGE`
 - `VERIFY_EMAIL`, `RESEND_VERIFICATION`
 
-나머지는 default 적용.
+나머지는 default 가 적용돼요.
 
 ## 초과 시 응답
 

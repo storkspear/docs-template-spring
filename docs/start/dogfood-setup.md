@@ -337,7 +337,7 @@ OPTIONAL feature 가 `.env.prod` 에서 비어있으면 SKIP (예: `RESEND_API_K
 
 ## 9. (선택) Trial 환경 자동화 — `tools/dogfooding/setup.sh + cleanup.sh`
 
-`init-server.sh` (1·2회차 셋업) 와 별개로 **Mac mini 에 trial 환경을 임시로 올렸다가 한 번에 cleanup 하고 싶을 때** 사용해요. GHA permissions / SSH key 등록 / GitHub Secrets / Mac mini 컨테이너 / GHCR 이미지 일괄 처리.
+`init-server.sh` (1·2회차 셋업) 와 별개로 **Mac mini 에 trial 환경을 임시로 올렸다가 한 번에 cleanup 하고 싶을 때** 사용해요. GHA permissions / SSH key 등록 / GitHub Secrets / Mac mini 컨테이너 / GHCR 이미지를 일괄 처리합니다.
 
 cleanup.sh 동작 (default):
 - GitHub Variables/Secrets 22개 모두 삭제

@@ -72,7 +72,7 @@
   ```
 
 ### Bucket 생성 자동화 (실수 방지)
-- `BucketProvisioner` 가 Spring 부팅 시 `.env` 의 bucket 이름 읽어서 **없으면 자동 생성** + retention 적용.
+- `BucketProvisioner` 가 Spring 부팅 시 `.env` 의 bucket 이름을 읽어서 **없으면 자동 생성** + retention 을 적용해요.
 - **수동 생성 불필요** — `.env` 에 이름 추가 후 앱 재기동만 하면 됩니다.
 - 파생 레포 생성 시 `new-app.sh` 가 `.env.example` 에 앱별 bucket 이름을 자동 주입.
 
@@ -101,7 +101,7 @@
 
 ## Retention (Lifecycle)
 
-기본 **90일**. `BucketProvisioner` 가 부팅 시 자동 적용.
+기본 **90일** 이에요. `BucketProvisioner` 가 부팅 시 자동으로 적용해요.
 
 앱별 다른 retention:
 - 환경변수 `APP_STORAGE_MINIO_DEFAULT_RETENTION_DAYS` 변경 or

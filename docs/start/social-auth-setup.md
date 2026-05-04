@@ -395,7 +395,7 @@ WARN  MockAppleSignInService activated — Apple RS256 verification is BYPASSED.
 ## 관련 코드
 
 - `AppCredentialProperties.java` — 환경변수 → `Map<String, AppCredential>` 바인딩 (4 provider 의 client id/secret 통합 관리)
-- `AuthAutoConfiguration.java` — 4 SignInService bean 등록. dev profile + `app.oauth.dev-mock=true` 일 때 `MockAppleSignInService` 로 교체
+- `AuthAutoConfiguration.java` — 4 SignInService bean 을 등록해요. dev profile + `app.oauth.dev-mock=true` 일 때는 `MockAppleSignInService` 로 교체돼요
 - `GoogleSignInService.java` — appSlug 로 Client ID 리스트 조회 후 `aud` 검증
 - `AppleSignInService.java` — appSlug 로 Bundle ID 조회 + JWKS 기반 RS256 서명 검증
 - `KakaoSignInService.java` — `/v1/user/access_token_info` (app_id 매칭) + `/v2/user/me` (이메일 + 닉네임) 2회 호출
