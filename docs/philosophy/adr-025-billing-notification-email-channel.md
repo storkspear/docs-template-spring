@@ -1,5 +1,7 @@
 # ADR-025 — 결제 알림 listener 의 email 채널 통합
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-023 (push 알림 listener), ADR-024 (core-email 도메인 추출)
 **연관**: L 사이클 — push + email 듀얼 채널

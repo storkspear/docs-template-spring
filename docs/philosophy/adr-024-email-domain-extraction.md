@@ -1,5 +1,7 @@
 # ADR-024 — core-email 도메인 추출
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-019 (도메인 횡단 기능 분리), ADR-023 (결제 알림 listener)
 **연관**: K-refactor 사이클 — email 인프라를 별도 모듈로
@@ -34,7 +36,7 @@ core-email-api/
   └─ com.factory.core.email.api/
       ├─ EmailPort.java              ← interface (auth 에서 이동)
       └─ exception/
-          ├─ EmailError.java         ← 신규 (EMAIL_DELIVERY_FAILED 등)
+          ├─ EmailError.java         ← EMAIL_DELIVERY_FAILED (EMAIL_001)
           └─ EmailException.java     ← 신규
 
 core-email-impl/
@@ -63,15 +65,13 @@ ADR-019 = billing/iap/payment 분리 결정 (channel-specific vs policy layer). 
 
 ## EmailException 도메인화
 
-이전에는 ResendEmailAdapter 가 `AuthException(AuthError.EMAIL_DELIVERY_FAILED, cause)` 를 throw. 이제는:
+이메일 발송 실패는 `EmailException(EmailError.EMAIL_DELIVERY_FAILED, cause)` 로 처리해요:
 
 ```java
 throw new EmailException(EmailError.EMAIL_DELIVERY_FAILED, cause);
 ```
 
 각 호출 도메인 (auth / billing) 이 필요 시 자기 도메인 exception 으로 wrap. 또는 그대로 propagate (BaseException 자식이라 ApiResponseAdvice 가 캐치).
-
-`AuthError.EMAIL_DELIVERY_FAILED` 는 unused 상태로 남음 (BC 위해 enum 값 유지). 다음 cleanup 사이클에 제거 가능.
 
 ---
 
@@ -107,7 +107,6 @@ throw new EmailException(EmailError.EMAIL_DELIVERY_FAILED, cause);
 
 - **SubscriptionNotificationListener 의 email 발송** — push + email 둘 다 발송하려면 UserPort 통한 email 조회 + 메시지 템플릿 분리. 별도 사이클.
 - **Email contract test** — `core-email-api/testFixtures` 로 `EmailRecorder` 이동 + `InMemoryEmailAdapter` 추출. 현재는 `core-auth-api/testFixtures` 에 남음.
-- **AuthError.EMAIL_DELIVERY_FAILED 제거** — unused 상태. 다음 cleanup.
 - **추가 발송 채널** — SMTP / Gmail API / SES / SendGrid 어댑터. 필요 시 `core-email-impl` 에 추가만.
 
 ---

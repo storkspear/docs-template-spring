@@ -1,14 +1,16 @@
 # Architecture Reference
 
-이 문서는 `template-spring` 의 **실제 구조** 를 설명합니다. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 20 개 ADR 에 기록되어 있습니다.
+> **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~30분
 
-> **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내합니다. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 먼저 참고.
+이 문서는 `template-spring` 의 **실제 구조** 를 설명해요. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 20 개 ADR 에 기록되어 있습니다.
+
+> **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내해요. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 를 먼저 참고하세요.
 
 ---
 
 ## 전체 구성 요약
 
-모듈러 모놀리스 구조의 Spring Boot 백엔드입니다. Gradle 멀티모듈로 내부가 나뉘어 있고, `bootstrap` 모듈이 전체를 조립해 **단일 fat JAR** 로 빌드됩니다. ([`ADR-001 · 모듈러 모놀리스`](../philosophy/adr-001-modular-monolith.md))
+모듈러 모놀리스 구조의 Spring Boot 백엔드예요. Gradle 멀티모듈로 내부가 나뉘어 있고, `bootstrap` 모듈이 전체를 조립해서 **단일 fat JAR** 로 빌드됩니다. ([`ADR-001 · 모듈러 모놀리스`](../philosophy/adr-001-modular-monolith.md))
 
 ### 모듈 4 종류
 
@@ -35,9 +37,9 @@
 
 ### core-* 와 apps/* 의 역할 분리
 
-**`core-*`** — 모든 앱이 공유하는 **플랫폼 로직 라이브러리**. 인증 (2FA TOTP 포함), 이메일 발송 (Resend, [`ADR-024`](../philosophy/adr-024-email-domain-extraction.md)), 유저 관리, 디바이스 등록, 푸시 (FCM), billing (구독/플랜 정책), iap (Apple/Google 채널 + webhook bearer 검증), payment (PG=포트원 채널), 스토리지 (MinIO/R2), 감사 로그 (AOP, [`ADR-028`](../philosophy/adr-028-audit-log-domain.md)). 템플릿에 포함되며, 파생 레포 생성 시 그대로 상속됩니다.
+**`core-*`** — 모든 앱이 공유하는 **플랫폼 로직 라이브러리** 예요. 인증 (2FA TOTP 포함), 이메일 발송 (Resend, [`ADR-024`](../philosophy/adr-024-email-domain-extraction.md)), 유저 관리, 디바이스 등록, 푸시 (FCM), billing (구독/플랜 정책), iap (Apple/Google 채널 + webhook bearer 검증), payment (PG=포트원 채널), 스토리지 (MinIO/R2), 감사 로그 (AOP, [`ADR-028`](../philosophy/adr-028-audit-log-domain.md)) 가 들어 있습니다. 템플릿에 포함되고, 파생 레포 생성 시 그대로 상속됩니다.
 
-**`apps/app-<slug>`** — 각 앱의 **고유 도메인 로직 + 해당 앱의 인증/유저 Controller**. 파생 레포에서만 작성되며, 템플릿에는 빈 디렉토리만 존재 ([`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md)).
+**`apps/app-<slug>`** — 각 앱의 **고유 도메인 로직 + 해당 앱의 인증/유저 Controller** 예요. 파생 레포에서만 작성되고, 템플릿에는 빈 디렉토리만 존재해요 ([`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md)).
 
 **apps 가 core-* 를 사용하는 방식**:
 
@@ -61,9 +63,9 @@
 4. core-* 는 건드리지 않음 — 새 기능이 core 에 필요하면 별도 ADR
 ```
 
-### DB 전략: 동일 소스코드, 독립 데이터
+### DB 전략 — 동일 소스코드, 독립 데이터
 
-하나의 파생 레포 = 하나의 Postgres 인스턴스. 인스턴스 **안에서** 앱별 schema 로 격리 ([`ADR-005`](../philosophy/adr-005-db-schema-isolation.md)).
+하나의 파생 레포 = 하나의 Postgres 인스턴스예요. 인스턴스 **안에서** 앱별 schema 로 격리해요 ([`ADR-005`](../philosophy/adr-005-db-schema-isolation.md)).
 
 | 요소 | 같은 파생 레포 내 | 다른 파생 레포 간 |
 |---|---|---|
@@ -72,7 +74,7 @@
 | Postgres 인스턴스 | 공유 (하나) | 별도 |
 | 유저/인증/도메인 테이블 | 앱 schema 별 독립 | 완전 별도 |
 
-schema 실제 구조와 마이그레이션 상세는 `infrastructure.md §10` ([`인프라 (Infrastructure)`](../production/deploy/infrastructure.md)).
+schema 실제 구조와 마이그레이션 상세는 [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) 의 §10 을 참조하세요.
 
 ---
 
@@ -119,27 +121,58 @@ template-spring/
 │       ├── factory.app-module.gradle           # apps/app-<slug> 전용
 │       └── factory.bootstrap-module.gradle     # bootstrap 전용
 │
-├── docs/                              # 문서 루트
+├── docs/                              # 문서 루트 (현재 9 그룹)
 │   ├── README.md                      # 문서 전체 진입점
-│   ├── STYLE_GUIDE.md                 # 문서 작성 규칙 (귀납 추출)
-│   ├── journey/
-│   │   ├── README.md                  # Developer Journey 개요
-│   │   ├── architecture.md            # 본 문서
+│   ├── onboarding/                    # L0 — 처음 쓰는 사람 (3~10분)
+│   │   ├── README.md                  # Developer Journey 책 목차
+│   │   ├── getting-started.md         # Level 0 진입점
+│   │   ├── five-minute-tour.md
+│   │   ├── what-is-this.md
+│   │   ├── first-run.md               # 첫 실행 결과 해석
+│   │   ├── first-change.md            # 첫 코드 수정 (nickname 컬럼 추가)
+│   │   └── first-deploy.md            # 첫 운영 배포 맛보기
+│   ├── start/                         # L1 — 1~2시간 시작 가이드
 │   │   ├── onboarding.md              # 로컬 개발 환경 셋업
-│   │   ├── deployment.md              # 운영 배포
-│   │   ├── dogfood-setup.md           # 도그푸딩 셋업 (+ faq, pitfalls)
-│   │   ├── social-auth-setup.md       # Google/Apple 소셜 인증
-│   │   ├── cross-repo-cherry-pick.md  # 템플릿 → 파생 레포 동기화
-│   │   └── philosophy/                # 20 개 ADR (설계 결정)
-│   │       ├── README.md              # ADR 인덱스 + 테마별 그룹
-│   │       └── adr-001 ~ adr-020.md   # 20 개 Architecture Decision Records
-│   ├── api-contract/                  # API 응답/JSON/버저닝/Flutter 통합
-│   ├── architecture/                  # 모듈 의존성, ArchUnit 규칙, 멀티테넌트
-│   ├── conventions/                   # 네이밍, DTO factory, 예외, git-workflow 등
-│   ├── features/                      # 푸시, 이메일 인증, 관측성, rate limit 등
-│   ├── infra/                         # 인프라, CI/CD, runbook, key rotation
-│   ├── reference/                     # app-scaffolding, backlog
-│   └── testing/                       # contract-testing, testing-strategy
+│   │   ├── dogfood-setup.md           # 도그푸딩 정상 흐름
+│   │   ├── dogfood-faq.md             # 도그푸딩 FAQ
+│   │   ├── dogfood-pitfalls.md        # 12 함정 reference
+│   │   ├── dogfood-walkthrough.md     # 시간 순 narrative + 정착된 패턴
+│   │   ├── cli-guide.md               # factory wrapper / <repo> 명령
+│   │   ├── app-scaffolding.md         # new-app.sh 상세
+│   │   ├── social-auth-setup.md       # Google/Apple/Kakao/Naver
+│   │   └── cross-repo-cherry-pick.md  # 템플릿 → 파생 레포 동기화
+│   ├── structure/                     # L2 — 코드 구조
+│   │   ├── architecture.md            # 본 문서
+│   │   ├── module-dependencies.md     # 모듈 의존 매트릭스
+│   │   ├── architecture-rules.md      # ArchUnit r1~r22
+│   │   ├── multitenant-architecture.md# per-app schema + DataSource
+│   │   └── jwt-authentication.md      # JWT + SecurityConfig + RefreshToken
+│   ├── convention/                    # L2 — 코딩 규약
+│   │   ├── README.md
+│   │   ├── design-principles.md
+│   │   ├── naming.md
+│   │   ├── dto-factory.md
+│   │   ├── records-and-classes.md
+│   │   ├── code-comments.md
+│   │   ├── git-workflow.md
+│   │   └── exception-handling.md
+│   ├── api-and-functional/            # L2 — API 계약 + 기능 가이드
+│   │   ├── api/                       # API 응답/JSON/버저닝/Flutter 통합/Swagger
+│   │   └── functional/                # 푸시, 이메일 인증, 스토리지, billing/IAP/payment, rate limit
+│   ├── production/                    # L2.5+ — 운영
+│   │   ├── deploy/                    # runbook, infrastructure, decisions-infra, flyway-runbook, ci-cd-flow, deployment
+│   │   ├── setup/                     # secret-chain-4stage, key-issuance, key-rotation, mac-mini-setup, monitoring-setup, storage-setup, storage-bucket-isolation
+│   │   ├── operations/                # feature-toggle 등 운영자 가이드
+│   │   └── test/                      # contract-testing, testing-strategy
+│   ├── philosophy/                    # L3 — 20 개 ADR
+│   │   ├── README.md                  # ADR 인덱스 + 테마별 그룹
+│   │   └── adr-001 ~ adr-035.md       # Architecture Decision Records
+│   ├── planned/                       # backlog (미완료 / 향후 작업)
+│   └── reference/                     # 참조 사전
+│       ├── glossary.md
+│       ├── environment.md
+│       ├── STYLE_GUIDE.md
+│       └── edge-cases.md
 │
 ├── common/                            # 상태 없는 뼈대 유틸리티
 │   │
@@ -220,9 +253,8 @@ template-spring/
 │   │       │   ├── controller/UserController.java # 레퍼런스 소스 (런타임 미등록)
 │   │       │   └── UserAutoConfiguration.java
 │   │       └── resources/db/migration/core/
-│   │           ├── V001__init_users.sql           # 템플릿 기준선
-│   │           ├── V002__init_social_identities.sql
-│   │           └── V003__add_users_email_index.sql
+│   │           ├── V001__init_users.sql           # 템플릿 기준선 (users + totp + email index)
+│   │           └── V002__init_social_identities.sql
 │   │
 │   ├── core-auth-api/                 # 인증 포트 (signup/signin/2FA/refresh/withdraw)
 │   │   └── src/main/java/com/factory/core/auth/api/
@@ -346,7 +378,7 @@ template-spring/
 │   │       │   ├── GoogleWebhookAuthFilter.java   # Bearer JWT 검증 (RS256 + JWKS + audience + email)
 │   │       │   ├── GoogleJwksClient.java          # Google JWKS 조회 + 캐시
 │   │       │   └── GoogleWebhookProperties.java
-│   │       ├── StubIapAdapter.java                # 미설정 환경 fallback
+│   │       ├── StubIapAdapter.java                # 미설정 환경 graceful 503
 │   │       ├── IapProperties.java
 │   │       ├── IapAppCredentialProperties.java    # 앱별 Apple/Google 자격
 │   │       └── IapAutoConfiguration.java
@@ -361,7 +393,7 @@ template-spring/
 │       ├── PortOneAdapter.java                    # PaymentPort 구현
 │       ├── PortOneApiClient.java                  # 토큰 캐시 + verify/cancel
 │       ├── PortOneProperties.java                 # APP_PAYMENT_PORTONE_API_V1_KEY/SECRET / V2_KEY / WEBHOOK_SECRET
-│       ├── StubPaymentAdapter.java                # dev fallback (key 미설정 시)
+│       ├── StubPaymentAdapter.java                # graceful 503 (key 미설정 시)
 │       └── PaymentAutoConfiguration               # PortOneProdConfigGuard (prod 부팅 fail-fast)
 │
 ├── apps/                              # 앱별 도메인 모듈
@@ -381,20 +413,28 @@ template-spring/
 │       │   │       ├── OpenApiConfig.java         # Swagger UI
 │       │   │       └── JpaConfig.java
 │       │   └── resources/
-│       │       ├── application.yml                # 공통 기본값
+│       │       ├── application.yml                # 공통 기본값 (port 8081, APP_FLYWAY_MODE default = AUTO)
 │       │       ├── application-dev.yml            # 로컬 Postgres
-│       │       ├── application-prod.yml          # Supabase 연결 + prod 엄격 endpoint
+│       │       ├── application-prod.yml           # Supabase 연결 + prod 엄격 endpoint
 │       │       └── application-test.yml           # Testcontainers
 │       └── test/
 │           └── BootstrapArchitectureTest.java     # ArchUnit r1~r22 바인딩
 │
 ├── tools/
-│   ├── bootstrap.sh                   # 파생 레포 부팅 one-liner
+│   ├── init-server.sh                 # 1·2회차 부팅 (.env / .env.prod / Secrets push)
 │   ├── new-app/
 │   │   └── new-app.sh                 # 새 앱 스캐폴딩 (schema/role/Flyway/Controller 자동)
+│   ├── deploy.sh                      # origin/main SHA 추출 + kamal --version 명시
+│   ├── force-clear-server.sh          # 5단계 confirm + 인프라 + 데이터 + 관측성 정리
+│   ├── ci-test.sh                     # 5-stage 로컬 검증 (spotless / build / docs-contract / docs-unit / gitleaks)
+│   ├── lib/
+│   │   ├── cloudflare.sh              # cloudflare_register_hostname (NS polling + 자동 재생성)
+│   │   └── common.sh                  # detect_factory_alias 등 helper
 │   ├── dogfooding/
-│   │   └── setup.sh                   # 도그푸딩 환경 9단계 자동화
+│   │   └── setup.sh                   # Trial 환경 자동화 (GHA + Mac mini + GHCR, 1회성 운영 도구)
 │   └── docs-check/                    # 문서 링크/메타 검증
+│
+├── factory                             # wrapper 진입점 (FACTORY_ALIAS export)
 │
 └── infra/
     ├── docker-compose.dev.yml                     # 로컬 Postgres 16 + MinIO
@@ -483,7 +523,7 @@ bootstrap                              # 최상위 (모든 것을 조립)
 
 **1단계 — Gradle convention plugin**
 
-`build-logic/` 의 역할별 convention plugin 이 `afterEvaluate` 에서 `ProjectDependency` 를 순회하며 허용/금지 규칙을 검증. 위반 시 `GradleException` throw — **컴파일이 시작되지도 않습니다**.
+`build-logic/` 의 역할별 convention plugin 이 `afterEvaluate` 에서 `ProjectDependency` 를 순회하며 허용/금지 규칙을 검증합니다. 위반 시 `GradleException` 을 throw 해서 **컴파일이 시작되지도 않아요**.
 
 | Plugin | 적용 대상 | 주요 제약 |
 |---|---|---|
@@ -495,9 +535,9 @@ bootstrap                              # 최상위 (모든 것을 조립)
 
 **2단계 — ArchUnit CI**
 
-Gradle 이 잡지 못하는 패턴 (같은 패키지 이름 규칙, Entity 노출 금지, `*Mapper` 클래스 금지 등) 은 ArchUnit 22 개 규칙 (r1~r22) 으로 빌드 시 검증. 상세: [`Architecture Rules (ArchUnit)`](./architecture-rules.md).
+Gradle 이 잡지 못하는 패턴 (같은 패키지 이름 규칙, Entity 노출 금지, `*Mapper` 클래스 금지 등) 은 ArchUnit 22 개 규칙 (r1~r22) 으로 빌드 시 검증합니다. 상세는 [`Architecture Rules (ArchUnit)`](./architecture-rules.md) 를 참조하세요.
 
-두 단계 설계의 근거: [`ADR-004 · Gradle + ArchUnit`](../philosophy/adr-004-gradle-archunit.md).
+두 단계 설계의 근거는 [`ADR-004 · Gradle + ArchUnit`](../philosophy/adr-004-gradle-archunit.md) 에 정리되어 있습니다.
 
 ---
 
@@ -559,7 +599,7 @@ UserController → ApiResponse.ok(profile) → JSON 응답
 
 ### 예외 처리 흐름
 
-어느 레이어에서든 예외가 발생하면 `GlobalExceptionHandler` 가 가로채서 `ApiResponse.error(ApiError)` 형태로 변환. 클라이언트는 **항상 같은 JSON 구조** 의 응답을 받습니다.
+어느 레이어에서든 예외가 발생하면 `GlobalExceptionHandler` 가 가로채서 `ApiResponse.error(ApiError)` 형태로 변환해요. 클라이언트는 **항상 같은 JSON 구조** 의 응답을 받아요.
 
 ```
 throw new UserException(UserError.USER_NOT_FOUND, Map.of("id", String.valueOf(userId)))
@@ -574,13 +614,13 @@ ApiResponse.error(new ApiError("USR_001", "유저를 찾을 수 없습니다", {
 HTTP 404 + JSON 응답
 ```
 
-포맷 상세: [`API Response Format`](../api-and-functional/api/api-response.md).
+포맷 상세는 [`API Response Format`](../api-and-functional/api/api-response.md) 을 참조하세요.
 
 ---
 
 ## 인증 플로우
 
-모든 인증 엔드포인트는 `/api/apps/{appSlug}/auth/*` 경로. core-auth-impl 의 `AuthController` 는 **레퍼런스 소스** 로만 존재하며 런타임 미등록. 각 앱의 `<Slug>AuthController` 가 `AuthPort` 를 주입받아 위임 ([`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md)).
+모든 인증 엔드포인트는 `/api/apps/{appSlug}/auth/*` 경로예요. core-auth-impl 의 `AuthController` 는 **레퍼런스 소스** 로만 존재하고 런타임에는 등록되지 않습니다. 각 앱의 `<Slug>AuthController` 가 `AuthPort` 를 주입받아 위임하는 구조예요 ([`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md)).
 
 ### 이메일 가입
 
@@ -684,7 +724,7 @@ WithdrawService.withdraw(userId, reason)
 
 ## 데이터베이스 구조
 
-한 `postgres` database 안에 여러 schema 가 공존합니다 ([`ADR-005`](../philosophy/adr-005-db-schema-isolation.md)).
+한 `postgres` database 안에 여러 schema 가 공존해요 ([`ADR-005`](../philosophy/adr-005-db-schema-isolation.md)).
 
 ### Schema 레이아웃
 
@@ -714,7 +754,7 @@ postgres (database)
 
 ### DB Role 분리
 
-각 schema 에 전용 role. 크로스 schema 접근은 **DB 레벨에서 permission denied**.
+각 schema 에 전용 role 을 부여해요. 크로스 schema 접근은 **DB 레벨에서 permission denied** 가 나요.
 
 ```sql
 -- infra/scripts/init-app-schema.sql (멱등)
@@ -733,7 +773,7 @@ REVOKE ALL ON SCHEMA public FROM sumtally_app;
 
 ### DataSource 분리
 
-각 앱별로 **독립 DataSource + HikariCP 풀 + EntityManagerFactory + Flyway** 를 `AbstractAppDataSourceConfig` 로 구성:
+각 앱별로 **독립 DataSource + HikariCP 풀 + EntityManagerFactory + Flyway** 를 `AbstractAppDataSourceConfig` 로 구성합니다.
 
 ```java
 // common-persistence/AbstractAppDataSourceConfig.java
@@ -757,60 +797,60 @@ Flyway.configure()
     .load();
 ```
 
-한 앱이 커넥션을 고갈시켜도 다른 앱 풀은 영향 없음. ThreadLocal 기반 동적 라우팅 (`AbstractRoutingDataSource`) 은 **사용하지 않음** — 각 앱 모듈이 Spring DI 로 자기 DataSource 주입 ([`ADR-012`](../philosophy/adr-012-per-app-user-model.md)).
+한 앱이 커넥션을 고갈시켜도 다른 앱 풀은 영향이 없습니다. ThreadLocal 기반 동적 라우팅 (`AbstractRoutingDataSource`) 도 함께 사용해요 — `SchemaRoutingDataSource` 가 슬러그별 DataSource 분기를 처리해요 ([`ADR-018`](../philosophy/adr-018-schema-routing-datasource.md)).
 
 ### 멀티 DataSource Wiring
 
-`bootstrap/CoreDataSourceConfig` (`@Primary`, slug="core") 와 각 앱 모듈의 `<Slug>DataSourceConfig` 가 공존. 공통 빌더는 `AbstractAppDataSourceConfig`.
+`bootstrap/CoreDataSourceConfig` (`@Primary`, slug="core") 와 각 앱 모듈의 `<Slug>DataSourceConfig` 가 공존해요. 공통 빌더는 `AbstractAppDataSourceConfig` 예요.
 
 ```
 bootstrap/CoreDataSourceConfig (@Primary, slug="core")
   @Bean dataSource / entityManagerFactory / transactionManager / flyway
 
-apps/app-<slug>/config/<Slug>DataSourceConfig (slug="<slug>")
+apps/app-<slug>/config/<Slug>DataSourceConfig (slug="<slug>", @Profile("!test"))
   @Bean <slug>DataSource / <slug>EntityManagerFactory /
         <slug>TransactionManager / <slug>Flyway
   @EnableJpaRepositories(basePackages = "apps.<slug>.repository",
                          entityManagerFactoryRef = "<slug>EntityManagerFactory")
 ```
 
-새 앱 추가 시 `new-app.sh` 가 `<Slug>DataSourceConfig` 클래스 자동 생성.
+새 앱 추가 시 `new-app.sh` 가 `<Slug>DataSourceConfig` 클래스를 자동 생성합니다. `@Profile("!test")` 가 함께 붙어 있어서 bootstrap test (Testcontainers 단일 DB) 환경에서 슬러그 모듈이 비활성화됩니다.
 
 ---
 
 ## Extraction 을 위한 방어선
 
-"특정 앱이 대박 나서 독립 서비스로 뽑아야 할 때" 를 대비해 경계를 기계적으로 강제합니다. [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 5중 데이터 격리 + [`ADR-003`](../philosophy/adr-003-api-impl-split.md) 의 Port 계약 보증 = 총 6 레이어.
+"특정 앱이 대박 나서 독립 서비스로 뽑아야 할 때" 를 대비해서 경계를 기계적으로 강제합니다. [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 5중 데이터 격리 + [`ADR-003`](../philosophy/adr-003-api-impl-split.md) 의 Port 계약 보증 = 총 6 레이어예요.
 
 ### 레이어 1 — DB Role 권한 분리
 
-각 schema 의 전용 role. 크로스 schema 접근은 런타임에 `permission denied` — 즉시 발견. 구현: `infra/scripts/init-app-schema.sql`.
+각 schema 의 전용 role 을 만듭니다. 크로스 schema 접근은 런타임에 `permission denied` 로 즉시 발견됩니다. 구현은 `infra/scripts/init-app-schema.sql` 에 있습니다.
 
 ### 레이어 2 — Spring DataSource 분리
 
-각 앱별 HikariCP 풀. 코드로 다른 앱 DataSource 를 얻을 방법 없음. 구현: `common-persistence/AbstractAppDataSourceConfig`.
+각 앱별 HikariCP 풀이 만들어져요. 코드로 다른 앱 DataSource 를 얻을 방법이 없습니다. 구현은 `common-persistence/AbstractAppDataSourceConfig` 에 있습니다.
 
 ### 레이어 3 — Flyway 마이그레이션 분리
 
-각 앱의 `db/migration/<slug>/` 와 `flyway_schema_history` 독립. 앱 간 마이그레이션 간섭 불가.
+각 앱의 `db/migration/<slug>/` 와 `flyway_schema_history` 가 독립적이에요. 앱 간 마이그레이션 간섭이 불가능해요.
 
 ### 레이어 4 — 포트 인터페이스 의존 (Gradle)
 
-`apps/*` 는 `core-*-api` 만 의존. `core-*-impl` 에 접근하는 코드는 **Gradle configuration 단계에서 거절** — 컴파일 시작 전. 구현: `build-logic/factory.app-module.gradle`.
+`apps/*` 는 `core-*-api` 만 의존해요. `core-*-impl` 에 접근하는 코드는 **Gradle configuration 단계에서 거절** 돼요 — 컴파일 시작 전에 잡혀요. 구현은 `build-logic/factory.app-module.gradle` 에 있습니다.
 
 ### 레이어 5 — ArchUnit CI
 
-위 4가지로 잡히지 않는 패턴 (패키지 이름 규칙, Entity 노출 금지, `*Mapper` 금지, `@Deprecated(since, forRemoval)` 강제 등) 을 22 개 규칙으로 CI 검증. 구현: `common-testing/architecture/ArchitectureRules.java`.
+위 4가지로 잡히지 않는 패턴 (패키지 이름 규칙, Entity 노출 금지, `*Mapper` 금지, `@Deprecated(since, forRemoval)` 강제 등) 을 22 개 규칙으로 CI 검증합니다. 구현은 `common-testing/architecture/ArchitectureRules.java` 에 있습니다.
 
 ### 레이어 6 — Contract Test (추출 보증)
 
-Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든 impl 이 이 계약을 통과해야 머지 가능. JSON 직렬화 계약은 `AbstractJsonContractTest<T>`. 테스트 실패 시 CI 빌드 정지.
+Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 모든 impl 이 이 계약을 통과해야 머지가 가능해요. JSON 직렬화 계약은 `AbstractJsonContractTest<T>` 가 담당합니다. 테스트 실패 시 CI 빌드가 정지됩니다.
 
-이 레이어가 **추출 가능성의 형식적 보증** — `core-auth-impl` 을 HTTP 클라이언트 어댑터로 교체해도 같은 계약 테스트를 통과하면 정상 작동 확정. 상세: [`계약 테스트 (Contract Testing)`](../production/test/contract-testing.md).
+이 레이어가 **추출 가능성의 형식적 보증** 이에요 — `core-auth-impl` 을 HTTP 클라이언트 어댑터로 교체해도 같은 계약 테스트를 통과하면 정상 작동이 확정됩니다. 상세는 [`계약 테스트 (Contract Testing)`](../production/test/contract-testing.md) 를 참조하세요.
 
 ### 실제 추출 절차 (예상 7~10 영업일)
 
-6 레이어가 모두 있으면 "나중에 뽑을 수 있다" 가 빈 약속이 아닌 **보장**:
+6 레이어가 모두 있으면 "나중에 뽑을 수 있다" 가 빈 약속이 아닌 **보장** 이 됩니다.
 
 1. 새 레포 생성 + 해당 앱 모듈 복사
 2. `core-*-api` 의존은 유지, `core-*-impl` 을 HTTP 클라이언트 어댑터로 교체
@@ -823,7 +863,7 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든
 
 ## 테스트 전략 맵
 
-4 층 테스트 구조 ([`ADR-014`](../philosophy/adr-014-no-delegation-mock.md)):
+4 층 테스트 구조예요 ([`ADR-014`](../philosophy/adr-014-no-delegation-mock.md)).
 
 | 층 | 검증 대상 | 대표 디렉토리 | Spring Context |
 |---|---|---|---|
@@ -832,13 +872,13 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든
 | Contract (Port) | Port 인터페이스 행위 계약 | `core-auth-impl/test/AuthServiceImplContractTest` | @SpringBootTest + Testcontainers |
 | Integration | HTTP → Controller → DB 전체 흐름 | `bootstrap/test/` | @SpringBootTest + Testcontainers |
 
-**금지**: "A 가 B.foo() 를 호출하는가" 같은 delegation mock 검증. 리팩토링 안전망을 파괴하므로.
+**금지** — "A 가 B.foo() 를 호출하는가" 같은 delegation mock 검증이에요. 리팩토링 안전망을 파괴하니까요.
 
 **허용되는 Mock**:
 - 외부 시스템 (FCM, Resend) 의 fake adapter (Mockito 가 아니라 in-memory 구현)
 - 비결정 의존성 (Clock, 난수) 의 고정값 (`Clock.fixed()` 등)
 
-상세: [`Testing Strategy`](../production/test/testing-strategy.md).
+상세는 [`Testing Strategy`](../production/test/testing-strategy.md) 를 참조하세요.
 
 ---
 
@@ -859,13 +899,14 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화. 모든
 - [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) — 맥미니 홈서버, Supabase, Cloudflare Tunnel, 블루그린 배포
 - [`CI / CD 전체 플로우 — commit 부터 운영 반영까지`](../production/deploy/ci-cd-flow.md) — commit → 운영 반영 전체 흐름
 - [`운영 런북 (Runbook)`](../production/deploy/runbook.md) — 운영 절차 + 장애 대응
+- [`secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) — 4 곳 매핑 체크리스트
 
 ### API 계약
 - [`API Response Format`](../api-and-functional/api/api-response.md) — 응답 포맷 표준
 - [`Flutter ↔ Backend Integration`](../api-and-functional/api/flutter-backend-integration.md) — Flutter 앱 연동
 
 ### 컨벤션 / 기능 가이드
-- [`../conventions/`](../convention/) — 네이밍, DTO factory, 예외 처리, git-workflow 등
+- [`../convention/`](../convention/) — 네이밍, DTO factory, 예외 처리, git-workflow 등
 - [`Push Notifications`](../api-and-functional/functional/push-notifications.md) — FCM 디바이스 등록 + PushPort
 - [`Email Verification & Delivery`](../api-and-functional/functional/email-verification.md) — Resend 이메일 인증 + 비밀번호 재설정
 - [`오브젝트 스토리지 규약`](../api-and-functional/functional/storage.md) — 파일 스토리지 컨벤션

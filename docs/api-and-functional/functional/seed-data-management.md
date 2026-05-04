@@ -33,14 +33,12 @@
 
 | 모듈 | 마이그레이션 | 성격 |
 |---|---|---|
-| `core-user-impl` | `V001__init_users.sql` | DDL (CREATE TABLE + UNIQUE INDEX) |
+| `core-user-impl` | `V001__init_users.sql` | DDL (CREATE TABLE + UNIQUE INDEX + totp + email index) |
 | `core-user-impl` | `V002__init_social_identities.sql` | DDL |
-| `core-user-impl` | `V003__add_users_email_index.sql` | DDL |
 | `core-auth-impl` | `V005__init_refresh_tokens.sql` | DDL |
 | `core-auth-impl` | `V006__init_email_verification_tokens.sql` | DDL |
 | `core-auth-impl` | `V007__init_password_reset_tokens.sql` | DDL |
-| `core-device-impl` | `V008__init_devices.sql` | DDL |
-| `core-device-impl` | `V009__add_devices_updated_at.sql` | DDL |
+| `core-device-impl` | `V008__init_devices.sql` | DDL (CREATE TABLE + indexes + updated_at) |
 
 따라서 **파생 레포가 seed 데이터를 넣고 싶으면, 아래 3가지 옵션 중 하나를 골라 직접 구현** 해야 합니다.
 

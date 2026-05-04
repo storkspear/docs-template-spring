@@ -1,5 +1,7 @@
 # Repository Philosophy — 책 안내
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~30분 (프롤로그 + 테마 1) / 2~3시간 (전체)
+
 이 문서는 `template-spring` 이 **왜 현재의 구조를 가지게 되었는지** 설명하는 **ADR(Architecture Decision Record) 카드** 모음입니다.
 
 각 결정은 추상적인 이론이 아니라 **솔로 인디 개발자가 여러 앱을 빠른 주기로 출시할 때 마주치는 구체적인 고통** 에 대한 답변으로 만들어졌어요. 이 문서를 읽고 나면 "왜 굳이 이렇게 복잡하게 만들었지?" 하는 의문이 풀리기를 바랍니다.
@@ -39,7 +41,7 @@
 
 인디 앱 하나가 **성공할 확률은 낮습니다**. 경험적으로 80%는 시장 반응이 없고, 15%는 그럭저럭 굴러가며, 5%만 의미 있는 트래픽을 얻어요. 하지만 **새 앱 출시 비용이 0에 가까우면** 많이 시도할 수 있습니다.
 
-복권 사기로 비유하면: 당첨 확률은 낮아도 **한 장의 가격이 100원** 이면 1만 장을 살 수 있어요. 반대로 한 장이 10만원이면 3장도 못 삽니다. 이 프로젝트의 존재 이유는 **새 앱 출시 비용을 극단적으로 낮추는 것** — 앱 하나 만드는 데 며칠이 아니라 몇 시간 수준으로 압축하는 게 목표입니다.
+복권 사기로 비유하면: 당첨 확률은 낮아도 **한 장의 가격이 100원** 이면 1만 장을 살 수 있습니다. 반대로 한 장이 10만원이면 3장도 못 삽니다. 이 프로젝트의 존재 이유는 **새 앱 출시 비용을 극단적으로 낮추는 것** — 앱 하나 만드는 데 며칠이 아니라 몇 시간 수준으로 압축하는 게 목표입니다.
 
 ### 이 세 제약이 모든 ADR 의 공통 전제
 
@@ -58,7 +60,7 @@
 
 ## 이 문서의 사용법
 
-이 문서는 **20개의 ADR 카드** 로 구성되어 있으며, 각 카드는 하나의 설계 결정을 다룹니다. 전체를 순서대로 읽는 것이 가장 좋지만, 독자의 상황과 목적에 따라 진입점이 달라질 수 있어요.
+이 문서는 **20개의 ADR 카드** 로 구성되어 있으며, 각 카드는 하나의 설계 결정을 다룹니다. 전체를 순서대로 읽는 것이 가장 좋지만, 독자의 상황과 목적에 따라 진입점이 달라질 수 있습니다.
 
 ### 독자별 추천 경로
 
@@ -98,8 +100,23 @@
 | "슬러그별 schema 를 service-layer 까지 어떻게 격리?" | [`ADR-018: SchemaRoutingDataSource`](./adr-018-schema-routing-datasource.md) |
 | "결제 도메인 (billing/iap/payment) 은 왜 셋으로 나뉘었지?" | [`ADR-019: billing/iap/payment 도메인 분리`](./adr-019-billing-iap-payment-separation.md) |
 | "구독/결제 모델은 어디 두고 webhook 은 어떻게 안전하게?" | [`ADR-020: Subscription/Payment 도메인 모델 + Webhook 보안`](./adr-020-subscription-domain-model.md) |
+| "갱신 실패는 어떻게 처리하지? (정책 / 알림 / 사용자 UX)" | [`ADR-021: 갱신 실패 정책`](./adr-021-renewal-failure-policy.md) |
+| "Apple/Google 의 IAP 서버 알림은 어떻게 받지?" | [`ADR-022: IAP server notifications (Apple/Google)`](./adr-022-iap-server-notifications.md) |
+| "구독 갱신/취소 알림은 어떤 layer 가 발송하지?" | [`ADR-023: 구독 알림 listener 분리`](./adr-023-billing-notification-listener.md) |
+| "이메일 도메인은 왜 별도 모듈로 빼냈지?" | [`ADR-024: email 도메인 추출`](./adr-024-email-domain-extraction.md) |
+| "구독 알림 이메일 채널은 어떻게 라우팅하지?" | [`ADR-025: 구독 알림 이메일 채널`](./adr-025-billing-notification-email-channel.md) |
+| "구독 알림의 메트릭은 어떻게 추적하지?" | [`ADR-026: 구독 알림 메트릭`](./adr-026-billing-notification-metrics.md) |
+| "관리자 / 일반 유저 권한 분기는?" | [`ADR-027: admin role 권한 분리`](./adr-027-admin-role-authorization.md) |
+| "감사 로그는 어떻게 자동 기록?" | [`ADR-028: audit log 도메인 (AOP)`](./adr-028-audit-log-domain.md) |
+| "비밀번호 정책은 어떻게 강제?" | [`ADR-029: 비밀번호 정책 (Bean Validation)`](./adr-029-password-policy.md) |
+| "2FA 는 어떤 알고리즘 / 어떤 구조?" | [`ADR-030: 2FA TOTP (RFC 6238)`](./adr-030-2fa-totp.md) |
+| "유저별 알림 채널 on/off 는?" | [`ADR-031: 알림 사용자 선호도`](./adr-031-notification-preferences.md) |
+| "Google webhook (Pub/Sub) 의 인증은?" | [`ADR-032: Google webhook auth (Bearer JWT)`](./adr-032-google-webhook-auth.md) |
+| "Flyway 의 prod 자동 migrate 가 위험한데?" | [`ADR-033: Flyway Hybrid Policy`](./adr-033-flyway-hybrid-policy.md) |
+| "도메인을 부분만 켜고 끄려면?" | [`ADR-034: Feature Toggle Lite mode`](./adr-034-feature-toggle-lite-mode.md) |
+| "Lite 모드의 사용자 UI 노출은?" | [`ADR-035: Lite mode 사용자 인터페이스`](./adr-035-lite-mode-user-interface.md) |
 
-> **20 개 ADR 모두 작성 완료**. 테마별로 그룹화되어 있으며, 각 카드는 독립적으로 읽을 수 있어요.
+> **35 개 ADR 작성 완료** (ADR-001 ~ ADR-035). 테마별로 그룹화되어 있고 각 카드는 독립적으로 읽을 수 있습니다.
 
 ### ADR 카드의 읽는 법
 
@@ -272,8 +289,105 @@ ADR-020 (Subscription/Payment 도메인 모델 + Webhook 보안)
 
 - [`ADR-019 · billing / iap / payment 도메인 분리`](./adr-019-billing-iap-payment-separation.md)
 - [`ADR-020 · Subscription / Plan / PaymentRecord 도메인 모델 + Webhook 보안`](./adr-020-subscription-domain-model.md)
+- [`ADR-021 · 갱신 실패 정책`](./adr-021-renewal-failure-policy.md)
+- [`ADR-022 · IAP server notifications (Apple/Google)`](./adr-022-iap-server-notifications.md)
+- [`ADR-023 · 구독 알림 listener 분리`](./adr-023-billing-notification-listener.md)
+- [`ADR-025 · 구독 알림 이메일 채널`](./adr-025-billing-notification-email-channel.md)
+- [`ADR-026 · 구독 알림 메트릭`](./adr-026-billing-notification-metrics.md)
+- [`ADR-031 · 알림 사용자 선호도`](./adr-031-notification-preferences.md)
+- [`ADR-032 · Google webhook auth (Bearer JWT)`](./adr-032-google-webhook-auth.md)
 
-**테마 6 의 결론**: 결제 도메인은 "정책 (Billing — subscription/plan)" 위에 "채널 (IAP — Apple/Google, Payment — PG=포트원)" 두 갈래를 두는 layer 구조로 분리. Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블은 [`ADR-005`](./adr-005-db-schema-isolation.md) 정합으로 슬러그별 schema 에 위치. Webhook 은 HMAC SHA-256 + timestamp tolerance + (source, externalId) UNIQUE 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 점유하지 않도록 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 `TransactionTemplate` 으로 phase 마다 자기 트랜잭션 시작.
+**테마 6 의 결론**: 결제 도메인은 "정책 (Billing — subscription/plan)" 위에 "채널 (IAP — Apple/Google, Payment — PG=포트원)" 두 갈래를 두는 layer 구조로 분리. Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블은 [`ADR-005`](./adr-005-db-schema-isolation.md) 정합으로 슬러그별 schema 에 위치. Webhook 은 HMAC SHA-256 + timestamp tolerance + (source, externalId) UNIQUE 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 점유하지 않도록 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 `TransactionTemplate` 으로 phase 마다 자기 트랜잭션 시작. 갱신 실패 / 환불 / 알림 같은 후속 흐름은 ADR-021~026 + ADR-031~032 에서 listener / email channel / metrics / preference / Pub/Sub 인증 등으로 구체화.
+
+### 테마 7 — 보안 / 감사 / 알림 도메인 ✅ 완료
+
+**이 테마가 답하는 물음**: "기본 인증을 넘어 운영 보안과 감사를 어떻게 강화하는가?"
+
+```
+ADR-024 (email 도메인 추출)
+  "메일 발송이 auth 의 부속이 아닌 독립 도메인 (EmailPort)"
+   │
+   │ 관리자 vs 일반 유저는 어떻게 구분?
+   ▼
+ADR-027 (admin role 권한 분리)
+  "@AdminOnly 어노테이션 + role claim 검증"
+   │
+   │ 누가 무엇을 했는지는?
+   ▼
+ADR-028 (audit log 도메인)
+  "AOP 기반 자동 기록 — 사용자 흐름 차단 X"
+   │
+   │ 비밀번호와 2FA 는?
+   ▼
+ADR-029 (password policy) + ADR-030 (2FA TOTP)
+  "Bean Validation 으로 정책 강제 + RFC 6238 표준 준수"
+```
+
+- [`ADR-024 · email 도메인 추출`](./adr-024-email-domain-extraction.md)
+- [`ADR-027 · admin role 권한 분리`](./adr-027-admin-role-authorization.md)
+- [`ADR-028 · audit log 도메인 (AOP)`](./adr-028-audit-log-domain.md)
+- [`ADR-029 · 비밀번호 정책 (Bean Validation)`](./adr-029-password-policy.md)
+- [`ADR-030 · 2FA TOTP (RFC 6238)`](./adr-030-2fa-totp.md)
+
+**테마 7 의 결론**: auth / billing 의 core 흐름과 별도로 *보안 / 감사 / 알림* 도메인을 독립 모듈로 추출. 메일 발송은 EmailPort 로 분리해서 어느 도메인이든 의존 가능하고 (ADR-024), 관리자 권한은 `@AdminOnly` 어노테이션 + JWT role claim 으로 강제 (ADR-027). 감사 로그는 `@Audited` AOP 로 자동 기록되어 *사용자 흐름을 차단하지 않는* 부산물 형태 (ADR-028). 비밀번호 정책 (ADR-029) 과 2FA (ADR-030) 는 표준 라이브러리 (Bean Validation / RFC 6238) 위에서 최소 구현으로 강도를 올림.
+
+### 테마 8 — 운영 정책 / Lite 모드 ✅ 완료
+
+**이 테마가 답하는 물음**: "프로덕션 안정성과 도메인 토글 가능성을 어떻게 양립시키는가?"
+
+```
+ADR-033 (Flyway Hybrid Policy)
+  "dev/test = AUTO migrate, prod = VALIDATE_ONLY (운영자가 수동 적용)"
+   │
+   │ 도메인을 부분만 켜고 끄려면?
+   ▼
+ADR-034 (Feature Toggle Lite mode)
+  "@ConditionalOnProperty 기반 opt-out — 8 도메인 토글 가능"
+   │
+   │ 사용자 UI 에는 어떻게 노출?
+   ▼
+ADR-035 (Lite mode 사용자 인터페이스)
+  ".env.prod 의 토글 상태가 사용자에게 보이는 흐름 정리"
+```
+
+- [`ADR-033 · Flyway Hybrid Policy`](./adr-033-flyway-hybrid-policy.md)
+- [`ADR-034 · Feature Toggle Lite mode`](./adr-034-feature-toggle-lite-mode.md)
+- [`ADR-035 · Lite mode 사용자 인터페이스`](./adr-035-lite-mode-user-interface.md)
+
+**테마 8 의 결론**: 운영 안전성과 유연성을 동시에 확보하는 운영 정책. Flyway 는 dev/test 에서는 자동 migrate, prod 는 validate 만 하고 운영자가 명시적으로 적용 (ADR-033 — `tools/migrate-prod.sh`). Lite 모드는 8 개 도메인 (payment / iap / email / 2fa / audit / push / billing-notification / password-policy) 을 `.env.prod` 의 환경변수로 opt-out 가능 (ADR-034). 사용자 UI 차원의 노출은 ADR-035 에서 별도 정리. *솔로 인디 운영자가 자기 앱의 복잡도에 맞게 도메인을 골라 켜는* 흐름.
+
+---
+
+## L2 ↔ L3 매핑 — 어떤 L2 문서가 어느 ADR 의 결과인가
+
+L2 (구조 / 규약 / API / 운영) 의 각 문서가 어느 ADR 결정의 *구체 구현* 인지를 한눈에 보는 표예요. ADR 만 읽고 나서 *실제 코드 / 운영* 으로 어디로 가야 할지 모를 때 참고하세요.
+
+| L2 문서 | 영역 | 근거 ADR |
+|---|---|---|
+| [`Architecture Reference`](../structure/architecture.md) | 모듈 구조 + 의존 그래프 | ADR-001, 003, 004, 005, 011 |
+| [`Module Dependencies`](../structure/module-dependencies.md) | 의존 매트릭스 + Gradle plugin | ADR-003, 004 |
+| [`Architecture Rules (ArchUnit)`](../structure/architecture-rules.md) | r1~r22 규칙 | ADR-004, 016 |
+| [`Multi-tenant Architecture`](../structure/multitenant-architecture.md) | per-app schema + DataSource | ADR-005, 012, 018 |
+| [`JWT Authentication`](../structure/jwt-authentication.md) | HS256 + AppSlugVerificationFilter | ADR-006, 012, 013 |
+| [`Naming Conventions`](../convention/naming.md) | 네이밍 + DB / API | ADR-016 |
+| [`DTO Factory`](../convention/dto-factory.md) | Entity `to<Dto>()` 패턴 | ADR-016 |
+| [`Exception Handling`](../convention/exception-handling.md) | ErrorCode enum + 도메인별 예외 | ADR-011 |
+| [`Git Workflow`](../convention/git-workflow.md) | Conventional Commits + cherry-pick | ADR-002, 015 |
+| [`API Response Format`](../api-and-functional/api/api-response.md) | `{data, error}` 래퍼 | ADR-011 |
+| [`JSON Contract`](../api-and-functional/api/json-contract.md) | DTO record + ArchUnit r18, r19 | ADR-016 |
+| [`Versioning`](../api-and-functional/api/versioning.md) | Deprecation 프로세스 | ADR-008, 015 |
+| [`Storage 규약`](../api-and-functional/functional/storage.md) | StoragePort + signed URL | ADR-011 |
+| [`Email Verification`](../api-and-functional/functional/email-verification.md) | Resend + EmailPort | ADR-024 |
+| [`Push Notifications`](../api-and-functional/functional/push-notifications.md) | PushPort + DevicePort | ADR-011 |
+| [`Billing / IAP / Payment`](../api-and-functional/functional/billing-iap-payment.md) | 결제 도메인 통합 가이드 | ADR-019, 020, 022, 031, 032, 034 |
+| [`Observability 규약`](../api-and-functional/functional/observability.md) | Loki + Prometheus + appSlug | ADR-007 |
+| [`Rate Limiting`](../api-and-functional/functional/rate-limiting.md) | Bucket4j 정책 | ADR-007 |
+| [`Infrastructure`](../production/deploy/infrastructure.md) | Mac mini + Supabase + NAS MinIO | ADR-007 |
+| [`Runbook`](../production/deploy/runbook.md) | 평시 배포 / 롤백 / 장애 | ADR-007, 033 |
+| [`Flyway Runbook`](../production/deploy/flyway-runbook.md) | prod migrate 절차 | ADR-033 |
+| [`Feature Toggle 운영자 가이드`](../production/operations/feature-toggle.md) | Lite 모드 운영 | ADR-034 |
+| [`Testing Strategy`](../production/test/testing-strategy.md) | 4 층 전략 | ADR-014 |
+| [`Contract Testing`](../production/test/contract-testing.md) | Port 계약 + JSON | ADR-003, 014, 016 |
 
 ---
 

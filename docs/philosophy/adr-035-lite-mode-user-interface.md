@@ -1,5 +1,7 @@
 # ADR-035 — Lite 모드 사용자 인터페이스 (CLI + .env, GUI/결제는 future)
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-002 (Use this template — 심플 출발점), ADR-007 (solo-friendly), ADR-034 (Lite 모드 토글 메커니즘)
 **연관**: 템플릿 판매 — 사용자 UX 결정

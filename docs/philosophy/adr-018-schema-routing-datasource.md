@@ -95,7 +95,7 @@ ADR-013 이 ThreadLocal 라우팅 거부한 두 이유:
 
 ## 채택 이유 (ADR-013 대비 구체화)
 
-- **ADR-005 (앱당 schema 격리) 의 진짜 보장** — 이전엔 controller 만 분리됐고 데이터는 core 통합
+- **ADR-005 (앱당 schema 격리) 의 진짜 보장** — controller 만 분리한 대안은 데이터가 core 통합 상태로 남음 (격리 미달)
 - **service / `@Transactional` 변경 0** — 단일 service Bean 그대로. 시그니처에 slug 파라미터 추가 안 함
 - **각 앱 module 의 `<slug>DataSource` Bean 활용** — 데드 코드 → 라우팅 target
 - **filter 한 군데서 set/clear** — context 누수 위험 통제 가능

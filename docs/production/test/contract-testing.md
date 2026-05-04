@@ -1,5 +1,7 @@
 # 계약 테스트 (Contract Testing)
 
+> **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~12분
+
 이 문서는 `template-spring` 의 **3층 테스트 구조** 와 계약 테스트 작성·강제 규약을 정의합니다.
 
 ---

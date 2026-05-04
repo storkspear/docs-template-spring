@@ -1,12 +1,14 @@
 # DTO 팩토리 컨벤션
 
-이 문서는 DTO 의 생성·변환 패턴 규약을 정의합니다.
+> **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~5분
+
+이 문서는 DTO 의 생성·변환 패턴 규약을 정의해요.
 
 ---
 
 ## 기본 원칙
 
-**생성자 우선.** record 생성자가 대부분의 경우 충분합니다.
+**생성자 우선이에요.** record 생성자가 대부분의 경우 충분해요.
 
 ```java
 public record UserSummary(long id, String email, String displayName, boolean emailVerified) {}
@@ -15,7 +17,7 @@ public record UserSummary(long id, String email, String displayName, boolean ema
 new UserSummary(1L, "a@b.com", "홍길동", true);
 ```
 
-팩토리 메서드(`from`/`of`/`with`) 는 특정 조건에서만 사용. builder 패턴은 **금지**.
+팩토리 메서드 (`from`/`of`/`with`) 는 특정 조건에서만 사용합니다. builder 패턴은 **금지** 예요.
 
 ---
 
@@ -23,7 +25,7 @@ new UserSummary(1L, "a@b.com", "홍길동", true);
 
 **허용 조건**:
 - 소스가 **단일 DTO** (또는 api 모듈 내 다른 DTO)
-- Entity 를 받는 `from` 은 **절대 금지** (api 는 Entity 를 참조할 수 없음 — Item 2 규칙 9, 11)
+- Entity 를 받는 `from` 은 **절대 금지** (api 는 Entity 를 참조할 수 없어요 — Item 2 규칙 9, 11)
 
 ```java
 // ✓ 허용 — Profile → Summary 축소 projection
@@ -46,7 +48,7 @@ public record UserSummary(long id, String email, String displayName, boolean ema
 
 ## `of(...)` — 정규화/validation 포함 시만
 
-**허용 조건**: 단순 생성자 대체 **금지**. 입력 정규화 또는 검증 로직을 포함할 때만.
+**허용 조건** — 단순 생성자 대체는 **금지** 예요. 입력 정규화 또는 검증 로직을 포함할 때만 사용합니다.
 
 ```java
 // ✓ 허용 — 정규화 필요
@@ -70,7 +72,7 @@ public record Email(String value) {
 
 ## `with<Field>(value)` — 필드별 수동 작성
 
-**허용 조건**: 자주 업데이트되는 필드만. **전체 wither 자동화 금지**.
+**허용 조건** — 자주 업데이트되는 필드만 만듭니다. **전체 wither 자동화는 금지** 예요.
 
 ```java
 // ✓ 허용 — displayName 갱신이 자주 쓰임
@@ -91,15 +93,15 @@ public record UserProfile(
 
 ## Builder 패턴 — 금지
 
-- record 는 생성자로 충분
-- 필드가 많아 가독성 이슈 → **DTO 분할** (composition), builder 아님
-- 필수 + 선택 필드 혼합 → `of` 팩토리로 처리
+- record 는 생성자로 충분해요
+- 필드가 많아 가독성 이슈가 생기면 → **DTO 분할** (composition) 로 해결해요. builder 가 아니에요
+- 필수 + 선택 필드 혼합이면 → `of` 팩토리로 처리해요
 
 ---
 
 ## Entity → DTO 변환 — Entity 메서드 (Mapper 클래스 금지)
 
-**Mapper 클래스 폐기**. Entity 가 자기 표현 방법을 직접 제공:
+**Mapper 클래스는 폐기예요.** Entity 가 자기 표현 방법을 직접 제공합니다.
 
 ```java
 // core-<x>-impl/src/main/java/.../entity/User.java
@@ -140,10 +142,10 @@ public UserSummary getSummary(long id) {
 
 ### 왜 Mapper 를 폐기하는가
 
-1. 현재 매핑이 전부 1:1 — Mapper 클래스가 제공하는 "격리 가치" 실체 없음
-2. Entity 메서드로 충분 — 의존 하나 줄고 호출 사이트 읽기 쉬움
-3. 솔로 규모 — Mapper 가 막아주는 "팀 간 분산 작성" 이슈 부재
-4. 도메인당 DTO 3~5개는 Entity 비대화 없이 감당 가능
+1. 현재 매핑이 전부 1:1 이라 Mapper 클래스가 제공하는 "격리 가치" 의 실체가 없어요
+2. Entity 메서드로 충분해요 — 의존이 하나 줄고 호출 사이트가 읽기 쉬워져요
+3. 솔로 규모라서 Mapper 가 막아주는 "팀 간 분산 작성" 이슈가 없어요
+4. 도메인당 DTO 3~5개는 Entity 비대화 없이 감당이 가능해요
 
 ### 아키텍처적 정당성
 
@@ -155,9 +157,9 @@ public UserSummary getSummary(long id) {
 
 ### 복잡한 매핑의 처리
 
-**매핑에 로직 포함 시** (조건, coalesce, enrichment):
-- 여전히 Entity 메서드에 두되 private helper 로 분할
-- 여러 Entity 조합 필요 시 → Service 내부에서 조립 (Mapper 클래스 없이)
+**매핑에 로직 포함 시** (조건, coalesce, enrichment) 처리 방법이에요.
+- 여전히 Entity 메서드에 두되 private helper 로 분할해요
+- 여러 Entity 조합이 필요하면 → Service 내부에서 조립해요 (Mapper 클래스 없이)
 
 ```java
 // 복잡 매핑은 Service 에서 조립
@@ -174,15 +176,15 @@ public DetailedProfile getDetailedProfile(long userId) {
 
 ### Entity 비대화 억제
 
-- Entity 하나가 DTO 5+ 종류 표현하면 `to<Dto>` 메서드가 뚱뚱해짐
-- **현재 max**: `User` → 3개 (Summary, Profile, Account). 감당 가능.
-- 미래에 5+ 초과 시 **DTO 구조 재평가** 시그널. Mapper 부활이 아니라 DTO 재설계.
+- Entity 하나가 DTO 5+ 종류를 표현하면 `to<Dto>` 메서드가 뚱뚱해져요
+- **현재 max** — `User` → 3개 (Summary, Profile, Account). 감당이 가능해요.
+- 미래에 5+ 를 초과하면 **DTO 구조 재평가** 시그널이에요. Mapper 부활이 아니라 DTO 재설계로 해결해요.
 
 ---
 
 ## ArchUnit 강제
 
-`*Mapper` 이름의 공개 클래스 생성은 **ArchUnit 규칙 22** 로 금지. 자세한 규칙은 `module-dependencies.md` 참조.
+`*Mapper` 이름의 공개 클래스 생성은 **ArchUnit 규칙 22** 로 금지됩니다. 자세한 규칙은 [`module-dependencies.md`](../structure/module-dependencies.md) 를 참조하세요.
 
 ---
 
@@ -191,7 +193,7 @@ public DetailedProfile getDetailedProfile(long userId) {
 ### 새 DTO 추가
 - [ ] record 로 작성
 - [ ] Request DTO 는 validation 어노테이션
-- [ ] 접미사 규약 준수 (`naming.md`)
+- [ ] 접미사 규약 준수 ([`naming.md`](./naming.md))
 - [ ] 생성자로 충분한지 확인 — 굳이 팩토리 메서드 안 만들기
 
 ### 새 팩토리 메서드 추가 시
@@ -210,6 +212,7 @@ public DetailedProfile getDetailedProfile(long userId) {
 - [`Naming Conventions`](./naming.md) — DTO 네이밍 규칙
 - [`record vs class 선택 기준`](./records-and-classes.md) — record vs class 선택 기준
 - [`JSON 계약 규약 (JSON Contract)`](../api-and-functional/api/json-contract.md) — JSON 직렬화 정책
+- [`Architecture Rules (ArchUnit)`](../structure/architecture-rules.md) — r22 (NO_MAPPER_CLASSES)
 - [`ADR-003 · -api / -impl 분리`](../philosophy/adr-003-api-impl-split.md)
 - [`ADR-011 · 레이어드 + 포트/어댑터`](../philosophy/adr-011-layered-port-adapter.md)
 - [`ADR-016 · DTO Mapper 금지`](../philosophy/adr-016-dto-mapper-forbidden.md)

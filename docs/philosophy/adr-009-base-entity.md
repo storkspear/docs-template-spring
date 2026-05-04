@@ -283,7 +283,7 @@ BaseEntity 는 JPA 어노테이션에 의존 (`@MappedSuperclass`, `@Id`, `@Colu
 
 ### 엔티티 최초 저장 직전 Set 사용 시 주의
 
-초기에 아래 코드가 문제를 일으킨 적이 있었어요.
+다음 코드가 문제를 일으키는 사례:
 
 ```java
 Set<User> pendingUsers = new HashSet<>();

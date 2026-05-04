@@ -1,6 +1,8 @@
 # 모듈 의존 규칙 (Module Dependencies)
 
-이 문서는 `template-spring` 의 **모듈 간 의존 허용 매트릭스** 와 강제 메커니즘을 정의합니다.
+> **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~10분
+
+이 문서는 `template-spring` 의 **모듈 간 의존 허용 매트릭스** 와 강제 메커니즘을 정의해요.
 
 ---
 
@@ -14,7 +16,7 @@
 | **apps/*** | ✓ | ✓ | ✗ | ✗ (다른 apps) | ✗ |
 | **bootstrap** | ✓ | ✓ | ✓ | ✓ | — |
 
-**Test 구성 예외**: `core-*-impl` 의 `testImplementation` 은 다른 `core-*-impl` 참조 가능 (Flyway migration 등 test 인프라 조립용). main 규칙만 강제.
+**Test 구성 예외** — `core-*-impl` 의 `testImplementation` 은 다른 `core-*-impl` 을 참조할 수 있습니다 (Flyway migration 등 test 인프라 조립용). main 규칙만 강제합니다.
 
 ---
 
@@ -25,7 +27,7 @@
 | `common-logging` | MDC 필터, logback 포맷, 로깅 autoconfiguration |
 | `common-web` | ApiResponse / ApiError, GlobalExceptionHandler, 예외 계층, pagination + search DTO (QueryDsl 비의존) |
 | `common-security` | JWT (HS256), Spring Security stateless, @CurrentUser, AppSlugVerificationFilter |
-| `common-persistence` | DataSource + JPA + QueryDsl + BaseEntity 를 포괄하는 persistence infrastructure 모듈. `AbstractAppDataSourceConfig` 로 앱별 DataSource / EMF / TransactionManager / Flyway 빈 wiring 지원 (Item 10b). QueryDsl 동적 쿼리 (`QueryDslPredicateBuilder`, `QueryDslSortBuilder`, `QueryUtil`) + `BaseEntity` (id, createdAt, updatedAt, audit 콜백) 도 제공. |
+| `common-persistence` | DataSource + JPA + QueryDsl + BaseEntity 를 포괄하는 persistence infrastructure 모듈. `AbstractAppDataSourceConfig` 로 앱별 DataSource / EMF / TransactionManager / Flyway 빈 wiring 지원 (Item 10b). QueryDsl 동적 쿼리 (`QueryDslPredicateBuilder`, `QueryDslSortBuilder`, `QueryUtil`) + `BaseEntity` (id, createdAt, updatedAt, audit 콜백) 도 제공 |
 | `common-testing` | Testcontainers Postgres, AbstractIntegrationTest, ArchUnit 규칙 |
 
 ---
@@ -34,7 +36,7 @@
 
 ### 1차: Gradle Convention Plugin (configuration 단계)
 
-`build-logic/` 에 역할별 plugin 정의. 각 모듈 `build.gradle` 은 해당 plugin 한 줄만 선언.
+`build-logic/` 에 역할별 plugin 이 정의되어 있습니다. 각 모듈 `build.gradle` 은 해당 plugin 한 줄만 선언합니다.
 
 | 역할 | Plugin | 허용 의존 |
 |---|---|---|
@@ -44,13 +46,13 @@
 | apps/* | `factory.app-module` | `:common:*`, `:core:core-*-api` (impl/다른 apps 명시 금지) |
 | bootstrap | `factory.bootstrap-module` | 모든 의존 허용 |
 
-**검증 시점**: Gradle configuration 단계. 위반 시 `GradleException` throw — 컴파일도 시작 안 함.
+**검증 시점** — Gradle configuration 단계에서 검증합니다. 위반하면 `GradleException` 을 throw 해서 컴파일도 시작하지 않습니다.
 
-**검증 범위**: main 구성 (api, implementation, compileOnly, runtimeOnly). test/testFixtures 구성은 제외.
+**검증 범위** — main 구성 (api, implementation, compileOnly, runtimeOnly) 만 강제합니다. test/testFixtures 구성은 제외됩니다.
 
 ### 2차: ArchUnit (CI 테스트 단계)
 
-`common-testing/src/main/java/.../architecture/ArchitectureRules.java` 에 canonical 정의 (22개 규칙, r1~r22). `BootstrapArchitectureTest` 가 전체 classpath 스캔. 전체 목록은 [`architecture-rules.md`](./architecture-rules.md) 참고.
+`common-testing/src/main/java/.../architecture/ArchitectureRules.java` 에 canonical 정의 (22개 규칙, r1~r22) 가 있습니다. `BootstrapArchitectureTest` 가 전체 classpath 를 스캔합니다. 전체 목록은 [`architecture-rules.md`](./architecture-rules.md) 를 참고하세요.
 
 ---
 
@@ -170,7 +172,7 @@ dependencies {
 See docs/structure/module-dependencies.md
 ```
 
-→ 해결: `project(':core:core-auth-impl')` 을 `project(':core:core-auth-api')` 로 교체.
+→ 해결: `project(':core:core-auth-impl')` 을 `project(':core:core-auth-api')` 로 교체하세요.
 
 **ArchUnit 단계**:
 ```
@@ -179,15 +181,15 @@ Rule 'r9: core-*-api must not depend on JPA/Hibernate' was violated (1 time):
   <jakarta.persistence.Entity> in (SomeDto.java:0)
 ```
 
-→ 해결: api DTO 에서 JPA 어노테이션/타입 제거. Entity → DTO 변환은 impl 의 Mapper 가 담당 (Item 4 결정 참조).
+→ 해결: api DTO 에서 JPA 어노테이션/타입을 제거하세요. Entity → DTO 변환은 impl 의 Mapper 가 담당해요 (Item 4 결정 참조).
 
 ---
 
 ## 규칙을 우회하고 싶을 때
 
-**답: 우회하지 말고 논의하세요.** 예외가 정말 필요하면 plugin (build-logic) 또는 ArchitectureRules 자체를 수정. 개별 `@ArchIgnore` 나 `// @SuppressWarnings` 로 숨기지 않음.
+**답 — 우회하지 말고 논의하세요.** 예외가 정말 필요하면 plugin (build-logic) 또는 ArchitectureRules 자체를 수정합니다. 개별 `@ArchIgnore` 나 `// @SuppressWarnings` 로 숨기지 않습니다.
 
-이유: 규칙을 우회하는 순간 5중 방어선의 "기계적 강제" 가 무너지고, 3개월 뒤엔 예외가 30개가 됩니다.
+이유 — 규칙을 우회하는 순간 5중 방어선의 "기계적 강제" 가 무너지고, 3개월 뒤엔 예외가 30개가 됩니다.
 
 ---
 
@@ -197,4 +199,6 @@ Rule 'r9: core-*-api must not depend on JPA/Hibernate' was violated (1 time):
 - [`ADR-004 · Gradle + ArchUnit`](../philosophy/adr-004-gradle-archunit.md)
 - [`ADR-014 · Delegation mock 금지`](../philosophy/adr-014-no-delegation-mock.md)
 - [`Architecture Reference`](./architecture.md) — "의존 규칙" 및 6중 방어선
+- [`Architecture Rules (ArchUnit r1~r22)`](./architecture-rules.md) — 전체 22 규칙 목록
 - [`계약 테스트 (Contract Testing)`](../production/test/contract-testing.md) — Port 계약 테스트
+- [`Multitenant Architecture`](./multitenant-architecture.md) — schema 격리 + DataSource 설계

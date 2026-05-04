@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-인증은 앱마다 **자기 Controller** 가 있어요. sumtally 는 `SumtallyAuthController` 가 `/api/apps/sumtally/auth/*` 를 처리하고, rny 는 `RnyAuthController` 가 `/api/apps/rny/auth/*` 를 처리합니다. 그런데 실제 **로직은 한 곳에 있어요** — `core-auth-impl` 의 `AuthServiceImpl` (`AuthPort` 구현) 이 11개 메서드로 인증 도메인 전체를 담당. 각 앱 Controller 는 **얇은 HTTP 어댑터** 로 `AuthPort` 를 주입받아 호출만 합니다. 즉 **core-auth-impl 은 "앱이 가져다 쓰는 라이브러리"** 역할이고, Controller 런타임 등록은 앱 모듈이 담당해요.
+인증은 앱마다 **자기 Controller** 가 있습니다. sumtally 는 `SumtallyAuthController` 가 `/api/apps/sumtally/auth/*` 를 처리하고, rny 는 `RnyAuthController` 가 `/api/apps/rny/auth/*` 를 처리합니다. 그런데 실제 **로직은 한 곳에 있어요** — `core-auth-impl` 의 `AuthServiceImpl` (`AuthPort` 구현) 이 11개 메서드로 인증 도메인 전체를 담당. 각 앱 Controller 는 **얇은 HTTP 어댑터** 로 `AuthPort` 를 주입받아 호출만 합니다. 즉 **core-auth-impl 은 "앱이 가져다 쓰는 라이브러리"** 역할이고, Controller 런타임 등록은 앱 모듈이 담당해요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -310,9 +310,9 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 ### "런타임 미등록 Controller" 는 3중 방어로 표시하기
 
-처음에는 주석 한 줄 ("이 Controller 는 런타임에 등록되지 않습니다") 만 달았어요. 그런데 팀 외부 리뷰어가 `@RestController` 만 보고 "엔드포인트 경로가 이상한데요" 로 피드백을 남김. 주석이 보이는 전제는 **그 파일을 열어봤을 때** 인데, IDE 탐색이나 Swagger 만 보는 관점에선 주석이 안 읽힘.
+주석 한 줄 ("이 Controller 는 런타임에 등록되지 않습니다") 만으로는 부족합니다. `@RestController` 만 보고 "엔드포인트 경로가 이상한데요" 라는 피드백이 나올 수 있어요 — 주석은 *그 파일을 열어봤을 때만* 보이고, IDE 탐색이나 Swagger 만 보는 관점에선 안 읽혀요.
 
-이후 3중 표시:
+그래서 3중 표시:
 
 1. **파일 상단 JavaDoc** — 오픈 시점에 즉시 보임
 2. **Bean 등록 차단** — `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 를 **하지 않음** (기술적 실상)
@@ -322,15 +322,15 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 ### AuthPort 메서드 수를 "늘어도 괜찮은" 모양으로 설계하기
 
-초기에는 `AuthPort` 에 메서드 5개 정도로 시작했다가 (signup / signin / refresh / withdraw / verifyEmail) 시간이 지나면서 11개로 늘어남 — 비밀번호 리셋 2개, 재전송 1개, 비밀번호 변경 1개, 소셜 2개 추가.
+`AuthPort` 의 메서드 17 개는 인증 도메인의 자연 책임 범위입니다 — signUp / signIn (email + 소셜 4) (6) + refresh (1) + withdraw (1) + 비밀번호 (request/confirm reset + change) (3) + 이메일 인증 (verify + resend) (2) + 2FA TOTP (setup / verify / disable / login) (4).
 
-이 과정에서 "Port 를 쪼갤까?" 고민했어요 — `EmailAuthPort`, `SocialAuthPort`, `PasswordPort`, `EmailVerificationPort` 등으로.
+쪼개는 대안 (`EmailAuthPort`, `SocialAuthPort`, `PasswordPort`, `EmailVerificationPort`, `TotpAuthPort`) 의 문제:
 
-결국 **쪼개지 않기로** 결정:
-
-- 쪼개면 Controller 가 4개의 Port 를 주입 — DI 복잡도 증가
+- 쪼개면 Controller 가 5+ Port 를 주입 — DI 복잡도 증가
 - **"앱이 필요로 하는 인증 기능 전체"** 가 하나의 단위 — 쪼개는 기준이 인위적
-- 메서드 11개는 관리 가능한 크기. 30개가 되면 그때 쪼개면 됨 ([`YAGNI`](./README.md))
+- 메서드 17 개는 관리 가능한 크기. 30 개에 도달하면 그때 쪼개면 충분 ([`YAGNI`](./README.md))
+
+인증 도메인은 메서드 수를 강제로 줄이는 것보다 **동일 책임 그룹화** 가 적합해요.
 
 **교훈**: Port 의 메서드 수를 미리 걱정해서 쪼개지 말 것. "하나의 소비자 관점에서 일관된 단위" 를 유지하는 게 우선. 쪼개는 건 **관리 한계에 이르렀을 때** 해도 늦지 않음.
 

@@ -159,7 +159,7 @@ UserSummary summary = user.toSummary();  // 간결, 자연스러움
 
 ### 왜 Option 4 를 기계 강제 (ArchUnit r22) 하는가
 
-Option 4 를 **사람 관행** 으로만 유지하면 어느 날 실수로 누군가 `UserMapper.java` 를 만들 수 있어요. 이게 한 번 생기면:
+Option 4 를 **사람 관행** 으로만 유지하면 어느 날 실수로 누군가 `UserMapper.java` 를 만들 수 있습니다. 이게 한 번 생기면:
 - 다른 개발자가 "아, 이 프로젝트는 Mapper 쓰는구나" 하고 `ExpenseMapper` 도 만듦
 - Mapper 가 번식 → Entity 의 `to<Dto>()` 패턴이 희미해짐
 - **원래 규칙이 무너짐**
@@ -223,7 +223,7 @@ public class User extends BaseEntity {
 
 ### `api` 모듈의 DTO 정적 팩토리 — 허용 조건
 
-가끔 DTO 자체에 `from(...)` 같은 정적 팩토리가 필요할 때가 있어요. 이건 **조건부 허용**:
+가끔 DTO 자체에 `from(...)` 같은 정적 팩토리가 필요할 때가 있습니다. 이건 **조건부 허용**:
 
 **허용되는 케이스** — 정규화/검증이 포함된 경우:
 
@@ -286,9 +286,9 @@ Class <com.factory.core.user.impl.UserMapper> should be public
 
 **왜 interface 는 제외?** — Spring 의 `ServletContextMapper`, MapStruct 의 `@Mapper interface` 같은 **외부 라이브러리 네이밍** 과 충돌 피하려고. 우리가 만드는 게 아닌 것은 통과. 우리는 class 를 만들 이유가 없음 (Entity 메서드로 충분).
 
-### Item 4 에서 UserMapper 삭제 사건
+### UserMapper → Entity 메서드 전환 패턴
 
-2026 초반 Item 4 에서 실제로 `UserMapper` + `UserMapperTest` 를 전체 삭제하고 Entity 메서드로 전환했어요. 커밋 `e203872` 참조.
+UserMapper 정적 클래스를 Entity 메서드 (`user.toSummary()`) 로 전환하는 패턴 예시.
 
 Before:
 ```java
@@ -361,21 +361,18 @@ public AuthResponse signInWithEmail(SignInRequest req) {
 
 ## 교훈
 
-### `UserMapper` 실험 후 철회 사건 (2026 초반)
+### `UserMapper` 패턴 vs Entity 메서드
 
-프로젝트 초기에는 `UserMapper` 를 썼었어요. "Spring Boot 에서는 Mapper 가 표준" 이라는 관행적 판단.
+`UserMapper` 패턴은 "Spring Boot 에서는 Mapper 가 표준" 이라는 관행으로 자주 채택됩니다. 그러나 다음 4 가지 문제가 있어요:
 
-하지만 3개월 사용 후 아래 패턴이 반복되기 시작했습니다:
-- 새 DTO 추가 시 `UserMapper` 에 메서드 추가
-- Mapper 는 Entity 의 getter 를 모두 호출 → `user.getId()`, `user.getEmail()` 등
-- Entity 는 DTO 존재를 모름 → 역방향 의존
+- 새 DTO 추가 시 `UserMapper` 에 메서드 추가 — 변경 지점이 두 곳 (Entity + Mapper)
+- Mapper 가 Entity 의 getter 를 모두 호출 (`user.getId()`, `user.getEmail()` …) — getter 노출 강제
+- Entity 는 DTO 존재를 모름 → **역방향 의존** 의 부재가 오히려 응집도 저하 (DTO 변환은 Entity 의 자연 책임)
+- 조립 로직이 단순할수록 **중간 레이어의 가치** 가 옅어짐 — "왜 `user.toSummary()` 가 안 되지?" 라는 질문이 드러나는 지점
 
-어느 순간 "근데 왜 `user.toSummary()` 가 안 되지?" 라는 질문이 나왔어요. Mapper 의 역할이 "Entity 가 getter 를 제공 → Mapper 가 조립" 인데, 이 "조립" 이 너무 단순해서 **중간 레이어의 가치** 가 없어 보였거든요.
-
-Item 4 에서 `UserMapper` 전체 삭제 + Entity 메서드 전환 (커밋 `e203872`). 결과:
-- 코드 라인 수 **150+ 줄 감소**
-- 호출 사이트 15곳 모두 간결화
-- 이후 새 DTO 추가 시 Entity 의 `to<Dto>()` 추가만으로 끝
+Entity 메서드 전환의 효과:
+- 코드 라인 수 절감 (Mapper 클래스 + 호출 사이트 모두 간결화)
+- 새 DTO 추가 시 Entity 의 `to<Dto>()` 추가만으로 끝
 
 **교훈**: "관행" 은 출발점일 뿐 정답이 아닙니다. **우리 스케일에 맞는지** 주기적으로 검증해야 해요. 특히 솔로 인디에서는 **레이어 수가 적을수록** 유지보수 부담 작음.
 

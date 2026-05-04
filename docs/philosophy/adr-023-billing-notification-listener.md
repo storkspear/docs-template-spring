@@ -1,5 +1,7 @@
 # ADR-023 — 결제 알림 listener (push 우선, email 별도 사이클)
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-019 (billing/iap/payment 분리), ADR-021 (renewal 실패 정책), ADR-022 (IAP server notifications)
 **연관**: J 사이클 — 사용자 알림 발송

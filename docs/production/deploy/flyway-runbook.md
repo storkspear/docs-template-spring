@@ -32,7 +32,7 @@ Spring Boot 부팅 (bootstrap JAR)
 3) Spring Bean 등록 → 트래픽 받기 시작
 ```
 
-**핵심**: 운영자가 마이그레이션 SQL 을 별도로 실행하지 **않습니다**. 부팅 시 자동 migrate.
+**핵심** — dev/test 에서는 운영자가 마이그레이션 SQL 을 별도로 실행하지 **않습니다**. 부팅 시 Flyway 가 자동으로 migrate 를 수행합니다. prod 는 다른 흐름으로 동작하니까 §4 를 참고하세요.
 
 ---
 
@@ -52,7 +52,7 @@ psql $DB_URL -c "SELECT version, description, success, installed_on
                  ORDER BY installed_rank DESC LIMIT 10;"
 ```
 
-`success = TRUE` 인 행만 정상 반영. `FALSE` 인 행이 있으면 마지막 마이그레이션 실패 → 복구 필요.
+`success = TRUE` 인 행만 정상 반영된 상태입니다. `FALSE` 인 행이 있으면 마지막 마이그레이션이 실패한 거예요 → 복구가 필요합니다.
 
 ### 2-2. 마이그레이션 매핑
 
@@ -159,19 +159,23 @@ ADR-033 의 hybrid 정책에 따라 prod 는 `validate-only` — `repair-on-migr
 
 ## 4. 운영 마이그레이션 (ADR-033 — Hybrid)
 
-prod 부팅 시 Flyway 는 **validate 만** 수행 — schema 변경 X. 운영자가 deploy 전에 직접 적용.
+prod 부팅 시 Flyway 는 **validate 만** 수행합니다. schema 변경은 일어나지 않아요. 운영자가 deploy 전에 직접 적용해야 합니다.
 
-### 4-1. 정상 흐름 — `tools/migrate-prod.sh` 사용
+### 4-1. 정상 흐름 — `factory prod migrate` (또는 `tools/migrate-prod.sh`)
+
+`factory` wrapper 의 `prod migrate <slug> <V*>` 명령이 `tools/migrate-prod.sh` 를 호출합니다. 둘 중 어느 쪽을 써도 동일하게 동작해요.
 
 ```bash
 # 1. V스크립트 작성 (보통 PR 안에서)
 vi apps/app-gymlog/src/main/resources/db/migration/gymlog/V005__add_foo.sql
 
 # 2. dry-run 으로 미리보기 (실제 적용 X)
+<your-backend> prod migrate gymlog V005__add_foo --dry-run
+# 또는 직접:
 bash tools/migrate-prod.sh gymlog apps/app-gymlog/src/main/resources/db/migration/gymlog/V005__add_foo.sql --dry-run
 
 # 3. 실제 적용 (prompt 확인 후 진행)
-bash tools/migrate-prod.sh gymlog apps/app-gymlog/src/main/resources/db/migration/gymlog/V005__add_foo.sql
+<your-backend> prod migrate gymlog V005__add_foo
 
 # 4. 결과 확인 (스크립트가 자동 출력)
 #    installed_rank | version | description | success | installed_on
@@ -250,5 +254,6 @@ java -jar bootstrap.jar --spring.flyway.locations=classpath:db/migration --sprin
 
 - [`Multitenant Architecture`](../../structure/multitenant-architecture.md) — 슬러그 schema 격리
 - [`Architecture`](../../structure/architecture.md) — 모듈별 마이그레이션 위치
+- [`CLI 가이드`](../../start/cli-guide.md) — `factory prod migrate` 명령 매트릭스
 - [`ADR-033 · Flyway Hybrid Policy`](../../philosophy/adr-033-flyway-hybrid-policy.md) — 결정 근거 + alternatives
-- `tools/migrate-prod.sh` — prod 적용 자동화 도구
+- `tools/migrate-prod.sh` — prod 적용 자동화 도구 (factory wrapper 의 본체)

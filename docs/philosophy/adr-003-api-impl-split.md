@@ -6,13 +6,13 @@
 
 ## 결론부터
 
-REST API 서버와 클라이언트를 떠올려보세요. 클라이언트는 **API 스펙 (OpenAPI 문서)** 만 알고 HTTP 호출을 합니다. 서버 내부가 PostgreSQL 을 쓰는지 MongoDB 를 쓰는지, Java 로 짜였는지 Go 로 짜였는지 전혀 신경 쓰지 않아요. 같은 원리를 **한 JVM 안의 모듈 간 호출** 에 적용한 것이 `-api` / `-impl` 분리예요. `-api` 모듈은 "스펙과 DTO", `-impl` 은 "내부 구현". 앱 모듈은 스펙만 보고 호출합니다.
+REST API 서버와 클라이언트를 떠올려보세요. 클라이언트는 **API 스펙 (OpenAPI 문서)** 만 알고 HTTP 호출을 합니다. 서버 내부가 PostgreSQL 을 쓰는지 MongoDB 를 쓰는지, Java 로 짜였는지 Go 로 짜였는지 전혀 신경 쓰지 않습니다. 같은 원리를 **한 JVM 안의 모듈 간 호출** 에 적용한 것이 `-api` / `-impl` 분리예요. `-api` 모듈은 "스펙과 DTO", `-impl` 은 "내부 구현". 앱 모듈은 스펙만 보고 호출합니다.
 
 > Java 표준 라이브러리로 비유하면 `java.sql.Connection` (인터페이스, 모든 앱이 의존) vs `org.postgresql.jdbc.PgConnection` (구현체, 특정 벤더). 앱은 Connection 만 알고, 실제 구현체는 런타임에 주입. 같은 패턴입니다.
 
 ## 왜 이런 고민이 시작됐나?
 
-[`ADR-001`](./adr-001-modular-monolith.md) 에서 "특정 앱이 성공해서 마이크로서비스로 추출할 때 코드 변경 0 으로 가능하다" 고 약속했어요. 이 약속이 **실제로 지켜지려면** 지금 이 시점에서 구조적 장치가 있어야 합니다. 아무 장치 없이 써놓은 코드를 미래에 추출하려고 하면 수백 곳 리팩토링이 필요해요.
+[`ADR-001`](./adr-001-modular-monolith.md) 에서 "특정 앱이 성공해서 마이크로서비스로 추출할 때 코드 변경 0 으로 가능하다" 고 약속했어요. 이 약속이 **실제로 지켜지려면** 지금 이 시점에서 구조적 장치가 있어야 합니다. 아무 장치 없이 써놓은 코드를 미래에 추출하려고 하면 수백 곳 리팩토링이 필요합니다.
 
 구체적인 물음은 이거예요.
 
@@ -198,7 +198,7 @@ public class ResendEmailAdapter implements EmailPort {
 
 ### "extraction-critical" 이 무슨 뜻인가 — r9 의 특별함
 
-r9 는 규칙 이름에 **`extraction-critical`** 라벨이 붙어있어요. 이게 왜 특별한지 설명하면 `-api`/`-impl` 분리의 본질이 명확해집니다.
+r9 는 규칙 이름에 **`extraction-critical`** 라벨이 붙어있습니다. 이게 왜 특별한지 설명하면 `-api`/`-impl` 분리의 본질이 명확해집니다.
 
 가정: 어느 날 `-api` 모듈이 JPA 에 의존하도록 허용된다고 합시다.
 
@@ -277,13 +277,13 @@ references class <com.factory.core.user.impl.entity.User>
 
 ## 교훈
 
-**2026-04-20 — `core-auth-impl/controller/AuthController` 의 런타임 등록 해제 사건** ([`ADR-001`](./adr-001-modular-monolith.md) 과 연결).
+**`core-auth-impl/controller/AuthController` 의 런타임 등록 해제** ([`ADR-001`](./adr-001-modular-monolith.md) 과 연결).
 
-이 분리 구조에서는 Controller 조차 **Port 의 사용자** 입니다. Controller 는 Port 를 주입받아 호출할 뿐 Port 를 구현하지 않아요. 그래서 Controller 가 `-impl` 에 있는 것 자체는 괜찮았는데, 문제는 **Controller 를 런타임에 어디서 등록할 것인가** 였어요.
+이 분리 구조에서는 Controller 조차 **Port 의 사용자** 입니다. Controller 는 Port 를 주입받아 호출할 뿐 Port 를 구현하지 않습니다. 그래서 Controller 가 `-impl` 에 있는 것 자체는 괜찮은데, 문제는 **Controller 를 런타임에 어디서 등록할 것인가** 입니다.
 
-처음에는 `core-auth-impl` 의 `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 로 등록 → 공용 `/api/core/auth/*` 경로. 하지만 이 방식은 "모든 앱이 같은 Controller 공유 → 어느 앱 요청인지 런타임 구분 필요 → ThreadLocal + AbstractRoutingDataSource" 라는 복잡도를 불렀어요.
+**대안 — `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 로 등록** 하면 공용 `/api/core/auth/*` 경로가 됩니다. 그런데 이 방식은 "모든 앱이 같은 Controller 공유 → 어느 앱 요청인지 런타임 구분 필요 → ThreadLocal + AbstractRoutingDataSource" 라는 복잡도를 부릅니다.
 
-2026-04-20 에 이걸 수정 — `AuthController` 는 이제 `-impl` 에 **스캐폴딩 소스** 로만 존재, 런타임 등록 안 함. 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 Port 를 주입받아 사용.
+**채택** — `AuthController` 는 `-impl` 에 **스캐폴딩 소스** 로만 존재, 런타임 등록 안 함. 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 Port 를 주입받아 사용해요.
 
 **교훈**: `-api` / `-impl` 분리는 **모듈 내부 책임 경계** 도 재조정하게 만듭니다. "무엇이 Port 구현체인가", "무엇이 Port 사용자인가" 구분이 명확해질수록 런타임 구조도 단순해져요.
 

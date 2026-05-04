@@ -4,7 +4,7 @@
 
 이 문서는 모든 REST API 의 요청과 응답 포맷을 정의합니다.
 
-**일관된 포맷의 목적** 은 클라이언트(Flutter 앱) 가 어느 엔드포인트든 동일한 파싱 로직으로 처리할 수 있게 하는 것입니다. 응답 포맷이 엔드포인트마다 다르면 앱 쪽 네트워크 레이어가 복잡해지고, 에러 처리가 일관되지 않습니다.
+**일관된 포맷의 목적** 은 클라이언트 (Flutter 앱) 가 어느 엔드포인트든 동일한 파싱 로직으로 처리할 수 있게 하는 것이에요. 응답 포맷이 엔드포인트마다 다르면 앱 쪽 네트워크 레이어가 복잡해지고, 에러 처리가 일관되지 않습니다.
 
 ---
 
@@ -30,6 +30,8 @@
 **실패 시**: `data` 는 `null`, `error` 에 에러 객체.
 
 `data` 와 `error` 는 **항상 상호 배타적** 입니다. 둘 다 값이 있거나 둘 다 `null` 인 응답은 없습니다.
+
+> **왜 data/error 를 분리했나?** — **대안 — 단일 객체에 `success: boolean` 플래그** 의 한계: 클라이언트가 *항상* `success` 를 먼저 체크한 후 분기해야 하고, 응답 타입이 단일이라 TypeScript / Dart 의 타입 시스템이 `data` 와 `error` 를 동시에 다뤄야 합니다. `data` 와 `error` 를 *상호 배타적* 으로 분리하면 success path 와 error path 가 *타입 단계에서 격리* 되고, 클라이언트는 `error == null` 한 번만 체크하면 돼요. 양쪽 모두 null 이거나 양쪽 모두 값이 있는 응답이 절대 없으니 안전한 분기예요.
 
 ### 성공 응답 예시
 
@@ -263,7 +265,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 | 비밀번호 불일치 | 401 | `ATH_001` |
 | Apple/Google 로그인 검증 실패 | 401 | `ATH_004` |
 | refresh token 만료 | 401 | `ATH_002` |
-| 이메일 발송 실패 | 503 | `ATH_006` |
+| 이메일 발송 실패 | 502 | `EMAIL_001` |
 
 ---
 
@@ -504,3 +506,4 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 - [`JSON 계약 규약 (JSON Contract)`](./json-contract.md) — JSON 직렬화 정책 + 테스트 4 종
 - [`Flutter ↔ Backend Integration`](./flutter-backend-integration.md) — 클라이언트 연동 규약
 - [`버전 규약 & Deprecation 프로세스`](./versioning.md) — API 버전 관리 전략
+- [`Swagger UI`](./swagger-ui.md) — API 자동 탐색 + slug 별 controller 그룹

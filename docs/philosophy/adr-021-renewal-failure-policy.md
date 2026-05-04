@@ -1,5 +1,7 @@
 # ADR-021 — Subscription 자동 갱신 실패 정책
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-019 (billing/iap/payment 분리), ADR-020 (subscription 도메인 모델)
 **연관**: G 사이클 (자동 재청구 — `PortOneAdapter.chargeAgain` + `RenewalListener`)

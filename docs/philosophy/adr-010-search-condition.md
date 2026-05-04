@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-목록 조회 API — "상품 목록, 주문 목록, 유저 목록" — 가 반복하는 **"필드별 if 조건 → WHERE 절 추가"** 패턴을 한 번에 해결하는 인프라입니다. 프론트엔드가 `{"categoryId_eq": 5, "amount_gte": 10000}` 같은 Map 을 보내면, 백엔드는 `QueryDslPredicateBuilder.build(...)` **한 줄** 로 동적 WHERE 절을 생성해요. 각 앱 모듈이 똑같은 if-else 지옥을 반복하지 않아도 됩니다.
+목록 조회 API — "상품 목록, 주문 목록, 유저 목록" — 가 반복하는 **"필드별 if 조건 → WHERE 절 추가"** 패턴을 한 번에 해결하는 인프라입니다. 프론트엔드가 `{"categoryId_eq": 5, "amount_gte": 10000}` 같은 Map 을 보내면, 백엔드는 `QueryDslPredicateBuilder.build(...)` **한 줄** 로 동적 WHERE 절을 생성합니다. 각 앱 모듈이 똑같은 if-else 지옥을 반복하지 않아도 됩니다.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -284,10 +284,10 @@ Service 메서드 전체가 **10줄 내외** 로 끝납니다. 필드 추가 시
 
 ### `lastIndexOf('_')` 를 쓴 이유
 
-초기 구현은 `key.split("_")` 로 field / operator 분리했어요. 문제는 `app_slug_eq` 같은 **필드명에 밑줄이 있는 경우** — `split` 이 3개로 쪼개져서 `app`, `slug`, `eq` 가 됨.
+Naive split 구현 (`key.split("_")`) 의 한계 — 필드명에 underscore 가 있을 때 (예: `app_slug_eq`) `split` 이 3 개로 쪼개져 `app`, `slug`, `eq` 가 됩니다. 필드명에 어떤 문자가 올지 모를 때 앞에서부터 자르는 파싱은 안전하지 않아요.
 
 ```java
-// 초기 구현 (버그)
+// Naive split 구현 (버그)
 String[] parts = key.split("_");
 String field = parts[0];         // "app" — 의도: "app_slug"
 String operator = parts[1];      // "slug" — 의도: "eq"
@@ -302,14 +302,14 @@ String operator = key.substring(lastUnderscore + 1);     // "eq" ✅
 
 ### Spring Data `Specification` vs 커스텀 빌더 — 장기 유지보수
 
-Option 2 (Spring Data Specifications) 를 버리고 커스텀 빌더를 만든 판단이 맞았는지 1년 정도 뒤 재검토한 적이 있어요. 결론: **커스텀이 유지** 되었습니다.
+Option 2 (Spring Data Specifications) 를 버리고 커스텀 빌더를 만든 판단이 맞았는지 1년 정도 뒤 재검토한 적이 있습니다. 결론: **커스텀이 유지** 되었습니다.
 
 근거:
 - 새 연산자 추가가 쉬움 (switch 에 case 하나)
 - Specification 이었으면 "Specification<Expense>", "Specification<Workout>" 같은 타입 인스턴스를 각 도메인마다 만들어야 했음
 - 공장 패턴 (여러 앱 빠르게) 에서 도메인별 Specification 메서드 유지가 부담
 
-**교훈**: 표준 도구가 항상 정답은 아님. **우리의 특수 요구 (공장 패턴)** 에 맞게 커스텀이 더 가벼울 때가 있어요. 단 이 판단은 **주기적 재검토 필요** — 요구 변경 시 표준 도구가 더 나아질 수 있음.
+**교훈**: 표준 도구가 항상 정답은 아님. **우리의 특수 요구 (공장 패턴)** 에 맞게 커스텀이 더 가벼울 때가 있습니다. 단 이 판단은 **주기적 재검토 필요** — 요구 변경 시 표준 도구가 더 나아질 수 있음.
 
 ## 관련 사례 (Prior Art)
 

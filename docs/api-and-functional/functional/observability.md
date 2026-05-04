@@ -9,7 +9,7 @@
 > 인프라 스택 구성 / 프로비저닝 상태: [`인프라 (Infrastructure)`](../../production/deploy/infrastructure.md)
 > 셋업 가이드 (도커 기동, 대시보드 프로비저닝): [`운영 모니터링 셋업 가이드`](../../production/setup/monitoring-setup.md)
 > 선택 근거 (셀프 호스트 vs 관리형): [`인프라 결정 기록 (Decisions — Infrastructure)`](../../production/deploy/decisions-infra.md) I-06
-> 알림 종류/임계치 확정: Item Ops-1 (`../reference/backlog.md`)
+> 알림 종류/임계치 확정: Item Ops-1 ([`../../planned/backlog.md`](../../planned/backlog.md))
 
 ## 한 문장 요약
 
@@ -38,11 +38,11 @@
  └── logback-loki ──► Loki (push) ──► Grafana (explore)
 ```
 
-각 축이 독립적으로 작동하므로 한 축이 다운돼도 다른 축은 영향 없음 (예: Loki 다운 시 메트릭/알림은 유지).
+각 축이 독립적으로 작동하므로 한 축이 다운돼도 다른 축은 영향이 없습니다 (예: Loki 다운 시 메트릭/알림은 유지).
 
 ## 필수 태깅 — `appSlug` 의무
 
-모든 요청은 **`appSlug` 라벨로 태깅**되어야 합니다. 앱공장 맥락에서 멀티앱이 한 백엔드에 공존하므로, 태그 없이는 모니터링 분리 불가.
+모든 요청은 **`appSlug` 라벨로 태깅** 되어야 합니다. 앱공장 맥락에서 멀티앱이 한 백엔드에 공존하므로, 태그 없이는 모니터링을 분리할 수 없습니다.
 
 - **메트릭**: `AppSlugObservationConvention` 이 `http.server.requests` 에 `app=<slug>` 라벨 자동 부여
 - **로그**: `AppSlugMdcFilter` 가 MDC 에 `appSlug` 주입 → Loki label 로 승격
