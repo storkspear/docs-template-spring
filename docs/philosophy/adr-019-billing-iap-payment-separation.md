@@ -30,6 +30,25 @@ SubscriptionStatus getSubscriptionStatus(long userId, String productId);
 - "billing" 이름 자체가 모호 — 청구/구독 정책 의미인지, IAP 영수증 검증 의미인지 안 보임.
 - PG (한국 나이스페이/토스/이니시스) 통합 추가 시 `core-billing` 이 IAP 와 PG 두 채널을 다 흡수해야 함. 도메인 경계 흐림.
 
+## 고민했던 대안들
+
+> **대안 분석의 한계** — 본 ADR 은 *한 방향적 결정* 이에요. IAP 와 PG 가 *결제 흐름이 본질적으로 다름* (수수료 모델 / 결제 처리 주체 / 환불 API / webhook 패턴) 이라 *단일 도메인 통합* 이 합리적 대안으로 성립하지 않아요. 그래서 형식적 대안 비교보다는 *왜 다른 형태가 부적합한가* 를 짧게 기록.
+
+### 대안 1 — 단일 `core-billing` 안에 IAP 포함
+
+기존 구조 (분리 전) — `core-billing` 모듈 하나에 IAP receipt 검증 + subscription 정책 + PG 결제 모두 흡수.
+
+- ❌ 시그니처 어색 — `registerPurchase(IapReceiptRequest)` 가 PG 결제도 받으려면 DTO/method 가 비대
+- ❌ "billing" 이름이 모호 — 청구/구독 정책 의미 vs IAP 영수증 검증 의미 분간 X
+- ❌ PG 통합 추가 시 도메인 경계 흐림
+
+### 대안 2 — IAP 만 분리 (billing + payment 통합 유지)
+
+- ❌ subscription 정책 (BillingPort) 과 PG 결제 (PaymentPort) 도 외부 의존이 다름 — billing 은 *우리 도메인* 정책, payment 는 *외부 PG (PortOne)* 의존
+- ❌ 결국 분리 압력 같은 형태로 다시 발생
+
+### 채택 — 3 도메인 분리 (billing / iap / payment)
+
 ## 채택한 분리
 
 | 도메인 | 책임 | 외부 의존 |

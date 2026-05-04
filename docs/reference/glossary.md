@@ -239,3 +239,6 @@
 | **appSlug** | 앱 식별자 문자열. URL (`/api/apps/{appSlug}/...`) 과 DB schema 이름과 JWT claim 에 일관 사용 |
 | **도그푸딩 (dogfooding)** | "자기 제품을 자기가 써보기". 이 레포는 템플릿 자체를 실제 프로젝트로 돌려서 작동 검증 |
 | **template-v* 태그** | 템플릿 레포의 버전 태그. 예: `template-v0.3.0`. 파생 레포는 "v0.3.0 기반" 이라고 단일 버전으로 추적 |
+| **Slug** | URL/schema 안전 식별자. 소문자 + 숫자 + 하이픈만 (`[a-z][a-z0-9-]*`). 예: `sumtally`, `gym-log`. 본 레포의 *appSlug* 가 이 형태 |
+| **4-stage secret chain** | 본 레포의 secret 동기화 패턴. `.env.prod` (1) → `config/deploy.yml env.secret` (2) → `.kamal/secrets.example` (3) → `.github/workflows/deploy.yml env:` (4). 한 단계 누락 시 운영 부팅 차단 |
+| **Bucket prefix policy** | S3/MinIO 의 격리 정책. 본 레포는 `<slug>-<category>` 컨벤션 (예: `gymlog-uploads`). 슬러그가 prefix 라 다른 앱 bucket 접근 차단 가능 |
