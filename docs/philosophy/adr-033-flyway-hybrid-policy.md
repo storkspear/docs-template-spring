@@ -2,31 +2,45 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**상태**: 채택 (2026-05-02)
-**전제**: ADR-018 (멀티 슬러그 schema 격리), 기존 `AbstractAppDataSourceConfig.buildFlyway()`
-**연관**: P 사이클 — 운영 안전성 baseline
+**Status**: Accepted. dev / test = `Flyway.migrate()` 자동 적용. prod = `Flyway.validate()` 만 호출 (checksum 검증). prod 적용은 운영자가 `tools/migrate-prod.sh` 또는 SSH + psql 로 명시적 수행.
 
 ---
 
 ## 결론부터
 
-Flyway 마이그레이션 정책을 *환경별 분리* — dev = `auto` (자동 적용), prod = `validate-only` (적용 X / checksum 검증만). 운영자가 *명시적으로* SQL 적용 (`tools/migrate-prod.sh` Phase 2-3 예정 / 현재는 SSH + psql 수동).
+DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라 *언제 적용할지* 의 결정이 *코드 deploy 와 분리* 되어야 안전해요. 코드 deploy 시점에 자동으로 새 V스크립트가 적용되는 형태는 *부팅 실패가 곧 트래픽 단절* 로 이어지는 위험을 만들고, *부분 적용 (V14 까지 성공 / V15 실패)* 같은 사고는 *schema 가 inconsistent state 로 남는* 가장 까다로운 운영 부담이 됩니다.
 
-이유: 운영 환경에서 *자동 마이그레이션* 은 *예측 못한 schema 변경* 위험. *validate-only* 로 *부팅 전 일관성만 검증* 하고, 적용은 사람이 *시점 결정*.
+본 ADR 은 환경별로 Flyway 동작을 분리하는 *Hybrid Policy* 를 정의합니다. dev / test 환경에서는 *기존처럼 자동 migrate* — 개발 효율을 유지하기 위해 코드 변경과 함께 schema 도 자동으로 적용돼요. 반면 prod 환경에서는 *`validate-only` 모드* 로 동작합니다 — 부팅 시 *schema_history 의 checksum 정합만 검증* 하고 *실제 V스크립트는 적용하지 않아요*. 운영자가 *deploy 전에 prod DB 에 직접 SQL 적용* 하는 명시적 단계를 거쳐야 새 schema 가 prod 에 반영됩니다.
+
+이 정책의 핵심 가치는 *deploy 와 schema 변경의 분리* 예요. 코드 deploy 는 *언제든 안전하게 rollback 가능* 한 영역이지만, schema 변경은 *원칙적으로 forward-only* 라 한 번 적용되면 되돌리기 어려운 영역입니다. 이 두 가지를 *같은 시점에 자동으로 묶어버리면* schema 변경의 무게가 코드 deploy 의 가벼움과 충돌해요. 분리하면 운영자가 *schema 변경의 시점을 별도로 결정* 할 수 있고, *DBA 가 변경 사실을 사전에 인지* 하는 워크플로우도 자연스럽게 따라옵니다.
+
+운영자의 적용 도구는 *Phase 2~3 의 `tools/migrate-prod.sh`* 자동화로 단계적 정착 예정이고, 현재는 *SSH + psql 수동 적용 + schema_history INSERT* 흐름으로 처리합니다. 적용 절차는 [`Flyway Runbook`](../production/deploy/flyway-runbook.md) 에 별도 정리되어 있어요.
+
+이 ADR 의 범위는 환경별 분리 정책의 결정 근거, dev / test 자동 migrate 가 유지되는 이유, prod validate-only 가 잡는 위험, advisory lock 의 역할, 부분 적용 / 락 손상 시 복구 흐름, 그리고 *Liquibase / pgschema / Atlas* 같은 대안 도구와의 트레이드오프 비교까지입니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-현재 (ADR-033 이전) — 모든 환경 (dev / test / prod) 에서 부팅 시 Flyway 가 자동으로 `migrate()` 를 호출해요. `AbstractAppDataSourceConfig.buildFlyway()` 가 `Flyway.configure().load()` 만 반환하고, concrete subclass 가 `@Bean(initMethod = "migrate")` 로 매 부팅마다 실행합니다.
+기본 Flyway 설정 — *모든 환경에서 부팅 시 자동 migrate* — 은 개발 단계에서는 가장 단순하고 자연스러운 형태예요. 코드와 schema 가 *한 commit 에 함께 묶여 deploy* 되어 *환경 동기화* 가 자동으로 이뤄지고, 별도 운영 절차도 필요 없습니다. 작은 팀 / 단일 환경에서는 이 단순함의 가치가 압도적이에요.
 
-이 흐름의 위험을 사용자가 명시했어요 (PHP/Laravel 과거 경험):
-- prod 부팅 시 새 V스크립트 자동 적용 → 부팅 실패 시 트래픽 받을 인스턴스가 없어요
-- 부분 적용 (V14 까진 성공 / V15 fail) → schema 가 inconsistent state 가 돼요
-- advisory lock 손상 (드물지만) → 모든 인스턴스가 부팅 wait 에 빠져요
-- prod schema 변경이 코드 deploy 의 부산물로 발생 → DBA 가 변경 사실을 몰라요
+문제는 *prod 환경의 위험 모델* 이 dev / test 와 본질적으로 다르다는 점이에요. prod 에서 *부팅 시 schema 변경* 이 일어난다는 것은 다음 네 가지 위험을 동시에 가져옵니다.
 
-대안 검토가 필요한 시점이에요. **옵션 비교**:
+**첫째, 부팅 실패가 트래픽 단절로 이어집니다.** V15 마이그레이션이 *예상치 못한 데이터 (예: 중복 row)* 때문에 적용 실패하면 *Spring Boot 부팅 자체가 실패* 하고, *블루/그린 배포* 환경에서는 *새 인스턴스가 health check 를 통과하지 못해 트래픽이 라우팅되지 않는* 상태가 됩니다. 기존 인스턴스가 *이미 종료된 시점* 이라면 *전체 서비스 다운* 으로 이어질 수 있어요.
+
+**둘째, 부분 적용이 schema 를 inconsistent state 로 남깁니다.** V14 까지 성공하고 V15 가 실패한 시점에 *V14 의 변경은 이미 commit* 되어 있으므로, 단순 rollback 으로는 복구할 수 없어요. *V15 의 부분적 변경* 이 어떤 상태로 남아 있는지 분석 → *수동 정정* 의 까다로운 복구 절차가 필요합니다. 운영 압박 상황에서 이런 분석을 정확히 하기는 어려워요.
+
+**셋째, advisory lock 손상 시 모든 인스턴스가 부팅 대기에 빠집니다.** Flyway 는 *동시성 보장을 위한 advisory lock* 을 사용하는데, 이 lock 이 *드물지만 손상* 되면 *모든 인스턴스의 부팅이 무한 대기* 하는 상태가 돼요. 수동 unlock SQL (`SELECT pg_advisory_unlock_all()`) 이 필요한 까다로운 복구 영역입니다.
+
+**넷째, schema 변경이 코드 deploy 의 부산물로 발생해서 DBA / 운영자가 변경 사실을 모를 수 있습니다.** 운영 환경에서 *어느 시점에 어떤 schema 변경이 있었는지* 가 *코드 commit log 안에 묻혀* 있으면, 별도 추적 도구 없이는 *변경 history 를 파악* 하기 어려워요. 이는 *PCI-DSS 같은 audit 요구* 와도 충돌합니다.
+
+이 네 가지 위험은 *prod 단계의 운영 환경* 에서만 의미가 있어요. dev / test 환경에서는 *부팅 실패가 트래픽 단절로 이어지지 않고*, *schema 가 inconsistent state 로 남아도 reset / recreate* 가 자유로워서 위험 자체가 거의 없습니다. 따라서 *dev / test 의 자동 migrate 편의* 와 *prod 의 명시적 통제* 를 동시에 잡는 *환경별 분리 정책* 이 정합한 답이에요.
+
+대안으로 *Liquibase changelog*, *Atlas / pgroll* 같은 다른 도구들도 검토 가치가 있어요. Liquibase 는 XML/YAML 기반이라 *Flyway 의 SQL 직접성* 과 *Spring Boot 1차 통합* 을 잃습니다. Atlas / pgroll 같은 *gradual migration* 도구는 *zero-downtime schema 변경* 을 지원하지만 *현재 단계에는 over-engineering* 이고 *별도 ADR 로 다룰 주제* 예요.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **dev / test 의 자동 migrate 편의를 유지하면서 prod 의 부팅 실패 / 부분 적용 / advisory lock 손상 / 변경 추적성 부재 위험을 동시에 차단하는 마이그레이션 정책은 무엇인가?**
 
 ### 옵션 A — 그대로 자동 migrate (현재)
 | 장점 | 단점 |

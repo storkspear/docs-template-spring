@@ -2,30 +2,43 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~8분
 
-**상태**: 채택 (2026-05-02) — 설계만. 구현은 별도 사이클.
-**전제**: ADR-019 (도메인 횡단 분리), ADR-024 (core-email 추출), ADR-028 (audit), ADR-030 (2FA), ADR-031 (notification toggle)
-**연관**: 템플릿 판매 — Lite vs Full 변형
+**Status**: Accepted. Spring `@ConditionalOnProperty` 기반 feature toggle. `app.features.<domain>=false` 로 8 도메인 (audit / push / billing-notification / password-policy / email / payment / iap / 2fa) 을 개별 비활성. Leaf 모듈은 단순 conditional, non-leaf 는 `ObjectProvider<Port>` 로 lazy 의존.
 
 ---
 
 ## 결론부터
 
-7 도메인 (audit / push / billing-notification / password-policy / email / payment / iap / 2fa) 의 *feature toggle* 을 도입해요 — Spring profile + `@ConditionalOnProperty` 기반이에요. `app.features.<X>=false` 한 줄로 도메인 전체를 비활성할 수 있어요.
+template 이 *공통 baseline* 으로 모든 도메인을 갖춘다는 사실은 *큰 비즈니스* 에는 즉시 가치를 주지만 *작은 비즈니스* 에게는 부담이 될 수 있어요. *결제만 필요한 인디 앱* 이 *audit log / 2FA / billing notification* 인프라를 *부팅 시점부터 유지* 하면 *jar 크기, 메모리, 환경변수 셋업, DB 테이블* 모두에 부가 비용이 누적됩니다. *Lite 모드* 는 그 baseline 을 유지하면서도 *작은 비즈니스가 미사용 도메인을 손쉽게 끌 수 있도록* 하는 결정이에요.
 
-Leaf 모듈 (의존을 받지 않는 모듈) 은 단순 `ConditionalOnProperty` 로 처리해요. Non-leaf 모듈 (의존을 받는 모듈) 은 의존 측에서 `ObjectProvider<Port>` 로 lazy 의존 — toggle off 시에도 컴파일 / 부팅이 OK 예요.
+본 ADR 은 *Spring `@ConditionalOnProperty` 기반의 feature toggle* 메커니즘을 정의합니다. 8 개 도메인 — `audit`, `push`, `billing-notification`, `password-policy`, `email`, `payment`, `iap`, `2fa` — 마다 `app.features.<도메인>` properties 가 있고, 운영자가 `.env` 에 `false` 로 두면 *해당 도메인의 모든 Bean 이 ApplicationContext 에서 누락* 됩니다. AutoConfiguration / Service / Adapter / Aspect 가 모두 conditional 로 묶여 있어, *비활성 도메인의 endpoint 는 자동으로 사라지고* 의존하던 코드는 `ObjectProvider<Port>` 의 *empty* 응답을 받아 graceful 하게 동작해요.
+
+핵심 설계 분기는 *모듈의 의존 방향* 에 따라 달라요. *Leaf 모듈* — 다른 도메인이 import 하지 않는 모듈 (audit, push 등) — 은 단순 `@ConditionalOnProperty` 만으로 안전하게 토글됩니다. 반면 *Non-leaf 모듈* — 다른 도메인이 import 하는 모듈 (예: email, password-policy) — 은 의존 측에서 *`ObjectProvider<Port>` 형태로 lazy 의존* 해야 toggle off 시에도 컴파일 / 부팅이 OK 예요. 이 패턴 분류가 [`ADR-024`](./adr-024-email-domain-extraction.md) 의 cross-cutting 모듈 추출과 자연스럽게 정합합니다.
+
+이 정책은 *jar 크기 절감* 이나 *DB schema 분리* 같은 측면은 다루지 않아요. 코드는 모두 jar 안에 그대로 포함되고 (Spring conditional 의 trade-off), DB schema 도 미사용 도메인 테이블이 그대로 생성됩니다 (운영자가 무시 가능). 우리는 *솔로 운영의 단순성* 과 *toggle 한 줄로 끝나는 사용자 부담 0* 을 더 큰 가치로 두고, *jar / DB 의 완전한 분리* 는 *Phase 5 후속 작업* 으로 미뤄요.
+
+이 ADR 의 범위는 toggle 메커니즘 선택의 트레이드오프 (Spring conditional vs Gradle module exclusion vs source 제거 명령), Leaf / Non-leaf 모듈의 패턴 분류, `ObjectProvider<Port>` lazy 의존 패턴, 비활성 도메인의 endpoint 자동 사라짐 동작, 그리고 사용자 측 UI 노출 (`Lite mode` 사용자 인터페이스, [`ADR-035`](./adr-035-lite-mode-user-interface.md)) 까지의 연결입니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-본 template 은 SaaS 백엔드의 **공통 baseline** 이에요 — 결제 / IAP / 푸시 / 이메일 / 2FA / audit / 비밀번호 정책 / billing notification 등 거의 모든 도메인을 internal 로 가지고 있어요. 단점: **작은 비즈니스가 가져갔을 때 미사용 도메인이 부담**이 돼요.
+template 이 *공통 baseline* 으로 모든 도메인을 갖추는 결정은 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 솔로 친화 정신과 정합해요. *결제 / IAP / 푸시 / 이메일 / 2FA / audit / 비밀번호 정책 / billing notification* 같은 *반복적으로 쓰이는 인프라* 를 매 앱마다 다시 짜는 부담을 제거하고, 새 앱은 *비즈니스 도메인만 채우면* 시작할 수 있게 하는 형태입니다.
 
-사용자 의도:
-- 결제만 / 푸시만 / 인증만 등 **선택적 사용** 이 가능해야 해요
-- "lite" (작은 비즈니스) vs "full" (큰 기업) 두 변형으로 나뉘어요
-- 본인 비즈니스에 맞게 cherry-pick 할 수 있어야 해요
+문제는 *모든 비즈니스가 모든 도메인을 필요로 하지 않는다* 는 사실이에요. 작은 비즈니스 — *메모 앱*, *습관 트래커*, *간단한 SNS* — 의 운영자 입장에서는 *결제 / IAP* 영역이 *처음부터 불필요* 할 수 있고, *2FA / audit* 같은 *높은 보안 요구* 도 *민감 정보를 다루지 않는 앱* 에서는 *과한 인프라* 로 느껴집니다. 이 미사용 도메인이 *부팅 시점부터 active* 로 동작하면 다음 부담이 누적돼요.
 
-본 ADR 가 **feature toggle 메커니즘** 을 결정합니다.
+**환경변수 부담** — 비활성 도메인도 *`.env` 의 환경변수 (예: `RESEND_API_KEY`, `FCM_KEY`)* 를 채워야 부팅이 통과합니다. 미사용 도메인의 환경변수가 *비어 있으면 부팅 실패* 하거나 *placeholder dummy 값* 을 넣어야 하는 운영 부담이 생겨요. 인디 앱 운영자는 *내 앱이 안 쓰는 결제 키를 왜 발급받아야 하지?* 같은 질문을 마주하게 됩니다.
+
+**메모리 / 부팅 시간 부담** — 비활성 도메인의 Bean 들이 *ApplicationContext 에 등록* 되어 *메모리 풋프린트와 부팅 시간을 누적* 해요. 작은 인디 앱이 *Mac mini 같은 제한된 자원* 에서 운영될 때 이 부담이 직접적인 비용으로 환산됩니다.
+
+**복잡도 노출 부담** — Spring Boot Actuator / Swagger 가 *모든 endpoint 를 노출* 하는 환경에서 *비활성 도메인의 endpoint 도 함께 노출* 되면, 사용자 / 운영자가 *내 앱에 왜 이런 endpoint 가 있지?* 라는 혼란을 마주합니다. *불필요한 공격 표면* 도 늘어나요.
+
+이 부담을 해결하려면 *미사용 도메인을 비활성화* 할 수 있어야 하는데, 비활성화의 형태에 따라 *복잡도 vs 효과* 가 달라요. 가장 깔끔한 형태는 *Gradle module exclusion* 으로 *비활성 도메인의 코드 자체를 jar 에서 제외* 하는 방식이지만, *2^8 = 256 가지 조합의 CI 검증* 이 필요해 사실상 비현실적입니다. 가장 부드러운 형태는 *Spring conditional* 로 *코드는 jar 에 남되 Bean 만 비활성화* 하는 방식이고, 이 경우 *모든 도메인 조합이 같은 jar 안에서 동작* 하므로 CI 검증도 단일 build 로 끝나요.
+
+trade-off 는 *jar 크기와 의존성 classpath 풍부함* 입니다. Spring conditional 로 가면 *비활성 도메인의 코드와 의존성 (FCM SDK, Resend SDK 등)* 이 *jar 안에 그대로 포함* 되어 *jar 크기가 5~10MB 정도 더 큰 상태* 로 남아요. 다만 이 정도 jar 크기 차이는 *현대 deploy 환경 (Docker / kamal 같은)* 에서는 사실상 무시 가능한 비용이고, *솔로 운영 단순성* 의 가치가 압도적으로 큽니다.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **template 의 공통 baseline 가치를 유지하면서, 작은 비즈니스가 미사용 도메인을 사용자 부담 0 으로 끌 수 있는 toggle 메커니즘은 어떤 모양이고 모듈 의존 구조를 어떻게 처리하는가?**
 
 ---
 

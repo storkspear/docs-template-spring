@@ -6,6 +6,10 @@
 
 ## 결론부터
 
+구독형 SaaS 의 결제 도메인을 코드로 표현하려면 *네 가지 핵심 개념* 이 필요해요. **Plan** 은 *어떤 가격에 어떤 기능을 제공하는가* 의 정의입니다 (`free`, `basic`, `pro` 같은 코드 + 가격 + 기간). **Subscription** 은 *이 사용자가 어떤 plan 을 언제까지 받고 있는가* 의 사용자별 상태예요 (ACTIVE / CANCELLED / EXPIRED). **PaymentRecord** 는 *언제 어떤 채널로 얼마를 결제했는가* 의 거래 이력입니다 (PG impUid 또는 IAP transactionId 로 식별). **WebhookEvent** 는 *외부 시스템 (PG / Apple / Google) 에서 들어온 비동기 알림* 의 멱등성 보장 기록이에요.
+
+이 네 개념이 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 정책 layer (`core-billing`) 안에서 *결제 → 활성화* 의 e2e 흐름을 만듭니다. 사용자가 PG (포트원) 결제 위젯을 띄우면 클라이언트가 `impUid` 를 받고, 그 `impUid` 를 백엔드가 *PaymentPort.verify* 로 포트원에 재검증한 뒤 *PaymentRecord 저장 → Subscription 활성화* 가 한 트랜잭션에서 완료돼요. 환불은 PG 가 보낸 webhook 이 *HMAC + timestamp + idempotency* 3 중 방어를 통과한 뒤 *PaymentRecord.status 를 REFUNDED 로 변경 + Subscription 을 CANCELLED 로 전환* 하는 흐름입니다.
+
 ```
 [Flutter] 결제 위젯 → 포트원 → impUid 획득
 [Flutter] POST /api/apps/<slug>/payment/verify { impUid, planCode }
@@ -20,18 +24,23 @@
                               └─ SubscriptionDto 반환
 ```
 
-DB 테이블 4개를 슬러그별 schema 에 추가해요 — `plans`, `subscriptions`, `payment_records`, `webhook_events`. Webhook 은 HMAC SHA-256 + timestamp 검증 + (source, externalId) UNIQUE idempotency 의 3중 방어를 갖춰요. 외부 HTTP 호출이 DB 트랜잭션 안에 있는 anti-pattern 을 피하기 위해 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 phase 마다 `TransactionTemplate` 으로 자기 트랜잭션을 시작합니다.
+이 ADR 은 네 개념의 구체 모양을 결정해요. 4 테이블의 컬럼 정의와 관계, *슬러그별 schema 에 위치* 시킨 이유, webhook 의 *3 중 방어* 메커니즘, 그리고 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 을 점유하지 않게 하는 *phase 분리 트랜잭션* 패턴까지가 본 ADR 의 범위입니다.
 
 ## 왜 이런 결정이 필요했나?
 
-[`ADR-019`](./adr-019-billing-iap-payment-separation.md) 가 도메인 분리 (billing 정책 / iap 채널 / payment 채널) 를 결정했지만 **비즈로직은 stub**. `BillingPort.getSubscriptionStatus` 가 `UnsupportedOperationException` 만 던지고, `PaymentPort.verify` 결과를 받아도 어디 저장하지 않음 — **결제를 받아도 사용자가 활성화되지 않음**.
+결제 도메인을 *비즈니스 정책 / 채널 어댑터* 로 분리한 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 골격 위에, *실제 비즈 로직 + DB 모델 + 트랜잭션 정책 + webhook 보안* 을 채워야 운영 가능한 시스템이 돼요. 이 채움 과정에서 *네 가지 결정* 이 자연스럽게 떠오릅니다.
 
-이 ADR 은 그 빈 칸을 채우는 결정 4개를 다룹니다:
+**모델 위치를 어디에 둘 것인가** — `subscriptions.user_id` 가 `users(id)` 를 FK 로 참조해야 하는데, [`ADR-012`](./adr-012-per-app-user-model.md) 의 *앱별 독립 유저 모델* 에서 `users` 테이블은 슬러그별 schema 안에 있어요. 그러면 `subscriptions` 도 같은 schema 에 두어야 *cross-schema FK* 라는 까다로운 영역을 회피할 수 있습니다. core schema 에 통합하면 `appSlug` 컬럼을 추가해 *row-level 격리* 로 우회해야 하는데, 이는 [`ADR-012`](./adr-012-per-app-user-model.md) 가 이미 거부한 패턴이에요.
 
-1. **Subscription/Plan/PaymentRecord 모델 위치** — core schema 통합 vs 슬러그별 schema
-2. **Webhook idempotency + retry 정책** — 같은 webhook 이 두 번 와도 안전, 실패한 webhook 은 재처리 가능
-3. **트랜잭션 경계** — 외부 HTTP 호출이 DB connection 점유하지 않게
-4. **Webhook 보안** — 무인증 webhook 이 결제 상태를 조작할 수 없게
+**Webhook 의 멱등성과 재처리 정책을 어떻게 보장할 것인가** — PG / Apple / Google 의 webhook 은 *네트워크 장애 시 재전송* 되는 것이 정상 동작이에요. 같은 webhook 이 두 번 도착해도 *환불을 두 번 처리하거나 구독을 두 번 만료시키지* 않아야 합니다. 그런데 단순히 *처음 본 것만 처리* 하는 형태로는 부족해요 — 첫 처리가 *중간에 실패* 했을 때 *재시도가 가능* 해야 하니까요.
+
+**외부 HTTP 호출의 트랜잭션 경계를 어떻게 잡을 것인가** — webhook 처리 안에서 *PG verify* 같은 외부 HTTP 호출이 들어가는데, 이게 DB 트랜잭션 안에 있으면 *외부 응답 대기 동안 DB connection 을 점유* 하는 anti-pattern 이 됩니다. PG 가 응답에 5 초가 걸리면 connection 도 5 초 동안 잡혀 있어, 트래픽이 몰리면 *connection pool 고갈* 이 곧바로 발생해요.
+
+**Webhook 보안을 어떻게 다질 것인가** — webhook endpoint 는 *외부에 공개된 URL* 이라 *누구나 임의의 payload 로 POST* 할 수 있어요. 인증이 없으면 *공격자가 가짜 환불 webhook 을 보내 사용자 구독을 임의로 취소* 할 수 있습니다. 단순한 API key 만으로는 부족해서 *서명 검증 + 시간 검증 + idempotency* 의 다층 방어가 필요해요.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **결제 도메인 모델을 슬러그별 schema 에 어떻게 정착시키고, webhook 의 멱등성·트랜잭션 경계·보안을 어떻게 다층으로 방어할 것인가?**
 
 ## 결정 1 — Subscription/Plan/PaymentRecord = 슬러그별 schema
 

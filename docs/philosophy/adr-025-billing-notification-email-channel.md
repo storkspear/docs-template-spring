@@ -2,27 +2,37 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**상태**: 채택 (2026-05-02)
-**전제**: ADR-023 (push 알림 listener), ADR-024 (core-email 도메인 추출)
-**연관**: L 사이클 — push + email 듀얼 채널
+**Status**: Accepted. `SubscriptionNotificationListener` 가 push + email 듀얼 채널을 발송. `@AnyNestedCondition` 으로 PushPort 또는 EmailPort 중 하나만 있어도 listener 등록.
 
 ---
 
 ## 결론부터
 
-ADR-023 의 listener 에 *email 채널* 을 추가해 push + email 듀얼 발송을 합니다. ADR-024 의 core-email 추출 후 billing 이 EmailPort 를 자유롭게 import 할 수 있어요.
+결제 알림은 *사용자에게 권한 변경의 사유를 알리는 채널* 이라 ([`ADR-023`](./adr-023-billing-notification-listener.md)), 그 채널이 *얼마나 도달하는가* 가 운영의 핵심이에요. push 만으로는 *앱이 미설치된 사용자*, *알림 권한을 거부한 사용자*, *FCM 토큰이 만료된 사용자* 에게 도달하지 못합니다. email 은 그 갭을 메우는 fallback 채널이고, 두 채널을 동시에 보내면 *둘 중 하나라도 도달* 할 확률이 크게 올라가요.
 
-`@ConditionalOnBean` 의 *OR* 처리로 PushPort / EmailPort 중 *하나라도 있으면* listener 가 등록돼요. 둘 다 있으면 *모두 발송* 하고, Email 발송 실패는 *silent skip* (push 성공만으로도 알림 의무가 충족됨).
+본 ADR 은 결제 알림 listener 에 *email 채널* 을 추가해 push + email 을 동시에 발송하는 듀얼 채널 구조를 정의합니다. 발송 대상은 [`ADR-021`](./adr-021-renewal-failure-policy.md) / [`ADR-022`](./adr-022-iap-server-notifications.md) 가 발행하는 갱신 실패 / 갱신 포기 / IAP REFUND / IAP REVOKE 이벤트들이에요. 두 채널 중 *어느 한쪽이 비활성* 인 환경 (예: PushPort 만 있고 EmailPort 가 없는 환경, 또는 그 반대) 도 자연스럽게 지원하도록 `@AnyNestedCondition` 으로 *OR 조건 등록* 패턴을 도입했고, *한 채널의 발송 실패가 다른 채널을 막지 않는* 격리 정책도 함께 잡았습니다.
+
+이 ADR 의 범위는 listener 의 듀얼 채널 등록 조건, 사용자별 email 검증 기준 (`emailVerified=true` + email 이 비어 있지 않아야 함), 채널별 메시지 템플릿 분리 (push 는 짧게, email 은 자세히), 발송 실패 격리 정책, 그리고 user → email 조회를 위한 UserPort 의존성까지입니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-ADR-023 = listener 가 push 만 발송하던 상태였어요. email 은 별도 사이클로 미뤘어요 (당시 EmailPort 가 core-auth 안에 묻혀 있어 billing 이 import 할 수 없었어요).
+push 알림 한 채널만으로는 *알림 도달률* 에 구조적 한계가 있어요. 사용자 입장에서 push 를 받지 못하는 시나리오가 의외로 많습니다.
 
-ADR-024 로 core-email-api 가 추출되면서 → billing 이 EmailPort 를 자유롭게 import 할 수 있게 됐어요.
+가장 흔한 케이스는 *앱이 휴대폰에 설치되어 있지 않은 상태* 예요. 사용자가 *결제만 하고 한동안 앱을 사용하지 않거나*, *기기를 바꿔서 앱을 새로 설치하지 않은 상태* 에서 갱신 실패가 발생하면 push 로는 그 사실이 도달할 길이 없습니다. 결제 갱신 / 환불 같은 사건은 *앱을 매일 쓰지 않는 사용자에게도* 도달해야 하는 정보라 push 만으로는 부족해요.
 
-이제 H/I 이벤트 (Renewal Failed/Abandoned + IAP REFUND/REVOKE) 에 push + email 둘 다 발송해요. **앱 미설치 / 토큰 만료** 사용자 케이스를 cover 합니다.
+두 번째는 *알림 권한 거부* 입니다. iOS / Android 모두 사용자가 *처음 앱 실행 시* 알림 권한을 명시적으로 허용해야 push 가 도달해요. 사용자가 권한을 거부하거나 *나중에 시스템 설정에서 끈* 경우 push 는 발송되어도 사용자에게 보이지 않습니다. 결제 같은 *권한 변경 통지* 가 이런 사용자에게 도달하지 못하면 운영 부담이 직접적으로 늘어요.
+
+세 번째는 *FCM 토큰 만료* 입니다. FCM 토큰은 *앱 재설치, OS 업데이트, Google Play Services 갱신* 등의 이벤트로 invalidate 될 수 있고, 우리 시스템이 *invalid 토큰을 가지고 있는 상태* 에서 push 를 보내면 발송은 *성공처럼 보이지만 실제로 도달하지 않아요*. 이 케이스는 *발송 로그만 보면 알 수 없는* 침묵의 실패입니다.
+
+이 세 가지 케이스에서 *email 은 자연스러운 fallback* 이에요. 사용자의 email 주소는 *기기 / 앱 설치 / OS* 와 무관하게 안정적이고, 이메일 클라이언트는 거의 모든 사용자가 *어떤 형태로든 확인하는* 채널입니다. 발송 도달률이 push 보다 *느릴 수 있지만* (사용자가 메일을 봐야 하므로), *결제 같은 비긴급 알림* 은 *반드시 도달* 하는 게 *즉시 도달* 보다 가치가 커요.
+
+이메일을 별도 채널이 아니라 *push 와 동시에 발송* 하는 듀얼 구조로 잡은 이유도 여기 있습니다. *한쪽만 보내는 분기 로직* 은 *어떤 사용자가 push 를 받을 수 있는지* 를 우리가 정확히 판단해야 한다는 부담을 만들어요. 두 채널을 동시에 보내면 *둘 중 도달하는 쪽으로 사용자가 인지* 하면 되어, 우리는 *발송 시도* 의 책임만 지면 됩니다. push 가 성공하면 사용자는 email 을 무시하고, push 가 도달하지 않으면 email 이 fallback 으로 작동하는 자연스러운 흐름이에요.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **결제 알림의 도달률을 보장하기 위해 push + email 을 어떻게 듀얼로 구성하고, 한쪽 채널만 활성화된 환경도 자연스럽게 지원할 것인가?**
 
 ---
 

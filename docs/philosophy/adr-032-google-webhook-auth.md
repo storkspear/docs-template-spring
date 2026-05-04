@@ -2,32 +2,43 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**상태**: 채택 (2026-05-02)
-**전제**: ADR-022 (IAP server notifications), 기존 GoogleNotificationDecoder
-**연관**: P 사이클 — 운영 보안 baseline
+**Status**: Accepted. `GoogleWebhookAuthFilter` 가 `/iap/google/webhook` 의 `Authorization: Bearer <JWT>` 헤더를 RS256 + JWKS + audience + email whitelist 4 단계로 검증.
 
 ---
 
 ## 결론부터
 
-Google Pub/Sub webhook 의 `Authorization: Bearer <JWT>` 검증을 추가해요 — Google 서비스 계정의 RS256 JWT 를 JWKS 공개키로 verify + audience / issuer 일치를 검증합니다.
+Google Play 의 RTDN (Real-Time Developer Notifications) webhook 은 *Google Cloud Pub/Sub* 을 통해 우리 백엔드로 push 됩니다. 이 webhook endpoint 는 *공개 인터넷에 노출* 되어 있어 *누구나 임의의 payload 로 POST* 할 수 있는 형태예요. 인증이 없으면 *공격자가 가짜 환불 알림을 보내 사용자 구독을 임의로 취소* 하거나 *가짜 갱신 알림으로 결제 상태를 조작* 할 수 있는 보안 구멍이 됩니다.
 
-JWKS 는 24h cache 로 두고 (rotation 대응), `allowed-service-account-emails` whitelist 로 *우리 plzkt 의 서비스 계정 만* 허용해요. webhook 위조 / replay 공격을 차단합니다.
+본 ADR 은 Google Pub/Sub webhook 의 *Bearer JWT 검증* 을 추가합니다. Google Cloud Pub/Sub 은 push subscription 설정 시 *service account* 를 등록할 수 있고, push 발송 시 *그 service account 의 RS256 서명 JWT 를 `Authorization: Bearer <JWT>` 헤더에 자동 첨부* 합니다. 우리 백엔드는 이 JWT 를 *4 단계로 검증* 해야 진짜 Google 발송으로 신뢰할 수 있어요.
+
+검증의 4 단계는 이렇게 작동합니다. 첫째, *RS256 서명 검증* — Google JWKS endpoint (`https://www.googleapis.com/oauth2/v3/certs`) 의 공개키로 JWT 의 서명을 확인해 *Google 의 service account 가 정말 발급했는지* 를 보증합니다. 둘째, *audience claim 일치 검증* — JWT 의 `aud` claim 이 *우리 webhook URL* 과 일치해야 *다른 시스템용으로 발급된 토큰이 우리에게 replay 되는* 공격을 차단해요. 셋째, *email whitelist 검증* — JWT 의 `email` claim 이 *우리가 사전 등록한 service account 이메일 목록* 에 있어야 *같은 GCP 환경의 다른 프로젝트* 에서 발급한 토큰을 막을 수 있습니다. 넷째, *expiration 검증* — JWT 의 `exp` claim 으로 *오래된 JWT 의 replay* 를 차단해요.
+
+JWKS 공개키는 1 시간 캐시로 두어 *키 회전에 자동 대응* 하면서도 *매 webhook 요청마다 Google JWKS 호출* 하는 비용을 회피합니다. Google 이 권장하는 캐시 주기를 그대로 따른 형태예요. 활성화는 *opt-in* (`app.iap.google.webhook.verify-token=true`) 으로 두어 *개발 / 테스트 환경* 에서는 검증을 끄고 *운영 환경에서만 enable* 하는 형태로 운영자가 통제할 수 있습니다.
+
+이 ADR 의 범위는 Google Pub/Sub push 인증 메커니즘의 본질, 4 단계 검증 흐름의 각 단계 의미, JWKS 캐싱 전략, opt-in 활성화 정책, 그리고 *왜 IP allowlist 같은 단순 대안이 부족한지* 의 트레이드오프 분석까지입니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-ADR-022 의 `/iap/google/webhook` endpoint 는 Google Play RTDN Pub/Sub push 를 받아요. 그러나 **인증이 무방비예요**:
+[`ADR-022`](./adr-022-iap-server-notifications.md) 가 Google RTDN webhook 의 *처리 로직* 을 정의했지만, *인증* 은 별개의 영역으로 남아 있어요. webhook endpoint 는 *공개 인터넷에 노출* 되어야 Google 의 push 를 받을 수 있고, 그 *공개성* 자체가 *무방비 공격 표면* 의 시작점입니다.
 
-- 누구나 fake notification payload + 진짜 transactionId 를 추측해 POST 할 수 있어요
-- `BillingPort.handleIapNotification` 호출 → REFUND 처리 → 사용자 자산에 영향이 가요
+인증 없는 webhook 의 위험성을 시나리오로 보면 명확해요. 공격자가 우리 시스템의 `/iap/google/webhook` URL 만 알면 (URL 은 보통 *문서 / 운영 로그 / 코드 저장소* 어디든 노출될 수 있어요), *임의의 RTDN 페이로드를 POST* 할 수 있습니다. RTDN 페이로드의 형식은 *Google 공식 문서에 공개되어 있어* 누구나 가짜 메시지를 만들어낼 수 있고, 그 메시지가 *REFUND* type 이면 우리 백엔드는 `BillingPort.handleIapNotification` 을 호출해 *PaymentRecord 를 REFUNDED 로 변경 + Subscription 을 CANCELLED 로 전환* 합니다. 사용자가 *결제한 적도 없는 환불* 을 받게 되어 *사용자 자산이 임의로 조작* 되는 사고예요.
 
-**realistic 공격**:
-- transactionId 가 추측이 어렵지만 (16+ random) leak (DB dump / log 노출 / 직원 인사이드) 시 가능해요
-- 운영 보안 audit (PCI-DSS, ISO 27001) 시 webhook 인증 부재 = compliance 미달이에요
+*transactionId 가 추측 어렵다* 는 사실이 일부 방어가 되긴 하지만, 완벽하지 않습니다. transactionId 는 *Google 이 발급한 16+ 자리 random ID* 라 brute-force 추측은 불가능하지만, *DB dump 유출 / 로그 노출 / 직원 인사이드 위협* 같은 경로로 *진짜 transactionId 가 leak 되는* 시점이 오면 *그 ID 로 가짜 환불 페이로드* 를 만들어 cross-app 공격이 가능해져요. *데이터 leak 자체가 즉시 자산 손실로 환산되는* 보안 모델은 매우 취약한 형태입니다.
 
-Apple webhook 은 JWS 자체 검증으로 자동 차단돼요 (cert chain). Google 만 hole — 본 ADR 가 그 구멍을 막아요.
+운영 보안 audit 측면에서도 부담이 커요. *PCI-DSS* 나 *ISO 27001* 같은 표준은 *webhook endpoint 에 대한 인증 메커니즘* 을 요구하고, *인증 부재* 는 audit 에서 *compliance 미달* 로 분류돼요. 결제 관련 시스템이 audit 를 통과하지 못하면 *PG 측 약관 위반* 이나 *카드사 수수료 협상의 마이너스 요인* 이 될 수 있습니다.
+
+Apple webhook 은 이 영역이 *자동으로* 해결되어 있어요. Apple App Store Server Notifications V2 의 페이로드는 *JWS (이중 서명)* 형태라 *우리 백엔드가 페이로드를 디코드하면서 자연스럽게 cert chain + ES256 서명 검증* 을 수행하고, 이 검증을 통과하지 못하면 페이로드 자체가 무효해집니다. *별도 인증 단계 없이도 인증이 페이로드에 내장* 된 형태예요. Google RTDN 은 이런 내장 검증이 없어 *별도 Bearer JWT 인증* 을 추가해야 같은 수준의 안전성을 확보할 수 있습니다.
+
+해결책의 후보로 *IP allowlist* 같은 단순한 형태도 있어요. *Google Pub/Sub 의 발송 IP 범위만 허용* 하는 방식인데, 이는 두 가지 한계가 있습니다. 첫째, *Google Pub/Sub IP 범위* 는 *모든 GCP 사용자가 공유* 해서 *같은 GCP 의 다른 프로젝트* 도 우리 IP allowlist 를 통과할 수 있어요. 둘째, 우리 인프라가 *Cloudflare Tunnel / Kamal proxy* 를 거치면 *원본 IP 가 가짜화* 되어 IP 검증 자체가 무력화됩니다.
+
+진짜 안전한 방법은 *Bearer JWT 검증* 이에요. Google Pub/Sub push 발송 시 첨부되는 JWT 는 *우리가 지정한 service account 가 발급한 RS256 서명* 이라 *위조가 사실상 불가능* 하고, *우리 audience URL 매칭 + email whitelist* 까지 더하면 *우리 plzkt 만이 발급할 수 있는 토큰* 으로 좁혀집니다. 추가 인프라 없이 *Google JWKS endpoint* 만으로 검증이 가능한 점도 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 솔로 친화 정신에 정합해요.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **공개 webhook endpoint 에서 Google Pub/Sub 발송만을 진짜로 신뢰할 수 있게 하려면, 어떤 검증 메커니즘이 외부 의존 없이 cross-app 공격과 replay 공격을 동시에 차단하는가?**
 
 ---
 

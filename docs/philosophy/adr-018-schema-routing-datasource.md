@@ -1,30 +1,30 @@
-# ADR-018 · SchemaRoutingDataSource — ADR-013 의 service-layer 완성
+# ADR-018 · SchemaRoutingDataSource — service-layer 의 슬러그 격리
 
-**Status**: Accepted. 2026-05-01 기준 모든 슬러그별 데이터 격리가 `SchemaRoutingDataSource` 의 ThreadLocal 분기로 동작합니다. ADR-013 (앱별 controller + AuthPort 위임) 의 채택 정신을 service-layer 까지 끝까지 완성했어요.
+**Status**: Accepted. `SchemaRoutingDataSource` 가 `SlugContext` (ThreadLocal) 의 슬러그 값으로 connection 을 슬러그별 DataSource 에 분기. INSERT / SELECT 가 자동으로 슬러그 schema 로 라우팅.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~4분
 
 ## 결론부터
 
-각 요청에서 URL 의 `{appSlug}` 를 `SlugContext` (ThreadLocal) 에 set → `SchemaRoutingDataSource` (Spring 의 `AbstractRoutingDataSource` 확장) 가 connection 잡을 때 해당 슬러그의 `<slug>DataSource` (HikariCP pool) 로 분기합니다. service Bean 은 단일 (`AuthServiceImpl`), `@Transactional` 도 단일 TM 인데, connection 자체가 슬러그별이라 INSERT/SELECT 가 자동으로 슬러그 schema 로 라우팅돼요.
+[`ADR-005`](./adr-005-db-schema-isolation.md) 의 *앱당 schema 격리* 가 **데이터베이스 레벨에서 작동하려면 서버의 service-layer 도 그 격리를 따라야 해요**. controller 가 *URL 에서 받은 슬러그* 로 자기 앱의 DataSource 를 골랐다 해도, service 가 *single Bean* 으로 동작하면서 *항상 default DataSource 로 INSERT* 를 하면 격리가 무너집니다. *testsvc 슬러그의 회원가입* 이 *core schema 의 users 테이블에 INSERT* 되는 형태로요.
+
+`SchemaRoutingDataSource` 는 그 격리를 service-layer 까지 완성하는 메커니즘이에요. Spring 의 `AbstractRoutingDataSource` 를 확장한 단일 Bean 으로, *connection 을 잡는 시점* 에 `SlugContext` (ThreadLocal) 의 현재 슬러그 값을 보고 *해당 슬러그의 `<slug>DataSource`* (각 슬러그별 HikariCP pool) 로 분기해요. 요청이 들어오면 `AppSlugMdcFilter` 가 URL 의 `{appSlug}` 를 `SlugContext.set` 으로 박아두고, 요청이 끝나면 finally 블록에서 `clear` 합니다.
+
+이 구조의 장점은 *service Bean 은 그대로 단일* 이라는 점이에요. `AuthServiceImpl` 한 개가 모든 슬러그의 회원가입을 처리하지만, *connection 자체가 슬러그별로 분기되므로* `INSERT INTO users` 가 *현재 요청의 슬러그 schema* 로 자동으로 흘러가요. `@Transactional` 도 단일 TransactionManager 그대로 쓰고, JPA Repository 도 default EntityManagerFactory 그대로 쓰는데, *connection 이 결정하는 search_path* 덕에 자연스럽게 격리가 작동합니다.
 
 ## 왜 이런 결정이 필요했나?
 
-ADR-013 이 결정한 "앱별 controller + 공통 AuthPort 위임" 패턴이 **service-layer 에서 미완성** 이었어요. 도그푸딩 e2e 검증으로 발견했어요:
+[`ADR-013`](./adr-013-per-app-auth-endpoints.md) 이 *앱별 controller + 공통 `AuthPort` 위임* 패턴을 정했지만, 이 패턴은 *controller 와 service 사이의 위임* 까지만 책임집니다. service 가 실제로 *어느 schema 에 INSERT 할지* 는 [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 의 범위 밖이에요. 결과적으로 *controller 는 슬러그를 알지만 service 는 슬러그에 무관* 한 비대칭이 생기고, 이 비대칭을 메우지 않으면 [`ADR-005`](./adr-005-db-schema-isolation.md) 의 5중 방어선 중 *DataSource 분리 방어선* 이 사실상 작동하지 않아요.
 
-```
-testsvc 슬러그로 회원가입 호출
-  → INSERT INTO core.users  ❌  (testsvc.users 가 아님!)
-```
+이 비대칭을 메우는 길에는 두 갈래가 있어요. 하나는 *service 시그니처에 `String appSlug` 파라미터를 모두 추가* 해서 *service 가 슬러그를 명시적으로 받는* 형태이고, 다른 하나는 *connection 자체가 현재 슬러그를 알아서 라우팅* 하는 ThreadLocal 기반 형태입니다.
 
-근본 원인:
+명시적 파라미터 방식은 *시그니처가 비대해지는* 비용이 크고, *서비스 한 메서드가 다른 메서드를 부르는 체인* 에서 슬러그를 계속 전달해야 하는 부담이 누적돼요. 17 개 메서드를 가진 `AuthPort` 를 비롯해 모든 service 인터페이스가 *모든 메서드 첫 파라미터에 appSlug* 를 갖는 형태가 되고, 그 파라미터를 *service 안에서 어떤 분기에 쓰는지도 모호* 해집니다.
 
-- `core-auth-impl/AuthAutoConfiguration` 의 `@EnableJpaRepositories` 가 default EMF 로 강제 등록
-- `bootstrap/CoreDataSourceConfig` 의 default `dataSource` Bean = core schema 직접 가리키는 단일 HikariCP
-- → `AuthServiceImpl` (단일 Bean) 이 호출하는 `UserRepository` 가 항상 core schema 만 봄
-- 각 앱의 `<slug>DataSource` Bean 은 등록만 되고 **데드 코드**
+ThreadLocal 기반 라우팅은 *Spring 의 표준 패턴* 이에요. `AbstractRoutingDataSource` 가 *현재 lookup key* 를 ThreadLocal 에서 읽어 적절한 DataSource 로 분기하는 구조는 Spring 공식 문서가 멀티테넌시 패턴으로 권장하는 형태입니다. 우리 환경에서 ThreadLocal 의 약점 — *비동기 경계에서 컨텍스트 유실* — 도 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 *비목표 (분산 추적 / 비동기 처리 회피)* 정신과 정합해 큰 문제가 되지 않아요.
 
-ADR-013 은 "ThreadLocal 라우팅을 거부" 했지만 그 거부 이유 (URL 에서 slug 가 안 보임) 는 ADR-012 의 URL 명시 (`/api/apps/{slug}/auth/*`) 이후 무효해진 상태. 다시 검토하면 ThreadLocal 라우팅이 가장 단순하고 ADR-013 의 의도 (앱 모듈이 자기 DataSource 주입) 를 service 까지 완성 가능.
+이 결정이 답해야 할 물음은 이거예요.
+
+> **service-layer 가 슬러그를 명시적으로 받지 않으면서도 슬러그별 schema 격리를 자연스럽게 따르게 하는 구조는 무엇인가?**
 
 ## 채택한 패턴
 

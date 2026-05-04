@@ -2,29 +2,33 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**상태**: 채택 (2026-05-02)
-**전제**: ADR-019 (billing/iap/payment 분리), ADR-021 (renewal 실패 정책), ADR-022 (IAP server notifications)
-**연관**: J 사이클 — 사용자 알림 발송
+**Status**: Accepted. `core-billing-impl/listener/SubscriptionNotificationListener` 가 결제 도메인 이벤트를 push 알림으로 변환. `app.billing.notification.enabled` + `PushPort` bean 조건으로 opt-in 등록.
 
 ---
 
 ## 결론부터
 
-ADR-021 / ADR-022 가 발행한 결제 도메인 이벤트 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEvent` / `RefundEvent` / `RevokeEvent`) 를 push 알림으로 변환하는 listener 를 추가합니다.
+구독형 SaaS 의 결제 흐름은 *사용자가 알지 못하는 사이에 권한이 바뀌는* 사건들로 가득해요. 자동 갱신이 실패하거나, 환불이 처리되거나, 가족 공유 해지로 구독이 강제 취소되는 순간 사용자는 *내 권한이 왜 사라졌는지* 알 수 없습니다. 이런 사건을 *즉시 알림으로 사용자에게 전달* 하는 게 결제 알림 listener 의 역할이에요.
 
-email 채널은 별도 사이클 (ADR-024 → ADR-025) 로 미루고 push 만 우선 도입해요. 이유: 당시 EmailPort 가 core-auth 안에 묶여 있어 billing 이 import 할 수 없었어요. Idempotency 는 Spring `@TransactionalEventListener(AFTER_COMMIT)` 으로 보장합니다.
+본 ADR 은 결제 도메인이 발행하는 이벤트들 — 갱신 성공 / 갱신 실패 / 갱신 포기 (Abandoned) / IAP REFUND / IAP REVOKE — 를 push 알림으로 변환하는 listener 를 정의합니다. 위치는 정책 layer (`core-billing-impl`) 안의 `SubscriptionNotificationListener` 이고, *어떤 이벤트에 어떤 메시지를 보낼지* 의 알림 정책도 같은 모듈에서 관리해요. 채널은 push (FCM) 만 다루고, email 채널은 [`ADR-025`](./adr-025-billing-notification-email-channel.md) 에서 별도로 추가합니다 — push 인프라 (`PushPort`, `FcmPushAdapter`) 가 이미 갖춰져 있는 반면 email 은 별도 도메인 ([`ADR-024`](./adr-024-email-domain-extraction.md)) 으로 추출해야 했기 때문이에요.
+
+이 ADR 은 listener 의 등록 조건 (`@ConditionalOnBean` + `@ConditionalOnProperty`), 이벤트별 처리 매핑, 트랜잭션 경계 (`@TransactionalEventListener(AFTER_COMMIT)` 으로 멱등성 보장), 슬러그 컨텍스트 처리 (push token 이 슬러그별 schema 에 있으므로 listener 시작 시 `SlugContext.set` + finally 정리), 그리고 알림 발송 실패가 비즈 로직을 막지 않게 하는 격리 정책을 다룹니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-H 사이클 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEvent`) 과 I 사이클 (REFUND / REVOKE 처리) 이 모두 **이벤트는 발행되나 listener 부재**. 운영 시:
+결제 도메인이 *이벤트는 정확히 발행하지만 그 이벤트를 받는 listener 가 없는* 상태로는 사용자에게 *권한 변경의 이유* 가 전달되지 않아요. 이벤트는 시스템 내부의 시그널일 뿐이라 *외부 채널 (push / email) 로 변환* 하는 단계가 별도로 필요합니다.
 
-- 갱신 실패 시 사용자가 알지 못함 → 다음 갱신도 실패 → 결국 ABANDONED + auto-cancel
-- 환불 처리 시 사용자가 즉시 인지 X → 권한 사라진 이유 모름
-- 강제 취소 (가족 공유 해지 등) 도 동일
+알림이 없을 때 운영에서 실제로 발생하는 시나리오를 보면 그 부담이 명확해요. 자동 갱신 실패 — 카드 한도 초과나 카드 만료 같은 일시적 문제 — 가 발생하면 [`ADR-021`](./adr-021-renewal-failure-policy.md) 의 재시도 정책 (1시간 후, 6시간 후) 이 동작하지만, 사용자가 *알림을 받지 못하면 카드 정보를 갱신할 기회조차 잃어요*. 결국 7시간 후 ABANDONED 처리되어 자동 취소되고, 사용자는 *어느 날 갑자기 Pro 권한이 사라진* 상태를 마주합니다.
 
-대안 SaaS (Spotify/Netflix) 는 결제 실패 / 환불 / 취소 시 즉시 push + email 을 발송해요. 본 ADR 은 그 흐름을 도입합니다.
+환불도 마찬가지예요. PG 환불이 처리되면 PaymentRecord 의 status 가 REFUNDED 로 바뀌고 Subscription 이 CANCELLED 로 전환되지만, 사용자는 *왜 권한이 사라졌는지* 즉시 알 수 없어요. CS 문의로 *내 환불이 잘 처리됐나?* 같은 질문이 누적되는 형태로 운영 부담이 돌아옵니다.
+
+가족 공유 해지나 Apple/Google 측 강제 취소 같은 IAP REVOKE 케이스도 동일해요. *권한이 사라진 사실 자체* 와 *그 이유* 가 사용자에게 즉시 도달해야 *어떤 액션을 취할지* 결정할 수 있습니다.
+
+대안 SaaS — Spotify, Netflix — 가 *결제 실패 / 환불 / 취소 시 즉시 push + email 을 보내는* 것이 표준이 된 이유가 여기 있어요. 알림은 *권한 변경의 사유와 다음 액션* 을 사용자에게 전달하는 채널이고, 이 채널이 없으면 *사용자가 사라진 권한을 추적할 수단* 자체가 막힙니다.
+
+본 ADR 은 그 알림 흐름을 도입하면서, *솔로 운영자가 매 도메인마다 listener 를 직접 짜지 않아도* 되도록 *결제 도메인 안에서 알림 정책을 관리* 하는 형태로 캡슐화합니다.
 
 ---
 
@@ -79,7 +83,7 @@ H 사이클 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEve
 - 알림 발송 중 throw → log only (listener 가 catch)
 - 알림 발송이 BillingPort 의 본 흐름 trigger 했지만 commit 은 이미 완료 — 데이터 일관성 영향 X
 
-향후 비동기 발송 (`@Async`) 로 분리 가능 (별도 사이클).
+알림 발송이 무거워지는 단계 — *수만 사용자 동시 알림* 같은 — 가 오면 `@Async` listener 로 분리해 별도 thread pool 에서 처리하는 형태로 확장할 수 있어요. 본 ADR 의 동기 listener 는 *현재 트래픽 규모에서 가장 단순한 형태* 로 충분합니다.
 
 ---
 

@@ -2,28 +2,39 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**상태**: 채택 (2026-05-02)
-**전제**: ADR-023 (push listener), ADR-025 (email 채널), ADR-026 (메트릭)
-**연관**: S 사이클 — 사용자 권리 / GDPR 동의 분리
+**Status**: Accepted. `user_notification_preferences` 테이블 + `NotificationKind` enum 으로 사용자별 알림 종류별 push/email 토글. listener 가 발송 직전 preference 를 조회해 OFF 면 silent skip + skipped 메트릭 증가.
 
 ---
 
 ## 결론부터
 
-사용자가 알림 종류별 *on/off* 토글 (예: `RENEWAL_FAILED` / `RENEWAL_SUCCESS` / `MARKETING`). `NotificationKind` enum + `user_notification_preferences` 테이블 — default=ON.
+알림은 *너무 많이 보내면 사용자가 모든 알림을 무시하기 시작* 하는 자기 무력화 효과가 있어요. *알림 피로도 (notification fatigue)* 라고 부르는 이 현상은 *결제 실패 같은 critical 알림* 까지 함께 무시하게 만들어 *알림 인프라 자체의 가치* 를 떨어뜨립니다. 그래서 *사용자가 어떤 알림을 받을지 직접 선택할 수 있어야* 알림이 제 역할을 해요.
 
-발송 직전 listener 가 *user preference* 조회해 OFF 면 silent skip. API endpoint (`PATCH /me/notifications/preferences`) 는 본 사이클 scope 외 — *Phase 2-3* 에서 추가.
+본 ADR 은 사용자가 *알림 종류별로 on/off 를 선택* 할 수 있는 preference 시스템을 정의합니다. `NotificationKind` enum (`RENEWAL_SUCCEEDED`, `RENEWAL_FAILED`, `RENEWAL_ABANDONED`, `IAP_REFUND`, `IAP_REVOKE`) 이 알림 분류 단위가 되고, `user_notification_preferences` 테이블이 *(user_id, kind, push_enabled, email_enabled)* 의 행 단위로 사용자별 설정을 저장해요. 발송 시점에 listener 가 *해당 사용자의 해당 kind preference* 를 조회해 OFF 면 *silent skip* 으로 처리합니다.
+
+default 정책은 *미등록 = ON* 이에요. 사용자가 명시적으로 OFF 를 선택하지 않은 경우 *모든 알림을 받는* 상태로 가정합니다. 이 default 의 가치는 *새 가입자가 별도 설정 없이 핵심 알림 (결제 실패, 환불 등) 을 즉시 받는* 형태가 된다는 점이에요. 운영자가 *opt-in* (default=OFF) 으로 바꾸고 싶으면 환경변수로 토글할 수 있도록 설계해, 한국 마케팅법처럼 *명시 동의* 가 필요한 환경에서도 적용 가능합니다.
+
+skip 처리는 *메트릭 차원에서도 의미* 가 있어요. listener 가 preference 토글 때문에 발송을 스킵하면 [`ADR-026`](./adr-026-billing-notification-metrics.md) 의 `result=skipped` counter 가 증가합니다. 운영자가 *어떤 알림 종류가 자주 OFF 되는지* 를 메트릭으로 추적할 수 있어, *알림 정책의 적정성* 을 비즈니스 시그널로 분석할 수 있어요. *RENEWAL_SUCCEEDED 의 OFF 비율이 높으면 → 갱신 성공 알림이 무의미하다는 신호* 같은 분석이 가능합니다.
+
+이 ADR 의 범위는 `NotificationKind` enum 정의, `user_notification_preferences` 테이블 설계 (슬러그별 schema 위치 + 컬럼 의미), default 정책의 근거, listener 의 preference 체크 통합 흐름, 메트릭 연결 패턴, 그리고 *별도 테이블 vs Boolean 컬럼 / JSON 컬럼* 같은 모델 선택 트레이드오프까지입니다. API endpoint (`PATCH /me/notifications/preferences`) 자체는 *컨트롤러 레이어 작업* 이라 본 ADR 의 인프라 결정 이후 후속 작업으로 다뤄요.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-L 사이클로 push + email 듀얼 알림이 구현됐어요. 그러나 **사용자가 끌 수 없어요**. 운영 시:
+알림 인프라 ([`ADR-023`](./adr-023-billing-notification-listener.md), [`ADR-025`](./adr-025-billing-notification-email-channel.md)) 가 push + email 듀얼 채널까지 갖춰지고 나면, *모든 사용자에게 모든 알림이 강제 발송* 되는 단계가 마지막 부담으로 남아요. 이 단계에서 *사용자 측의 통제권* 이 없으면 운영의 여러 측면에서 부담이 누적됩니다.
 
-- 모든 사용자에게 모든 알림이 강제 발송 — 알림 피로도가 커요
-- GDPR / 한국 개인정보보호법 — 마케팅성 알림 동의 분리를 권장해요
-- 결제 실패 알림은 critical (켜놓는 게 정석) / 결제 성공 알림은 optional 이에요
-- 사용자가 알림을 차단할 때 (OS 설정 / 이메일 unsubscribe) backend 도 stop 해야 — 발송 비용을 절감할 수 있어요
+**알림 피로도** 가 가장 직관적인 부담이에요. 사용자가 *결제 갱신 성공 알림* 을 매월 받는다고 상상해보면, 이 알림은 *대부분의 경우 정보 가치가 낮아요* — 사용자는 자기가 갱신을 신청한 걸 알고 있고, 결제가 성공했다는 사실은 카드 명세에서도 확인할 수 있습니다. 반복적인 *별로 중요하지 않은 알림* 이 쌓이면 사용자는 *모든 알림을 무시* 하기 시작하고, 정작 *결제 실패 같은 critical 알림* 도 함께 무시하게 됩니다. *알림 정책의 자기 파괴* 가 일어나요.
+
+**법적 / 컴플라이언스 부담** 도 무시할 수 없습니다. *GDPR* 은 *마케팅성 알림에 대한 명시 동의* 를 요구하고, *한국 개인정보보호법* 도 *광고성 정보 수신 동의* 를 별도로 받도록 권장해요. 알림 종류별 토글이 없으면 *모든 알림이 동의 없이 발송* 되는 상태라 법적 리스크가 생깁니다. 사용자가 *결제 알림은 받되 마케팅 알림은 차단* 하는 분리 동의 표현이 시스템에서 지원되지 않으면 컴플라이언스 측면에서도 미달이에요.
+
+**알림의 critical 도 차이** 도 영역별로 다릅니다. *결제 실패 알림* 은 *critical* 이라 사용자가 *받지 못하면 권한이 사라진 사실을 인지하지 못해* 운영 사고로 이어져요. 반면 *결제 갱신 성공 알림* 은 *optional* 이라 사용자가 끄고 싶어할 가능성이 높아요. 한 묶음으로 처리하면 *둘 다 받거나 둘 다 못 받는* 비대칭이 생기고, 사용자가 *결제 알림 자체를 모두 끄는* 형태로 critical 알림까지 막히는 결과가 나옵니다.
+
+**발송 비용** 도 누적 부담이에요. 사용자가 *OS 설정에서 push 권한을 끄거나* *이메일 unsubscribe 를 클릭* 한 경우, 우리는 *그 사실을 인지하지 못한 채 발송 시도* 를 계속 합니다. push 는 *FCM 응답에서 invalid token* 으로 실패가 잡히지만, email 은 *bounce* 가 별도로 추적되지 않으면 *발송 비용 (Resend 가 청구하는 발송 건당 요금)* 이 *도달하지 않는 메일에도 누적* 돼요. preference 차원에서 *사용자가 명시 OFF 한 알림은 backend 가 발송조차 안 하는* 형태가 비용 측면에서도 정합합니다.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **사용자가 알림 피로도와 법적 권리를 동시에 보호받을 수 있도록 알림 종류별 on/off 토글을 어떤 모델로 두고, listener 와 메트릭 체인에 어떻게 통합할 것인가?**
 
 ---
 

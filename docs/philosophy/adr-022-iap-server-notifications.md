@@ -2,27 +2,37 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**상태**: 채택 (2026-05-02)
-**전제**: ADR-019 (billing/iap/payment 분리), ADR-020 (subscription 도메인 모델), D-secure (Apple JWS 검증), H 사이클 (PG 갱신 정책)
-**연관**: I 사이클 — IAP 갱신/취소 자동 처리
+**Status**: Accepted. Apple V2 / Google RTDN webhook 을 `IapNotification` 통합 모델로 정규화. `BillingPort.handleIapNotification` 단일 진입점으로 정책 layer 가 platform 무관.
 
 ---
 
 ## 결론부터
 
-Apple App Store Server Notifications V2 + Google Play Real-Time Developer Notifications (RTDN) webhook 을 통합 처리해요. Apple/Google 의 raw 이벤트 type (예: `DID_RENEW` / `EXPIRED` / `REFUND` / `REVOKE`) 을 본 레포의 *통합 type* (8 개) 로 매핑해 같은 listener 가 두 channel 을 처리합니다.
+IAP (In-App Purchase) 결제는 *최초 구매 시점* 의 receipt 검증만으로 끝나는 흐름이 아니에요. 사용자가 구독을 결제한 뒤에도 *매월 자동 갱신*, *Apple/Google 측 환불 처리*, *가족 공유 해지로 인한 강제 취소*, *카드 만료로 인한 갱신 실패* 같은 사건들이 *결제 시점 이후* 에 계속 일어납니다. PG 결제는 *우리가 직접 갱신 / 환불 / 취소를 처리* 하지만, IAP 는 *결제 처리 주체가 Apple/Google* 이라 우리가 그 이벤트를 *능동적으로 알아낼 길이 없어요* — Apple App Store 와 Google Play 가 *Server Notification webhook* 으로 백엔드에 통보해 줘야만 인지할 수 있습니다.
 
-`DID_RENEW` 같은 갱신 이벤트는 user 식별 정보를 포함하지 않으므로 *originalTransactionId* / *purchaseToken* 으로 기존 PaymentRecord 를 조회한 뒤 user 를 추적해요. webhook 중복은 `(source, externalId)` UNIQUE 로 차단합니다.
+본 ADR 은 Apple App Store Server Notifications V2 + Google Play Real-Time Developer Notifications (RTDN) 의 두 webhook 흐름을 통합 처리하는 구조를 정의합니다. 두 platform 의 webhook 은 *형식이 본질적으로 달라요* — Apple 은 JWS (이중 서명) 형태이고, Google 은 Pub/Sub bearer JWT 형태입니다. raw 이벤트 type 도 다르고 (Apple 의 `DID_RENEW` vs Google 의 `SUBSCRIPTION_RENEWED`), 사용자 식별 방식도 다르고 (Apple 의 `originalTransactionId` vs Google 의 `purchaseToken`), 응답 페이로드도 제각각이에요. 이 차이를 *정책 layer (`BillingPort`)* 까지 끌고 가면 비즈니스 코드가 *if (platform == "apple")* 분기로 가득 차버립니다.
+
+해결책은 *통합 모델 + 단일 진입점* 패턴이에요. 두 platform 의 raw webhook 을 각자의 Decoder 가 받아 *공통 `IapNotification` 모델* 로 정규화하고, `BillingPort.handleIapNotification(IapNotification)` 한 메서드가 정책 처리를 담당합니다. 통합 type enum (`DID_RENEW` / `REFUND` / `EXPIRED` / `DID_FAIL_TO_RENEW` / `REVOKE` / `OTHER`) 으로 Apple / Google 의 raw type 을 *비즈니스 의도* 로 추상화하므로, 새 platform (예: Amazon Appstore) 이 추가되어도 *Decoder 만 추가* 하면 정책 layer 는 그대로예요.
+
+이 ADR 의 범위는 통합 모델 설계 (`IapNotification` 의 필드 정의), Apple JWS / Google JWT 검증 메커니즘, user 식별 (`originalTransactionId` / `purchaseToken` 으로 기존 PaymentRecord 조회), webhook 멱등성 보장 (webhook_events 테이블 재활용), 그리고 정책 layer 의 platform 무관성을 보장하는 단일 진입점 패턴까지입니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-D 사이클 = IAP **영수증 검증** (사용자 결제 직후 1회 호출). 그러나 **갱신 / 환불 / 취소** 는 Apple/Google 이 백엔드에 직접 webhook (server notification) 을 보내요 — 받지 않으면 우리는 영구히 알 수 없어요.
+IAP 결제는 *결제 시점 이후의 사건* 을 백엔드가 인지할 수 있는 *유일한 채널이 server notification webhook* 이에요. PG 결제는 *우리가 능동적으로 PG API 를 호출해서* 결제 상태 / 환불 / 갱신을 처리할 수 있지만, IAP 는 *Apple / Google 이 결제 주체* 라 우리가 *능동 호출할 API 자체가 없어요*. Apple 의 `Get Transaction Info` API 가 *조회는 가능* 하지만, *언제 갱신이 일어났는지 / 사용자가 환불받았는지* 같은 사건을 *알아낼 트리거* 가 없으면 결국 *주기적 polling* 이 필요한데, 그것도 *수만 사용자의 transaction 을 매시간 조회* 하는 비용이 너무 커요.
 
-PG 갱신은 H 사이클 (chargeAgain + retry) 로 해결돼요. IAP 는 백엔드가 직접 결제할 수 없어요 (카드 정보를 우리가 받지 않으니까요) → webhook 만이 유일한 갱신 경로예요.
+server notification 이 그 트리거 역할을 합니다. Apple / Google 이 *사건이 발생한 시점에 webhook 으로 통보* 해 주므로 백엔드는 *그 통보만 정확히 처리* 하면 사용자 권한 관리가 자동화돼요. 통보를 받지 못하면 *사용자가 환불받았는데 우리 시스템에서는 여전히 ACTIVE 인* 상태가 발생하고, *가족 공유로 강제 취소된 구독에서 사용자 권한이 그대로 유지* 되는 정합성 사고가 누적됩니다.
 
-본 ADR 은 두 가지 다른 형식 (Apple V2 JWS / Google RTDN Pub/Sub) 을 통합 모델로 정규화하여 비즈니스 로직 layer (BillingPort) 를 platform 무관하게 만드는 결정입니다.
+문제는 두 platform 의 *형식이 본질적으로 다르다* 는 점이에요. Apple V2 는 JWS (JSON Web Signature) 의 이중 서명 구조 — *outer signedPayload* 안에 *inner signedTransactionInfo* 가 또 JWS 로 감싸져 있어 두 단계 검증이 필요해요. cert chain (leaf → intermediate → Apple Root CA G3) 검증 + ES256 서명 확인이 둘 다 필요한 *비교적 복잡한* 형태입니다. Google RTDN 은 Pub/Sub 의 bearer JWT 로 도착하는 형태로, Google service account 의 RS256 토큰을 JWKS 공개키로 검증하는 *비교적 간단한* 형태예요. Apple 은 *cert 기반 PKI*, Google 은 *JWKS 기반 OAuth* 라 검증 메커니즘 자체가 다릅니다.
+
+raw 이벤트 type 도 platform 마다 분류가 다릅니다. Apple 은 *DID_RENEW / EXPIRED / REFUND / REVOKE / DID_FAIL_TO_RENEW* 같은 type 을 사용하고, Google 은 *SUBSCRIPTION_RECOVERED / SUBSCRIPTION_RENEWED / SUBSCRIPTION_CANCELED / SUBSCRIPTION_EXPIRED* 같은 다른 분류를 씁니다. 같은 *환불* 사건이라도 Apple 은 `REFUND`, Google 은 `SUBSCRIPTION_REVOKED` 같이 다른 이름을 가져요. 이 차이를 정책 layer 까지 가져가면 *비즈니스 코드가 platform 의 표현 어휘에 종속* 됩니다.
+
+사용자 식별 방식도 platform 마다 달라요. Apple 의 webhook 은 *originalTransactionId* 만 알려주고 *userId 는 포함되지 않아요*. Google 도 마찬가지로 *purchaseToken* 만 알려주고 *Google 계정 ID* 같은 식별자는 들어 있지 않습니다. 따라서 우리 시스템이 *최초 구매 시점에 originalTransactionId / purchaseToken 을 PaymentRecord 에 저장* 해두고, webhook 이 도착하면 *그 ID 로 PaymentRecord 를 조회해서 userId 를 역참조* 하는 흐름이 필요해요.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **Apple V2 와 Google RTDN 의 본질적으로 다른 webhook 형식을 어떻게 통합 모델로 정규화해서, 정책 layer (`BillingPort`) 가 platform 분기 없이 처리할 수 있게 할 것인가?**
 
 ---
 

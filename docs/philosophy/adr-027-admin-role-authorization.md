@@ -2,39 +2,39 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**상태**: 채택 (2026-05-02)
-**전제**: ADR-018 (멀티 슬러그 라우팅), 기존 JWT/SecurityConfig 인프라
-**연관**: U 사이클 — 운영자 권한 endpoint
+**Status**: Accepted. `@AdminOnly` meta annotation 이 `@PreAuthorize("hasRole('ADMIN')")` 을 래핑. JWT `role` claim 으로 GrantedAuthority 매핑 + Spring Security 가 권한 검증.
 
 ---
 
 ## 결론부터
 
-운영자 전용 endpoint 를 보호하는 *@AdminOnly* meta annotation + JWT `role` claim 검증을 도입해요. Spring Security 의 `@PreAuthorize("hasRole('ADMIN')")` 보다 *간결하고 도메인 의도가 명시적* 이에요.
+서비스가 자라면 *일반 사용자가 접근하면 안 되는 운영자 전용 endpoint* 가 늘어나요. 결제 강제 환불, 구독 강제 취소, 사용자 role 변경, plan 정의 수정 같은 *시스템 상태를 직접 조작* 하는 기능들이에요. 이런 endpoint 가 일반 사용자 토큰으로 접근 가능하면 *권한 escalation* 이 곧바로 일어나므로, *권한 검증을 컨벤션 수준에서 명시적으로 강제* 하는 메커니즘이 필요합니다.
 
-`role` claim 은 JWT 발급 시 user.role 에서 복사돼요 (`"user"` / `"admin"`). AppSlugVerificationFilter 와 같은 chain 에서 검증되어 *앱 단위 + role 단위* 이중 격리가 이뤄져요.
+본 ADR 은 운영자 전용 endpoint 를 표시하는 `@AdminOnly` meta annotation 을 도입합니다. 이 어노테이션은 Spring Security 의 `@PreAuthorize("hasRole('ADMIN')")` 을 한 번 감싼 *도메인 의도가 명시적인* 표기예요. 컨트롤러 메서드나 클래스에 `@AdminOnly` 한 줄을 붙이면 *그 endpoint 가 운영자 전용임* 이 코드만 봐도 명확해지고, 일반 사용자 JWT 가 들어오면 Spring Security 가 *403 Forbidden* 으로 자동 차단합니다.
+
+권한 검증 자체는 JWT 의 `role` claim 위에서 작동해요. 사용자가 로그인하면 발급되는 JWT 의 payload 에 `role` 필드가 포함되고 (`"user"` 또는 `"admin"`), `JwtAuthFilter` 가 이 값을 *Spring Security 의 GrantedAuthority* (`ROLE_USER` / `ROLE_ADMIN`) 로 매핑합니다. `@PreAuthorize` 가 그 GrantedAuthority 를 검증하는 흐름이라 [`ADR-006`](./adr-006-hs256-jwt.md) 의 JWT 인프라와 자연스럽게 연결돼요. `AppSlugVerificationFilter` ([`ADR-013`](./adr-013-per-app-auth-endpoints.md)) 와 같은 chain 에서 검증되어 *앱 단위 격리 + role 단위 권한* 의 이중 방어선이 작동합니다.
+
+이 ADR 의 범위는 `@AdminOnly` 어노테이션 정의, JWT role claim 의 발급/검증 흐름, Spring Security 의 `@EnableMethodSecurity` 활성화, 권한 부족 시의 응답 처리 (401 vs 403), 그리고 향후 *moderator / billing_ops* 같은 추가 role 도입을 위한 확장 경로까지입니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-기존 인증/권한 시스템:
+권한 검증 패턴이 *명시적 컨벤션* 으로 잡혀 있지 않으면 *각 컨트롤러가 자기 방식으로 권한을 체크* 하게 되어 일관성이 깨져요. 어떤 컨트롤러는 `currentUser.isAdmin()` 헬퍼를 직접 호출하고, 어떤 컨트롤러는 `@PreAuthorize` 를 쓰고, 어떤 컨트롤러는 *권한 체크 자체를 잊어버리는* 형태로 흩어집니다. 흩어진 패턴은 *어느 endpoint 가 정말 운영자 전용인지* 코드만 봐서는 알 수 없게 만들고, *권한 체크 누락* 이라는 보안 사고의 빈 자리가 생기기 쉬워요.
 
-```
-User (DB.role) "admin"
-  ↓ EmailAuthService 가 issueAccessToken 시 role claim 포함
-JWT { sub: 1, email: ..., appSlug: ..., role: "admin" }
-  ↓ JwtAuthFilter 가 SecurityContext 에 Authentication 셋업
-SimpleGrantedAuthority("ROLE_ADMIN")
-  ↓ AuthenticatedUser.isAdmin() 헬퍼 = role.equalsIgnoreCase("admin")
-```
+기존 시스템은 JWT 의 `role` claim 발급과 `JwtAuthFilter` 의 GrantedAuthority 매핑까지는 갖춰져 있어요. `User` 엔티티의 `role` 필드 (`"user"` / `"admin"`) 가 로그인 시점에 JWT payload 에 복사되고, `JwtAuthFilter` 가 이 값을 `ROLE_USER` / `ROLE_ADMIN` 같은 Spring Security 표준 형식으로 SecurityContext 에 박습니다. *권한 정보의 흐름* 자체는 정합한데, *그 정보를 endpoint 단에서 활용하는 컨벤션* 이 빠져 있는 상태예요.
 
-JWT + GrantedAuthority 매핑은 됐는데, **실제 endpoint 단에서 권한 체크 패턴이 없어요**:
-- `@PreAuthorize` 사용 X (`@EnableMethodSecurity` 미적용)
-- 컨트롤러가 `currentUser.isAdmin()` 을 직접 체크 → boilerplate
-- ArchUnit 으로 강제 X — admin endpoint 인지를 코드만으로 알기 어려워요
+이 비대칭을 메우는 길에는 두 갈래가 있어요. 하나는 *컨트롤러가 직접 `currentUser.isAdmin()` 을 호출* 해서 분기하는 형태이고, 다른 하나는 *Spring Security 의 method security* 를 활용해 *어노테이션 한 줄로* 처리하는 형태입니다.
 
-운영자 endpoint (refund, plan 관리, subscription 강제 cancel 등) 가 본격 추가되기 전에 **권한 컨벤션 정립** 이 필요해요.
+직접 호출 방식은 *boilerplate 가 누적* 돼요. 모든 admin endpoint 의 첫 줄에 `if (!currentUser.isAdmin()) throw new ForbiddenException();` 같은 코드가 반복되고, 이 코드를 *한 곳에서 깜빡한* 컨트롤러가 *권한 검증 누락* 의 보안 사고를 만듭니다. *어느 컨트롤러가 admin 인지* 도 코드 안의 분기 로직을 일일이 봐야 알 수 있어 *외부에서 한눈에 파악할 수단* 이 없어요.
+
+Spring Security 의 method security 방식은 *선언적* 이에요. `@PreAuthorize("hasRole('ADMIN')")` 한 줄을 메서드에 붙이면 *AOP 가 자동으로 권한 검증* 을 실행하고, 권한 부족 시 *AccessDeniedException* 을 던져 표준 403 응답으로 처리됩니다. 컨트롤러 코드 안의 권한 분기 로직이 사라지고, *어느 endpoint 가 admin 전용인지* 가 어노테이션으로 명확히 드러나요.
+
+다만 `@PreAuthorize("hasRole('ADMIN')")` 자체는 *문자열 SPEL* 형태라 *오타 가능성* 과 *도메인 의미가 약한* 부분이 있어요. *@AdminOnly* 라는 의도가 명확한 meta annotation 으로 한 번 감싸면 *오타 차단 + 도메인 의도 표현* 이 동시에 가능합니다. 다른 도메인이 *moderator 전용* 이나 *billing_ops 전용* 같은 추가 role 을 도입할 때도 같은 패턴 (`@ModeratorOnly`, `@BillingOpsOnly`) 으로 자연스럽게 확장돼요.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **운영자 전용 endpoint 가 늘어나는 환경에서, 권한 검증을 어노테이션 한 줄로 명시적으로 표현하면서 일관성과 도메인 의도를 동시에 갖추는 컨벤션은 무엇인가?**
 
 ---
 

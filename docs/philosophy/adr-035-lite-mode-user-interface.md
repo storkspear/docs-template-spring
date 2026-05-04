@@ -2,31 +2,43 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**상태**: 채택 (2026-05-02)
-**전제**: ADR-002 (Use this template — 심플 출발점), ADR-007 (solo-friendly), ADR-034 (Lite 모드 토글 메커니즘)
-**연관**: 템플릿 판매 — 사용자 UX 결정
+**Status**: Accepted. Lite 모드 토글 인터페이스는 *CLI* (`<repo> feature list/enable/disable`) 1급 + `.env` 직접 편집 2급. admin GUI / 결제 게이트는 본 ADR scope 밖으로 미룸.
 
 ---
 
 ## 결론부터
 
-Lite 모드의 *사용자 인터페이스* — 현재는 *CLI + .env* (사용자가 `app.features.X=false` 직접 편집). GUI / 결제게이트 (구독 결제로 unlock 등) 는 *future*.
+[`ADR-034`](./adr-034-feature-toggle-lite-mode.md) 가 *backend toggle 메커니즘* (`@ConditionalOnProperty` + `app.features.*` 환경변수) 을 정의했다면, 본 ADR 은 *운영자가 그 토글을 어떻게 조작하는가* 를 결정합니다. 같은 토글이라도 *환경변수를 직접 편집*, *CLI 명령으로 자동화*, *admin GUI 로 클릭*, *결제 게이트로 unlock* 같은 다양한 인터페이스가 가능해요.
 
-이유: ADR-002 의 *심플 출발점* 정신 + ADR-007 의 *solo-friendly* — *솔로 운영자가 * 빠르게 활용* 가능한 가장 가벼운 형태가 *환경변수 토글*. GUI / 결제는 *복잡도 vs 가치* 검증 후 별도 사이클.
+본 ADR 은 *CLI 명령* 을 1급 인터페이스로, *.env 직접 편집* 을 2급 보조 인터페이스로 정합니다. CLI 는 `<repo> feature list / enable / disable` 형태로 *토글 상태 조회와 변경* 을 명령 한 줄로 처리해요. fork 시점에 *불필요 도메인을 즉시 끄거나*, 운영 중에 *새 도메인을 활성화* 하는 흐름이 명령 → git commit → deploy 의 단순 체인으로 끝납니다. CLI 가 동작하지 않는 환경 (Windows / 제한된 shell) 의 운영자는 `.env` 를 직접 편집해 같은 결과를 얻을 수 있어요.
+
+admin GUI 와 결제 게이트는 본 ADR 의 scope 밖으로 미뤄요. admin GUI 는 *frontend 영역* (Flutter / 별도 admin 콘솔) 이라 backend 의 결정에서 다룰 자리가 아니고, *운영 중 다양한 운영자가 토글을 자주 변경* 하는 환경에서나 의미가 있는데 *솔로 인디 운영자* 라는 본 template 의 typical 사용자에게는 과한 인프라예요. 결제 게이트 (예: *Pro plan 결제 시 push 모듈 unlock*) 는 *template 자체를 판매* 하는 비즈니스 모델에서나 의미가 있는데, 본 template 은 *fork 받아 자기 SaaS 를 만드는 출발점* 이라 *source 가 이미 사용자 손에 있는* 상태에서 결제 lock 은 우회 가능한 형식적 장치일 뿐입니다.
+
+이 결정의 핵심 정신은 [`ADR-002`](./adr-002-use-this-template.md) 의 *깨끗한 출발점* 철학과 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 *솔로 친화* 정신이에요. 사용자가 fork 받아 *최소한의 도구 (CLI 또는 텍스트 편집기)* 로 즉시 자기 비즈니스에 맞게 변형할 수 있어야 하고, 그 변형 작업이 *별도 학습 곡선이나 외부 인프라 없이* 끝나야 합니다.
+
+이 ADR 의 범위는 4 가지 인터페이스 옵션 (CLI / .env 직접 편집 / admin GUI / 결제 게이트) 의 트레이드오프 분석, CLI 와 .env 의 관계 (1 급 / 2 급), CLI 명령 동작의 구체 모양 (`feature list / enable / disable`), .env 와 환경변수 동기화 방식, 그리고 future scope (admin GUI / 결제 게이트) 의 도입 시점 가이드까지입니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-ADR-034 가 backend 토글 메커니즘 (`@ConditionalOnProperty` + `app.features.*` env) 을 결정합니다. 본 ADR 은 **운영자/사용자가 어떻게 토글을 조작하는가** 를 결정해요.
+backend 의 toggle 메커니즘 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.md)) 만으로는 사용자 경험이 완성되지 않아요. *어떤 도메인이 활성화되어 있는지 조회*, *특정 도메인을 비활성화*, *비활성화 후 git commit + deploy* 같은 운영 작업이 *어떤 인터페이스로 일어나는지* 가 *Lite 모드의 실제 사용성* 을 좌우합니다.
 
-검토한 옵션 4가지:
-1. CLI 명령 (`<repo> feature disable payment`)
-2. 사용자가 `.env` 직접 편집 (운영자 가이드)
-3. admin 페이지 GUI (frontend 영역)
-4. 결제 게이트 — false → true 시 결제 (template 판매 형태)
+토글 인터페이스의 후보 4 가지를 우리 사용자 환경 — *솔로 인디 운영자가 fork 받아 자기 SaaS 를 만드는 출발점* — 의 맥락에서 검토하면 각각 다른 트레이드오프를 가집니다.
 
-사용자 명시 원칙 — *심플 + 확장 가능*, *결제 게이트는 과한 설계*. ADR-002 의 *출발점* 철학과 ADR-007 의 *solo-friendly* 와 정합해요.
+**CLI 명령 (1급 후보)** 의 강점은 *fork 시점의 자동화* 와 *운영 중 빠른 변경* 이에요. 새 사용자가 fork 직후 *내 비즈니스에 결제만 필요해* 라고 결정하면 `<repo> feature disable iap`, `<repo> feature disable 2fa` 같은 명령 두세 줄이면 lite 변형이 끝납니다. 운영 중에도 *새 기능을 활성화* 할 때 같은 명령으로 처리되어 *환경변수 이름을 직접 외울 필요가 없어요*. 솔로 인디 운영자가 *터미널에서 작업하는 흐름* 과 자연스럽게 연결됩니다.
+
+**.env 직접 편집 (2급 후보)** 은 *CLI 가 동작하지 않는 환경* 의 fallback 이에요. Windows 환경에서 bash 의존 명령이 동작하지 않거나, *원격 서버에 SSH 만 가능한 운영자* 가 텍스트 편집기로 토글을 변경할 수 있어야 합니다. CLI 는 *환경변수 이름과 값을 추상화* 하는 편의 도구이고, 그 아래에 있는 *진짜 데이터는 .env 의 텍스트* 라는 사실을 명시적으로 두는 형태예요.
+
+**admin GUI (검토 후 미루기)** 는 *운영 중 다양한 운영자가 토글을 자주 변경* 하는 환경에서 의미가 있어요. 큰 조직이 *Pro / Enterprise 변형을 운영자별로 다르게* 켜는 경우라면 GUI 의 가치가 분명합니다. 다만 본 template 의 typical 사용자는 *솔로 인디 또는 소규모 팀* 이라 *운영자 = 개발자 1 인* 인 환경이고, 이 환경에서는 *CLI 한 줄이 GUI 클릭보다 빠르고 자동화도 쉬워요*. admin GUI 는 *frontend 영역* 이라 backend 의 결정에서 다룰 자리도 아니고, *Flutter / 별도 admin 콘솔* 같은 별도 사이클로 추가될 주제입니다.
+
+**결제 게이트 (검토 후 거부)** 는 *template 자체가 SaaS 형태로 판매되는* 비즈니스 모델에서 의미가 있어요. 사용자가 *Free plan* 으로 시작했다가 *Pro plan 으로 업그레이드 시 push / 2FA 모듈을 unlock* 하는 형태입니다. 그러나 본 template 은 *fork 받아 자기 SaaS 의 source 를 소유* 하는 모델이라 *source 가 이미 사용자 손에 있는* 상태예요. 사용자가 *결제 lock 을 우회* 하려면 그냥 *코드의 conditional 조건을 직접 수정* 하면 되어, 결제 게이트 자체가 형식적 장치일 뿐 진짜 lock 을 만들지 못합니다. 만약 SaaS 형태로 hosted backend 를 판매한다면 그건 본 template 가 아니라 *별도 product 의 영역* 이라 본 ADR scope 밖이에요.
+
+이 분석에서 자연스럽게 *CLI 1 급 + .env 2 급* 의 형태가 나옵니다. 두 인터페이스가 *같은 데이터를 두 가지 방법으로 조작* 하는 형태라 *어느 한쪽이 동작하지 않는 환경에서도 다른 한쪽으로 fallback* 가능하고, *fork 시점의 자동화 / 운영 중 빠른 변경* 의 두 시점을 모두 커버합니다. admin GUI 와 결제 게이트는 *현재 단계에서 도입 비용 vs 가치* 가 맞지 않아 future scope 로 명시 미룹니다.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **솔로 인디 운영자가 fork 받아 자기 SaaS 의 출발점으로 쓰는 환경에서, lite 모드 토글을 어떻게 조작하면 fork 시점 자동화와 운영 중 변경을 가장 가벼운 도구로 처리할 수 있는가?**
 
 ---
 

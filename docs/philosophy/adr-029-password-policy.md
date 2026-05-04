@@ -2,35 +2,41 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**상태**: 채택 (2026-05-02)
-**전제**: 기존 인증 (Email + BCrypt)
-**연관**: V 사이클 — 보안 baseline / 출시 전 audit 통과
+**Status**: Accepted. `@ValidPassword` Bean Validation 어노테이션 + `PasswordValidator` 가 길이 / 복잡도 / common blacklist 를 검증. `app.security.password.*` properties 로 운영자가 강도 조정.
 
 ---
 
 ## 결론부터
 
-비밀번호 정책 (`@ValidPassword` Bean Validation) 강화 — *최소 10자* / *common-passwords.txt blacklist* (10K 항목) / *property override 가능*.
+비밀번호 정책은 *사용자 계정 보안의 첫 방어선* 이에요. *얼마나 긴 비밀번호를 요구할지*, *흔한 비밀번호를 차단할지*, *어떤 종류의 문자 (대문자 / 소문자 / 숫자 / 특수문자) 를 강제할지* 같은 결정이 *brute-force 공격* 과 *credential stuffing 공격* 의 성공률을 직접 좌우합니다. 기본 정책이 약하면 *유출된 비밀번호 데이터베이스* (RockYou, SecLists 같은) 의 흔한 항목으로 *수만 계정이 한 번에 뚫릴* 수 있어요.
 
-기본값은 `min=10` (보안 baseline). 파생 레포가 *느슨하게* 또는 *엄격하게* 둘 수 있도록 `app.security.password.min-length` 등 property 로 조정 가능. 검증은 `@Valid` 표준 흐름 — Controller / Service 어디서든 동일.
+본 ADR 은 비밀번호 검증을 `@ValidPassword` Bean Validation 어노테이션으로 표준화하고, 그 검증 로직을 `PasswordValidator` 한 클래스에 모아두는 구조를 정의합니다. 기본 정책은 *OWASP ASVS L2 권장* 을 따라 *최소 10 자, 대문자 / 소문자 / 숫자 필수, common blacklist (Top 200 흔한 비밀번호) 차단* 의 baseline 이에요. 특수문자 강제는 *사용성 trade-off* 로 default false 로 두고 운영자가 켤 수 있게 했습니다.
+
+이 정책의 핵심은 *property 기반 운영자 override* 예요. 파생 레포가 *비즈니스 특성* 에 맞게 정책을 조정할 수 있도록 `app.security.password.min-length`, `app.security.password.require-special` 같은 properties 를 노출했어요. 금융 앱이라면 *min-length=12 + special=true* 로 강화하고, 캐주얼 게임이라면 *min-length=8* 로 완화하는 식입니다. 코드를 수정하지 않고 `.env` 한 줄로 조정 가능해 *파생 레포의 자유도* 가 보장돼요.
+
+검증은 표준 Bean Validation 흐름을 따릅니다. DTO 의 `password` 필드에 `@ValidPassword` 만 붙이면 *Controller 의 `@Valid` 단계에서 자동 검증* 되어 boilerplate 가 0 이에요. 검증 실패 시 표준 `MethodArgumentNotValidException` 이 던져지고, `GlobalExceptionHandler` 가 *400 Bad Request* 응답으로 정합하게 처리합니다.
+
+이 ADR 의 범위는 baseline 정책 결정 근거 (OWASP ASVS L2 vs NIST SP 800-63B), `@ValidPassword` 어노테이션 설계, common-passwords blacklist 의 출처 (RockYou + SecLists) 와 캐싱 전략, property override 의 적용 흐름, 그리고 *common-web 모듈 위치* 의 정합성까지입니다.
 
 ---
 
-## 배경
+## 왜 이런 결정이 필요했나?
 
-기존 정책 = `@Size(min=8, max=72)` 만:
+비밀번호 정책의 *기본값* 만으로 시스템이 출시되면 운영 보안 audit 에서 *baseline 미달* 로 분류되는 경우가 많아요. *최소 8 자 + 복잡도 요구 없음* 같은 단순 정책은 *brute-force 시간 비용* 을 충분히 늘리지 못하고, *credential stuffing 공격* (다른 사이트에서 유출된 이메일/비밀번호 조합으로 자동 로그인 시도) 에도 무방비입니다.
 
-```java
-@Size(min = 8, max = 72) String password
-```
+baseline 강화의 필요성을 보여주는 시나리오를 보면 그 부담이 명확해요. 사용자가 *비밀번호 8 자* 로 가입하면 *brute-force 로 평균 2~3 일 안에* 뚫릴 수 있는 강도예요 (현대 GPU 기준). *aaaaaaaa* 같은 단순 반복도 8 자 정책은 막지 않으므로, *유출된 비밀번호 데이터베이스* 의 Top 100 항목 (`password`, `12345678`, `qwerty`, `abc12345` 등) 으로 *상당수 계정이 즉시 뚫리는* 상태가 됩니다. *유출된 RockYou 비밀번호 데이터베이스* (3천만 항목) 가 인터넷에 공개되어 있어 누구나 다운받아 시도할 수 있어요.
 
-**약점**:
-- 8자 = 너무 약함 (NIST 권장 ≥ 8 이지만 OWASP ≥ 10)
-- "password" / "12345678" / "qwerty" 같은 흔한 비밀번호 통과
-- 복잡도 요구 X — `aaaaaaaa` (8자) 통과
-- 이메일 leak 시 동일 비밀번호로 다른 사이트 침해 (rainbow table)
+길이 강화의 가치는 *지수적* 입니다. *8 자에서 10 자* 로 올리면 brute-force 시간이 *수십 배* 늘어나요 (각 자리수당 95 가지 문자 조합). *10 자 + 대소문자 + 숫자 강제* 만으로도 *수년 단위* 의 brute-force 비용이 되어 실질적으로 무력화돼요. *common blacklist 차단* 은 그 강화 위에 *가장 흔한 약점* 을 추가로 막는 보완입니다.
 
-운영 보안 audit 시 통상 **NIST SP 800-63B** 또는 **OWASP ASVS L2** 권장 정책을 요구해요. 본 사이클에서 baseline 을 강화합니다.
+*OWASP ASVS L2* (Application Security Verification Standard Level 2) 는 *비밀번호 최소 10 자 + 흔한 비밀번호 차단 + 복잡도 요구* 를 권장 baseline 으로 정해두고 있어요. 이 표준을 따르면 *대부분의 운영 보안 audit* 에서 정책 측면의 베이스라인이 통과됩니다. *NIST SP 800-63B* 는 *최소 8 자 + 흔한 비밀번호 차단* 을 더 느슨하게 권장하는데, 우리는 더 보수적인 OWASP ASVS L2 를 default 로 채택했어요.
+
+다만 *모든 앱이 같은 정책을 따라야 하는 건 아닙니다*. 금융 / 의료 같은 *민감 정보* 를 다루는 앱은 *12 자 이상 + 특수문자 강제* 로 더 강화해야 하고, 캐주얼 게임 / 메모 앱 같은 *낮은 위험* 앱은 *사용자 마찰을 줄이기 위해 정책을 완화* 하는 편이 비즈니스에 더 맞아요. 이 *비즈니스 특성에 따른 조정* 을 코드 수정 없이 가능하게 하려면 *property 기반 override* 가 필요합니다.
+
+검증 로직의 *위치* 도 결정 포인트예요. 비밀번호는 *어느 도메인의 전용 기능* 이 아니라 *모든 도메인이 가입 / 로그인 / 비밀번호 변경에서 공통으로 검증* 하는 *cross-cutting concern* 입니다. `core-auth` 안에 두면 *다른 도메인이 사용할 때 의존 그래프가 어색* 해지므로 ([`ADR-024`](./adr-024-email-domain-extraction.md) 의 정신과 동일), `common-web/security/` 에 두는 것이 자연스러워요.
+
+이 결정이 답해야 할 물음은 이거예요.
+
+> **비밀번호 baseline 정책을 어떤 강도로 두고, 비즈니스 특성에 따른 조정을 코드 수정 없이 가능하게 하려면 어떤 검증 메커니즘이 필요한가?**
 
 ---
 
