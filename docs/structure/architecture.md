@@ -266,7 +266,7 @@ template-spring/
 │   │   └── src/main/java/com/factory/core/auth/api/
 │   │       ├── AuthPort.java                      # ADR-013 + ADR-030 (2FA)
 │   │       ├── dto/                               # Request/Response DTO + TwoFactor* (setup/verify/login)
-│   │       └── exception/                         # AuthError (ATH_001~ATH_010 + 2FA error codes)
+│   │       └── exception/                         # AuthError (ATH_001~ATH_005, ATH_007~ATH_010 — ATH_006 의도적 누락 (ADR-024 후 EmailError EMAIL_001 로 이전))
 │   │
 │   ├── core-auth-impl/                # 인증 로직 라이브러리
 │   │   └── src/main/java/com/factory/core/auth/impl/
@@ -541,7 +541,7 @@ bootstrap                              # 최상위 (모든 것을 조립)
 
 **2단계 — ArchUnit CI**
 
-Gradle 이 잡지 못하는 패턴 (같은 패키지 이름 규칙, Entity 노출 금지, `*Mapper` 클래스 금지 등) 은 ArchUnit 22 개 규칙 (r1~r22) 으로 빌드 시 검증합니다. 상세는 [`Architecture Rules (ArchUnit)`](./architecture-rules.md) 를 참조하세요.
+Gradle 이 잡지 못하는 패턴 (같은 패키지 이름 규칙, Entity 노출 금지, `*Mapper` 클래스 금지 등) 은 ArchUnit 22 개 규칙 (r1~r22, r12 는 유보) 으로 빌드 시 검증합니다. 상세는 [`Architecture Rules (ArchUnit)`](./architecture-rules.md) 를 참조하세요.
 
 두 단계 설계의 근거는 [`ADR-004 · Gradle + ArchUnit`](../philosophy/adr-004-gradle-archunit.md) 에 정리되어 있습니다.
 
