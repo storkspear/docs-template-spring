@@ -299,6 +299,33 @@ const NAV_ICON_BY_PATH = {
   'philosophy/adr-014-no-delegation-mock.md':          { icon: 'ban',                 color: '#f59e0b' },
   'philosophy/adr-015-conventional-commits-semver.md': { icon: 'git-commit-horizontal',color: '#f59e0b' },
   'philosophy/adr-016-dto-mapper-forbidden.md':        { icon: 'unplug',              color: '#f59e0b' },
+  // OAuth & Schema 격리
+  'philosophy/adr-017-oauth-integration.md':           { icon: 'globe-lock',          color: '#f59e0b' },
+  'philosophy/adr-018-schema-routing-datasource.md':   { icon: 'route',               color: '#f59e0b' },
+  // 결제 / 구독 / 알림 (테마 6)
+  'philosophy/adr-019-billing-iap-payment-separation.md': { icon: 'wallet',           color: '#f59e0b' },
+  'philosophy/adr-020-subscription-domain-model.md':   { icon: 'repeat',              color: '#f59e0b' },
+  'philosophy/adr-021-renewal-failure-policy.md':      { icon: 'clock-arrow-down',    color: '#f59e0b' },
+  'philosophy/adr-022-iap-server-notifications.md':    { icon: 'bell-ring',           color: '#f59e0b' },
+  'philosophy/adr-023-billing-notification-listener.md': { icon: 'megaphone',         color: '#f59e0b' },
+  'philosophy/adr-025-billing-notification-email-channel.md': { icon: 'at-sign',      color: '#f59e0b' },
+  'philosophy/adr-026-billing-notification-metrics.md': { icon: 'chart-bar',          color: '#f59e0b' },
+  'philosophy/adr-031-notification-preferences.md':    { icon: 'sliders-horizontal',  color: '#f59e0b' },
+  'philosophy/adr-032-google-webhook-auth.md':         { icon: 'webhook',             color: '#f59e0b' },
+  // 보안 / 감사 (테마 7)
+  'philosophy/adr-024-email-domain-extraction.md':     { icon: 'mail',                color: '#f59e0b' },
+  'philosophy/adr-027-admin-role-authorization.md':    { icon: 'crown',               color: '#f59e0b' },
+  'philosophy/adr-028-audit-log-domain.md':            { icon: 'scroll-text',         color: '#f59e0b' },
+  'philosophy/adr-029-password-policy.md':             { icon: 'shield-ban',          color: '#f59e0b' },
+  'philosophy/adr-030-2fa-totp.md':                    { icon: 'qr-code',             color: '#f59e0b' },
+  // 운영 정책 (테마 8)
+  'philosophy/adr-033-flyway-hybrid-policy.md':        { icon: 'database-zap',        color: '#f59e0b' },
+  'philosophy/adr-034-feature-toggle-lite-mode.md':    { icon: 'toggle-right',        color: '#f59e0b' },
+  'philosophy/adr-035-lite-mode-user-interface.md':    { icon: 'terminal',            color: '#f59e0b' },
+
+  // ── Level 1 신규 ─────────────────────────────────────
+  'start/cli-guide.md':                 { icon: 'terminal-square',  color: '#3b82f6' },  // CLI
+  'start/dogfood-walkthrough.md':       { icon: 'footprints',       color: '#3b82f6' },  // 시간순 walkthrough
 
   // ── Convention (인디고 계열) ─────────────────────────
   'convention/README.md':              { icon: 'list-ordered',     color: '#6366f1' },
@@ -308,12 +335,14 @@ const NAV_ICON_BY_PATH = {
   'convention/dto-factory.md':         { icon: 'factory',          color: '#6366f1' },
   'convention/exception-handling.md':  { icon: 'octagon-alert',    color: '#6366f1' },
   'convention/git-workflow.md':        { icon: 'git-branch',       color: '#6366f1' },
+  'convention/code-comments.md':       { icon: 'message-square-text', color: '#6366f1' },
 
   // ── API (청록 계열) ──────────────────────────────────
   'api-and-functional/api/api-response.md':               { icon: 'reply',       color: '#06b6d4' },
   'api-and-functional/api/json-contract.md':              { icon: 'braces',      color: '#06b6d4' },  // JSON
   'api-and-functional/api/versioning.md':                 { icon: 'git-compare', color: '#06b6d4' },
   'api-and-functional/api/flutter-backend-integration.md':{ icon: 'smartphone',  color: '#06b6d4' },
+  'api-and-functional/api/swagger-ui.md':                 { icon: 'file-search', color: '#06b6d4' },
 
   // ── Functional (분홍 계열) ───────────────────────────
   'api-and-functional/functional/push-notifications.md': { icon: 'bell',             color: '#ec4899' },
@@ -323,6 +352,7 @@ const NAV_ICON_BY_PATH = {
   'api-and-functional/functional/seed-data-management.md':{ icon: 'sprout',          color: '#ec4899' },
   'api-and-functional/functional/rate-limiting.md':      { icon: 'gauge',            color: '#ec4899' },
   'api-and-functional/functional/observability.md':      { icon: 'activity',         color: '#ec4899' },
+  'api-and-functional/functional/billing-iap-payment.md':{ icon: 'credit-card',      color: '#ec4899' },
 
   // ── Production: Deploy (주황 계열) ───────────────────
   'production/deploy/infrastructure.md':  { icon: 'server',         color: '#f97316' },
@@ -330,12 +360,20 @@ const NAV_ICON_BY_PATH = {
   'production/deploy/ci-cd-flow.md':      { icon: 'workflow',       color: '#f97316' },
   'production/deploy/deployment.md':      { icon: 'cloud-upload',   color: '#f97316' },
   'production/deploy/runbook.md':         { icon: 'book-marked',    color: '#f97316' },
+  'production/deploy/flyway-runbook.md':  { icon: 'play-square',    color: '#f97316' },
 
   // ── Production: Setup (슬레이트 계열) ────────────────
-  'production/setup/key-rotation.md':     { icon: 'refresh-cw',     color: '#64748b' },
-  'production/setup/mac-mini-setup.md':   { icon: 'monitor',        color: '#64748b' },
-  'production/setup/monitoring-setup.md': { icon: 'chart-line',     color: '#64748b' },
-  'production/setup/storage-setup.md':    { icon: 'hard-drive-download', color: '#64748b' },
+  'production/setup/key-issuance.md':         { icon: 'badge-check',    color: '#64748b' },
+  'production/setup/key-rotation.md':         { icon: 'refresh-cw',     color: '#64748b' },
+  'production/setup/secret-chain-4stage.md':  { icon: 'link',           color: '#64748b' },
+  'production/setup/mac-mini-setup.md':       { icon: 'monitor',        color: '#64748b' },
+  'production/setup/monitoring-setup.md':     { icon: 'chart-line',     color: '#64748b' },
+  'production/setup/storage-bucket-isolation.md': { icon: 'box-select', color: '#64748b' },
+  'production/setup/storage-setup.md':        { icon: 'hard-drive-download', color: '#64748b' },
+
+  // ── Production: Operations (하늘색 계열, 신규 그룹) ───
+  'production/operations/feature-toggle.md':         { icon: 'flag',          color: '#0ea5e9' },
+  'production/operations/develop-branch-policy.md':  { icon: 'git-fork',      color: '#0ea5e9' },
 
   // ── Production: Test (에메랄드 계열) ─────────────────
   'production/test/testing-strategy.md':  { icon: 'flask-conical',  color: '#10b981' },
@@ -346,6 +384,7 @@ const NAV_ICON_BY_PATH = {
   'reference/environment.md': { icon: 'package',         color: '#eab308' },  // 패키지 인벤토리
   'reference/edge-cases.md':  { icon: 'octagon-alert',   color: '#eab308' },
   'reference/STYLE_GUIDE.md': { icon: 'pen-tool',        color: '#eab308' },
+  'reference/api/README.md':  { icon: 'book-open',       color: '#eab308' },
 
   // ── Planned (로즈 계열) ──────────────────────────────
   'planned/backlog.md': { icon: 'list-todo', color: '#f43f5e' },
