@@ -1,13 +1,13 @@
 # ADR-020 · Subscription / Plan / PaymentRecord 도메인 모델 + Webhook 보안
 
-**Status**: Accepted. 2026-05-01 기준 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 도메인 분리 골격 위에 실제 비즈로직 + DB 모델 + 트랜잭션 정책 + webhook 보안을 채워 Phase 1 완성. PG (포트원) 결제 검증 → PaymentRecord 저장 → Subscription 활성화의 e2e 흐름이 동작.
+**Status**: Accepted. 2026-05-01 기준 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 도메인 분리 골격 위에 실제 비즈로직 + DB 모델 + 트랜잭션 정책 + webhook 보안을 채워 Phase 1 을 완성했어요. PG (포트원) 결제 검증 → PaymentRecord 저장 → Subscription 활성화의 e2e 흐름이 동작합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
 ## 결론부터
 
 ```
-[Flutter] 결제 위젯 → 포트원 → impUid 받음
+[Flutter] 결제 위젯 → 포트원 → impUid 획득
 [Flutter] POST /api/apps/<slug>/payment/verify { impUid, planCode }
 [백엔드 PaymentController] → PaymentPort.verify(impUid)         (포트원 REST)
                           ← PaymentResult { status=PAID, amount, paidAt }
@@ -20,7 +20,7 @@
                               └─ SubscriptionDto 반환
 ```
 
-DB 테이블 4개를 슬러그별 schema 에 추가 — `plans`, `subscriptions`, `payment_records`, `webhook_events`. Webhook 은 HMAC SHA-256 + timestamp 검증 + (source, externalId) UNIQUE idempotency 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에 있는 anti-pattern 을 피하기 위해 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 phase 마다 `TransactionTemplate` 으로 자기 트랜잭션을 시작.
+DB 테이블 4개를 슬러그별 schema 에 추가해요 — `plans`, `subscriptions`, `payment_records`, `webhook_events`. Webhook 은 HMAC SHA-256 + timestamp 검증 + (source, externalId) UNIQUE idempotency 의 3중 방어를 갖춰요. 외부 HTTP 호출이 DB 트랜잭션 안에 있는 anti-pattern 을 피하기 위해 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 phase 마다 `TransactionTemplate` 으로 자기 트랜잭션을 시작합니다.
 
 ## 왜 이런 결정이 필요했나?
 
@@ -104,7 +104,7 @@ CREATE TABLE webhook_events (
 CREATE UNIQUE INDEX uk_webhook_events_external_id ON webhook_events(source, external_id);  -- (출처, 거래ID) 1회만
 ```
 
-Hibernate 6 의 `@JdbcTypeCode(SqlTypes.JSON)` 으로 `String` 필드에 직접 JSONB 매핑. JSON ↔ POJO 변환은 호출 측에서 ObjectMapper 로 처리 (Webhook payload 는 raw 유지가 디버깅에 유리).
+Hibernate 6 의 `@JdbcTypeCode(SqlTypes.JSON)` 으로 `String` 필드에 직접 JSONB 를 매핑합니다. JSON ↔ POJO 변환은 호출 측에서 ObjectMapper 로 처리해요 (Webhook payload 는 raw 로 유지하는 편이 디버깅에 유리해요).
 
 ## 결정 3 — 트랜잭션 경계: handleWebhook 의 phase 분리
 
@@ -148,9 +148,9 @@ public void handleWebhook(String source, String externalId, String payloadJson) 
 
 이 분리가 해결하는 것:
 
-- **Connection 점유**: 외부 HTTP 호출이 DB connection 을 잡지 않음 → connection pool 보호
-- **Race 견고함**: Phase 1 의 INSERT 가 race 시 `DataIntegrityViolationException` 으로 떨어지면 fallback 으로 기존 row 재조회 → 같은 webhook 두 번이 와도 결과 동일
-- **실패 로깅 보존**: Phase 2 실패 시 markFailed 가 자기 TX 에서 commit → main throw 가 outer TX 롤백 시 영향 안 받음 (`processed_at` 은 NULL 유지 → retry 가능)
+- **Connection 점유**: 외부 HTTP 호출이 DB connection 을 잡지 않아요 → connection pool 을 보호합니다
+- **Race 견고함**: Phase 1 의 INSERT 가 race 시 `DataIntegrityViolationException` 으로 떨어지면 fallback 으로 기존 row 를 재조회해요 → 같은 webhook 이 두 번 와도 결과가 동일해요
+- **실패 로깅 보존**: Phase 2 실패 시 markFailed 가 자기 TX 에서 commit → main throw 가 outer TX 롤백 시 영향을 받지 않아요 (`processed_at` 은 NULL 로 유지 → retry 가능)
 
 ## 결정 4 — Webhook 보안 (3중 방어)
 
@@ -186,7 +186,7 @@ public void handleWebhook(String source, String externalId, String payloadJson) 
 
 ## BillingPort 의 entitled subscription 정책
 
-`findActiveSubscription(userId)` 는 **status 가 ACTIVE 또는 CANCELLED 이지만 expires_at 미경과** 인 구독을 반환. Spotify/Netflix 식 정책 — 사용자가 결제 주기 중간에 취소해도 expires_at 까지는 서비스 사용 가능:
+`findActiveSubscription(userId)` 는 **status 가 ACTIVE 또는 CANCELLED 이지만 expires_at 미경과** 인 구독을 반환해요. Spotify/Netflix 식 정책 — 사용자가 결제 주기 중간에 취소해도 expires_at 까지는 서비스를 사용할 수 있어요:
 
 ```java
 @Query(
@@ -198,7 +198,7 @@ public void handleWebhook(String source, String externalId, String payloadJson) 
 List<Subscription> findEntitledByUserId(Long userId, Instant now, Pageable pageable);
 ```
 
-EXPIRED 는 명시적으로 제외 — 만료된 구독은 권한 없음. 무료/무제한 plan (expires_at = NULL) 도 통과.
+EXPIRED 는 명시적으로 제외해요 — 만료된 구독은 권한이 없어요. 무료/무제한 plan (expires_at = NULL) 도 통과해요.
 
 ## 검증 (2026-05-01, template-spring main)
 
@@ -240,7 +240,7 @@ PortOneWebhookVerifierTest: 14/14 PASS (Signature 6 + Timestamp 5 + Combined 3)
 
 ## 결정 5 — Subscription 만료 자동 sweep ([B 사이클 추가])
 
-운영 시간이 흐르면 expires_at 경과한 구독이 status=ACTIVE 또는 CANCELLED 로 남게 됨. 외부 갱신 신호 (Apple/Google webhook) 없이도 자체 cron 으로 EXPIRED 마킹.
+운영 시간이 흐르면 expires_at 가 경과한 구독이 status=ACTIVE 또는 CANCELLED 로 남게 돼요. 외부 갱신 신호 (Apple/Google webhook) 없이도 자체 cron 으로 EXPIRED 를 마킹합니다.
 
 ```
 @Scheduled(cron = "0 0 * * * *")  // 매시 정각
@@ -255,17 +255,17 @@ public void expireOverdueSubscriptions() {
 
 핵심:
 
-- **슬러그 발견** — Spring `Map<String, DataSource>` 주입 → `<slug>DataSource` Bean 이름에서 slug 추출 (sorted). 새 앱 추가 시 자동 인식 (수동 등록 X).
-- **SlugContext + SchemaRoutingDataSource** ([`ADR-018`](./adr-018-schema-routing-datasource.md)) 정합 — 각 slug 마다 thread-local set → 자동 라우팅.
-- **격리** — 한 슬러그 sweep 실패가 다른 슬러그 막지 않음 (try/catch in loop).
-- **Opt-in** — `app.billing.scheduler.enabled=true` 일 때만 Bean 등록. 운영만 활성, test/dev 는 false 유지.
-- **Cron override** — `app.billing.scheduler.expiration-cron` 환경변수로 cadence 변경 가능 (default = 매시 정각).
+- **슬러그 발견** — Spring `Map<String, DataSource>` 주입 → `<slug>DataSource` Bean 이름에서 slug 를 추출해요 (sorted). 새 앱 추가 시 자동으로 인식돼요 (수동 등록 X).
+- **SlugContext + SchemaRoutingDataSource** ([`ADR-018`](./adr-018-schema-routing-datasource.md)) 정합 — 각 slug 마다 thread-local set → 자동 라우팅됩니다.
+- **격리** — 한 슬러그 sweep 실패가 다른 슬러그를 막지 않아요 (try/catch in loop).
+- **Opt-in** — `app.billing.scheduler.enabled=true` 일 때만 Bean 이 등록돼요. 운영에서만 활성화하고, test/dev 는 false 로 유지해요.
+- **Cron override** — `app.billing.scheduler.expiration-cron` 환경변수로 cadence 를 바꿀 수 있어요 (default = 매시 정각).
 
-`expireOverdueSubscriptions()` 의 query: `status IN (ACTIVE, CANCELLED) AND expires_at IS NOT NULL AND expires_at < now`. 무제한 plan (expires_at NULL) 은 제외, 이미 EXPIRED 도 제외 (idempotent).
+`expireOverdueSubscriptions()` 의 query: `status IN (ACTIVE, CANCELLED) AND expires_at IS NOT NULL AND expires_at < now` 예요. 무제한 plan (expires_at NULL) 은 제외하고, 이미 EXPIRED 도 제외돼요 (idempotent).
 
 ## 결정 6 — 갱신 임박 식별 + ApplicationEvent ([F-MVP 사이클 추가])
 
-만료 임박 (예: 24시간 이내) 인 ACTIVE 구독을 식별하여 Spring `ApplicationEvent` 로 발행. 호출 측 (이벤트 listener) 이 받아 PG 재청구 / 알림 발송 / 만료 통보 등 처리. 실제 PG 재청구 로직은 다음 사이클 (PortOne `customer_uid` 기반 billing key 통합 시).
+만료 임박 (예: 24시간 이내) 인 ACTIVE 구독을 식별하여 Spring `ApplicationEvent` 로 발행해요. 호출 측 (이벤트 listener) 이 받아 PG 재청구 / 알림 발송 / 만료 통보 등을 처리합니다. 실제 PG 재청구 로직은 다음 사이클로 미뤄요 (PortOne `customer_uid` 기반 billing key 통합 시).
 
 ```java
 @Scheduled(cron = "0 0 0 * * *")  // 매일 자정
@@ -282,10 +282,10 @@ public void publishRenewalDueEvents() {
 }
 ```
 
-- **Query**: `status = ACTIVE AND expires_at >= now AND expires_at < deadline`. CANCELLED 는 사용자 의도 취소이므로 제외 (갱신 안 함). 무제한 plan (expires_at NULL) 도 제외.
-- **Window override** — `app.billing.scheduler.renewal-window=PT12H` 같이 ISO-8601 Duration 으로 변경 가능 (default `P1D`).
-- **Cron override** — `app.billing.scheduler.renewal-cron` (default 매일 자정).
-- **이벤트 기반 분리** — billing 이 직접 PG 호출 안 함, listener 가 처리. 결제 실패 / 재시도 / 알림은 listener 의 책임.
+- **Query**: `status = ACTIVE AND expires_at >= now AND expires_at < deadline`. CANCELLED 는 사용자 의도 취소이므로 제외해요 (갱신 안 함). 무제한 plan (expires_at NULL) 도 제외합니다.
+- **Window override** — `app.billing.scheduler.renewal-window=PT12H` 같이 ISO-8601 Duration 으로 변경 가능해요 (default `P1D`).
+- **Cron override** — `app.billing.scheduler.renewal-cron` (default 매일 자정) 으로 운영자가 조정합니다.
+- **이벤트 기반 분리** — billing 이 직접 PG 를 호출하지 않고 listener 가 처리해요. 결제 실패 / 재시도 / 알림은 listener 의 책임입니다.
 
 ## 결정 7 — PG 재청구 (chargeAgain + RenewalListener) ([G 사이클 추가])
 
@@ -314,9 +314,9 @@ Optional<SubscriptionDto> renewSubscription(long subscriptionId);
 
 handleWebhook 와 동일한 phase 분리 패턴 — `@Transactional(NOT_SUPPORTED)` + 내부 phase 마다 txTemplate:
 
-1. **Phase 1 (read TX)**: 대상 sub + plan + paymentRecord 조회. customer_uid 없으면 `Optional.empty()` (one-time 결제는 갱신 불가).
-2. **Phase 2 (NO TX)**: paymentPort.chargeAgain 외부 HTTP 호출.
-3. **Phase 3 (write TX)**: 새 PaymentRecord (customer_uid 보존) + 새 Subscription (새 startedAt/expiresAt) save.
+1. **Phase 1 (read TX)**: 대상 sub + plan + paymentRecord 를 조회해요. customer_uid 가 없으면 `Optional.empty()` (one-time 결제는 갱신 불가).
+2. **Phase 2 (NO TX)**: paymentPort.chargeAgain 외부 HTTP 를 호출해요.
+3. **Phase 3 (write TX)**: 새 PaymentRecord (customer_uid 보존) + 새 Subscription (새 startedAt/expiresAt) 을 save 해요.
 
 ### SubscriptionRenewalListener
 
@@ -355,9 +355,9 @@ IapAdapter (composite)
 - **Auth**: App Store Connect API key (.p8) 으로 ES256 JWT 발급 (50분 캐시). DER → JOSE P1363 변환 직접 구현 (외부 lib 없이 JDK `Signature`).
 - **API**: `GET /inApps/v1/transactions/{transactionId}` → 응답의 `signedTransactionInfo` (JWS) 파싱.
 - **JWS 서명 검증** ([D-secure 사이클]): {@code AppleJwsVerifier} 가 cert chain validation + ES256 signature
-  검증 수행. {@code classpath:apple-root-ca-g3.cer} (Apple Root CA G3) 를 trust anchor 로 {@code
-  CertPathValidator} (PKIX) 가 leaf → intermediate → root 검증, 그 leaf cert 의 public key 로 ES256 서명 확인.
-  JOSE P1363 → DER ECDSA 변환 직접 구현. revocation (OCSP/CRL) OFF — Apple cert 짧은 lifetime, 운영 부하 회피.
+  검증을 수행해요. {@code classpath:apple-root-ca-g3.cer} (Apple Root CA G3) 를 trust anchor 로 {@code
+  CertPathValidator} (PKIX) 가 leaf → intermediate → root 를 검증하고, 그 leaf cert 의 public key 로 ES256 서명을 확인해요.
+  JOSE P1363 → DER ECDSA 변환은 직접 구현했어요. revocation (OCSP/CRL) 은 OFF — Apple cert 가 짧은 lifetime 이라 운영 부하를 회피하려는 결정이에요.
 
 ### GooglePlayAdapter
 
@@ -379,11 +379,11 @@ SubscriptionDto activateFromIap(long userId, String planCode, PurchaseVerificati
 
 ### Opt-in (platform 별)
 
-`APP_IAP_APPLE_*` 또는 `APP_IAP_GOOGLE_*` 키가 채워졌을 때만 해당 adapter 등록. 한 platform 만 운영해도 됨. 둘 다 미설정 시 StubIapAdapter fallback.
+`APP_IAP_APPLE_*` 또는 `APP_IAP_GOOGLE_*` 키가 채워졌을 때만 해당 adapter 를 등록해요. 한 platform 만 운영해도 돼요. 둘 다 미설정 시 StubIapAdapter 로 fallback 합니다.
 
 ### 슬러그별 bundle_id / package_name (D-multi 사이클)
 
-ADR-005/012/013 의 멀티앱 격리 정합 — bundle_id (Apple) / package_name (Google) 은 슬러그마다 다름. Global 키 (.p8, service-account JSON) 는 한 dev 계정 안에서 공유. Property 분리:
+ADR-005/012/013 의 멀티앱 격리와 정합해요 — bundle_id (Apple) / package_name (Google) 은 슬러그마다 달라요. Global 키 (.p8, service-account JSON) 는 한 dev 계정 안에서 공유해요. Property 분리:
 
 - **Global** (`app.iap.*`): API URLs / .p8 / service-account JSON / key-id / issuer-id
 - **Per-slug** (`app.credentials.<slug>.iap-*`): bundle-id / package-name
@@ -406,20 +406,20 @@ app:
       iap-google-package-name: com.storkspear.pkg.sumtally
 ```
 
-`IapAdapter` (composite) 가 `SlugContext.get()` 으로 슬러그 식별 → `IapAppCredentialProperties.findByAppSlug` lookup → 각 platform adapter 의 `verify(request, bundleId/packageName)` 호출. `AppleAppStoreAdapter` 의 ES256 JWT 캐시는 `Map<bundleId, JwtCacheEntry>` 로 슬러그별 분리.
+`IapAdapter` (composite) 가 `SlugContext.get()` 으로 슬러그를 식별해요 → `IapAppCredentialProperties.findByAppSlug` lookup → 각 platform adapter 의 `verify(request, bundleId/packageName)` 를 호출합니다. `AppleAppStoreAdapter` 의 ES256 JWT 캐시는 `Map<bundleId, JwtCacheEntry>` 로 슬러그별로 분리돼요.
 
 **APP_PACKAGE_PREFIX**: `.env` 의 prefix 환경변수 — `new-app.sh` 가 새 앱 생성 시 자동으로 `${PREFIX}.<slug>` 형태 default 채움. Flutter applicationId / Apple bundleId / Google packageName 통일.
 
 ## 안 다루는 범위 (다음 사이클)
 
-- **Apple Server Notifications V2 webhook** — 자동 갱신 / 환불 / 만료 통보 처리. 현재는 verify 만, webhook 처리 X.
-- **Google Real-time Developer Notifications (RTDN)** — Pub/Sub 통한 실시간 갱신/환불 통보.
-- **갱신 실패 정책** — chargeAgain (PG) 또는 IAP renewal 이 FAILED 반환 시 retry / 사용자 알림 / 자동 cancel. 현재는 log only.
-- **분산 lock** — 다중 인스턴스 운영 시 cron + listener 중복 실행 방지 (Quartz cluster / shedlock).
-- **분산 lock** — 다중 인스턴스 운영 시 cron 중복 실행 방지 (Quartz cluster / shedlock). 단일 Mac mini 운영에선 불필요.
-- **PortOne v2 API 마이그레이션** — 현재 v1 (`api.iamport.kr` + impUid). v2 는 `api.portone.io` + paymentId 기반. PortOneAdapter + WireMock stub 동시 마이그레이션 필요.
-- **Plan 관리 admin UI** — 현재 Plan INSERT 는 SQL 직접. 운영 시 admin endpoint + RBAC.
-- **PortOne 토큰 캐시 thundering herd** — `PortOneApiClient.getAccessToken()` 의 synchronized 블록 내 외부 호출. 토큰 만료 직전 동시 N개 요청 시 직렬화. sandbox 단계에선 영향 미미, 운영 트래픽 확보 후 double-checked locking 또는 lazy refresh 분리 검토.
+- **Apple Server Notifications V2 webhook** — 자동 갱신 / 환불 / 만료 통보를 처리해요. 현재는 verify 만, webhook 처리는 X 예요.
+- **Google Real-time Developer Notifications (RTDN)** — Pub/Sub 을 통한 실시간 갱신/환불 통보를 다뤄요.
+- **갱신 실패 정책** — chargeAgain (PG) 또는 IAP renewal 이 FAILED 반환 시 retry / 사용자 알림 / 자동 cancel 을 처리해요. 현재는 log only 예요.
+- **분산 lock** — 다중 인스턴스 운영 시 cron + listener 중복 실행을 방지해요 (Quartz cluster / shedlock).
+- **분산 lock** — 다중 인스턴스 운영 시 cron 중복 실행을 방지해요 (Quartz cluster / shedlock). 단일 Mac mini 운영에선 불필요해요.
+- **PortOne v2 API 마이그레이션** — 현재 v1 (`api.iamport.kr` + impUid) 이에요. v2 는 `api.portone.io` + paymentId 기반이에요. PortOneAdapter + WireMock stub 동시 마이그레이션이 필요해요.
+- **Plan 관리 admin UI** — 현재 Plan INSERT 는 SQL 직접 입력이에요. 운영 시 admin endpoint + RBAC 가 필요해요.
+- **PortOne 토큰 캐시 thundering herd** — `PortOneApiClient.getAccessToken()` 의 synchronized 블록 안에서 외부를 호출해요. 토큰 만료 직전 동시 N개 요청 시 직렬화돼요. sandbox 단계에선 영향이 미미하고, 운영 트래픽 확보 후 double-checked locking 또는 lazy refresh 분리를 검토합니다.
 - **Webhook canonical form** — 현재 verifier 는 raw body 만 HMAC. PortOne v2 의 `v1:timestamp.body` 같은 canonical form 미구현 (v2 마이그레이션 시 정합).
 
 ## 관련 ADR

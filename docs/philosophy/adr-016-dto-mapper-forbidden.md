@@ -378,7 +378,7 @@ Entity 메서드 전환의 효과:
 
 ### 외부 라이브러리 이름 충돌 (r22 설계 과정)
 
-ArchUnit r22 초기 설계는 `*Mapper` 를 **무조건** 금지했어요. 문제: `org.springframework.web.servlet.HandlerMapping` 같은 Spring 내부 클래스도 `Mapping` / `Mapper` 로 끝나는 경우가 있고, MapStruct 를 다른 프로젝트에서 쓸 때는 `@Mapper` 인터페이스도 허용해야 함.
+ArchUnit r22 초기 설계는 `*Mapper` 를 **무조건** 금지했어요. 문제: `org.springframework.web.servlet.HandlerMapping` 같은 Spring 내부 클래스도 `Mapping` / `Mapper` 로 끝나는 경우가 있고, MapStruct 를 다른 프로젝트에서 쓸 때는 `@Mapper` 인터페이스도 허용해야 해요.
 
 최종 규칙:
 - `resideInAPackage("com.factory..")` → 우리 패키지만 검사 (Spring 등 외부는 제외)

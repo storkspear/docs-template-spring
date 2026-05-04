@@ -69,10 +69,10 @@ public class AuthController {
   - Controller 코드 한 번만 작성
   - 앱 추가 시 Controller 신규 생성 불필요
 - **단점**:
-  - 앱 모듈이 자기 DataSource 를 **쓸 수 없음** — Controller 가 core-auth-impl 에 있으면 core schema DataSource 를 쓰게 됨
-  - [`ADR-005`](./adr-005-db-schema-isolation.md) 의 "앱 모듈 = 자기 schema 독점" 원칙과 충돌 — 다시 ThreadLocal/라우팅이 필요해짐
-  - `AuthPort.signUpWithEmail(slug, req)` 로 slug 를 계속 인자로 전달해야 하는 보일러플레이트
-- **탈락 이유**: URL 은 고쳤지만 "라우팅은 어디서?" 문제가 제자리. 결국 ThreadLocal 부활.
+  - 앱 모듈이 자기 DataSource 를 **쓸 수 없어요** — Controller 가 core-auth-impl 에 있으면 core schema DataSource 를 쓰게 돼요
+  - [`ADR-005`](./adr-005-db-schema-isolation.md) 의 "앱 모듈 = 자기 schema 독점" 원칙과 충돌해요 — 다시 ThreadLocal/라우팅이 필요해져요
+  - `AuthPort.signUpWithEmail(slug, req)` 로 slug 를 계속 인자로 전달해야 하는 보일러플레이트가 생겨요
+- **탈락 이유**: URL 은 고쳤지만 "라우팅은 어디서?" 문제가 제자리예요. 결국 ThreadLocal 이 부활해요.
 
 ### Option 3 — 앱별 Controller 런타임 등록 + 공통 AuthPort 위임 ★ (채택)
 
@@ -320,7 +320,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 2. **Bean 등록 차단** — `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 를 **하지 않음** (기술적 실상)
 3. **본 ADR + [`ADR-012`](./adr-012-per-app-user-model.md#교훈) 에 기록** — 구조적 맥락 설명
 
-**교훈**: 파일 외형과 런타임 역할이 다른 코드는 반드시 3중 이상의 레이어에서 명시해야 함. 한 군데만 표시하면 반드시 누군가는 놓친다.
+**교훈**: 파일 외형과 런타임 역할이 다른 코드는 반드시 3중 이상의 레이어에서 명시해야 해요. 한 군데만 표시하면 반드시 누군가는 놓쳐요.
 
 ### AuthPort 메서드 수를 "늘어도 괜찮은" 모양으로 설계하기
 

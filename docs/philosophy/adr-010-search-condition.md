@@ -99,10 +99,10 @@ List<Expense> result = repository.findAll(spec);
 
 - **장점**: Spring Data 표준. 타입 안전. 재사용 가능한 Specification 조각.
 - **단점**:
-  - 각 조건을 별도 Specification 메서드로 정의해야 함 — 도메인마다 수십 개 메서드 필요.
-  - 프론트엔드 → 백엔드 **변환 레이어 필요** — JSON Map → Specification 으로 변환하는 코드가 결국 필요.
-  - **QueryDsl 보다 표현력 부족** — 서브쿼리, 동적 정렬, 윈도우 함수 등에서 제약.
-- **탈락 이유**: 결국 "if 지옥을 Specification 으로 옮겼을 뿐" 이라 궁극 해결 안 됨. 우리가 원하는 건 **변환 자체의 자동화**.
+  - 각 조건을 별도 Specification 메서드로 정의해야 해요 — 도메인마다 수십 개 메서드가 필요해요.
+  - 프론트엔드 → 백엔드 **변환 레이어 필요** — JSON Map → Specification 으로 변환하는 코드가 결국 필요해요.
+  - **QueryDsl 보다 표현력 부족** — 서브쿼리, 동적 정렬, 윈도우 함수 등에서 제약이 있어요.
+- **탈락 이유**: 결국 "if 지옥을 Specification 으로 옮겼을 뿐" 이라 궁극의 해결이 되지 않아요. 우리가 원하는 건 **변환 자체의 자동화** 예요.
 
 ### Option 3 — Map<String, Object> 기반 + QueryDslPredicateBuilder ★ (채택)
 
@@ -124,7 +124,7 @@ List<Expense> result = queryFactory.selectFrom(QExpense.expense).where(where).fe
 
 - **장점**:
   - **추가 조건 = 코드 변경 없음** — 프론트가 `status_eq` 를 새로 보내기 시작해도 백엔드 변경 불필요 (엔티티에 해당 필드만 있으면).
-  - 앱마다 DTO 안 만들어도 됨. 공장 패턴에 적합.
+  - 앱마다 DTO 를 안 만들어도 돼요. 공장 패턴에 적합해요.
   - 프론트엔드 ↔ 백엔드 **통일된 계약** (`{field}_{operator}` 형식).
   - 빌더 자체는 **common-persistence** 에 한 번만 있음 — 유지보수 단일 위치.
 - **단점**:

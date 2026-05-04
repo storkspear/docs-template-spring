@@ -20,11 +20,11 @@
 
 L 사이클로 push + email 둘 다 발송 가능. 그러나 운영 시:
 
-- **알림이 가긴 갔나?** 확인 X — 사용자가 "안 받았다" 신고 시 backend 만 보면 모름
-- **실패율 증가 추세?** 모니터링 X — FCM 토큰 만료 / Resend 한도 / 외부 장애
-- **skip 빈도?** — 사용자 emailVerified=false 비율, 푸시 토큰 부재 비율
+- **알림이 가긴 갔나?** 확인 X — 사용자가 "안 받았다" 신고 시 backend 만 보면 알 수 없어요
+- **실패율 증가 추세?** 모니터링 X — FCM 토큰 만료 / Resend 한도 / 외부 장애에 무방비예요
+- **skip 빈도?** — 사용자 emailVerified=false 비율, 푸시 토큰 부재 비율을 알 수 없어요
 
-운영 alert / 대시보드 / 비즈니스 분석 모두 메트릭이 필요. Prometheus + Grafana 인프라가 이미 있음 — counter 만 추가.
+운영 alert / 대시보드 / 비즈니스 분석 모두 메트릭이 필요해요. Prometheus + Grafana 인프라는 이미 갖춰져 있어요 — counter 만 추가하면 돼요.
 
 ---
 
@@ -137,15 +137,15 @@ curl -s localhost:8081/actuator/prometheus | grep billing_notification_sent
 
 ### 옵션 B — 직접 MeterRegistry 호출 ★ 채택
 
-- listener 가 MeterRegistry 받아 counter().increment() 직접 호출
-- ✅ 분기 마다 명시적 — success / failure / skipped 모두 추적
-- ✅ 단순. 코드 ~10줄 추가
+- listener 가 MeterRegistry 를 받아 counter().increment() 를 직접 호출해요
+- ✅ 분기마다 명시적 — success / failure / skipped 모두 추적해요
+- ✅ 단순해요. 코드 ~10줄 추가로 끝나요
 
 ### 옵션 C — Outbox 테이블 + 분석 query
 
-- 매 발송을 DB 에 저장 → SQL 분석
-- ❌ DB 부하. 메트릭은 in-memory counter 가 정도
-- 추후 알림 보장 (재시도) 필요 시 별도 사이클 (N — Outbox)
+- 매 발송을 DB 에 저장 → SQL 로 분석해요
+- ❌ DB 부하가 늘어요. 메트릭은 in-memory counter 가 정석이에요
+- 추후 알림 보장 (재시도) 필요 시 별도 사이클로 다뤄요 (N — Outbox)
 
 ---
 

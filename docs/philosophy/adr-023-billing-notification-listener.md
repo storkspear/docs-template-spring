@@ -12,7 +12,7 @@
 
 ADR-021 / ADR-022 가 발행한 결제 도메인 이벤트 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEvent` / `RefundEvent` / `RevokeEvent`) 를 push 알림으로 변환하는 listener 를 추가합니다.
 
-email 채널은 별도 사이클 (ADR-024 → ADR-025) 로 미루고 push 만 우선. 이유: 당시 EmailPort 가 core-auth 안에 묶여 있어 billing 이 import 불가. Idempotency 는 Spring `@TransactionalEventListener(AFTER_COMMIT)` 으로 보장.
+email 채널은 별도 사이클 (ADR-024 → ADR-025) 로 미루고 push 만 우선 도입해요. 이유: 당시 EmailPort 가 core-auth 안에 묶여 있어 billing 이 import 할 수 없었어요. Idempotency 는 Spring `@TransactionalEventListener(AFTER_COMMIT)` 으로 보장합니다.
 
 ---
 
@@ -24,7 +24,7 @@ H 사이클 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEve
 - 환불 처리 시 사용자가 즉시 인지 X → 권한 사라진 이유 모름
 - 강제 취소 (가족 공유 해지 등) 도 동일
 
-대안 SaaS (Spotify/Netflix) 는 결제 실패 / 환불 / 취소 시 즉시 push + email 발송. 본 ADR 은 그 흐름을 도입.
+대안 SaaS (Spotify/Netflix) 는 결제 실패 / 환불 / 취소 시 즉시 push + email 을 발송해요. 본 ADR 은 그 흐름을 도입합니다.
 
 ---
 
@@ -36,7 +36,7 @@ H 사이클 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEve
 | **listener 위치** | `core-billing-impl/listener/SubscriptionNotificationListener` | 정책 layer 안 — 알림 정책 (어떤 이벤트에 알림? 메시지 내용?) 도 billing 책임 |
 | **메시지 템플릿** | `BillingNotificationProperties` (`app.billing.notification.*`) | 한국어 default + 운영자 override |
 | **활성화** | `app.billing.notification.enabled=true` + `PushPort` bean 존재 시 | 명시적 opt-in (운영자 결정) |
-| **실패 정책** | listener 가 PushPort throw 캐치 + log only | 알림 실패가 비즈로직 막으면 안 됨 |
+| **실패 정책** | listener 가 PushPort throw 캐치 + log only | 알림 실패가 비즈로직을 막으면 안 됩니다 |
 | **SlugContext** | listener 시작 시 이벤트의 `appSlug` 로 셋업 + finally 정리 | push token 조회가 슬러그별 schema (ADR-018) |
 
 ---
@@ -95,7 +95,7 @@ H 사이클 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEve
 - PushPort 있음 + enabled=true → listener 등록, 알림 발송
 - PushPort 있음 + enabled=false → listener 등록 X (이벤트는 발행되지만 noop)
 - PushPort 없음 → listener 등록 X (FCM 미통합 환경)
-- 사용자가 자기 listener 등록 → 그것 우선
+- 사용자가 자기 listener 등록 → 그것이 우선이에요
 
 ---
 
@@ -112,7 +112,7 @@ H 사이클 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEve
 7. `iapNotification_withoutUserId_skipsPush` — userId null skip
 8. `pushFailure_doesNotPropagate_logOnly` — 실패 격리
 
-`CapturingPushPort` (fake) 가 sendToUser 호출 캡처 — ADR-014 (delegation mock 금지) 정합.
+`CapturingPushPort` (fake) 가 sendToUser 호출을 캡처해요 — ADR-014 (delegation mock 금지) 와 정합합니다.
 
 ---
 
@@ -120,22 +120,22 @@ H 사이클 (`SubscriptionRenewalFailedEvent` / `AbandonedEvent` / `SucceededEve
 
 ### 옵션 A — 동기 listener (default Spring) ★ 채택
 
-- 단순. publishEvent 호출자 thread.
-- ❌ 알림 발송이 느릴 수 있음 — FCM API 응답 대기 (~수백 ms).
-- ✅ 그러나 BillingPort 의 phase 3 가 NOT_SUPPORTED + 이미 commit 완료된 후 발행이라 트랜잭션 영향 0.
+- 단순해요. publishEvent 호출자 thread 에서 동작합니다.
+- ❌ 알림 발송이 느릴 수 있어요 — FCM API 응답 대기 (~수백 ms).
+- ✅ 그러나 BillingPort 의 phase 3 가 NOT_SUPPORTED + 이미 commit 완료된 후 발행이라 트랜잭션 영향이 0이에요.
 
 ### 옵션 B — `@Async` listener
 
-- 별도 thread pool.
-- ❌ 별도 인프라 (TaskExecutor) 셋업.
-- ❌ 에러 추적 어려움 (다른 thread).
-- 향후 알림 발송 비용이 커질 때 (수만 user 한 번에) 도입.
+- 별도 thread pool 사용.
+- ❌ 별도 인프라 (TaskExecutor) 셋업이 필요해요.
+- ❌ 에러 추적이 어려워요 (다른 thread).
+- 향후 알림 발송 비용이 커질 때 (수만 user 한 번에) 도입을 검토합니다.
 
 ### 옵션 C — Outbox 패턴 (이벤트 DB 저장 + 별도 worker)
 
-- 가장 강력. 알림 발송 보장 (worker retry).
-- ❌ 인프라 복잡 — outbox 테이블 + worker process.
-- 운영 시 알림 critical 한 환경에서 별도 사이클 도입.
+- 가장 강력합니다. 알림 발송 보장 (worker retry).
+- ❌ 인프라가 복잡해져요 — outbox 테이블 + worker process.
+- 알림이 critical 한 운영 환경에서 별도 사이클로 도입합니다.
 
 ---
 

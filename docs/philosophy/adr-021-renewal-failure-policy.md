@@ -18,13 +18,13 @@
 
 ## 배경
 
-G 사이클로 `BillingServiceImpl.renewSubscription` 가 PortOne `chargeAgain` 호출까지 완성. 그러나 결제 실패 시 처리가 비어있음 — `log.error` + `Optional.empty()` 반환으로 끝. 운영 시:
+G 사이클로 `BillingServiceImpl.renewSubscription` 가 PortOne `chargeAgain` 호출까지 완성됐어요. 그러나 결제 실패 시 처리가 비어 있어요 — `log.error` + `Optional.empty()` 반환으로 끝나요. 운영 시:
 
-- 일시적 카드 한도 초과 / 카드사 점검 / 네트워크 timeout 등 **회복 가능 실패** 가 사일런트로 무시
-- 첫 갱신 실패 → expires_at 도래 → `expireOverdueSubscriptions` cron 이 EXPIRED 처리 → **사용자가 알지 못한 채 권한 상실**
-- 운영자가 결제 실패 추적 불가 (테이블 부재)
+- 일시적 카드 한도 초과 / 카드사 점검 / 네트워크 timeout 등 **회복 가능 실패** 가 사일런트로 무시돼요
+- 첫 갱신 실패 → expires_at 도래 → `expireOverdueSubscriptions` cron 이 EXPIRED 처리 → **사용자가 알지 못한 채 권한 상실**이 발생해요
+- 운영자가 결제 실패를 추적할 수 없어요 (테이블 부재)
 
-같은 클래스 SaaS (Stripe, Spotify, Netflix) 는 재시도 + 알림 + 최종 실패 시 cancel 정책으로 운영. 본 ADR 은 그 정책을 슬러그별 schema 격리 원칙 (ADR-005/018) 준수하면서 정의.
+같은 클래스 SaaS (Stripe, Spotify, Netflix) 는 재시도 + 알림 + 최종 실패 시 cancel 정책으로 운영해요. 본 ADR 은 그 정책을 슬러그별 schema 격리 원칙 (ADR-005/018) 을 준수하면서 정의합니다.
 
 ---
 
@@ -119,29 +119,29 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 
 ### 옵션 A — 카운터 컬럼만 (Subscription.renewalRetryCount + Subscription.lastRenewalFailedAt)
 
-- 단순. 별도 테이블 불필요.
-- ❌ 이력 손실. "두 번째 실패 시 PG 가 어떤 에러 코드 반환?" 추적 불가.
-- ❌ ABANDONED 이력 영구 보존 안 됨 (sub.cancel 후 이력 사라짐).
-- 운영 디버깅 부족.
+- 단순해요. 별도 테이블이 필요 없어요.
+- ❌ 이력 손실 — "두 번째 실패 시 PG 가 어떤 에러 코드 반환?" 추적이 불가능해요.
+- ❌ ABANDONED 이력이 영구 보존되지 않아요 (sub.cancel 후 이력이 사라져요).
+- 운영 디버깅이 부족해요.
 
 ### 옵션 B — RenewalAttempt 별도 테이블 ★ 채택
 
-- 모든 시도 이력 보존 (성공/실패/abandon 전부).
-- 운영 디버깅: "이 sub 가 왜 cancel 됐나?" → renewal_attempts 의 마지막 3개 row 가 답.
-- attempt_no UNIQUE 제약으로 race 방어.
+- 모든 시도 이력을 보존해요 (성공/실패/abandon 전부).
+- 운영 디버깅에 강해요 — "이 sub 가 왜 cancel 됐나?" → renewal_attempts 의 마지막 3개 row 가 답을 줘요.
+- attempt_no UNIQUE 제약으로 race 를 방어합니다.
 
 ### 옵션 C — 실패 시 즉시 cancel (재시도 0회)
 
-- 가장 단순.
-- ❌ 일시 장애에 과민 반응. 카드 한도 24h 후 회복되는 경우도 즉시 cancel → 사용자 불만.
-- 업계 통상 위반.
+- 가장 단순해요.
+- ❌ 일시 장애에 과민하게 반응해요. 카드 한도가 24h 후 회복되는 경우도 즉시 cancel → 사용자 불만으로 이어져요.
+- 업계 통상에 어긋나요.
 
 ### 옵션 D — 무한 재시도 (지수 백오프)
 
-- 끝까지 재시도.
-- ❌ DB 누수 (renewal_attempts 무한 증가).
-- ❌ 영구 정지된 카드도 N 회 시도 → PG 비용.
-- ❌ 사용자가 "왜 자동 갱신이 계속 실패?" 알지 못 함.
+- 끝까지 재시도합니다.
+- ❌ DB 누수 위험 (renewal_attempts 무한 증가).
+- ❌ 영구 정지된 카드도 N 회 시도 → PG 비용 누적.
+- ❌ 사용자가 "왜 자동 갱신이 계속 실패하는지" 알 수 없어요.
 
 ---
 
@@ -153,26 +153,26 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 | 2→3 | 6h | 카드사 점검 / 시스템 유지보수 cycle |
 | 3→ABANDONED | (없음) | 24h 카드 한도 reset 후에도 실패면 영구 문제 (블랙리스트, 한도 초과, 카드 만료) |
 
-총 7h 후 abandon — 만료 24h 전부터 재시도하면 abandon 도 만료 17h 전에 결정 → 사용자에게 알림 발송 시간 확보.
+총 7h 후 abandon — 만료 24h 전부터 재시도하면 abandon 도 만료 17h 전에 결정돼요 → 사용자에게 알림을 발송할 시간을 확보합니다.
 
 ---
 
 ## 동시성 / Race 방어
 
 1. **같은 sub 의 동시 retry** — `findSubscriptionsDueForRetry` 가 같은 sub 의 여러 FAILED row 를 dedup. 그래도 두 cron 인스턴스 race 시 첫 phase1 의 attemptNo 가 동일 → 두 번째 INSERT 가 UNIQUE 제약 위반 으로 실패 (실패 시 두 번째 호출이 fail-fast 됨).
-2. **이미 SUCCESS / ABANDONED 인 sub 의 retry** — Phase 1 의 직전 attempt 상태 체크. SUCCESS / ABANDONED 면 skip + log + return empty.
-3. **Phase 2 (PG) 의 외부 HTTP 호출이 트랜잭션 점유** — `@Transactional(NOT_SUPPORTED)` + 내부 `txTemplate` 으로 phase 별 자기 트랜잭션. ADR-020 의 webhook 패턴과 동일.
+2. **이미 SUCCESS / ABANDONED 인 sub 의 retry** — Phase 1 의 직전 attempt 상태를 체크해요. SUCCESS / ABANDONED 면 skip + log + return empty 로 빠져나갑니다.
+3. **Phase 2 (PG) 의 외부 HTTP 호출이 트랜잭션 점유** — `@Transactional(NOT_SUPPORTED)` + 내부 `txTemplate` 으로 phase 별 자기 트랜잭션을 가집니다. ADR-020 의 webhook 패턴과 동일해요.
 
 ---
 
 ## 알림 (Out of Scope — 다음 사이클)
 
-본 사이클은 이벤트 발행만. 실제 push/email listener 는:
+본 사이클은 이벤트 발행까지만 다뤄요. 실제 push/email listener 는:
 
 - `SubscriptionRenewalFailedEvent` 받은 listener — "결제 실패. N시간 후 재시도 예정" 알림
 - `SubscriptionRenewalAbandonedEvent` 받은 listener — "구독이 자동 취소됐습니다. 카드 정보 확인" 알림 + win-back 캠페인 트리거
 
-별도 사이클에서 `core-push` (또는 `core-notification`) 모듈로 분리.
+별도 사이클에서 `core-push` (또는 `core-notification`) 모듈로 분리합니다.
 
 ---
 

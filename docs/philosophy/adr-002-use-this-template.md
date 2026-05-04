@@ -52,12 +52,12 @@
 
 각 앱은 원본을 Fork 해서 만듦. 원본에 공통 코드 개선이 생기면 upstream 에서 merge.
 
-- **장점**: git 수준에서 원본과 연결됨. 업스트림 변경 추적이 자동 (`git fetch upstream` + `git merge`).
+- **장점**: git 수준에서 원본과 연결돼요. 업스트림 변경 추적이 자동이에요 (`git fetch upstream` + `git merge`).
 - **단점**:
-  - **Fork 는 계정당 1개만** — 한 계정에서 여러 앱 만들면 각 앱이 서로 다른 Fork 가 될 수 없음.
-  - Fork 는 "원본에 PR 보낸다" 를 전제한 협업 모델. 우리는 각 파생이 **독립 진화** 하는 것이 목적. 방향이 반대.
-  - merge 로 upstream 변경을 자동 반영하면 **원치 않는 변경까지 강제** 됨.
-- **탈락 이유**: 협업 방향성이 다름. Fork 는 오픈소스 기여 모델, 우리 필요는 "시작점 복제 모델".
+  - **Fork 는 계정당 1개만** — 한 계정에서 여러 앱을 만들면 각 앱이 서로 다른 Fork 가 될 수 없어요.
+  - Fork 는 "원본에 PR 보낸다" 를 전제한 협업 모델이에요. 우리는 각 파생이 **독립 진화** 하는 것이 목적이라 방향이 반대예요.
+  - merge 로 upstream 변경을 자동 반영하면 **원치 않는 변경까지 강제**돼요.
+- **탈락 이유**: 협업 방향성이 달라요. Fork 는 오픈소스 기여 모델이고, 우리 필요는 "시작점 복제 모델" 이에요.
 
 ### Option 3 — 공통 코드를 JAR 라이브러리로 배포
 
@@ -75,14 +75,14 @@
 GitHub 의 **Use this template** 기능으로 파일만 복제. 원본과 git 히스토리 단절. 공통 코드 개선은 파생 레포로 **수동 cherry-pick**.
 
 - **장점**:
-  - 각 파생 레포가 **완전 독립된 git 히스토리** — 도메인 코드가 원본을 오염시키지 않음.
-  - 계정당 무제한 생성 가능 (Fork 의 1개 제한 없음).
-  - 파생 레포가 공통 코드 개선을 **선택적으로** 가져올 수 있음.
-  - 공통 DB 스키마, Flyway 마이그레이션, 인프라 스크립트 전부 복제됨.
+  - 각 파생 레포가 **완전 독립된 git 히스토리** 를 가져요 — 도메인 코드가 원본을 오염시키지 않아요.
+  - 계정당 무제한 생성이 가능해요 (Fork 의 1개 제한 없음).
+  - 파생 레포가 공통 코드 개선을 **선택적으로** 가져올 수 있어요.
+  - 공통 DB 스키마, Flyway 마이그레이션, 인프라 스크립트 전부가 복제돼요.
 - **단점**:
-  - 자동 전파 없음 — 사람이 직접 cherry-pick 해야 함.
-  - "내가 어느 버전까지 반영했는가" 추적이 수동.
-  - 원본 개선이 여러 커밋에 섞여 있으면 cherry-pick 이 복잡해짐 → **커밋 위생** 이 중요해짐.
+  - 자동 전파가 없어요 — 사람이 직접 cherry-pick 해야 해요.
+  - "내가 어느 버전까지 반영했는가" 추적이 수동이에요.
+  - 원본 개선이 여러 커밋에 섞여 있으면 cherry-pick 이 복잡해져요 → **커밋 위생** 이 중요해져요.
 - **이 단점들이 감당 가능한 이유**: 전파를 **의도적으로 수동화** 한 것이 **실은 장점**. 자동 전파는 "원치 않는 강제 변경" 을 만듭니다. cherry-pick 은 솔로에게 "이번엔 받지 않겠다" 선택지를 줘요.
 
 #### 왜 "자동 전파를 안 하는 것" 이 장점인가
@@ -109,7 +109,7 @@ git log template-v0.3.0..template-v0.4.0 \
 이 명령이 가능하려면 커밋 메시지 형식이 통일되어야 합니다. 그래서 다음 3중 방어선이 있어요:
 
 - **[`.husky/commit-msg`](https://github.com/storkspear/template-spring/blob/main/.husky/commit-msg)** — 로컬에서 `git commit` 순간 검증. 형식 위반 시 커밋 자체 거부.
-- **[`.github/workflows/commit-lint.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/commit-lint.yml)** — CI 에서 PR 의 모든 커밋 검증. 로컬 훅을 `--no-verify` 로 우회한 경우도 잡음.
+- **[`.github/workflows/commit-lint.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/commit-lint.yml)** — CI 에서 PR 의 모든 커밋을 검증해요. 로컬 훅을 `--no-verify` 로 우회한 경우도 잡아요.
 - **[`.github/workflows/pr-title.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/pr-title.yml)** — PR 제목도 같은 형식 강제.
 
 [`commitlint.config.mjs`](https://github.com/storkspear/template-spring/blob/main/commitlint.config.mjs) 가 canonical 규칙. [`.gitmessage`](https://github.com/storkspear/template-spring/blob/main/.gitmessage) 가 에디터 템플릿으로 개발자 학습을 돕습니다.
@@ -287,7 +287,7 @@ public class SumtallyAuthHook implements AuthHook {
 
 **도메인 격리가 레포 수준으로 물리화** — `sumtally-backend` 와 `rny-backend` 는 완전 별개의 git 레포이며 서로의 존재를 모릅니다. 한쪽의 배포 사고가 다른 쪽에 파급될 수 없습니다.
 
-**원본의 순수성 유지** — `template-spring` 은 앞으로도 "깨끗한 출발점" 상태. 새 사용자가 이 레포를 평가할 때 특정 도메인 코드에 혼란받지 않음. ArchUnit r7, r8 이 **기계 강제** 로 이 순수성을 보장.
+**원본의 순수성 유지** — `template-spring` 은 앞으로도 "깨끗한 출발점" 상태로 유지돼요. 새 사용자가 이 레포를 평가할 때 특정 도메인 코드에 혼란받지 않아요. ArchUnit r7, r8 이 **기계 강제** 로 이 순수성을 보장합니다.
 
 **전파의 의도성** — 파생 레포가 "이번 변경은 받는다 / 안 받는다" 를 매번 판단할 수 있습니다.
 
@@ -295,11 +295,11 @@ public class SumtallyAuthHook implements AuthHook {
 
 ### 부정적 결과
 
-**자동 전파 없음** — 공통 개선을 각 파생 레포로 전파하려면 **사람이 cherry-pick** 해야 함. 완화: [`cross-repo-cherry-pick.md`](https://github.com/storkspear/template-spring/blob/main/docs/start/cross-repo-cherry-pick.md) 가이드로 절차화.
+**자동 전파 없음** — 공통 개선을 각 파생 레포로 전파하려면 **사람이 cherry-pick** 해야 해요. 완화: [`cross-repo-cherry-pick.md`](https://github.com/storkspear/template-spring/blob/main/docs/start/cross-repo-cherry-pick.md) 가이드로 절차화했어요.
 
 **커밋 위생의 강제 부담** — "공통 코드 수정" 과 "도메인 수정" 이 한 커밋에 섞이면 cherry-pick 사고. 완화: [`git-workflow.md`](https://github.com/storkspear/template-spring/blob/main/docs/convention/git-workflow.md) 의 "한 커밋 = 한 논리적 변경" 규칙.
 
-**버전 추적 수동화** — 파생 레포마다 "내가 template-v0.X.Y 까지 반영했다" 를 README 에 직접 적어야 함.
+**버전 추적 수동화** — 파생 레포마다 "내가 template-v0.X.Y 까지 반영했다" 를 README 에 직접 적어야 해요.
 
 ### 감당 가능성 판단
 
@@ -313,7 +313,7 @@ public class SumtallyAuthHook implements AuthHook {
 
 2. **Breaking change 를 major bump 로 바로 도입**했다가 파생 레포 업그레이드가 "다음 분기로 미뤄진" 사례. 이후 Deprecation 유예 기간 1 minor 의무화.
 
-3. **CHANGELOG 를 PR 에 포함시키지 않는 관행** 이 있었는데, 파생 레포가 "뭐가 바뀌었지" 를 찾을 곳이 없어 GitHub Release 만 보고 추측해야 했음. 이후 `changelog-check.yml` 도입.
+3. **CHANGELOG 를 PR 에 포함시키지 않는 관행** 이 있었는데, 파생 레포가 "뭐가 바뀌었지" 를 찾을 곳이 없어 GitHub Release 만 보고 추측해야 했어요. 이후 `changelog-check.yml` 을 도입했어요.
 
 **교훈**: Use this template 은 **"복제" 가 쉬울 뿐 "동기화" 는 여전히 어렵다**. 동기화 인프라 (커밋 위생, 버전 태그, CHANGELOG, 마이그레이션 가이드) 를 템플릿 자체에 박아두지 않으면 파생 레포들이 **각자 다른 방향으로 표류** 하게 됩니다.
 

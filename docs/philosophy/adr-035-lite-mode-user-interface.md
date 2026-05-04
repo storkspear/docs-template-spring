@@ -18,15 +18,15 @@ Lite 모드의 *사용자 인터페이스* — 현재는 *CLI + .env* (사용자
 
 ## 배경
 
-ADR-034 가 backend 토글 메커니즘 (`@ConditionalOnProperty` + `app.features.*` env) 결정. 본 ADR 는 **운영자/사용자가 어떻게 토글을 조작하는가** 결정.
+ADR-034 가 backend 토글 메커니즘 (`@ConditionalOnProperty` + `app.features.*` env) 을 결정합니다. 본 ADR 은 **운영자/사용자가 어떻게 토글을 조작하는가** 를 결정해요.
 
-옵션 (사용자 brainstorming):
+검토한 옵션 4가지:
 1. CLI 명령 (`<repo> feature disable payment`)
 2. 사용자가 `.env` 직접 편집 (운영자 가이드)
 3. admin 페이지 GUI (frontend 영역)
 4. 결제 게이트 — false → true 시 결제 (template 판매 형태)
 
-사용자 의견 명시: "심플 + 확장 가능", "결제는 너무 오반가". ADR-002 의 "출발점" 철학과 ADR-007 의 "solo-friendly" 와 정합.
+사용자 명시 원칙 — *심플 + 확장 가능*, *결제 게이트는 과한 설계*. ADR-002 의 *출발점* 철학과 ADR-007 의 *solo-friendly* 와 정합해요.
 
 ---
 
@@ -34,21 +34,21 @@ ADR-034 가 backend 토글 메커니즘 (`@ConditionalOnProperty` + `app.feature
 
 | Layer | 선택 | 시점 | 근거 |
 |---|---|---|---|
-| 1차 — CLI | ✅ 채택 | 즉시 | `<repo> feature list/enable/disable` — 운영자 자동화 가능 |
-| 1차 — .env 직접 편집 | ✅ 보조 | 즉시 | docs 가이드. CLI 사용 못 하는 환경 fallback |
-| 2차 — admin GUI | ❌ 본 ADR 외 | future | frontend 영역 (Flutter / 별도 admin 콘솔). backend 의 admin endpoint (선택) 만 본 ADR 가 cover |
-| 3차 — 결제 게이트 | ❌ 본 ADR 외 | future | 본 template 의 SaaS 사용자가 자기 자신의 결제 backend (`core-payment-impl`) 를 운영 — 본 template 판매 시 결제 lock 은 over-engineering |
+| 1차 — CLI | ✅ 채택 | 즉시 | `<repo> feature list/enable/disable` — 운영자 자동화 가능합니다 |
+| 1차 — .env 직접 편집 | ✅ 보조 | 즉시 | docs 가이드. CLI 사용 못 하는 환경의 fallback 이에요 |
+| 2차 — admin GUI | ❌ 본 ADR 외 | future | frontend 영역 (Flutter / 별도 admin 콘솔). backend 의 admin endpoint (선택) 만 본 ADR 이 cover 해요 |
+| 3차 — 결제 게이트 | ❌ 본 ADR 외 | future | 본 template 의 SaaS 사용자가 자기 자신의 결제 backend (`core-payment-impl`) 를 운영 — 판매 시 결제 lock 은 over-engineering 입니다 |
 
 ### 결정 근거
 
-ADR-002 의 정신 — "프로젝트의 출발점". 사용자가 fork 후 자기 비즈니스 로직 추가. lite 모드는 fork 시점의 변형 선택 (또는 운영 중 토글). 두 시점 모두 **CLI 가 가장 효율적**:
+ADR-002 의 정신은 *프로젝트의 출발점* 이에요. 사용자가 fork 후 자기 비즈니스 로직을 추가합니다. lite 모드는 fork 시점의 변형 선택 (또는 운영 중 토글) 이고, 두 시점 모두 **CLI 가 가장 효율적** 이에요:
 
 - fork 시점: `<repo> feature disable payment` 실행 후 `git commit`
 - 운영 중: 같은 명령 + `<repo> prod deploy`
 
-GUI 는 미사용 시점의 사용자가 만지는 영역이 아님. admin 콘솔이 필요한 시점은 **운영 중 다양한 운영자가 토글 변경** 시점인데, 본 template 의 typical 사용자 (솔로 인디 / 소규모 팀) 에선 운영자 = 개발자 1인 → CLI 로 충분.
+GUI 는 미사용 시점의 사용자가 만지는 영역이 아닙니다. admin 콘솔이 필요한 시점은 **운영 중 다양한 운영자가 토글을 변경** 하는 시점인데, 본 template 의 typical 사용자 (솔로 인디 / 소규모 팀) 에선 운영자 = 개발자 1인 → CLI 로 충분해요.
 
-결제 게이트 (옵션 4) — 본 template 가 "판매되는 SaaS 백엔드" 가 아니라 "fork 받아 자기 SaaS 만드는 출발점". fork 후 사용자가 자기 비즈니스의 결제를 적용. **lite 모드 토글에 결제 lock 거는 건 의미 X** — fork 시점에 source 가 사용자 손에 있어 우회 가능.
+결제 게이트 (옵션 4) 의 한계 — 본 template 는 *판매되는 SaaS 백엔드* 가 아니라 *fork 받아 자기 SaaS 만드는 출발점* 이에요. fork 후 사용자가 자기 비즈니스의 결제를 적용합니다. **lite 모드 토글에 결제 lock 을 거는 건 의미가 없어요** — fork 시점에 source 가 사용자 손에 있어 우회 가능합니다.
 
 ---
 
@@ -81,7 +81,7 @@ APP_FEATURES_AUDIT=false
 <repo> local server-test          # docker compose restart spring
 ```
 
-CLI 가 `.env` + `.env.prod` 동시 변경하는 것에 비해 한쪽만 변경. 직접 편집 시 사용자가 양쪽 동기화 책임.
+CLI 가 `.env` + `.env.prod` 를 동시 변경하는 것에 비해 한쪽만 변경합니다. 직접 편집 시 사용자가 양쪽 동기화 책임을 져야 해요.
 
 ---
 
@@ -115,21 +115,21 @@ CLI 가 `.env` + `.env.prod` 동시 변경하는 것에 비해 한쪽만 변경.
 <repo> local api-test               # step 11 PASS 복귀 확인
 ```
 
-위 시나리오는 본 세션의 `bootstrap/FeatureToggleTest` 가 자동화 (Testcontainers + @SpringBootTest).
+위 시나리오는 `bootstrap/FeatureToggleTest` 가 자동화합니다 (Testcontainers + @SpringBootTest).
 
 ---
 
 ## "false 일 때 제공 안 함" 의 정확한 의미
 
-Spring 의 `@ConditionalOnProperty` 동작:
-- false → AutoConfiguration 자체 등록 X
-- AutoConfiguration 의 bean (Service / Adapter / Aspect) 미생성
-- 의존하는 controller endpoint → ApplicationContext 에 endpoint mapping 미등록
-- runtime 에 호출 시 → **404 Not Found** (Spring DispatcherServlet 가 매핑 없음 응답)
+Spring 의 `@ConditionalOnProperty` 동작은 다음과 같습니다:
+- false → AutoConfiguration 자체가 등록되지 않아요
+- AutoConfiguration 의 bean (Service / Adapter / Aspect) 도 생성되지 않아요
+- 의존하는 controller endpoint 의 ApplicationContext mapping 도 등록되지 않아요
+- runtime 에 호출 시 → **404 Not Found** (Spring DispatcherServlet 가 매핑이 없어 응답해요)
 
-즉 **물리적으로 endpoint 가 사라짐** — 우회 X. 사용자가 disabled feature 의 URL 호출하면 404. 우리 backend 의 의도된 응답.
+즉 **물리적으로 endpoint 가 사라집니다** — 우회 불가능. 사용자가 disabled feature 의 URL 을 호출하면 404 가 반환되고, 이는 우리 backend 의 의도된 응답이에요.
 
-코드는 jar 안에 그대로 (Spring conditional 의 trade-off — ADR-034 § Alternatives 참조). jar 크기 ~5-10MB 차이는 운영 무영향.
+코드는 jar 안에 그대로 남습니다 (Spring conditional 의 trade-off — ADR-034 § Alternatives 참조). jar 크기 ~5-10MB 차이는 운영에 영향이 없어요.
 
 ---
 
@@ -143,22 +143,22 @@ GET  /api/admin/features          # 현재 토글 상태 list
 PATCH /api/admin/features/{name}  # 토글 변경 (운영자 권한 필요)
 ```
 
-`@AdminOnly` (ADR-027) + `@Audited` (ADR-028) 로 보호. frontend (Flutter / 별도 React admin) 가 본 endpoint 소비.
+`@AdminOnly` (ADR-027) + `@Audited` (ADR-028) 로 보호합니다. frontend (Flutter / 별도 React admin) 가 본 endpoint 를 소비해요.
 
-본 ADR 시점에 미구현 — 본 template 의 typical 사용자에 over-engineering.
+본 ADR 시점에는 미구현 — 본 template 의 typical 사용자에게는 over-engineering 이라 다음 사이클로 미뤄요.
 
 ### 결제 게이트 (옵션 4)
 
-본 template 는 fork-and-go 모델 — 사용자가 source 소유. 결제 lock 은 의미 X. 만약 SaaS 형태로 hosted backend 를 판매한다면 본 template 가 아니라 별도 product. 본 ADR scope 외.
+본 template 는 fork-and-go 모델이라 사용자가 source 를 소유합니다. 결제 lock 은 의미가 없어요. 만약 SaaS 형태로 hosted backend 를 판매한다면 본 template 가 아니라 별도 product 의 영역이라 본 ADR scope 밖이에요.
 
 ---
 
 ## 운영 영향
 
-- ✅ 추가 GUI / 결제 인프라 부담 0 (본 시점)
-- ✅ CLI 자동화 가능 (`<repo> feature ...` script 가능)
-- ✅ ADR-002 의 "출발점" 정신 유지
-- ⚠️ 운영자가 직접 `.env` 편집 시 `.env.prod` 동기 책임 (CLI 가 자동화하지만 docs 만 보고 편집하면 누락 가능)
+- ✅ 추가 GUI / 결제 인프라 부담이 0 입니다 (본 시점)
+- ✅ CLI 자동화가 가능해요 (`<repo> feature ...` script 작성 가능)
+- ✅ ADR-002 의 *출발점* 정신을 유지합니다
+- ⚠️ 운영자가 직접 `.env` 를 편집하면 `.env.prod` 동기 책임이 사용자에게 있어요 (CLI 가 자동화하지만 docs 만 보고 편집하면 누락 가능)
 
 ---
 

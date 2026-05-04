@@ -26,9 +26,9 @@ Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`
 
 "conventions/module-dependencies.md 를 읽고 지켜주세요" 같은 방식.
 
-- **장점**: 도구 설치 비용 0.
-- **단점**: 솔로 → 리뷰어 없음. 문서 전체를 먼저 읽어야 실수 안 함. 실수가 main 까지 올라간 뒤 한참 지나서야 발견.
-- **탈락 이유**: 솔로 인디 환경에서는 강제력이 실질적으로 0.
+- **장점**: 도구 설치 비용이 0이에요.
+- **단점**: 솔로 → 리뷰어가 없어요. 문서 전체를 먼저 읽어야 실수를 피할 수 있어요. 실수가 main 까지 올라간 뒤 한참 지나서야 발견돼요.
+- **탈락 이유**: 솔로 인디 환경에서는 강제력이 실질적으로 0이에요.
 
 ##### Option 2 — Git pre-commit hook (로컬)
 
@@ -40,9 +40,9 @@ husky 같은 도구로 로컬 커밋 순간 검증.
 
 ##### Option 3 — 전통적 Java lint 도구 (Checkstyle, PMD, SpotBugs)
 
-- **장점**: 성숙하고 안정적. IDE 통합 잘 됨.
-- **단점**: 기본 rule set 이 **우리 특화 규칙** (-api/-impl 경계, multi-module 의존) 을 커버 못 함. 커스텀 rule 작성 가능하지만 ArchUnit 보다 유연성 떨어짐.
-- **탈락 이유**: 범용 도구라 아키텍처 검증에는 맞춤 도구가 더 나음.
+- **장점**: 성숙하고 안정적이에요. IDE 통합도 잘 돼요.
+- **단점**: 기본 rule set 이 **우리 특화 규칙** (-api/-impl 경계, multi-module 의존) 을 커버하지 못해요. 커스텀 rule 작성은 가능하지만 ArchUnit 보다 유연성이 떨어져요.
+- **탈락 이유**: 범용 도구라 아키텍처 검증에는 맞춤 도구가 더 나아요.
 
 ##### Option 4 — Gradle convention plugin + ArchUnit ★ (채택)
 

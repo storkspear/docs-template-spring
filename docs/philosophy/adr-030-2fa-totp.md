@@ -82,9 +82,9 @@
 
 ### Backup code 사용
 
-- TOTP 앱 못 봄 (디바이스 분실 / 시계 어긋남) 시 backup code 입력
+- TOTP 앱을 볼 수 없을 때 (디바이스 분실 / 시계 어긋남) backup code 를 입력해요
 - 8자리 alphanumeric (예: "ABCD1234")
-- 1회용 — 사용 시 DB 의 hash 제거. 8개 다 쓰면 disable 후 setup 재진행.
+- 1회용 — 사용 시 DB 의 hash 가 제거돼요. 8개를 다 쓰면 disable 후 setup 을 재진행해요.
 
 ### Disable (사용자 본인)
 
@@ -124,13 +124,13 @@ T = 1111111109 (window=37037036) → expected: "081804"
 }
 ```
 
-핵심: **type="2fa_pending"** claim.
+핵심: **type="2fa_pending"** claim 이에요.
 
-- `JwtAuthFilter` 의 `validateAccessToken` 이 type 체크 — "2fa_pending" 이면 `ACCESS_TOKEN_INVALID`. 즉 임시 token 으로는 일반 endpoint 호출 X.
-- `TwoFactorService.loginWith2fa` 만이 type=2fa_pending token 검증.
-- 같은 signing key 라 별도 인프라 불필요. type claim 으로만 분기.
+- `JwtAuthFilter` 의 `validateAccessToken` 이 type 을 체크해요 — "2fa_pending" 이면 `ACCESS_TOKEN_INVALID` 로 거절합니다. 즉 임시 token 으로는 일반 endpoint 호출이 안 돼요.
+- `TwoFactorService.loginWith2fa` 만이 type=2fa_pending token 을 검증합니다.
+- 같은 signing key 라 별도 인프라가 필요하지 않아요. type claim 으로만 분기해요.
 
-5분 TTL — 사용자가 TOTP 앱 보고 6자리 입력하기 충분. 너무 길면 leak 위험 ↑.
+5분 TTL — 사용자가 TOTP 앱을 보고 6자리 입력하기 충분한 시간이에요. 너무 길면 leak 위험이 커져요.
 
 ---
 
@@ -141,9 +141,9 @@ T = 1111111109 (window=37037036) → expected: "081804"
 - 사용 시: 입력 코드 → 모든 hash 와 BCrypt match → 매칭된 hash 제거
 - 8개 다 사용 시 → disable + setup 재진행 (운영 시 알림)
 
-**왜 BCrypt?** 비밀번호와 동일한 password-equivalent 자산. salt + slow hash 로 brute-force 차단.
+**왜 BCrypt?** 비밀번호와 동일한 password-equivalent 자산이라서요. salt + slow hash 로 brute-force 를 차단합니다.
 
-**왜 raw 1회 표시?** 사용자가 안전한 곳 (1Password / 종이 etc) 보관 책임. UX 단순.
+**왜 raw 1회 표시?** 사용자가 안전한 곳 (1Password / 종이 etc) 에 보관하는 책임을 져요. UX 가 단순해져요.
 
 ---
 
@@ -169,7 +169,7 @@ POST /api/apps/<slug>/auth/me/2fa/disable         (인증)
 POST /api/apps/<slug>/auth/2fa/login              (공개)
 ```
 
-`new-app.sh` heredoc 의 `<Slug>AuthController` 자동 생성에 포함.
+`new-app.sh` heredoc 의 `<Slug>AuthController` 자동 생성에 포함돼요.
 
 ---
 

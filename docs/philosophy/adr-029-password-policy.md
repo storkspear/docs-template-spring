@@ -30,7 +30,7 @@
 - 복잡도 요구 X — `aaaaaaaa` (8자) 통과
 - 이메일 leak 시 동일 비밀번호로 다른 사이트 침해 (rainbow table)
 
-운영 보안 audit 시 통상 **NIST SP 800-63B** 또는 **OWASP ASVS L2** 권장 정책 요구. 본 사이클에 baseline 강화.
+운영 보안 audit 시 통상 **NIST SP 800-63B** 또는 **OWASP ASVS L2** 권장 정책을 요구해요. 본 사이클에서 baseline 을 강화합니다.
 
 ---
 
@@ -97,9 +97,9 @@ APP_SECURITY_PASSWORD_REQUIRE_SPECIAL=true
 - `#` 주석 + 빈 줄 무시
 - 운영자가 추가 가능 (예: 회사 이름 / 제품명 / 직원 이름)
 
-**성능**: 첫 검증 시 한 번만 파일 읽음 → `Set<String>` cached (double-checked lock). 이후 O(1) 조회.
+**성능**: 첫 검증 시 한 번만 파일을 읽어요 → `Set<String>` cached (double-checked lock). 이후 O(1) 조회로 동작해요.
 
-**용량**: 200개 ≈ 2KB. 메모리 부담 0.
+**용량**: 200개 ≈ 2KB 예요. 메모리 부담은 0이에요.
 
 ---
 
@@ -178,11 +178,11 @@ String password
 
 ## 안 다루는 범위 (다음 사이클)
 
-- **로그인 실패 카운터** — N회 실패 시 일시 lock (brute-force 방지). 별도 mechanism (Redis / DB).
-- **비밀번호 만료** — 90일 후 강제 변경. NIST 는 만료 비권장 (사용자 약한 패턴 양산), 환경별 결정.
-- **비밀번호 재사용 차단** — 직전 N개 hash 보존 + 매칭. DB 변경 + 비즈니스 가치 검토 후.
-- **2FA (TOTP)** — 다음 사이클 (별도). 비밀번호 강화와 분리.
-- **haveibeenpwned 통합** — leak DB 조회. 외부 API 의존 + 운영 결정.
+- **로그인 실패 카운터** — N회 실패 시 일시 lock (brute-force 방지). 별도 mechanism (Redis / DB) 가 필요해요.
+- **비밀번호 만료** — 90일 후 강제 변경. NIST 는 만료를 비권장합니다 (사용자가 약한 패턴을 양산해요). 환경별 결정에 맡겨요.
+- **비밀번호 재사용 차단** — 직전 N개 hash 보존 + 매칭. DB 변경 + 비즈니스 가치 검토 후 진행해요.
+- **2FA (TOTP)** — 다음 사이클로 미뤄요. 비밀번호 강화와 분리합니다.
+- **haveibeenpwned 통합** — leak DB 를 조회해요. 외부 API 의존 + 운영 결정 사항이에요.
 
 ---
 

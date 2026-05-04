@@ -66,9 +66,9 @@ core.user_app_access
   - UX 설명 필요 (앞서 설명)
   - GDPR 복잡도 (앞서 설명)
   - ThreadLocal 에 기반한 동적 DataSource 라우팅의 불안정성
-  - [`ADR-005`](./adr-005-db-schema-isolation.md) 의 "schema = 앱" 모델과 충돌 — 유저 테이블만 core schema 로 빠져나가야 함 → 경계의 일관성 훼손
-  - 5중 방어선 중 **방어선 2 (DataSource 분리)** 와 정합 안 됨 — 동적 라우팅이면 DataSource 는 하나여야 함
-- **탈락 이유**: 세 전선 (UX · GDPR · 구현) 에서 동시 패배. "이론적 장점" 이 실제로 구현되면 전부 복잡도로 돌아옴.
+  - [`ADR-005`](./adr-005-db-schema-isolation.md) 의 "schema = 앱" 모델과 충돌해요 — 유저 테이블만 core schema 로 빠져나가야 해서 경계의 일관성이 훼손돼요
+  - 5중 방어선 중 **방어선 2 (DataSource 분리)** 와 정합되지 않아요 — 동적 라우팅이면 DataSource 는 하나여야 해요
+- **탈락 이유**: 세 전선 (UX · GDPR · 구현) 에서 동시에 패배해요. "이론적 장점" 이 실제로 구현되면 전부 복잡도로 돌아와요.
 
 ### Option 2 — 앱별 독립 + 사후 연동 레이어 (linked_accounts)
 
@@ -106,7 +106,7 @@ core.linked_accounts (별도 테이블, 명시적 매핑)
   - 5중 방어선이 모든 레이어에서 일관되게 작동
 - **단점**:
   - 같은 사람이 두 앱을 쓰면 **가입을 두 번** 함 (각 앱에서 독립 가입)
-  - 프로필 정보 (email, display_name) 공유 안 됨
+  - 프로필 정보 (email, display_name) 가 공유되지 않아요
 - **채택 이유**:
   - 단점이 이론적이고, 실제 앱 공장 전략 ([`제약 3`](./README.md#제약-3--복권-사기-모델)) 에서 앱들이 서로 다른 카테고리라 같은 사람이 양쪽을 쓸 가능성 자체가 낮음
   - Option 2 의 확장 경로가 열려 있음 (미래 필요해지면 `linked_account_id` 컬럼 추가로 이행)
@@ -221,11 +221,11 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 ### 부정적 결과
 
-**같은 사람이 두 앱을 쓰면 가입 두 번** — 같은 이메일로 sumtally 와 rny 에 각각 가입해야 함. 완화: 앱 공장 전략에서 앱들은 서로 다른 카테고리 (가계부 vs 운동 기록) 라 **같은 사람이 양쪽을 다 쓸 가능성 자체가 낮음**. [`제약 3`](./README.md#제약-3--복권-사기-모델) 에서 이 점을 이미 전제로 함.
+**같은 사람이 두 앱을 쓰면 가입 두 번** — 같은 이메일로 sumtally 와 rny 에 각각 가입해야 해요. 완화: 앱 공장 전략에서 앱들은 서로 다른 카테고리 (가계부 vs 운동 기록) 라 **같은 사람이 양쪽을 다 쓸 가능성 자체가 낮아요**. [`제약 3`](./README.md#제약-3--복권-사기-모델) 에서 이 점을 이미 전제로 두고 있어요.
 
-**프로필 통합 기능 구현 불가** — "sumtally 와 rny 가 같은 프로필을 공유" 같은 기능은 지금 구조에서 안 됨. 완화: 미래 `linked_account_id` 컬럼 추가로 이행 가능 (Option 2 로 업그레이드 경로 열려있음). 지금 당장 쓸데가 없음.
+**프로필 통합 기능 구현 불가** — "sumtally 와 rny 가 같은 프로필을 공유" 같은 기능은 지금 구조에서 안 돼요. 완화: 미래 `linked_account_id` 컬럼 추가로 이행이 가능해요 (Option 2 로 업그레이드 경로 열려 있음). 지금 당장 쓸데가 없어요.
 
-**core-auth-impl 이 "dead code" 라는 비직관성** — 처음 코드베이스를 보는 사람이 `core/core-auth-impl/AuthController.java` 를 보고 "이게 런타임 엔드포인트" 라고 오해할 수 있음. 완화: 파일 상단에 "런타임 미등록" 주석 명시 + 본 ADR 에 근거 기록.
+**core-auth-impl 이 "dead code" 라는 비직관성** — 처음 코드베이스를 보는 사람이 `core/core-auth-impl/AuthController.java` 를 보고 "이게 런타임 엔드포인트" 라고 오해할 수 있어요. 완화: 파일 상단에 "런타임 미등록" 주석 명시 + 본 ADR 에 근거 기록을 둬요.
 
 ## 교훈
 

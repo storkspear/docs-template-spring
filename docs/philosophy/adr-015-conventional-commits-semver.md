@@ -30,11 +30,11 @@
 
 **사람이 커밋 메시지를 읽고 분류** 하는 건 매번 피로 + 실수 가능. 자동화가 필요.
 
-게다가 파생 레포 운영자는 "template-v0.3.0 을 썼는데 v0.4.0 에 뭐가 바뀌었지?" 를 빠르게 확인할 수 있어야 함. 이를 위해:
+게다가 파생 레포 운영자는 "template-v0.3.0 을 썼는데 v0.4.0 에 뭐가 바뀌었지?" 를 빠르게 확인할 수 있어야 해요. 이를 위해:
 
-1. 커밋 메시지가 **기계 읽기 가능한 포맷** 이어야 함 (`feat:`, `fix:` 등)
-2. 버전이 **template 전체 단위** 로 찍혀 있어야 함 (`template-v0.4.0`)
-3. `CHANGELOG` 가 모든 변경을 요약해야 함
+1. 커밋 메시지가 **기계 읽기 가능한 포맷** 이어야 해요 (`feat:`, `fix:` 등)
+2. 버전이 **template 전체 단위** 로 찍혀 있어야 해요 (`template-v0.4.0`)
+3. `CHANGELOG` 가 모든 변경을 요약해야 해요
 
 이 결정이 답할 물음은 이거예요.
 
@@ -80,7 +80,7 @@
   - **Breaking change 의 Deprecation 경로 보장** — minor/major 구분이 명확하므로 deprecation 주기 관리 가능
 - **단점**:
   - 초기 셋업 비용 (commitlint, husky, CHANGELOG, workflows) — 1회성
-  - 학습 곡선 — 개발자가 `feat:`, `fix:` 타입에 익숙해져야 함
+  - 학습 곡선 — 개발자가 `feat:`, `fix:` 타입에 익숙해져야 해요
   - 태그 찍는 타이밍이 판단 필요 (자동 아님)
 - **채택 이유**:
   - cherry-pick 모델 + 버전 추적 단순화를 동시 확보
@@ -317,7 +317,7 @@ Deprecation 의 핵심은 "**최소 1 minor 버전 유예**" 예요. 예:
 - v0.4.0 까지 여유있게 이행
 - v1.0.0 upgrade 전에 newMethod 로 이미 교체됐음
 
-**유예 없이 제거하면** 파생 레포가 갑자기 깨져서 upgrade 를 포기하게 됨. 포기가 누적되면 "파생 레포가 template 과 멀어짐" → cherry-pick 모델 붕괴. 유예는 **전파 모델의 생명줄**.
+**유예 없이 제거하면** 파생 레포가 갑자기 깨져서 upgrade 를 포기하게 돼요. 포기가 누적되면 "파생 레포가 template 과 멀어짐" → cherry-pick 모델 붕괴로 이어져요. 유예는 **전파 모델의 생명줄** 이에요.
 
 ## 교훈
 
@@ -376,7 +376,7 @@ r20 이 빌드 실패로 강제하므로:
 - **[Semantic Versioning 2.0.0](https://semver.org/)** — SemVer 스펙. major/minor/patch 의 공식 정의.
 - **[commitlint](https://commitlint.js.org/)** — Conventional Commits 강제 도구. 본 ADR 의 핵심 의존.
 - **[husky](https://typicode.github.io/husky/)** — Git hooks 관리. commit-msg 훅 통해 로컬 검증.
-- **[semantic-release](https://semantic-release.gitbook.io/semantic-release/)** — Option 2 (커밋당 자동 tag) 의 대표 도구. 본 ADR 에서 채택 안 함.
+- **[semantic-release](https://semantic-release.gitbook.io/semantic-release/)** — Option 2 (커밋당 자동 tag) 의 대표 도구. 본 ADR 에서는 채택하지 않았어요.
 - **[JDK Deprecation Policy](https://openjdk.org/jeps/277)** — `@Deprecated(since, forRemoval)` 의 Java 표준 정의. 본 ADR 의 r20 은 이를 기계 강제.
 
 ## Code References

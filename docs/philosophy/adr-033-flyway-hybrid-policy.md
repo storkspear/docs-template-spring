@@ -18,39 +18,39 @@ Flyway 마이그레이션 정책을 *환경별 분리* — dev = `auto` (자동 
 
 ## 배경
 
-현재 (ADR-033 이전) — 모든 환경 (dev / test / prod) 에서 부팅 시 Flyway 가 자동 `migrate()`. `AbstractAppDataSourceConfig.buildFlyway()` 가 `Flyway.configure().load()` 만 반환하고 concrete subclass 가 `@Bean(initMethod = "migrate")` 로 매 부팅에 실행.
+현재 (ADR-033 이전) — 모든 환경 (dev / test / prod) 에서 부팅 시 Flyway 가 자동으로 `migrate()` 를 호출해요. `AbstractAppDataSourceConfig.buildFlyway()` 가 `Flyway.configure().load()` 만 반환하고, concrete subclass 가 `@Bean(initMethod = "migrate")` 로 매 부팅마다 실행합니다.
 
-이 흐름의 위험을 사용자가 명시 (PHP/Laravel 과거 경험):
-- prod 부팅 시 새 V스크립트 자동 적용 → 부팅 실패 시 트래픽 받을 인스턴스 없음
-- 부분 적용 (V14 까진 성공 / V15 fail) → schema 가 inconsistent state
-- advisory lock 손상 (드물지만) → 모든 인스턴스 부팅 wait
-- prod schema 변경이 코드 deploy 의 부산물로 발생 → DBA 가 변경 사실 모름
+이 흐름의 위험을 사용자가 명시했어요 (PHP/Laravel 과거 경험):
+- prod 부팅 시 새 V스크립트 자동 적용 → 부팅 실패 시 트래픽 받을 인스턴스가 없어요
+- 부분 적용 (V14 까진 성공 / V15 fail) → schema 가 inconsistent state 가 돼요
+- advisory lock 손상 (드물지만) → 모든 인스턴스가 부팅 wait 에 빠져요
+- prod schema 변경이 코드 deploy 의 부산물로 발생 → DBA 가 변경 사실을 몰라요
 
-대안 검토 시점이 됨. **옵션 비교**:
+대안 검토가 필요한 시점이에요. **옵션 비교**:
 
 ### 옵션 A — 그대로 자동 migrate (현재)
 | 장점 | 단점 |
 |---|---|
 | 단순 — 별도 운영 절차 X | prod 부팅 시 schema 변경 발생 가능성 |
 | advisory lock 으로 동시성 안전 | 부분 적용 시 복구 절차 복잡 |
-| Flyway baseline-on-migrate 가 신규 schema 자동 처리 | DBA / 운영자가 변경 사실 모를 수 있음 |
+| Flyway baseline-on-migrate 가 신규 schema 자동 처리 | DBA / 운영자가 변경 사실을 모를 수 있음 |
 
 ### 옵션 B — Hybrid (dev/test = auto, prod = validate-only)
 | 장점 | 단점 |
 |---|---|
 | prod 부팅 시 schema 변경 X — 안전 | 운영자가 deploy 전 prod DB 에 직접 SQL 적용 필요 |
 | DBA / 운영자가 schema 변경을 명시적으로 통제 | 자동화 도구 (`tools/migrate-prod.sh`) 필요 |
-| 부분 적용 위험 0 — 부팅 시 검증만 | dev 에선 그대로 자동이라 코드 동작 일관 |
+| 부분 적용 위험 0 — 부팅 시 검증만 | dev 에선 그대로 자동이라 코드 동작이 일관됨 |
 | Flyway `validate` 만 호출 → checksum 정합 보장 | |
 
 ### 옵션 C — ORM `hbm2ddl.auto`
 | 장점 | 단점 |
 |---|---|
-| 별도 마이그레이션 도구 X | **운영 절대 금지** — 자동 schema 추론이 데이터 손실 유발 |
-| dev 빠른 iteration | `@Column(nullable=false)` 추가 시 NOT NULL 강제 → 기존 NULL 행 깨짐 |
+| 별도 마이그레이션 도구 X | **운영에서 절대 금지** — 자동 schema 추론이 데이터 손실을 유발 |
+| dev 빠른 iteration | `@Column(nullable=false)` 추가 시 NOT NULL 강제 → 기존 NULL 행이 깨짐 |
 | | Hibernate 가 schema diff 추론 — 의도치 않은 DROP COLUMN 가능 |
 
-옵션 C 는 **고려 외**. 옵션 A 는 현재 상태이고 위험 인지됨. **옵션 B 채택** — Java 의 type safety 와 일관된 "운영은 명시적으로" 원칙.
+옵션 C 는 **고려 외**예요. 옵션 A 는 현재 상태이고 위험을 인지했어요. **옵션 B 를 채택합니다** — Java 의 type safety 와 일관된 "운영은 명시적으로" 원칙이에요.
 
 ---
 
@@ -150,7 +150,7 @@ app:
 4) Spring Boot 부팅 (prod profile)
    │   └── Flyway.validate() — schema_history 의 모든 V스크립트 정합 확인
    │       ├── 정합 → bean 등록 → 트래픽 받기
-   │       └── 불일치 → SpringBootException → kamal blue/green 이 cutover 안 함
+   │       └── 불일치 → SpringBootException → kamal blue/green 이 cutover 차단
    │
    ▼
 5) blue/green health check OK → 새 인스턴스 활성, 기존 종료
@@ -160,9 +160,9 @@ app:
 
 ## advisory lock 의 역할
 
-Flyway 의 advisory lock 은 **migrate() 호출 시점의 동시성 방어** — 여러 인스턴스가 동시에 부팅해도 한 인스턴스만 V스크립트 적용. validate-only 모드에선 lock 미사용 (read-only).
+Flyway 의 advisory lock 은 **migrate() 호출 시점의 동시성 방어** 예요 — 여러 인스턴스가 동시에 부팅해도 한 인스턴스만 V스크립트를 적용해요. validate-only 모드에선 lock 을 사용하지 않아요 (read-only).
 
-prod 에서 validate-only 로 바뀌어도 **로컬 dev / test 의 lock 보장은 그대로 유지** — 본 ADR 는 prod 의 자동 migrate 만 제거.
+prod 에서 validate-only 로 바뀌어도 **로컬 dev / test 의 lock 보장은 그대로 유지돼요** — 본 ADR 는 prod 의 자동 migrate 만 제거합니다.
 
 ---
 

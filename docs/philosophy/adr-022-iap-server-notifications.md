@@ -10,19 +10,19 @@
 
 ## 결론부터
 
-Apple App Store Server Notifications V2 + Google Play Real-Time Developer Notifications (RTDN) webhook 을 통합 처리. Apple/Google 의 raw 이벤트 type (예: `DID_RENEW` / `EXPIRED` / `REFUND` / `REVOKE`) 을 본 레포의 *통합 type* (8 개) 로 매핑해 같은 listener 가 두 channel 처리.
+Apple App Store Server Notifications V2 + Google Play Real-Time Developer Notifications (RTDN) webhook 을 통합 처리해요. Apple/Google 의 raw 이벤트 type (예: `DID_RENEW` / `EXPIRED` / `REFUND` / `REVOKE`) 을 본 레포의 *통합 type* (8 개) 로 매핑해 같은 listener 가 두 channel 을 처리합니다.
 
-`DID_RENEW` 같은 갱신 이벤트는 user 식별 정보를 포함하지 않으므로 *originalTransactionId* / *purchaseToken* 으로 기존 PaymentRecord 조회 후 user 추적. webhook 중복은 `(source, externalId)` UNIQUE 로 차단.
+`DID_RENEW` 같은 갱신 이벤트는 user 식별 정보를 포함하지 않으므로 *originalTransactionId* / *purchaseToken* 으로 기존 PaymentRecord 를 조회한 뒤 user 를 추적해요. webhook 중복은 `(source, externalId)` UNIQUE 로 차단합니다.
 
 ---
 
 ## 배경
 
-D 사이클 = IAP **영수증 검증** (사용자 결제 직후 1회 호출). 그러나 **갱신 / 환불 / 취소** 는 Apple/Google 이 백엔드에 직접 webhook (server notification) 보냄 — 받지 않으면 우리는 영구 모름.
+D 사이클 = IAP **영수증 검증** (사용자 결제 직후 1회 호출). 그러나 **갱신 / 환불 / 취소** 는 Apple/Google 이 백엔드에 직접 webhook (server notification) 을 보내요 — 받지 않으면 우리는 영구히 알 수 없어요.
 
-PG 갱신은 H 사이클 (chargeAgain + retry) 로 해결. IAP 는 백엔드가 직접 결제 못함 (카드 정보를 우리가 안 받음) → webhook 만이 유일한 갱신 경로.
+PG 갱신은 H 사이클 (chargeAgain + retry) 로 해결돼요. IAP 는 백엔드가 직접 결제할 수 없어요 (카드 정보를 우리가 받지 않으니까요) → webhook 만이 유일한 갱신 경로예요.
 
-본 ADR 은 두 가지 다른 형식 (Apple V2 JWS / Google RTDN Pub/Sub) 을 통합 모델로 정규화하여 비즈니스 로직 layer (BillingPort) 를 platform 무관하게 만드는 결정.
+본 ADR 은 두 가지 다른 형식 (Apple V2 JWS / Google RTDN Pub/Sub) 을 통합 모델로 정규화하여 비즈니스 로직 layer (BillingPort) 를 platform 무관하게 만드는 결정입니다.
 
 ---
 
@@ -105,7 +105,7 @@ BillingPort.handleIapNotification(notification)
 
 ## DID_RENEW 의 user 식별
 
-Apple/Google notification 자체에는 user 정보 없음 (transactionId / purchaseToken 만). 우리의 PaymentRecord 에 저장된 `originalTransactionId` (= IAP channel 의 customer_uid 컬럼) 와 매칭하여 user 식별:
+Apple/Google notification 자체에는 user 정보가 없어요 (transactionId / purchaseToken 만 있어요). 우리의 PaymentRecord 에 저장된 `originalTransactionId` (= IAP channel 의 customer_uid 컬럼) 와 매칭하여 user 를 식별합니다:
 
 ```java
 // Phase 1 의 사전 setup
@@ -116,9 +116,9 @@ PaymentRecord existing = paymentRecordRepository.findByExternalId(originalTransa
 long userId = existing.getUserId();
 ```
 
-→ **사전 조건**: 사용자 첫 구매 시 `IapPort.verifyReceipt` + `activateFromIap` 가 originalTransactionId 를 PaymentRecord 에 저장. (BillingServiceImpl.activateFromIap 가 이미 그렇게 동작.)
+→ **사전 조건**: 사용자 첫 구매 시 `IapPort.verifyReceipt` + `activateFromIap` 가 originalTransactionId 를 PaymentRecord 에 저장합니다. (BillingServiceImpl.activateFromIap 가 이미 그렇게 동작해요.)
 
-처음 구매 직후의 갱신 알림이 오기 전에 PaymentRecord 가 반드시 있어야 함. 보통 Apple/Google 의 첫 영수증 검증은 클라이언트 측에서 즉시 호출되므로 race 거의 없음. 만약 누락되면 log + skip.
+처음 구매 직후의 갱신 알림이 오기 전에 PaymentRecord 가 반드시 있어야 해요. 보통 Apple/Google 의 첫 영수증 검증은 클라이언트 측에서 즉시 호출되므로 race 가 거의 없어요. 만약 누락되면 log + skip 으로 처리합니다.
 
 ---
 
@@ -126,18 +126,18 @@ long userId = existing.getUserId();
 
 ### 시그너처 검증
 
-- **Apple** — D-secure 사이클의 `AppleJwsVerifier` 재활용. cert chain (leaf → intermediate → Apple Root CA G3) + ES256. signedPayload (이중 JWS) 의 outer 와 inner 모두 동일 검증.
-- **Google** — Pub/Sub push 는 `Authorization: Bearer <JWT>` 로 발송. Google service account 의 RS256 + JWKS 검증이 정도. 본 사이클은 decode 만, 검증 filter 는 운영 환경에서 별도 추가 (ConditionalOnProperty 옵션화).
+- **Apple** — D-secure 사이클의 `AppleJwsVerifier` 를 재활용해요. cert chain (leaf → intermediate → Apple Root CA G3) + ES256 으로 검증해요. signedPayload (이중 JWS) 의 outer 와 inner 모두 동일하게 검증합니다.
+- **Google** — Pub/Sub push 는 `Authorization: Bearer <JWT>` 로 발송돼요. Google service account 의 RS256 + JWKS 검증이 정석이에요. 본 사이클은 decode 만 다루고, 검증 filter 는 운영 환경에서 별도 추가합니다 (ConditionalOnProperty 옵션화).
 
 ### Idempotency
 
-- `webhook_events` 의 `(source, external_id)` UNIQUE 제약. 같은 transactionId 의 두 번째 호출은 markProcessed 만 확인하고 처리 skip.
-- contract test `duplicateTransactionId_idempotencySkipsSecondCall` 가 검증.
+- `webhook_events` 의 `(source, external_id)` UNIQUE 제약을 활용해요. 같은 transactionId 의 두 번째 호출은 markProcessed 만 확인하고 처리를 skip 합니다.
+- contract test `duplicateTransactionId_idempotencySkipsSecondCall` 가 검증해요.
 
 ### Race / 동시성
 
-- 같은 transactionId 의 동시 webhook 두 건 — 첫 건이 INSERT 성공, 두 번째는 DataIntegrityViolation → 재조회 (PG webhook 패턴 동일).
-- 외부 HTTP 호출 (DID_RENEW 의 verifyReceipt) 은 트랜잭션 밖 (`@Transactional(NOT_SUPPORTED)`).
+- 같은 transactionId 의 동시 webhook 두 건 — 첫 건이 INSERT 성공, 두 번째는 DataIntegrityViolation → 재조회로 흘러요 (PG webhook 패턴과 동일).
+- 외부 HTTP 호출 (DID_RENEW 의 verifyReceipt) 은 트랜잭션 밖에서 일어나요 (`@Transactional(NOT_SUPPORTED)`).
 
 ---
 
@@ -157,20 +157,20 @@ long userId = existing.getUserId();
 
 ### 옵션 A — platform 별 BillingPort 메소드 (handleAppleNotification / handleGoogleNotification)
 
-- 단순 — 각 platform 마다 별 method.
-- ❌ 정책 layer 가 platform 형식 알아야 → 채널 분리 (ADR-019) 위반.
-- ❌ 새 platform 추가 시 BillingPort 변경 (Stripe 등 추가 시 메소드 폭증).
+- 단순해요 — 각 platform 마다 별 method 가 있어요.
+- ❌ 정책 layer 가 platform 형식을 알아야 해요 → 채널 분리 (ADR-019) 위반이에요.
+- ❌ 새 platform 추가 시 BillingPort 변경이 필요해요 (Stripe 등 추가 시 메소드가 폭증해요).
 
 ### 옵션 B — IapNotification 통합 모델 + 단일 진입점 ★ 채택
 
-- Decoder 가 platform-specific decode → 통합 모델
-- 정책 layer 는 platform 무관, type 만 분기
-- 새 platform 추가 시 Decoder 만 추가 (BillingPort 변경 없음)
+- Decoder 가 platform-specific decode → 통합 모델로 변환해요
+- 정책 layer 는 platform 에 무관하고 type 만 분기해요
+- 새 platform 추가 시 Decoder 만 추가하면 돼요 (BillingPort 변경 없음)
 
 ### 옵션 C — IapPort.handleNotification (Iap 도메인 안에 정책)
 
-- 채널 도메인이 정책까지 담당.
-- ❌ ADR-019 위반 — IAP/PG 채널 + Billing 정책 계층 분리 원칙.
+- 채널 도메인이 정책까지 담당하게 돼요.
+- ❌ ADR-019 위반 — IAP/PG 채널 + Billing 정책 계층 분리 원칙에 어긋나요.
 
 ---
 

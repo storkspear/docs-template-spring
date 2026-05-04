@@ -18,12 +18,12 @@
 
 ## 배경
 
-L 사이클로 push + email 듀얼 알림 구현. 그러나 **사용자가 끌 수 없음**. 운영 시:
+L 사이클로 push + email 듀얼 알림이 구현됐어요. 그러나 **사용자가 끌 수 없어요**. 운영 시:
 
-- 모든 사용자에게 모든 알림 강제 발송 — 알림 피로도
-- GDPR / 한국 개인정보보호법 — 마케팅성 알림 동의 분리 권장
-- 결제 실패 알림은 critical (켜놓는 게 정도) / 결제 성공 알림은 optional
-- 사용자가 알림 자체 차단 시 (OS 설정 / 이메일 unsubscribe) backend 도 stop 해야 — 발송 비용 절감
+- 모든 사용자에게 모든 알림이 강제 발송 — 알림 피로도가 커요
+- GDPR / 한국 개인정보보호법 — 마케팅성 알림 동의 분리를 권장해요
+- 결제 실패 알림은 critical (켜놓는 게 정석) / 결제 성공 알림은 optional 이에요
+- 사용자가 알림을 차단할 때 (OS 설정 / 이메일 unsubscribe) backend 도 stop 해야 — 발송 비용을 절감할 수 있어요
 
 ---
 
@@ -66,9 +66,9 @@ public boolean isPushEnabled(long userId, NotificationKind kind) {
 }
 ```
 
-→ 새 가입자는 자동 모든 알림 ON. 사용자가 명시 OFF 시점부터 차단.
+→ 새 가입자는 자동으로 모든 알림이 ON 이에요. 사용자가 명시적으로 OFF 한 시점부터 차단됩니다.
 
-이는 운영자 결정에 따라 변경 가능 — **default OFF** (opt-in) 로 바꾸면 가입 후 사용자가 직접 ON 켜야 받음. 한국 마케팅법 강제 아니므로 default ON 으로 시작하는 게 운영 일반.
+이는 운영자 결정에 따라 변경 가능해요 — **default OFF** (opt-in) 로 바꾸면 가입 후 사용자가 직접 ON 으로 켜야 받게 돼요. 한국 마케팅법 강제는 아니므로 default ON 으로 시작하는 게 운영의 일반적 형태예요.
 
 ---
 
@@ -122,27 +122,27 @@ PATCH  /api/apps/<slug>/me/notification-preferences/{kind}     (변경)
 
 ### 옵션 A — Boolean column 5개 (`notify_renewal_succeeded` 등)
 
-- 단순. JOIN 0.
-- ❌ NotificationKind 추가 시 ALTER TABLE — schema 변경
-- ❌ "어떤 알림 받는지" 일관 조회 어려움
+- 단순해요. JOIN 이 0이에요.
+- ❌ NotificationKind 추가 시 ALTER TABLE — schema 변경이 필요해요
+- ❌ "어떤 알림 받는지" 일관 조회가 어려워요
 
 ### 옵션 B — `user_notification_preferences` 별도 테이블 ★ 채택
 
-- (user_id, kind) PK. 새 kind 추가 = enum + INSERT (schema 변경 X)
-- 사용자별 모든 설정 1번 SELECT
-- 미등록 = default ON 의 명시적 의미
+- (user_id, kind) PK 예요. 새 kind 추가 = enum + INSERT (schema 변경 X)
+- 사용자별 모든 설정을 1번 SELECT 로 가져와요
+- 미등록 = default ON 으로 명시적 의미가 있어요
 
 ### 옵션 C — JSON column (`users.notification_preferences JSONB`)
 
-- 가장 유연
-- ❌ 검색 어려움 (`WHERE notification_preferences->>'renewal_succeeded' = 'true'`)
-- ❌ 동시 update race (compare-and-swap 없음)
+- 가장 유연해요
+- ❌ 검색이 어려워요 (`WHERE notification_preferences->>'renewal_succeeded' = 'true'`)
+- ❌ 동시 update race 가 발생해요 (compare-and-swap 없음)
 
 ---
 
 ## 안 다루는 범위 (다음 사이클)
 
-- **API endpoint** (조회/변경) — 컨트롤러만 추가하면 됨. 이번 사이클은 backend 인프라만
+- **API endpoint** (조회/변경) — 컨트롤러만 추가하면 돼요. 이번 사이클은 backend 인프라만 다뤄요
 - **마케팅성 알림** (newsletter / 프로모션) — 별도 NotificationKind 추가 + 알림 channel 통합
 - **OS 알림 권한 거부 자동 감지** — Flutter 앱이 권한 변경 시 backend 에 동기화
 - **알림 받는 시간대** (예: 22:00~07:00 안 받기) — quiet hours 정책

@@ -10,19 +10,19 @@
 
 ## 결론부터
 
-ADR-023 의 listener 에 *email 채널* 을 추가해 push + email 듀얼 발송. ADR-024 의 core-email 추출 후 billing 이 EmailPort 자유롭게 import 가능.
+ADR-023 의 listener 에 *email 채널* 을 추가해 push + email 듀얼 발송을 합니다. ADR-024 의 core-email 추출 후 billing 이 EmailPort 를 자유롭게 import 할 수 있어요.
 
-`@ConditionalOnBean` 의 *OR* 처리로 PushPort / EmailPort 중 *하나라도 있으면* listener 등록. 둘 다 있으면 *모두 발송*. Email 발송 실패는 *silent skip* (push 성공만으로도 알림 의무 충족).
+`@ConditionalOnBean` 의 *OR* 처리로 PushPort / EmailPort 중 *하나라도 있으면* listener 가 등록돼요. 둘 다 있으면 *모두 발송* 하고, Email 발송 실패는 *silent skip* (push 성공만으로도 알림 의무가 충족됨).
 
 ---
 
 ## 배경
 
-ADR-023 = listener 가 push 만 발송. email 은 별도 사이클로 미룸 (당시 EmailPort 가 core-auth 안에 묻혀있어 billing 이 import 불가).
+ADR-023 = listener 가 push 만 발송하던 상태였어요. email 은 별도 사이클로 미뤘어요 (당시 EmailPort 가 core-auth 안에 묻혀 있어 billing 이 import 할 수 없었어요).
 
-ADR-024 로 core-email-api 추출 → billing 이 EmailPort 자유롭게 import 가능.
+ADR-024 로 core-email-api 가 추출되면서 → billing 이 EmailPort 를 자유롭게 import 할 수 있게 됐어요.
 
-이제 H/I 이벤트 (Renewal Failed/Abandoned + IAP REFUND/REVOKE) 에 push + email 둘 다 발송. **앱 미설치 / 토큰 만료** 사용자 케이스 cover.
+이제 H/I 이벤트 (Renewal Failed/Abandoned + IAP REFUND/REVOKE) 에 push + email 둘 다 발송해요. **앱 미설치 / 토큰 만료** 사용자 케이스를 cover 합니다.
 
 ---
 
@@ -42,7 +42,7 @@ ADR-024 로 core-email-api 추출 → billing 이 EmailPort 자유롭게 import 
 
 ## ConditionalOnBean 의 OR 처리
 
-Spring Boot 의 `@ConditionalOnBean` 은 단일 bean 검사. 두 bean 중 **하나 이상** 등록 조건은 `AnyNestedCondition` 으로:
+Spring Boot 의 `@ConditionalOnBean` 은 단일 bean 검사예요. 두 bean 중 **하나 이상** 등록 조건은 `AnyNestedCondition` 으로 구성해요:
 
 ```java
 static class PushOrEmailPresent extends AnyNestedCondition {
@@ -53,7 +53,7 @@ static class PushOrEmailPresent extends AnyNestedCondition {
 }
 ```
 
-`@Conditional(PushOrEmailPresent.class)` 적용 시 PushPort or EmailPort 둘 중 하나만 있어도 listener 등록.
+`@Conditional(PushOrEmailPresent.class)` 적용 시 PushPort or EmailPort 둘 중 하나만 있어도 listener 가 등록돼요.
 
 ---
 
@@ -100,7 +100,7 @@ app.billing.notification:
     email-html: "<p>...</p>"                # email body (HTML, 자세히)
 ```
 
-운영자가 채널별 톤 / 정책 / 다국어 수정 자유. 한국어 default 셋팅됨.
+운영자가 채널별 톤 / 정책 / 다국어를 자유롭게 수정할 수 있어요. 한국어가 default 로 셋팅돼요.
 
 ---
 

@@ -43,27 +43,27 @@ core-auth-impl/.../email/ResendProperties.java         ← config
 
 ## 고민했던 대안들
 
-> **대안 분석의 한계** — 본 ADR 은 *한 방향적 결정* 이에요. 이메일을 *cross-cutting 기능* 으로 다루려면 *별도 모듈 분리* 외 다른 합리적 경로가 없어요. 그래서 형식적 대안 비교보다는 *왜 다른 형태가 부적합한가* 를 짧게 기록.
+> **대안 분석의 한계** — 본 ADR 은 *한 방향적 결정* 이에요. 이메일을 *cross-cutting 기능* 으로 다루려면 *별도 모듈 분리* 외 다른 합리적 경로가 없어요. 그래서 형식적 대안 비교보다는 *왜 다른 형태가 부적합한가* 를 짧게 기록해요.
 
 ### 대안 1 — auth 안에 두고 cross-cutting 표시
 
-`core-auth-api` 안에 `EmailPort` 를 두되 *주석 / 문서로 cross-cutting* 표시. billing 등 다른 도메인이 *명시적으로 core-auth-api 의존* 받게 함.
+`core-auth-api` 안에 `EmailPort` 를 두되 *주석 / 문서로 cross-cutting* 표시를 합니다. billing 등 다른 도메인이 *명시적으로 core-auth-api 에 의존* 하게 만들어요.
 
-- ❌ *명시적 의존* 으로도 *billing 이 auth 의 부속* 인상 사라지지 않음
-- ❌ ArchUnit 룰이 *의도* 를 인식 못 함 (코드 의존 그래프만 봄)
-- ❌ 이메일 외 *push 알림* 등 다른 cross-cutting 기능도 같은 문제 반복
+- ❌ *명시적 의존* 으로도 *billing 이 auth 의 부속* 인상이 사라지지 않아요
+- ❌ ArchUnit 룰이 *의도* 를 인식하지 못해요 (코드 의존 그래프만 봐요)
+- ❌ 이메일 외 *push 알림* 등 다른 cross-cutting 기능도 같은 문제가 반복돼요
 
 ### 대안 2 — 별도 microservice (REST 호출)
 
-이메일 발송을 별도 서비스로 분리해 HTTP 호출.
+이메일 발송을 별도 서비스로 분리해 HTTP 로 호출하는 방식이에요.
 
-- ❌ 솔로 인디 스케일에서 과도. 운영 인스턴스 + 모니터링 + 배포 부담 증가
-- ❌ 트랜잭션 경계 복잡화 (이메일 실패 시 transaction rollback 정책)
-- ❌ 본 template 의 *모듈러 모놀리스* 원칙 ([`ADR-001`](./adr-001-modular-monolith.md)) 위반
+- ❌ 솔로 인디 스케일에서 과도해요. 운영 인스턴스 + 모니터링 + 배포 부담이 늘어나요
+- ❌ 트랜잭션 경계가 복잡해져요 (이메일 실패 시 transaction rollback 정책)
+- ❌ 본 template 의 *모듈러 모놀리스* 원칙 ([`ADR-001`](./adr-001-modular-monolith.md)) 에 위반돼요
 
 ### 채택 — `core-email-api` + `core-email-impl` 별도 모듈
 
-ADR-001 의 모듈러 모놀리스 + ADR-003 의 api/impl 분리 패턴을 그대로 적용. 이메일은 *별도 도메인* 으로 격상.
+ADR-001 의 모듈러 모놀리스 + ADR-003 의 api/impl 분리 패턴을 그대로 적용해요. 이메일은 *별도 도메인* 으로 격상돼요.
 
 ---
 
@@ -107,13 +107,13 @@ ADR-019 = billing/iap/payment 분리 결정 (channel-specific vs policy layer). 
 
 ### 긍정
 
-- **도메인 횡단 활용** — billing 의 결제 실패 알림 ([`ADR-025`](./adr-025-billing-notification-email-channel.md)) 가 자연스럽게 EmailPort 사용. auth 의존 없음
+- **도메인 횡단 활용** — billing 의 결제 실패 알림 ([`ADR-025`](./adr-025-billing-notification-email-channel.md)) 가 자연스럽게 EmailPort 를 사용해요. auth 의존이 없어요
 - **EmailException 도메인 분리** — 이메일 발송 실패는 `EmailException(EmailError.EMAIL_DELIVERY_FAILED, cause)` 로 처리:
   ```java
   throw new EmailException(EmailError.EMAIL_DELIVERY_FAILED, cause);
   ```
   각 호출 도메인 (auth / billing) 이 필요 시 자기 도메인 exception 으로 wrap. 또는 그대로 propagate (BaseException 자식이라 ApiResponseAdvice 가 캐치)
-- **환경변수 호환성** — `app.email.resend.*` properties 그대로 유지 (`RESEND_API_KEY`, `RESEND_FROM_ADDRESS`, `RESEND_FROM_NAME` 등 .env 변수 변경 X). ResendProperties 의 패키지만 이동. ConfigurationPropertiesScan 이 자동 발견
+- **환경변수 호환성** — `app.email.resend.*` properties 를 그대로 유지해요 (`RESEND_API_KEY`, `RESEND_FROM_ADDRESS`, `RESEND_FROM_NAME` 등 .env 변수 변경 X). ResendProperties 의 패키지만 이동해요. ConfigurationPropertiesScan 이 자동으로 발견합니다
 - **운영 배포 영향 0** — 모듈 리팩터링이라 jar 안의 클래스 위치만 바뀌고 외부 인터페이스 (REST endpoint, env, 비즈동작) 동일
 - **새 발송 채널 추가 단순** — SMTP / Gmail API / SES / SendGrid 등 추가 시 `core-email-impl` 에 어댑터 1개만 추가
 
@@ -139,9 +139,9 @@ ADR-019 = billing/iap/payment 분리 결정 (channel-specific vs policy layer). 
 
 ## ArchUnit 룰
 
-기존 `r3 CORE_IMPL_MUST_NOT_DEPEND_ON_EACH_OTHER` 가 패턴 기반 (`core-*-impl` → `core-*-impl` 금지) 이라 자동 적용. 새 도메인 룰 추가 X.
+기존 `r3 CORE_IMPL_MUST_NOT_DEPEND_ON_EACH_OTHER` 가 패턴 기반 (`core-*-impl` → `core-*-impl` 금지) 이라 자동으로 적용돼요. 새 도메인 룰 추가가 필요 없어요.
 
-`core-email-api` 는 모든 `core-*-impl` / `apps/*` 가 의존 가능. `core-email-impl` 은 `bootstrap` 만 직접 의존 (`core-*-impl` 끼리 의존 금지).
+`core-email-api` 는 모든 `core-*-impl` / `apps/*` 가 의존할 수 있어요. `core-email-impl` 은 `bootstrap` 만 직접 의존합니다 (`core-*-impl` 끼리 의존 금지).
 
 ---
 
@@ -155,9 +155,9 @@ ArchUnit 의 패턴 기반 룰 (r3) 이 *도메인 경계* 를 자동 강제해 
 
 ## 안 다루는 범위 (다음 사이클)
 
-- **SubscriptionNotificationListener 의 email 발송** — push + email 둘 다 발송하려면 UserPort 통한 email 조회 + 메시지 템플릿 분리. 별도 사이클.
-- **Email contract test** — `core-email-api/testFixtures` 로 `EmailRecorder` 이동 + `InMemoryEmailAdapter` 추출. 현재는 `core-auth-api/testFixtures` 에 남음.
-- **추가 발송 채널** — SMTP / Gmail API / SES / SendGrid 어댑터. 필요 시 `core-email-impl` 에 추가만.
+- **SubscriptionNotificationListener 의 email 발송** — push + email 둘 다 발송하려면 UserPort 를 통한 email 조회 + 메시지 템플릿 분리가 필요해요. 별도 사이클로 다뤄요.
+- **Email contract test** — `core-email-api/testFixtures` 로 `EmailRecorder` 이동 + `InMemoryEmailAdapter` 추출. 현재는 `core-auth-api/testFixtures` 에 남아 있어요.
+- **추가 발송 채널** — SMTP / Gmail API / SES / SendGrid 어댑터. 필요 시 `core-email-impl` 에 추가만 하면 돼요.
 
 ---
 

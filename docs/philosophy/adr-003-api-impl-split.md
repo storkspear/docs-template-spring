@@ -59,27 +59,27 @@ public AuthResponse signup(SignUpRequest req) {
 
 `core-auth/src/main/java/...` 에 인터페이스, 구현, 엔티티, Repository 가 모두 공존.
 
-- **장점**: 모듈 수 절반. 파일 덜 복잡.
-- **단점**: 앱이 의존 선언할 때 "인터페이스만 보기" 가 언어 레벨로 강제 안 됨. Java 는 public 클래스면 어디서든 import 가능. 앱이 실수로 `AuthServiceImpl` 을 import 해도 컴파일 성공.
-- **탈락 이유**: 추출 가능성 파괴. [`ADR-001`](./adr-001-modular-monolith.md) 의 약속을 지킬 수 없음.
+- **장점**: 모듈 수가 절반이에요. 파일이 덜 복잡해요.
+- **단점**: 앱이 의존 선언할 때 "인터페이스만 보기" 가 언어 레벨로 강제되지 않아요. Java 는 public 클래스면 어디서든 import 가 가능해요. 앱이 실수로 `AuthServiceImpl` 을 import 해도 컴파일이 성공해요.
+- **탈락 이유**: 추출 가능성이 파괴돼요. [`ADR-001`](./adr-001-modular-monolith.md) 의 약속을 지킬 수 없어요.
 
 ### Option 2 — 런타임 전략 패턴 (Spring `@Qualifier`)
 
 단일 모듈 유지하되 `@Primary`, `@Qualifier`, `@Conditional` 같은 Spring 어노테이션으로 런타임 구현체 선택.
 
-- **장점**: 유연성 높음. 런타임에 구현 교체 가능.
+- **장점**: 유연성이 높아요. 런타임에 구현 교체가 가능해요.
 - **단점**:
-  - **컴파일 타임 보장 없음** — 앱이 `AuthServiceImpl` 을 직접 import 하는 것을 막지 못함.
-  - Spring 이 없는 환경 (테스트 등) 에서는 이 강제가 무력화.
-- **탈락 이유**: 경계가 런타임 어노테이션에만 의존. 빌드 시스템 수준의 기계 강제력이 없음.
+  - **컴파일 타임 보장이 없어요** — 앱이 `AuthServiceImpl` 을 직접 import 하는 것을 막지 못해요.
+  - Spring 이 없는 환경 (테스트 등) 에서는 이 강제가 무력화돼요.
+- **탈락 이유**: 경계가 런타임 어노테이션에만 의존해요. 빌드 시스템 수준의 기계 강제력이 없어요.
 
 ### Option 3 — Java 9+ 모듈 시스템 (`module-info.java`)
 
 Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 외부 접근 허용.
 
-- **장점**: Java 언어 레벨 강제.
-- **단점**: **Spring Boot + Java 9 모듈 시스템 궁합 어려움**. classpath vs module path 혼재 문제. 디버깅 어려움.
-- **탈락 이유**: 이론적으로 완벽하지만 Spring Boot 생태계와 궁합이 나빠 실무 채택이 많지 않음.
+- **장점**: Java 언어 레벨에서 강제돼요.
+- **단점**: **Spring Boot + Java 9 모듈 시스템 궁합이 어려워요**. classpath vs module path 혼재 문제가 있고, 디버깅도 까다로워요.
+- **탈락 이유**: 이론적으로 완벽하지만 Spring Boot 생태계와 궁합이 나빠 실무 채택이 많지 않아요.
 
 ### Option 4 — `-api` / `-impl` Gradle 모듈 분리 ★ (채택)
 
@@ -139,7 +139,7 @@ public interface AuthPort {
 
 **Port 의 규칙**:
 - 파라미터와 반환 타입은 **DTO 만** (`Request` / `Response` / `Tokens` 등). Entity 금지 (r11).
-- JavaDoc 에는 **구현 내부 힌트** 까지 포함해도 됨. 하지만 파라미터로 Entity 는 노출 안 함.
+- JavaDoc 에는 **구현 내부 힌트** 까지 포함해도 돼요. 하지만 파라미터로 Entity 를 노출하지 않아요.
 - throws 절의 Exception 도 `-api` 모듈의 `exception/` 패키지에 정의 (`AuthException` 등).
 
 ### 장치 2 — Primary / Secondary Adapter 구분
@@ -177,8 +177,8 @@ public class ResendEmailAdapter implements EmailPort {
 ```
 
 **왜 이 구분이 중요한가**:
-- Primary Adapter 는 "우리 시스템의 비즈니스 로직" 을 담음. 테스트가 복잡.
-- Secondary Adapter 는 "외부 시스템과의 HTTP/TCP 연결" 만 담음. 테스트는 HttpClient mock 으로 단순.
+- Primary Adapter 는 "우리 시스템의 비즈니스 로직" 을 담아요. 테스트가 복잡해요.
+- Secondary Adapter 는 "외부 시스템과의 HTTP/TCP 연결" 만 담아요. 테스트는 HttpClient mock 으로 단순해요.
 
 ### 장치 3 — ArchUnit 9개 규칙이 `-api`/`-impl` 경계 강제
 
@@ -212,9 +212,9 @@ public interface AuthPort {
 이 코드는 컴파일됩니다. 하지만 **미래 추출 시점에 치명적 문제** 가 생겨요.
 
 `core-auth-impl` 을 HTTP 서비스로 추출하려면, HTTP 클라이언트 쪽은 `AuthPort` 인터페이스를 가져야 합니다. 그러려면:
-- HTTP 클라이언트가 `User` 엔티티 클래스를 가져야 함
-- `User` 엔티티는 JPA 의존 (`@Entity`, `@Id`, `@Column`)
-- → HTTP 클라이언트 프로젝트가 **JPA 런타임을 전부 가져야 함**
+- HTTP 클라이언트가 `User` 엔티티 클래스를 가져야 해요
+- `User` 엔티티는 JPA 의존이에요 (`@Entity`, `@Id`, `@Column`)
+- → HTTP 클라이언트 프로젝트가 **JPA 런타임을 전부 가져야 해요**
 
 HTTP 클라이언트는 DB 를 안 씁니다. HTTP 로 요청만 보내는데 JPA 를 가져야 한다? 이건 모순이에요. r9 는 이 모순을 **지금 이 시점에서** 차단합니다.
 
@@ -255,21 +255,21 @@ references class <com.factory.core.user.impl.entity.User>
 
 ### 긍정적 결과
 
-**추출 1분 컷** — `AuthServiceImpl` 을 `AuthHttpClient` 로 교체하는 Spring 빈 설정 한 줄 수정. 앱 모듈 코드는 건드리지 않음.
+**추출 1분 컷** — `AuthServiceImpl` 을 `AuthHttpClient` 로 교체하는 Spring 빈 설정 한 줄만 바꾸면 돼요. 앱 모듈 코드는 건드리지 않아요.
 
-**컴파일 타임 경계** — 앱 개발자가 실수로 `-impl` 의 클래스를 import 하려고 하면 Gradle 이 빌드 실패.
+**컴파일 타임 경계** — 앱 개발자가 실수로 `-impl` 의 클래스를 import 하려고 하면 Gradle 이 빌드 실패로 막아요.
 
-**테스트 구조 명확** — 각 앱 모듈의 테스트는 `AuthPort` 를 Mock 으로 주입해서 테스트 가능.
+**테스트 구조 명확** — 각 앱 모듈의 테스트는 `AuthPort` 를 Mock 으로 주입해서 테스트할 수 있어요.
 
-**JPA / Spring 의존성의 격리** — `-api` 는 순수 Java. 미래 추출 시 `-api` 자체가 어느 플랫폼에든 가져갈 수 있음.
+**JPA / Spring 의존성의 격리** — `-api` 는 순수 Java 예요. 미래 추출 시 `-api` 자체가 어느 플랫폼에든 가져갈 수 있어요.
 
 ### 부정적 결과
 
-**모듈 수 2배** — 6개 도메인 × 2 = 12 core 모듈. IDE 프로젝트 트리가 길어짐. 완화: 관습으로 짝 구조가 명확해서 탐색은 쉬움.
+**모듈 수 2배** — 6개 도메인 × 2 = 12 core 모듈이에요. IDE 프로젝트 트리가 길어져요. 완화: 관습으로 짝 구조가 명확해서 탐색은 쉬워요.
 
-**DTO ↔ Entity 변환 비용** — Port 가 Entity 반환 금지이므로 `-impl` 내부에서 Entity 를 DTO 로 변환해야 함. 완화: ADR-016 (DTO Mapper 금지, Entity 메서드 패턴) 이 이 비용을 최소화.
+**DTO ↔ Entity 변환 비용** — Port 가 Entity 반환을 금지하므로 `-impl` 내부에서 Entity 를 DTO 로 변환해야 해요. 완화: ADR-016 (DTO Mapper 금지, Entity 메서드 패턴) 이 이 비용을 최소화해요.
 
-**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **17 메서드** (email 가입 / 이메일·Apple·Google·Kakao·Naver 로그인 / refresh / 탈퇴 / password reset 3개 (요청·확인·변경) / email verify 2개 (검증·재발송) / 2FA TOTP 4개 (setup·verify·disable·login)). 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 됨. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 **책임 기반 분할** 고려. 현재 17 메서드는 관리 가능한 수준.
+**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **17 메서드** 예요 (email 가입 / 이메일·Apple·Google·Kakao·Naver 로그인 / refresh / 탈퇴 / password reset 3개 (요청·확인·변경) / email verify 2개 (검증·재발송) / 2FA TOTP 4개 (setup·verify·disable·login)). 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 돼요. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 **책임 기반 분할** 을 고려해요. 현재 17 메서드는 관리 가능한 수준이에요.
 
 ### 감당 가능성 판단
 
@@ -283,7 +283,7 @@ references class <com.factory.core.user.impl.entity.User>
 
 **대안 — `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 로 등록** 하면 공용 `/api/core/auth/*` 경로가 됩니다. 그런데 이 방식은 "모든 앱이 같은 Controller 공유 → 어느 앱 요청인지 런타임 구분 필요 → ThreadLocal + AbstractRoutingDataSource" 라는 복잡도를 부릅니다.
 
-**채택** — `AuthController` 는 `-impl` 에 **스캐폴딩 소스** 로만 존재, 런타임 등록 안 함. 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 Port 를 주입받아 사용해요.
+**채택** — `AuthController` 는 `-impl` 에 **스캐폴딩 소스** 로만 존재하고, 런타임에 등록하지 않아요. 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 Port 를 주입받아 사용해요.
 
 **교훈**: `-api` / `-impl` 분리는 **모듈 내부 책임 경계** 도 재조정하게 만듭니다. "무엇이 Port 구현체인가", "무엇이 Port 사용자인가" 구분이 명확해질수록 런타임 구조도 단순해져요.
 

@@ -10,9 +10,9 @@
 
 ## 결론부터
 
-운영자 전용 endpoint 를 보호하는 *@AdminOnly* meta annotation + JWT `role` claim 검증. Spring Security 의 `@PreAuthorize("hasRole('ADMIN')")` 보다 *간결 + 도메인 의도 명시*.
+운영자 전용 endpoint 를 보호하는 *@AdminOnly* meta annotation + JWT `role` claim 검증을 도입해요. Spring Security 의 `@PreAuthorize("hasRole('ADMIN')")` 보다 *간결하고 도메인 의도가 명시적* 이에요.
 
-`role` claim 은 JWT 발급 시 user.role 에서 복사 (`"user"` / `"admin"`). AppSlugVerificationFilter 와 같은 chain 에서 검증되어 *앱 단위 + role 단위* 이중 격리.
+`role` claim 은 JWT 발급 시 user.role 에서 복사돼요 (`"user"` / `"admin"`). AppSlugVerificationFilter 와 같은 chain 에서 검증되어 *앱 단위 + role 단위* 이중 격리가 이뤄져요.
 
 ---
 
@@ -29,12 +29,12 @@ SimpleGrantedAuthority("ROLE_ADMIN")
   ↓ AuthenticatedUser.isAdmin() 헬퍼 = role.equalsIgnoreCase("admin")
 ```
 
-JWT + GrantedAuthority 매핑은 됐는데, **실제 endpoint 단에서 권한 체크 패턴 부재**:
-- `@PreAuthorize` 사용 X (`@EnableMethodSecurity` 없음)
-- 컨트롤러가 `currentUser.isAdmin()` 직접 체크 → boilerplate
-- ArchUnit 으로 강제 X — admin endpoint 인지 코드만으로 알기 어려움
+JWT + GrantedAuthority 매핑은 됐는데, **실제 endpoint 단에서 권한 체크 패턴이 없어요**:
+- `@PreAuthorize` 사용 X (`@EnableMethodSecurity` 미적용)
+- 컨트롤러가 `currentUser.isAdmin()` 을 직접 체크 → boilerplate
+- ArchUnit 으로 강제 X — admin endpoint 인지를 코드만으로 알기 어려워요
 
-운영자 endpoint (refund, plan 관리, subscription 강제 cancel 등) 가 본격 추가되기 전에 **권한 컨벤션 정립** 필요.
+운영자 endpoint (refund, plan 관리, subscription 강제 cancel 등) 가 본격 추가되기 전에 **권한 컨벤션 정립** 이 필요해요.
 
 ---
 
@@ -125,7 +125,7 @@ VALUES ('admin@<slug>.local', '<bcrypt>', ..., 'admin', ...);
 public @interface ModeratorOnly {}
 ```
 
-JWT 발급 시 role claim 에 해당 값 (소문자) 셋팅. JwtAuthFilter 가 자동으로 `ROLE_MODERATOR` 매핑.
+JWT 발급 시 role claim 에 해당 값 (소문자) 을 셋팅해요. JwtAuthFilter 가 자동으로 `ROLE_MODERATOR` 로 매핑합니다.
 
 다중 role 검사도 가능:
 ```java
@@ -162,11 +162,11 @@ public @interface AdminOrModerator {}
 
 ## 안 다루는 범위 (다음 사이클 후보)
 
-- **Admin endpoint 신규** — 사용자 role 변경 / plan 등록 / subscription 강제 cancel / 운영 통계 조회. 비즈니스별로 다르므로 derived 앱에서 추가 권장.
-- **Admin 전용 controller convention** — 모든 admin 메소드를 `<Slug>AdminController` 로 분리. type level `@AdminOnly`. ArchUnit 으로 강제.
+- **Admin endpoint 신규** — 사용자 role 변경 / plan 등록 / subscription 강제 cancel / 운영 통계 조회 같은 추가 기능이에요. 비즈니스별로 다르므로 derived 앱에서 추가하는 걸 권장해요.
+- **Admin 전용 controller convention** — 모든 admin 메소드를 `<Slug>AdminController` 로 분리해요. type level `@AdminOnly` 를 적용하고 ArchUnit 으로 강제할 수 있어요.
 - **2FA / 추가 인증** — admin 액션 시 한 번 더 비밀번호 입력 (sudo 모드)
 - **Audit 로그** — 누가 언제 무엇을 admin 액션 했는지 (별도 table)
-- **role 다중화** — 현재 user/admin 단일. moderator/billing_ops 등 추가는 비즈니스 결정.
+- **role 다중화** — 현재는 user/admin 단일이에요. moderator/billing_ops 등 추가는 비즈니스 결정에 맡겨요.
 - **role enum 화** — `String role` → `Role enum (USER, ADMIN, ...)` — 타입 안전성 ↑
 
 ---

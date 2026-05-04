@@ -25,7 +25,7 @@
 여기에 **외부 제약** 하나가 추가됩니다. 우리는 Supabase (관리형 Postgres) 를 쓰기로 이미 결정했습니다 — 그 이유는 [`제약 1`](./README.md#제약-1--운영-가능성이-최우선) (운영을 외주화해 솔로 부담 감소). 그런데 Supabase 는 **`postgres` database 중심으로 설계** 되어 있어요:
 
 - 대시보드 · Auth · Storage · Realtime 모두 `postgres` database 의 schema 로 구현됨
-- 추가 database 생성은 제한되거나 대시보드가 제대로 인식 못 함
+- 추가 database 생성은 제한되거나 대시보드가 제대로 인식하지 못해요
 
 이 결정이 답할 물음은 이거예요.
 
@@ -51,10 +51,10 @@
 
 - **장점**: 같은 인스턴스라 백업/모니터링은 통합. database 경계는 schema 보다 강함.
 - **단점**:
-  - **Supabase 구조적 제약** — Supabase 는 `postgres` database 에 맞춰 설계됨. 추가 database 만들어도 대시보드/RLS/Auth 기능이 인식 못 함.
-  - 결국 Supabase 의 관리형 이점을 반만 누리게 됨 (custom database 는 self-managed 상태).
-  - Role 분리는 가능하지만 database 레벨 권한 관리가 schema 레벨보다 딱히 쉽지도 않음.
-- **탈락 이유**: Supabase 와 궁합이 나쁨. 그 이점을 포기하면 Option 1 에 가까워지는데 격리 강도는 더 약함 — 이도저도 아님.
+  - **Supabase 구조적 제약** — Supabase 는 `postgres` database 에 맞춰 설계돼 있어요. 추가 database 를 만들어도 대시보드/RLS/Auth 기능이 인식하지 못해요.
+  - 결국 Supabase 의 관리형 이점을 반만 누리게 돼요 (custom database 는 self-managed 상태예요).
+  - Role 분리는 가능하지만 database 레벨 권한 관리가 schema 레벨보다 딱히 쉽지도 않아요.
+- **탈락 이유**: Supabase 와 궁합이 나빠요. 그 이점을 포기하면 Option 1 에 가까워지는데 격리 강도는 더 약해요 — 이도저도 아닌 결과예요.
 
 ### Option 3 — 단일 database + schema 분리 + 5중 방어선 ★ (채택)
 
@@ -193,7 +193,7 @@ r2 · r3 · r11 이 schema 격리를 기계적으로 강제합니다.
 
 **Postgres 인스턴스 장애가 전사 장애** — 한 Supabase 프로젝트 다운 = 모든 앱 다운. 완화: Supabase 의 관리형 SLA 에 의존 ([`제약 1`](./README.md#제약-1--운영-가능성이-최우선) 비목표 - 99.99% 불필요). 실제 사용 기간 중 Supabase 다운 빈도는 월 1회 이내 · 수분 단위로 집계됨.
 
-**schema 간 트랜잭션 불가** — 한 앱이 다른 앱의 테이블을 같은 트랜잭션에서 조작하는 건 불가능. 완화: 애초에 ADR 의 의도 — 앱은 **독립** 이라야 함. 크로스 앱 데이터는 포트 호출 (비동기 경계) 로만.
+**schema 간 트랜잭션 불가** — 한 앱이 다른 앱의 테이블을 같은 트랜잭션에서 조작하는 건 불가능해요. 완화: 애초에 ADR 의 의도 — 앱은 **독립** 이라야 해요. 크로스 앱 데이터는 포트 호출 (비동기 경계) 로만 다뤄요.
 
 **schema 격리는 database 격리보다 논리적으로 약함** — role 설정 실수로 `GRANT ALL` 을 잘못 주면 경계가 무너짐. 완화: `init-app-schema.sql` 을 **스크립트로 표준화**. 사람이 직접 GRANT 를 쓰지 않음.
 

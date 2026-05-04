@@ -10,9 +10,9 @@
 
 ## 결론부터
 
-운영 액션 (admin refund / role 변경 / force-clear 등) 을 *AOP 자동 기록* 으로 audit log 에 영속. `@Audited` meta annotation + AuditAspect 로 *boilerplate 0* 기록 + *비즈 로직과 격리*.
+운영 액션 (admin refund / role 변경 / force-clear 등) 을 *AOP 자동 기록* 으로 audit log 에 영속화해요. `@Audited` meta annotation + AuditAspect 로 *boilerplate 0* 기록 + *비즈 로직과 격리* 를 달성합니다.
 
-audit 기록은 `@Transactional(REQUIRES_NEW)` 로 *별도 트랜잭션* — 비즈 트랜잭션 rollback 시에도 audit 만 보존. AuditPort interface 로 *DB / external SaaS / S3* 구현 교체 가능.
+audit 기록은 `@Transactional(REQUIRES_NEW)` 로 *별도 트랜잭션* 에서 일어나요 — 비즈 트랜잭션 rollback 시에도 audit 만 보존돼요. AuditPort interface 로 *DB / external SaaS / S3* 구현을 교체할 수 있어요.
 
 ---
 
@@ -211,8 +211,8 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id)
 
 ## 안 다루는 범위
 
-- **Audit endpoint 노출** — `GET /api/admin/audit-logs?action=billing.&since=...` 같은 운영자 조회 endpoint. 비즈니스별 admin UI 결정 후 추가.
-- **세부 변경 추적** — JPA `@PreUpdate` 로 entity 변경 전후 캡처 (예: User.role 변경 시 old/new 값). `details` JSONB 활용 가능하나 별도 사이클.
-- **Audit log 보존 정책** — 영구 보관 vs 90일 후 archive. PCI-DSS 는 1년 권장. 별도 cron 으로 archive table 이동.
-- **암호화** — actor_email / details 의 민감 정보 암호화. 필요 시 별도 사이클.
-- **외부 SIEM 통합** — Splunk / Datadog 으로 로그 stream. 운영 규모 커지면 추가.
+- **Audit endpoint 노출** — `GET /api/admin/audit-logs?action=billing.&since=...` 같은 운영자 조회 endpoint. 비즈니스별 admin UI 결정 후 추가해요.
+- **세부 변경 추적** — JPA `@PreUpdate` 로 entity 변경 전후를 캡처해요 (예: User.role 변경 시 old/new 값). `details` JSONB 활용은 가능하지만 별도 사이클로 다뤄요.
+- **Audit log 보존 정책** — 영구 보관 vs 90일 후 archive. PCI-DSS 는 1년을 권장해요. 별도 cron 으로 archive table 로 이동시켜요.
+- **암호화** — actor_email / details 의 민감 정보 암호화. 필요 시 별도 사이클로 다뤄요.
+- **외부 SIEM 통합** — Splunk / Datadog 으로 로그를 stream 해요. 운영 규모가 커지면 추가합니다.

@@ -1,6 +1,6 @@
 # ADR-019 · billing / iap / payment 도메인 분리
 
-**Status**: Accepted. 2026-05-01 기준 결제 관련 코어 모듈을 3개 도메인으로 분리. `core-billing` 을 3 도메인 (billing / iap / payment) 으로 분리한 이유: IAP receipt 검증 + subscription 정책 + PG 결제가 단일 모듈에 혼재 시 책임 경계가 모호.
+**Status**: Accepted. 2026-05-01 기준 결제 관련 코어 모듈을 3개 도메인으로 분리했어요. `core-billing` 을 3 도메인 (billing / iap / payment) 으로 분리한 이유: IAP receipt 검증 + subscription 정책 + PG 결제가 단일 모듈에 혼재할 때 책임 경계가 모호해지기 때문이에요.
 
 > **유형**: ADR · **독자**: Level 2 · **읽는 시간**: ~3분
 
@@ -25,14 +25,14 @@ SubscriptionStatus getSubscriptionStatus(long userId, String productId);
 
 문제:
 
-- **IAP 와 PG 의 결제 흐름이 매우 다름** — IAP 는 Apple/Google 이 결제 처리, 우리는 receipt 검증만 (수수료 30%). PG 는 우리가 직접 처리 (수수료 3%, 환불 API, 웹훅 처리).
-- 한 인터페이스에 욱여넣으면 시그니처가 어색 — `registerPurchase(IapReceiptRequest)` 가 PG 결제도 받아야 하면 DTO/method 가 비대.
-- "billing" 이름 자체가 모호 — 청구/구독 정책 의미인지, IAP 영수증 검증 의미인지 안 보임.
-- PG (한국 나이스페이/토스/이니시스) 통합 추가 시 `core-billing` 이 IAP 와 PG 두 채널을 다 흡수해야 함. 도메인 경계 흐림.
+- **IAP 와 PG 의 결제 흐름이 매우 다릅니다** — IAP 는 Apple/Google 이 결제 처리, 우리는 receipt 검증만 (수수료 30%). PG 는 우리가 직접 처리해요 (수수료 3%, 환불 API, 웹훅 처리).
+- 한 인터페이스에 욱여넣으면 시그니처가 어색해져요 — `registerPurchase(IapReceiptRequest)` 가 PG 결제도 받으려면 DTO/method 가 비대해집니다.
+- "billing" 이름 자체가 모호해요 — 청구/구독 정책 의미인지, IAP 영수증 검증 의미인지 분간이 안 돼요.
+- PG (한국 나이스페이/토스/이니시스) 통합 추가 시 `core-billing` 이 IAP 와 PG 두 채널을 모두 흡수해야 해서 도메인 경계가 흐려져요.
 
 ## 고민했던 대안들
 
-> **대안 분석의 한계** — 본 ADR 은 *한 방향적 결정* 이에요. IAP 와 PG 가 *결제 흐름이 본질적으로 다름* (수수료 모델 / 결제 처리 주체 / 환불 API / webhook 패턴) 이라 *단일 도메인 통합* 이 합리적 대안으로 성립하지 않아요. 그래서 형식적 대안 비교보다는 *왜 다른 형태가 부적합한가* 를 짧게 기록.
+> **대안 분석의 한계** — 본 ADR 은 *한 방향적 결정* 이에요. IAP 와 PG 가 *결제 흐름이 본질적으로 달라요* (수수료 모델 / 결제 처리 주체 / 환불 API / webhook 패턴) 이라 *단일 도메인 통합* 이 합리적 대안으로 성립하지 않아요. 그래서 형식적 대안 비교보다는 *왜 다른 형태가 부적합한가* 를 짧게 기록해요.
 
 ### 대안 1 — 단일 `core-billing` 안에 IAP 포함
 
@@ -88,7 +88,7 @@ IAP 도 같은 흐름:
 | **IAP** | "Apple/Google 스토어 인앱 결제" — **채널** |
 | **Payment** | "PG 직접 결제 (카드/계좌)" — **채널** |
 
-`Billing > {IAP, Payment}` 의 layer 관계가 이름에서 드러남. 이전 `billing/payment` 두 단어로는 "둘 중 어느게 위 layer 인지" 가 불명확했음.
+`Billing > {IAP, Payment}` 의 layer 관계가 이름에서 명확히 드러납니다. `billing/payment` 두 단어만으로는 "둘 중 어느게 위 layer 인지" 가 불명확해요.
 
 ## PG 채널 전략 — 포트원 추상화
 

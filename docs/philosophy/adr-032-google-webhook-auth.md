@@ -10,24 +10,24 @@
 
 ## 결론부터
 
-Google Pub/Sub webhook 의 `Authorization: Bearer <JWT>` 검증 추가 — Google 서비스 계정의 RS256 JWT 를 JWKS 공개키로 verify + audience / issuer 일치 검증.
+Google Pub/Sub webhook 의 `Authorization: Bearer <JWT>` 검증을 추가해요 — Google 서비스 계정의 RS256 JWT 를 JWKS 공개키로 verify + audience / issuer 일치를 검증합니다.
 
-JWKS 는 24h cache (rotation 대응). `allowed-service-account-emails` whitelist 로 *우리 plzkt 의 서비스 계정 만* 허용. webhook 위조 / replay 공격 차단.
+JWKS 는 24h cache 로 두고 (rotation 대응), `allowed-service-account-emails` whitelist 로 *우리 plzkt 의 서비스 계정 만* 허용해요. webhook 위조 / replay 공격을 차단합니다.
 
 ---
 
 ## 배경
 
-ADR-022 의 `/iap/google/webhook` endpoint = Google Play RTDN Pub/Sub push 받음. 그러나 **인증 무방비**:
+ADR-022 의 `/iap/google/webhook` endpoint 는 Google Play RTDN Pub/Sub push 를 받아요. 그러나 **인증이 무방비예요**:
 
-- 누구나 fake notification payload + 진짜 transactionId 추측해 POST 가능
-- `BillingPort.handleIapNotification` 호출 → REFUND 처리 → 사용자 자산 영향
+- 누구나 fake notification payload + 진짜 transactionId 를 추측해 POST 할 수 있어요
+- `BillingPort.handleIapNotification` 호출 → REFUND 처리 → 사용자 자산에 영향이 가요
 
 **realistic 공격**:
-- transactionId 가 추측 어렵지만 (16+ random) leak (DB dump / log 노출 / 직원 인사이드) 시 가능
-- 운영 보안 audit (PCI-DSS, ISO 27001) 시 webhook 인증 부재 = compliance 미달
+- transactionId 가 추측이 어렵지만 (16+ random) leak (DB dump / log 노출 / 직원 인사이드) 시 가능해요
+- 운영 보안 audit (PCI-DSS, ISO 27001) 시 webhook 인증 부재 = compliance 미달이에요
 
-Apple webhook 은 JWS 자체 검증으로 자동 차단 (cert chain). Google 만 hole — 본 ADR 가 막음.
+Apple webhook 은 JWS 자체 검증으로 자동 차단돼요 (cert chain). Google 만 hole — 본 ADR 가 그 구멍을 막아요.
 
 ---
 
@@ -122,14 +122,14 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub@my-project.iam.gser
 
 `GoogleWebhookAuthFilterTest`:
 
-1. `validJwt_passesThrough` — 정상 JWT (RS256 + 올바른 audience + allowed email) → FilterChain.doFilter
-2. `missingBearerHeader_rejects401` — Authorization 헤더 없음
-3. `wrongAudience_rejects401` — audience 미스매치 (replay 공격 차단)
-4. `unauthorizedEmail_rejects401` — service account email 등록 안 됨
-5. `wrongSignature_rejects401` — 다른 RSA keypair 로 서명 (위조 차단)
-6. `shouldNotFilter_nonWebhookPath` — webhook path 외에는 filter 적용 X
+1. `validJwt_passesThrough` — 정상 JWT (RS256 + 올바른 audience + allowed email) → FilterChain.doFilter 통과
+2. `missingBearerHeader_rejects401` — Authorization 헤더가 없으면 401
+3. `wrongAudience_rejects401` — audience 미스매치 시 401 (replay 공격 차단)
+4. `unauthorizedEmail_rejects401` — service account email 미등록 시 401
+5. `wrongSignature_rejects401` — 다른 RSA keypair 로 서명 시 401 (위조 차단)
+6. `shouldNotFilter_nonWebhookPath` — webhook path 외에는 filter 가 적용되지 않아요
 
-**테스트 셋업**: `KeyPairGenerator.RSA(2048)` 로 직접 keypair 생성 → JWT 서명 → `FakeJwksClient` 가 public key 반환 → filter 통과/실패 검증. 외부 Google JWKS 호출 0.
+**테스트 셋업**: `KeyPairGenerator.RSA(2048)` 로 직접 keypair 를 생성해요 → JWT 서명 → `FakeJwksClient` 가 public key 반환 → filter 통과/실패를 검증해요. 외부 Google JWKS 호출은 0 이에요.
 
 ---
 
@@ -137,9 +137,9 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub@my-project.iam.gser
 
 ### 옵션 A — IP allowlist (Google Pub/Sub IP 범위)
 
-- 단순. 인증 X, 발신자 IP 만 검증
-- ❌ Google IP 범위 광범위 (모든 GCP 사용자 공유) — 같은 GCP 계정의 다른 프로젝트도 공격 가능
-- ❌ Cloudflare Tunnel / Kamal 통하면 IP 가짜화 됨
+- 단순해요. 인증 X, 발신자 IP 만 검증해요
+- ❌ Google IP 범위가 광범위해요 (모든 GCP 사용자 공유) — 같은 GCP 계정의 다른 프로젝트도 공격 가능해요
+- ❌ Cloudflare Tunnel / Kamal 을 통하면 IP 가 가짜화돼요
 
 ### 옵션 B — Pub/Sub bearer JWT 검증 ★ 채택
 
