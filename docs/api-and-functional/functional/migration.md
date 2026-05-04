@@ -34,23 +34,23 @@
 ## Overview
 v0.3.0 에서 도입된 breaking change 3 건 요약.
 
-## 1. UserPort.verifyEmailLegacy → verifyEmail
+## 1. (예시) ModulePort.oldMethodName → newMethodName
 
 ### Before (v0.2.0)
 ```java
-authPort.verifyEmailLegacy(new VerifyEmailRequest(token));
+modulePort.oldMethodName(new RequestType(arg));
 ```
 
 ### After (v0.3.0)
 ```java
-authPort.verifyEmail(new VerifyEmailRequest(token));
+modulePort.newMethodName(new RequestType(arg));
 ```
 
 ### Reason
-네이밍 일관성 (기존 인증/재인증 메서드와 정렬).
+<여기에 실제 deprecation 사유 기재 — 예: 네이밍 일관성, 도메인 분리, API 단순화 등>
 
 ### Migration Steps
-1. 전역 search/replace: `verifyEmailLegacy` → `verifyEmail`
+1. 전역 search/replace: `oldMethodName` → `newMethodName`
 2. 테스트 실행해 이상 없는지 확인
 
 ### Deprecation 정책
@@ -64,7 +64,7 @@ authPort.verifyEmail(new VerifyEmailRequest(token));
 
 ## Deprecation 흐름과의 관계
 
-breaking change 는 갑자기 나타나지 않음. 다음 흐름:
+breaking change 는 갑자기 나타나지 않습니다. 다음 흐름을 따릅니다.
 
 ```
 v0.2.0: 신규 API 추가 + 기존 API @Deprecated

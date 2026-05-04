@@ -73,7 +73,7 @@
 
 ### Bucket 생성 자동화 (실수 방지)
 - `BucketProvisioner` 가 Spring 부팅 시 `.env` 의 bucket 이름 읽어서 **없으면 자동 생성** + retention 적용.
-- **수동 생성 불필요**. `.env` 에 이름 추가 후 앱 재기동만 하면 됨.
+- **수동 생성 불필요** — `.env` 에 이름 추가 후 앱 재기동만 하면 됩니다.
 - 파생 레포 생성 시 `new-app.sh` 가 `.env.example` 에 앱별 bucket 이름을 자동 주입.
 
 ## Object Key 패턴 (환경 무관, 항상 동일)

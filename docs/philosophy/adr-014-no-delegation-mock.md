@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-테스트는 **외부에서 관측 가능한 행위** 만 검증해요. "A 가 B.foo() 를 호출하는가?" 같은 **내부 위임 경로** 는 mock 으로 검증하지 않습니다. 예를 들어 `AuthController.signUp()` 이 내부적으로 `EmailAuthService.signUp()` 을 호출하는지 `verify(emailAuthService).signUp(...)` 로 체크하는 걸 금지해요. 대신 `AuthPort` 의 실제 행위 (유저가 DB 에 저장되고, 검증 이메일이 발송되고, JWT 가 반환되는지) 를 검증. Mock 은 **외부 시스템 격리** (FCM, Resend) 와 **비결정 의존성 고정** (Clock, TokenGenerator) 에만 허용. 규모는 430 테스트 중 ~30 건으로 제한됨.
+테스트는 **외부에서 관측 가능한 행위** 만 검증합니다. "A 가 B.foo() 를 호출하는가?" 같은 **내부 위임 경로** 는 mock 으로 검증하지 않습니다. 예를 들어 `AuthController.signUp()` 이 내부적으로 `EmailAuthService.signUp()` 을 호출하는지 `verify(emailAuthService).signUp(...)` 로 체크하는 걸 금지해요. 대신 `AuthPort` 의 실제 행위 (유저가 DB 에 저장되고, 검증 이메일이 발송되고, JWT 가 반환되는지) 를 검증. Mock 은 **외부 시스템 격리** (FCM, Resend) 와 **비결정 의존성 고정** (Clock, TokenGenerator) 에만 허용. 규모는 430 테스트 중 ~30 건으로 제한됨.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -265,13 +265,13 @@ void issueAndValidate_happyPath() {
 
 ### "Port 계약 테스트" 와 "내부 구현 테스트" 의 경계를 먼저 선언할 것
 
-초기에는 "테스트를 어떻게 쓸지" 가이드 없이 팀원마다 다른 스타일을 썼음. 어떤 테스트는 `@SpringBootTest` 에서 Controller 를 직접 호출, 다른 테스트는 `mock()` 으로 Service 검증. 결과적으로:
+테스트 작성 가이드가 부재하면 팀원마다 다른 스타일이 누적됩니다. 어떤 테스트는 `@SpringBootTest` 에서 Controller 직접 호출, 다른 테스트는 `mock()` 으로 Service 검증 — 가이드 없는 상태의 자연스러운 결과물:
 
 - 리팩토링할 때 "이 테스트는 왜 깨졌지?" 로 혼란
 - 같은 기능을 여러 층에서 중복 검증 (테스트 총량만 늘고 가치는 제자리)
 - 새 테스트 쓸 때 "어디에 쓰지?" 로 매번 결정 비용
 
-4층 전략 + delegation mock 금지를 **명시적 선언** 한 이후:
+4층 전략 + delegation mock 금지를 **명시적 선언** 하면:
 
 - 새 테스트 쓸 때 "이 검증은 어느 층?" 이 즉답 가능
 - 리팩토링 시 "어떤 테스트가 깨질 수 있는가" 예측 가능
@@ -281,13 +281,13 @@ void issueAndValidate_happyPath() {
 
 ### Fake adapter 가 Mock 보다 강력함
 
-초기에는 외부 시스템도 `mock()` + `when().thenReturn()` 으로 처리했어요. 그런데:
+외부 시스템을 `mock()` + `when().thenReturn()` 으로 처리하는 패턴의 문제:
 
 - `when(emailSender.send(any(), any(), any())).thenReturn(null)` 같은 stub 이 각 테스트마다 반복
 - mock 설정 실수 (thenReturn 빠뜨림) 로 인한 `NullPointerException` 디버깅
 - "실제로 뭐가 전송됐는지" 검증하려면 `ArgumentCaptor` 추가 보일러플레이트
 
-그래서 **fake adapter (in-memory 구현)** 로 전환:
+대안인 **fake adapter (in-memory 구현)** 의 우위:
 
 - 테스트마다 stub 설정 불필요 (fake 가 기본 동작 수행)
 - `lastSentTo()`, `allSentEmails()` 같은 **도메인 의미 메서드** 를 fake 에 추가 가능
@@ -297,17 +297,17 @@ void issueAndValidate_happyPath() {
 
 ### "Delegation mock 금지" 는 **안 보이는 비용** 을 제거함
 
-초기에 delegation mock 을 허용하면 테스트 작성은 빨라져 보임. "이 메서드가 저 메서드를 부르는가만 확인하면 되니까." 그런데:
+delegation mock 허용 시의 trade-off — 작성 속도는 빨라 보입니다 ("이 메서드가 저 메서드를 부르는가만 확인하면 되니까"). 그러나:
 
 - 리팩토링마다 테스트 수정 — **시간 누적**
 - 구조 개선 회피 — **코드 품질 저하**
 - 테스트 가치 저하 — "실제 행위" 는 안 보고 "호출 패턴" 만 확인
 
-이 비용은 **한 번에 드러나지 않고 누적**되는 형태. 6개월 지나면 "왜 리팩토링이 이렇게 무섭지?" 로 체감. 그때 원인 추적하면 delegation mock 테스트가 뿌리.
+이 비용은 **한 번에 드러나지 않고 누적**되는 형태. 6 개월 지나면 "왜 리팩토링이 이렇게 무섭지?" 로 체감되고, 원인 추적해보면 delegation mock 테스트가 뿌리.
 
 선제적으로 금지해두면 이 비용 자체가 발생 안 함. 금지의 가치는 **발생하지 않은 비용** 이라 측정이 어렵지만 실재함.
 
-**교훈**: 어떤 패턴은 초기 비용이 낮아 "당연히 허용" 으로 흘러가지만, 누적 비용이 큰 경우가 있음. 금지 결정은 **선제적** 으로 해야 효과가 있음. 누적된 후 제거는 몇 배 더 힘듦.
+**원칙**: 초기 비용이 낮은 패턴이 누적 비용은 클 수 있음. 금지 결정은 **선제적** 으로 해야 효과가 있음. 누적된 후 제거는 몇 배 더 힘듦.
 
 ## 관련 사례 (Prior Art)
 

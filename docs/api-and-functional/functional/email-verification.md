@@ -398,7 +398,7 @@ public void requestReset(String email) {
     } catch (RuntimeException e) {
         log.warn("Password reset email delivery failed for userId={}: {}",
             user.id(), e.getClass().getSimpleName());
-        // 이메일 발송 실패해도 토큰은 이미 생성됨 — 유저가 재요청하면 됨
+        // 이메일 발송 실패해도 토큰은 이미 생성됨 — 유저가 재요청하면 됩니다
     }
 }
 ```
@@ -439,7 +439,7 @@ public void confirmReset(String rawToken, String newPassword) {
 
 ### TTL 설정
 
-비밀번호 재설정 토큰의 TTL 은 **5분** 입니다. 이메일 인증과 동일하게 6자리 코드의 brute-force 방어를 위해 짧게 설정.
+비밀번호 재설정 토큰의 TTL 은 **5분** 입니다. 이메일 인증과 동일하게 6자리 코드의 brute-force 방어를 위해 짧게 설정했어요.
 
 ```java
 public static final Duration DEFAULT_TOKEN_TTL = Duration.ofMinutes(5);
@@ -486,9 +486,7 @@ public record PasswordResetConfirmRequest(
 // core/core-auth-api/src/main/java/com/factory/core/auth/api/exception/AuthError.java
 TOKEN_EXPIRED(401, "ATH_002", "토큰이 만료되었습니다"),
 INVALID_TOKEN(401, "ATH_003", "유효하지 않은 토큰입니다"),
-EMAIL_NOT_VERIFIED(401, "ATH_005", "이메일 인증이 필요합니다"),
-@Deprecated(forRemoval = true)
-EMAIL_DELIVERY_FAILED(503, "ATH_006", "이메일 발송에 실패했습니다 (deprecated, see EmailError.EMAIL_001)");
+EMAIL_NOT_VERIFIED(401, "ATH_005", "이메일 인증이 필요합니다");
 
 // core/core-email-api/src/main/java/com/factory/core/email/api/exception/EmailError.java
 EMAIL_DELIVERY_FAILED(503, "EMAIL_001", "이메일 발송에 실패했습니다");
@@ -500,7 +498,6 @@ EMAIL_DELIVERY_FAILED(503, "EMAIL_001", "이메일 발송에 실패했습니다"
 | `ATH_003` INVALID_TOKEN | 401 | 토큰 미존재, 이미 사용됨, 조작됨 |
 | `ATH_005` EMAIL_NOT_VERIFIED | 401 | 이메일 인증이 필요한 엔드포인트에 미인증 유저 접근 |
 | `EMAIL_001` EMAIL_DELIVERY_FAILED | 503 | Resend API 장애, 2xx 외 응답, 네트워크 에러 |
-| ~~`ATH_006`~~ | ~~503~~ | **deprecated** — `EMAIL_001` 로 대체. 다음 major release 에서 제거 |
 
 `ATH_001`(잘못된 자격 증명) 을 포함한 전체 에러 코드는 [`exception-handling.md`](../../convention/exception-handling.md) 를 참조하세요.
 
@@ -509,8 +506,8 @@ EMAIL_DELIVERY_FAILED(503, "EMAIL_001", "이메일 발송에 실패했습니다"
 이메일 발송은 외부 의존(Resend 서비스) 이라 언제든 실패할 수 있습니다. 만약 가입 플로우가 "이메일 발송 실패 → 롤백" 이라면, Resend 의 일시 장애만으로 유저가 가입조차 못 하게 됩니다. 설계 결정은 다음과 같습니다.
 
 - **가입**: 인증 메일 발송 실패 시 로그만 남기고 가입은 성공. 유저가 로그인 후 재발송 요청.
-- **비밀번호 재설정 요청**: 이메일 발송 실패 시에도 토큰은 이미 저장. 유저가 재요청하면 새 토큰이 발급됨.
-- **비밀번호 재설정 확인**: 토큰 검증 실패 / 만료는 명확한 에러. 이메일 발송은 이 단계에서 필요 없음.
+- **비밀번호 재설정 요청**: 이메일 발송 실패 시에도 토큰은 이미 저장됩니다. 유저가 재요청하면 새 토큰이 발급돼요.
+- **비밀번호 재설정 확인**: 토큰 검증 실패 / 만료는 명확한 에러로 처리합니다. 이메일 발송은 이 단계에선 필요 없어요.
 
 ---
 

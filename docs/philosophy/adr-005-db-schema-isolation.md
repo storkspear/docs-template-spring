@@ -84,7 +84,7 @@
 ```
 postgres (database)
 ├── core schema                     ← 템플릿 기준선 (core_app role)
-│   ├── users, social_identities    ← 참조용 / 레거시
+│   ├── users, social_identities    ← admin / dev 계정용
 │   ├── refresh_tokens 등
 │   └── flyway_schema_history       ← core 마이그레이션 전용
 ├── <slug> schema                   ← 각 앱 schema (<slug>_app role)
@@ -199,7 +199,7 @@ r2 · r3 · r11 이 schema 격리를 기계적으로 강제합니다.
 
 ### 이전 경로 존재 — "감당 가능성" 근거
 
-"미래에 앱 하나가 진짜 독립 운영이 필요해지면?" — 그 시점이 오면 `pg_dump -n <slug>` 한 줄로 해당 schema 만 추출해서 별도 Postgres 인스턴스로 옮길 수 있어요. 즉 **현재의 schema 분리 방식은 미래 database/인스턴스 분리로 가는 마이그레이션 경로** 가 막혀 있지 않음.
+"미래에 앱 하나가 진짜 독립 운영이 필요해지면?" — 그 시점이 오면 `pg_dump -n <slug>` 한 줄로 해당 schema 만 추출해서 별도 Postgres 인스턴스로 옮길 수 있습니다. 즉 **현재의 schema 분리 방식은 미래 database/인스턴스 분리로 가는 마이그레이션 경로** 가 막혀 있지 않음.
 
 이 점이 결정의 근거 중 하나였어요. "지금 단순함을 선택해도 미래 옵션이 닫히지 않는다" 가 확인되면 단순한 쪽을 선택하는 게 [`제약 2`](./README.md#제약-2--시간이-가장-희소한-자원) 에 부합.
 
@@ -207,7 +207,7 @@ r2 · r3 · r11 이 schema 격리를 기계적으로 강제합니다.
 
 ### public schema 접근 차단은 명시적으로 할 것
 
-초기에는 role 을 만들고 자기 schema 에만 GRANT 주면 충분하다고 생각했어요. 하지만 Postgres 는 **기본적으로 모든 role 에게 `public` schema 의 `CREATE` 권한을 줍니다** (PostgreSQL < 15 기준). 그래서 앱 role 이 `public` schema 에 테이블을 만들 수 있었고, 이게 나중에 데이터 오염으로 이어질 뻔했어요.
+role-only 격리 (자기 schema 에만 GRANT) 는 Postgres < 15 의 public schema 권한 모델 때문에 불충분합니다. Postgres 는 **기본적으로 모든 role 에게 `public` schema 의 `CREATE` 권한을 줍니다** (PostgreSQL < 15 기준). 앱 role 이 `public` schema 에 테이블을 만들 수 있어 데이터 오염 가능성이 있어요.
 
 ```sql
 -- 필수 한 줄
@@ -228,7 +228,7 @@ properties.put("hibernate.default_schema", slug);
 
 ### schema 당 Flyway 히스토리 분리의 중요성
 
-Flyway 가 기본적으로 `flyway_schema_history` 를 한 개만 만들려 하므로, 여러 앱의 마이그레이션 이력이 섞일 수 있어요. `schemas(slug)` 설정으로 **schema 별 독립 히스토리** 를 만드는 게 필수.
+Flyway 가 기본적으로 `flyway_schema_history` 를 한 개만 만들려 하므로, 여러 앱의 마이그레이션 이력이 섞일 수 있습니다. `schemas(slug)` 설정으로 **schema 별 독립 히스토리** 를 만드는 게 필수.
 
 **교훈**: 격리는 "데이터" 만이 아니라 "마이그레이션 이력" 까지 분리되어야 완성. 한 앱의 migration 실패가 다른 앱 이력에 영향 주면 롤백 시 혼란.
 

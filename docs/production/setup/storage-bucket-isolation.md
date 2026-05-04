@@ -21,7 +21,6 @@ postgres (단일 instance)
     └── foodlog schema
 
 MinIO (단일 endpoint)
-    ├── basic-bucket           ← 운영자 직접 등록 (legacy)
     ├── gymlog-uploads         ← <slug>-<category> 컨벤션
     ├── gymlog-images
     ├── foodlog-uploads

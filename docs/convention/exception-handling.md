@@ -2,13 +2,13 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~5분
 
-이 문서는 예외 처리의 **단일 정본(Single Source of Truth)** 입니다.
+이 문서는 예외 처리의 **단일 정본(Single Source of Truth)** 이에요.
 
 ---
 
 ## 개요
 
-이 문서는 예외 처리의 **단일 정본**입니다. 에러 코드 체계 · HTTP 매핑 · 새 예외 추가 절차 · 테스트 검증 규칙 포함.
+이 문서는 예외 처리의 **단일 정본** 이에요. 에러 코드 체계 · HTTP 매핑 · 새 예외 추가 절차 · 테스트 검증 규칙이 포함되어 있습니다.
 
 ---
 
@@ -21,7 +21,8 @@ ErrorInfo (인터페이스)
     ├── UserError (enum)       ← USR_001 ~ USR_002
     ├── BillingError (enum)    ← BIL_001 ~ BIL_010 (구독/결제/webhook)
     ├── EmailError (enum)      ← EMAIL_001 ~ EMAIL_002 (ADR-024)
-    └── IapError (enum)        ← IAP_001 ~ IAP_007 (ADR-022 — Apple/Google IAP receipt + webhook)
+    ├── IapError (enum)        ← IAP_001 ~ IAP_007 (ADR-022 — Apple/Google IAP receipt + webhook)
+    └── PaymentError (enum)    ← PAY_001 ~ PAY_008 (ADR-019 — PortOne PG)
 
 BaseException (abstract)
     ├── CommonException        ← 공통 예외 (NOT_FOUND, FORBIDDEN, JWT 토큰 등)
@@ -29,9 +30,10 @@ BaseException (abstract)
     ├── UserException          ← 유저 예외 (유저 미발견, 이메일 중복 등)
     ├── BillingException       ← 결제/구독/webhook 예외 (ADR-020)
     ├── EmailException         ← 이메일 발송 예외 (ADR-024)
-    └── IapException           ← IAP receipt 검증/webhook 예외 (ADR-022)
+    ├── IapException           ← IAP receipt 검증/webhook 예외 (ADR-022)
+    └── PaymentException       ← PG 결제 검증/환불/webhook 예외
 
-> 📌 **core-audit (ADR-028)** 는 별도 Error/Exception 을 두지 않습니다 — 감사 로그 기록은 application flow 의 부산물이라 throw 하지 않고, 기록 실패 시 WARN 로그만 남깁니다 (사용자 흐름 차단 X).
+> 📌 **core-audit (ADR-028)** 는 별도 Error/Exception 을 두지 않아요 — 감사 로그 기록은 application flow 의 부산물이라 throw 하지 않고, 기록 실패 시 WARN 로그만 남겨요 (사용자 흐름 차단 X).
 
 GlobalExceptionHandler
     └── @ExceptionHandler(BaseException.class) 하나로 전부 처리
@@ -41,9 +43,9 @@ GlobalExceptionHandler
 
 ## 2. Error Code 체계
 
-**형식: 도메인 3자 약어 + _ + 3자리 번호**
+**형식 — 도메인 3자 약어 + _ + 3자리 번호**
 
-약어 규칙: 도메인명에서 **발음 기반 대표 스펠링 3자** 추출.
+약어 규칙은 도메인명에서 **발음 기반 대표 스펠링 3자** 를 추출해요.
 
 | 도메인 | 약어 | 범위 |
 |--------|------|------|
@@ -55,6 +57,7 @@ GlobalExceptionHandler
 | push | PSH | PSH_001 ~ PSH_999 |
 | email | EMAIL | EMAIL_001 ~ EMAIL_999 (ADR-024 — 정확한 의미 우선해서 5자) |
 | iap | IAP | IAP_001 ~ IAP_999 (ADR-022) |
+| payment | PAY | PAY_001 ~ PAY_999 (PortOne PG) |
 | 파생 앱 | 발음 3자 | STL_001 (settlement), GYM_001 (gymlog) |
 
 ---
@@ -84,7 +87,6 @@ GlobalExceptionHandler
 | ATH_003 | 401 | INVALID_TOKEN | refresh/reset/verification 토큰 무효 |
 | ATH_004 | 401 | SOCIAL_AUTH_FAILED | 소셜 로그인 검증 실패 |
 | ATH_005 | 401 | EMAIL_NOT_VERIFIED | 이메일 인증 필요 |
-| ~~ATH_006~~ | ~~503~~ | ~~EMAIL_DELIVERY_FAILED~~ | **deprecated (ADR-024)** — `EMAIL_001` 로 대체 |
 | ATH_007 | 401 | TOTP_VERIFICATION_FAILED | 2FA 인증 코드 무효 (ADR-030) |
 | ATH_008 | 409 | TOTP_ALREADY_ENABLED | 2FA 이미 활성화됨 |
 | ATH_009 | 409 | TOTP_NOT_ENABLED | 2FA 미활성 (disable / verify 호출 시) |
@@ -130,6 +132,21 @@ GlobalExceptionHandler
 | IAP_005 | 400 | PRODUCT_MISMATCH | 영수증 productId 가 요청과 불일치 |
 | IAP_006 | 503 | APPLE_CONFIG_MISSING | Apple key / issuer / bundle 미설정 |
 | IAP_007 | 503 | GOOGLE_CONFIG_MISSING | Google service account / package 미설정 |
+
+### PaymentError (PAY) — PortOne PG
+
+| 코드 | HTTP | enum 값 | 설명 |
+|------|------|---------|------|
+| PAY_001 | 400 | VERIFICATION_FAILED | 결제 검증 실패 |
+| PAY_002 | 404 | PAYMENT_NOT_FOUND | 결제 정보 미발견 |
+| PAY_003 | 400 | AMOUNT_MISMATCH | 결제 금액 불일치 |
+| PAY_004 | 400 | REFUND_FAILED | 환불 처리 실패 |
+| PAY_005 | 502 | PORTONE_API_ERROR | PG 사 API 호출 실패 |
+| PAY_006 | 502 | PORTONE_AUTH_FAILED | PG 사 인증 실패 (API key/secret 확인) |
+| PAY_007 | 400 | WEBHOOK_INVALID | 유효하지 않은 webhook |
+| PAY_008 | 503 | CONFIG_MISSING | PortOne API 설정 누락 (V1 key/secret 또는 webhook secret) — `StubPaymentAdapter` graceful 503 |
+
+> `IAP_006/007` 과 `PAY_008` 은 *graceful 503* 패턴이에요. 미설정 상태에서도 서버는 부팅하고, 해당 도메인 호출만 503 으로 응답해요. `StubIapAdapter` / `StubPaymentAdapter` 가 같은 패턴을 구현해요.
 
 ---
 
@@ -194,7 +211,7 @@ public class SettlementException extends BaseException {
 throw new SettlementException(SettlementError.SETTLEMENT_NOT_FOUND);
 ```
 
-**GlobalExceptionHandler 수정 불필요** — `BaseException` 핸들러가 자동으로 처리.
+**GlobalExceptionHandler 수정은 불필요해요** — `BaseException` 핸들러가 자동으로 처리합니다.
 
 ---
 
@@ -212,9 +229,9 @@ throw new SettlementException(SettlementError.SETTLEMENT_NOT_FOUND);
 
 | 하지 말 것 | 이유 |
 |-----------|------|
-| 컨트롤러에서 `ApiResponse.error()` 직접 반환 | 예외를 던지고 핸들러가 변환 |
-| `checked exception` 사용 | `RuntimeException` 만 사용. Spring 트랜잭션 rollback 호환 |
-| `BaseException` 을 직접 throw | 반드시 도메인 Exception(AuthException, UserException 등) 사용 |
+| 컨트롤러에서 `ApiResponse.error()` 직접 반환 | 예외를 던지고 핸들러가 변환해요 |
+| `checked exception` 사용 | `RuntimeException` 만 사용합니다. Spring 트랜잭션 rollback 호환을 위해서예요 |
+| `BaseException` 을 직접 throw | 반드시 도메인 Exception (AuthException, UserException 등) 을 사용해요 |
 | 같은 에러 코드를 다른 HTTP 상태에 매핑 | 1 코드 = 1 HTTP 상태 |
 
 ---
@@ -246,12 +263,16 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 | `common-web/.../exception/CommonException.java` | 공통 예외 |
 | `common-web/.../exception/GlobalExceptionHandler.java` | BaseException 통합 핸들러 |
 | `common-web/.../response/ApiError.java` | 에러 응답 구조 |
-| `core-auth-api/.../exception/AuthError.java` | 인증 에러 enum (ATH_001~006) |
+| `core-auth-api/.../exception/AuthError.java` | 인증 에러 enum (ATH_001~010) |
 | `core-auth-api/.../exception/AuthException.java` | 인증 예외 |
 | `core-user-api/.../exception/UserError.java` | 유저 에러 enum (USR_001~002) |
 | `core-user-api/.../exception/UserException.java` | 유저 예외 |
 | `core-billing-api/.../exception/BillingError.java` | 결제/구독/webhook 에러 enum (BIL_001~BIL_010) |
 | `core-billing-api/.../exception/BillingException.java` | 결제 예외 |
+| `core-email-api/.../exception/EmailError.java` | 이메일 에러 enum (EMAIL_001~002) |
+| `core-iap-api/.../exception/IapError.java` | IAP 에러 enum (IAP_001~007) |
+| `core-payment-api/.../exception/PaymentError.java` | PG 결제 에러 enum (PAY_001~008) |
+| `core-payment-api/.../exception/PaymentException.java` | PG 결제 예외 |
 
 ---
 
@@ -259,3 +280,5 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 
 - [`API Response Format`](../api-and-functional/api/api-response.md) — 예외가 변환되는 응답 포맷
 - [`Flutter ↔ Backend Integration`](../api-and-functional/api/flutter-backend-integration.md) — 클라이언트 측 401/403 처리 규약
+- [`Architecture Reference`](../structure/architecture.md) — 모듈 구조 + 의존 그래프
+- [`도그푸딩 walkthrough`](../start/dogfood-walkthrough.md) — `StubPaymentAdapter` graceful 503 패턴이 정착된 흐름

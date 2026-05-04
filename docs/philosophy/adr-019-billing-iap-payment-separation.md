@@ -1,6 +1,6 @@
 # ADR-019 · billing / iap / payment 도메인 분리
 
-**Status**: Accepted. 2026-05-01 기준 결제 관련 코어 모듈을 3개 도메인으로 분리. 이전 단일 `core-billing` 안에 IAP receipt 검증 + subscription 정책 혼재됐던 구조를 책임별로 분리.
+**Status**: Accepted. 2026-05-01 기준 결제 관련 코어 모듈을 3개 도메인으로 분리. `core-billing` 을 3 도메인 (billing / iap / payment) 으로 분리한 이유: IAP receipt 검증 + subscription 정책 + PG 결제가 단일 모듈에 혼재 시 책임 경계가 모호.
 
 > **유형**: ADR · **독자**: Level 2 · **읽는 시간**: ~3분
 

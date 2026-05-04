@@ -1,5 +1,7 @@
 # ADR-022 — IAP Server Notifications (Apple V2 + Google RTDN)
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-019 (billing/iap/payment 분리), ADR-020 (subscription 도메인 모델), D-secure (Apple JWS 검증), H 사이클 (PG 갱신 정책)
 **연관**: I 사이클 — IAP 갱신/취소 자동 처리

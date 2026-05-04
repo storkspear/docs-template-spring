@@ -1,5 +1,7 @@
 # ADR-030 — 2FA TOTP (Google Authenticator 호환)
 
+> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~8분
+
 **상태**: 채택 (2026-05-02)
 **전제**: ADR-029 (비밀번호 정책), 기존 JWT 인증
 **연관**: 2FA 사이클 — 출시 baseline 보안 강화

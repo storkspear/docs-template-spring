@@ -1,6 +1,8 @@
 # 운영 런북 (Runbook)
 
-평시 배포·롤백·장애 대응 절차. 파생 레포 최초 onboarding 은 [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md).
+> **유형**: Runbook · **독자**: Level 2~3 · **읽는 시간**: ~10분
+
+평시 배포·롤백·장애 대응 절차예요. 파생 레포 최초 onboarding 은 [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) 에서 다룹니다.
 
 > **설계 배경**: [`ADR-007 (솔로 친화적 운영)`](../../philosophy/adr-007-solo-friendly-operations.md) — 운영 단위 1, 관리형 서비스 선호, 회색 지대 없는 CI. 운영 구성 상세: [`인프라 (Infrastructure)`](./infrastructure.md). 배포 결정 근거: [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md).
 >
@@ -10,19 +12,20 @@
 
 ## 평시 배포
 
-**자동**: `main` 브랜치에 push → CI 성공 → `deploy` workflow 가 `workflow_run` 으로 자동 트리거.
+**자동 흐름** — `main` 브랜치에 push 하면 CI 가 성공한 뒤 `deploy` workflow 가 `workflow_run` 으로 자동 트리거됩니다.
 
-흐름:
-1. CI (`./gradlew build`) 성공 → bootstrap jar 를 GHA artifact 로 업로드
-2. deploy gate: CI 성공 + `DEPLOY_ENABLED=true` 통과
-3. deploy job: artifact 다운로드 → `Dockerfile.runtime` 으로 docker build/push (`ghcr.io/.../...:<sha>`) → `kamal deploy --skip-push --version=<sha>`
-4. 옛 GHCR 이미지 cleanup (최신 2개만 유지 — storage 한도 관리)
+흐름은 다음과 같아요.
 
-CI 가 실패하면 deploy 시작 안 함 (gate 차단). Test fail 코드는 절대 main 에서 배포 안 됨.
+1. CI (`./gradlew build`) 가 성공하면 bootstrap jar 를 GHA artifact 로 업로드합니다.
+2. deploy gate 에서 CI 성공 + `DEPLOY_ENABLED=true` 를 통과해야 다음 단계로 넘어갑니다.
+3. deploy job 이 artifact 를 다운로드하고 `Dockerfile.runtime` 으로 docker build/push (`ghcr.io/.../...:<sha>`) 한 뒤 `kamal deploy --skip-push --version=<sha>` 를 실행합니다.
+4. 옛 GHCR 이미지를 cleanup 합니다 (최신 2개만 유지 — storage 한도 관리).
+
+CI 가 실패하면 deploy 가 시작되지 않아요 (gate 가 차단). Test fail 코드는 절대 main 에서 배포되지 않습니다.
 
 **수동 재배포** (GHA UI):
-- Repo → Actions → deploy workflow → "Run workflow" → `version` 에 commit SHA 입력 (또는 비우면 현재 HEAD).
-- 해당 SHA 의 이미지가 GHCR 에 있어야 함 (최신 2개만 유지하므로 그 이상 옛 SHA 면 없음 → 로컬 수동 경로 사용).
+- Repo → Actions → deploy workflow → "Run workflow" → `version` 에 commit SHA 를 입력합니다 (비우면 현재 HEAD 가 적용돼요).
+- 해당 SHA 의 이미지가 GHCR 에 있어야 동작합니다. 최신 2개만 유지하니까 그 이상 옛 SHA 면 GHCR 에 없어서 로컬 수동 경로를 사용해야 해요.
 
 **수동 배포** (로컬, GHA 우회 / hotfix):
 
@@ -65,11 +68,15 @@ GHCR 의 이미지가 살아있어야 함 (최신 2개 유지 정책 → 직전 
 ## 블루/그린 배포 + Flyway migration 원칙
 
 ### 일반 원칙
-- Spring 기동 시 Flyway 가 **advisory lock** 을 잡아 Blue 와 Green 이 동시에 migrate 시도해도 스키마 손상은 없다. 뒤에 온 쪽이 락 경쟁에 지면 blocked → health check 타임아웃 → 해당 컨테이너만 실패 (서비스 전체는 Blue 로 계속 서빙).
-- 이 상황이 발생하면 재시도하면 대부분 해결된다 (첫 쪽이 migrate 완료한 후).
+
+Spring 기동 시 Flyway 가 **advisory lock** 을 잡기 때문에, Blue 와 Green 이 동시에 migrate 를 시도해도 스키마가 손상되지 않습니다. 뒤에 온 쪽이 락 경쟁에서 지면 blocked 상태가 되어 health check 타임아웃이 나고, 해당 컨테이너만 실패합니다 (서비스 전체는 Blue 로 계속 서빙해요).
+
+이 상황이 발생했을 때 재시도하면 대부분 해결돼요. 첫 쪽이 migrate 를 완료한 다음에 두 번째 시도가 진행되기 때문입니다.
 
 ### Expand/Contract 규율 (파괴적 DDL 금지)
-한 배포에 들어가는 Flyway migration 은 "뒤로 호환" 해야 한다:
+
+한 배포에 들어가는 Flyway migration 은 **뒤로 호환** 되어야 합니다.
+
 - ✅ 컬럼 추가 (NULL 허용)
 - ✅ 인덱스 추가
 - ✅ 새 테이블 생성
@@ -77,18 +84,22 @@ GHCR 의 이미지가 살아있어야 함 (최신 2개 유지 정책 → 직전 
 - ❌ NOT NULL 로 변경 (기존 데이터에 NULL 있을 때)
 - ❌ 데이터 타입 변경
 
-파괴적 DDL 이 필요할 땐 **2단계 배포**:
-1. 코드 + 신규 컬럼 추가 migration (뒤로 호환) → 배포 → 모든 요청이 신규 필드 사용 확인
-2. 다음 배포에서 구 컬럼 삭제 migration
+파괴적 DDL 이 필요할 땐 **2단계 배포** 로 진행해요.
+
+1. 코드 + 신규 컬럼 추가 migration (뒤로 호환) → 배포 → 모든 요청이 신규 필드를 사용하는지 확인합니다.
+2. 다음 배포에서 구 컬럼 삭제 migration 을 적용합니다.
 
 ### 수동 out-of-band migration (DB 변경만 먼저 돌리기)
-Green 기동 전에 미리 migrate 만 끝내고 싶을 때:
+
+Green 기동 전에 미리 migrate 만 끝내고 싶을 때 다음 명령을 사용합니다.
+
 ```bash
 ssh storkspear@<tailscale-ip>
 docker pull ghcr.io/<owner>/<repo>:<tag>
 docker run --rm --env-file /path/to/prod.env ghcr.io/<owner>/<repo>:<tag> migrate-only
 ```
-`migrate-only` 모드는 docker-entrypoint.sh 가 처리 — Flyway 만 실행 후 exit 0.
+
+`migrate-only` 모드는 `docker-entrypoint.sh` 가 처리합니다. Flyway 만 실행한 뒤 exit 0 으로 종료됩니다.
 
 ---
 
