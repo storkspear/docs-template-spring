@@ -338,7 +338,7 @@
 - 대안 검토 기록: [`decisions-infra.md I-09`](../deploy/decisions-infra.md).
 
 ### 7.4 왜 OrbStack (Docker Desktop 아님)?
-Docker Desktop 의 Linux VM 은 메모리 2GB 기본 예약 + 반환 안 됨. OrbStack 은 네이티브 Linux VM 으로 ~150MB 오버헤드. 8GB 기기엔 체감 큰 차이. OrbStack 의 `docker` / `docker compose` CLI 는 완전 호환.
+Docker Desktop 의 Linux VM 은 메모리 2GB 를 기본 예약하고 반환되지 않아요. OrbStack 은 네이티브 Linux VM 으로 ~150MB 오버헤드만 가져요. 8GB 기기엔 체감 큰 차이가 나요. OrbStack 의 `docker` / `docker compose` CLI 는 완전 호환돼요.
 
 ### 7.5 왜 Tailscale (관리 접근)?
 - 집 공유기 포트포워딩 없이 어디서든 Mac mini SSH 접근

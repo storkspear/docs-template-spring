@@ -124,7 +124,7 @@ APP_FEATURES_BILLING_NOTIFICATION=false
 ## 6. 트러블슈팅
 
 ### A. feature 비활성했는데 endpoint 가 200 반환
-- 원인: 변경 후 부팅 안 함. `.env` 변경은 부팅 시점에만 반영.
+- 원인: 변경 후 부팅을 안 한 상태예요. `.env` 변경은 부팅 시점에만 반영돼요.
 - 조치: `<repo> local server-test` 또는 docker compose restart.
 
 ### B. feature 활성인데 endpoint 가 404

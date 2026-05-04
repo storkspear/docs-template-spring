@@ -12,7 +12,7 @@
 
 ## 1. 슬러그 격리 원칙
 
-DB schema 와 동일하게 MinIO bucket 도 슬러그 단위로 격리합니다 — 한 앱의 코드 버그가 다른 앱의 파일에 접근하면 안 됨.
+DB schema 와 동일하게 MinIO bucket 도 슬러그 단위로 격리합니다 — 한 앱의 코드 버그가 다른 앱의 파일에 접근하면 안 돼요.
 
 ```
 postgres (단일 instance)

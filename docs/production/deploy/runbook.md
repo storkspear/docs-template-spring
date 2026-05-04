@@ -165,7 +165,7 @@ docker start kamal-proxy
    ```bash
    ssh storkspear@<tailscale-ip> 'docker compose -f /path/to/<파생레포>/infra/docker-compose.observability.yml ps'
    ```
-   - 모두 running 이어야 함. 내려가 있으면 `up -d` 로 재기동.
+   - 모두 running 이어야 해요. 내려가 있으면 `up -d` 로 재기동해요.
 
 ---
 

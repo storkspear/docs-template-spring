@@ -45,9 +45,9 @@ touch core/core-user-impl/src/main/resources/db/migration/core/V003__add_users_n
 ALTER TABLE users ADD COLUMN nickname VARCHAR(50);
 ```
 
-**왜 `NOT NULL` 안 붙이나?**: 기존 유저 레코드들이 이미 있을 수 있어서. "뒤로 호환" 원칙 ([`운영 런북 (Runbook) Expand/Contract 규율`](../production/deploy/runbook.md) 참조). 필수로 만들려면 "2 단계 배포" 를 거쳐야 함.
+**왜 `NOT NULL` 안 붙이나?**: 기존 유저 레코드들이 이미 있을 수 있어서요. "뒤로 호환" 원칙 ([`운영 런북 (Runbook) Expand/Contract 규율`](../production/deploy/runbook.md) 참조). 필수로 만들려면 "2 단계 배포" 를 거쳐야 해요.
 
-**앱 schema 에도 반영해야 함**: `new-app.sh` 로 생성된 앱 모듈은 자기 schema 에 별개 마이그레이션이 있음. 예:
+**앱 schema 에도 반영해야 해요**: `new-app.sh` 로 생성된 앱 모듈은 자기 schema 에 별개 마이그레이션이 있어요. 예:
 ```bash
 touch apps/app-sumtally/src/main/resources/db/migration/sumtally/V007__add_users_nickname.sql
 ```

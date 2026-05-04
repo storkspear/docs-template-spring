@@ -43,7 +43,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 
 - **status**: template 자체는 provider-agnostic. template 관리자 본인의 운영 배포는 Supabase `provisioned`.
 - **결정일**: 2026-04-18 (Supabase 선택), 2026-04-20 (multi-provider 지원 명시)
-- **Template 의 요구사항**: 표준 JDBC Postgres 인스턴스 하나. `DB_URL` / `DB_USER` / `DB_PASSWORD` + `DATABASE_URL` (admin, `new-app.sh --provision-db` 용) 만 있으면 됨. 코드는 HikariCP + 표준 JDBC 만 사용 — provider 특화 API (Supabase Realtime/RLS/auth.users 등) 미의존.
+- **Template 의 요구사항**: 표준 JDBC Postgres 인스턴스 하나예요. `DB_URL` / `DB_USER` / `DB_PASSWORD` + `DATABASE_URL` (admin, `new-app.sh --provision-db` 용) 만 있으면 돼요. 코드는 HikariCP + 표준 JDBC 만 사용 — provider 특화 API (Supabase Realtime/RLS/auth.users 등) 에 미의존이에요.
 - **Template 관리자 default**: **Supabase** (aws-1-ap-northeast-2 Supavisor pooler). 파생레포는 이 default 그대로 써도 되고, 다른 provider 로 교체 가능.
 - **Supabase 를 default 로 고른 근거** (template 관리자 본인 기준):
   - 관리형 Postgres — 백업/스케일/보안패치 대행
@@ -270,7 +270,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
   - 같은 Repository 가 여러 EMF 에 scan → Spring Data JPA 의 bean name 구분 의존
   - HikariCP pool size 는 `DEFAULT_POOL_SIZE=10` 하드코딩 (Phase 0 기본값, 필요 시 concrete 에서 `poolSize()` override)
   - Connection 총량 = (N 앱 × 10) + 10(core) — 5 앱 = 60 connections. Supabase Free tier pooler 제한 유의
-  - 각 Flyway 인스턴스가 자기 schema 만 migrate — cross-schema FK 참조는 wiring 보장 안 함
+  - 각 Flyway 인스턴스가 자기 schema 만 migrate — cross-schema FK 참조는 wiring 이 보장되지 않아요
   - `init-app-schema.sql` 이 app role 에 `USAGE, CREATE ON SCHEMA` 부여 (Flyway history table 생성 필수) — 자기 schema 범위 DDL 권한 허용 (schema 간 격리는 유지)
   - `QueryDslAutoConfiguration.jpaQueryFactory` 는 `@Primary` core EMF 에 바인딩 — 앱별 QueryDsl 은 각 `<Slug>DataSourceConfig` 에 별도 빈 선언 필요 (Javadoc 참조)
 - **재검토 트리거**:
@@ -381,7 +381,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 - **결정**: deploy workflow 가 `on: push: main` 이 아닌 **`on: workflow_run` (CI 완료 후)** 로 트리거. CI 가 `bootstrap-jar` artifact 업로드 → deploy 가 `actions/download-artifact@v4` (run-id 지정) 로 다운로드 → `Dockerfile.runtime` 로 패키징.
 - **근거**:
   - **gradle 중복 빌드 제거** — 기존 구조: ci.yml gradle build (5분, 테스트) + deploy.yml 의 docker build 안 gradle build (5분, 테스트 skip) 가 병렬 → wall-clock 8분, billed 13분. 변경 후: gradle build 1회 (CI) + 패키징만 (deploy) → billed ~8분 (38% 절약).
-  - **명시적 CI→CD 게이트** — gate job 의 `if: workflow_run.conclusion == 'success'` 로 CI fail 시 deploy 시작 자체 안 함. 기존 구조는 docker build 안 컴파일 fail 에 의존하는 우연한 차단.
+  - **명시적 CI→CD 게이트** — gate job 의 `if: workflow_run.conclusion == 'success'` 로 CI fail 시 deploy 시작 자체를 막아요. 기존 구조는 docker build 안 컴파일 fail 에 의존하는 우연한 차단이었어요.
   - **수동 rollback 경로** — `workflow_dispatch.inputs.version` 으로 과거 SHA 재배포 (해당 이미지가 GHCR 에 살아있어야).
 - **대안**:
   - **단일 workflow + jobs needs** — ci/deploy 합치고 `jobs.deploy.needs: build`. 탈락: PR 단계의 ci 와 main 의 deploy 가 같은 파일에서 분기 — 가독성 저하.
