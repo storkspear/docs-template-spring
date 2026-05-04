@@ -1,8 +1,12 @@
-# 첫 수정 — nickname 컬럼 추가
+# 첫 수정 — nickname 컬럼 추가 (예시 패턴 학습)
 
 > **유형**: Tutorial · **독자**: Level 0~1 · **읽는 시간**: ~10분
 
-"뭐 하나 바꿔보고 싶다" 는 단계. 이 문서는 **`users` 테이블에 `nickname` 컬럼을 추가** 하는 **엔드투엔드 흐름** 을 따라갑니다. DB · 엔티티 · DTO · Controller · 테스트 — 한 변경이 **몇 곳** 을 건드리는지 실감할 수 있어요.
+"뭐 하나 바꿔보고 싶다" 는 단계. 이 문서는 **`users` 테이블에 `nickname` 컬럼을 추가** 하는 **엔드투엔드 흐름 패턴** 을 따라갑니다. DB · 엔티티 · DTO · Controller · 테스트 — 한 변경이 **몇 곳** 을 건드리는지 실감할 수 있어요.
+
+> **⚠️ 본 튜토리얼은 *패턴 학습용 예시* 예요.** template 의 현재 `User` 엔티티에 `nickname` 필드는 *없어요* (필드: `email / passwordHash / displayName / emailVerified / isPremium / role / createdAt / updatedAt / deletedAt / totp_*`). 본 튜토리얼은 *컬럼 추가 시 5단계 패턴* (Flyway → Entity → DTO → Factory → Test) 을 보여주는 *가상 시나리오* 라 — 그대로 실행하면 *이미 V001 에 통합된 다른 컬럼* 과 충돌해요.
+>
+> **본인 시나리오 적용 시**: `nickname` 자리에 본인이 추가하려는 컬럼 (예: `bio`, `avatar_url`, `last_login_ip` 등) 을 대입하고 *V001 다음 V 번호* (현재 V001 ~ V008 사용 중 — V009 이상) 로 마이그레이션 작성하세요.
 
 > **전제**: [`첫 실행 결과 해석`](./first-run.md) 의 부팅까지 성공 + 앱 모듈 하나 추가 (`new-app.sh sumtally`).
 >

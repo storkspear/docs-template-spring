@@ -1,8 +1,8 @@
-# Mac mini 운영 호스트 설정 — 레퍼런스
+# Mac mini 운영 호스트 설정 — Worked Example (참고용 샘플)
 
 > **유형**: How-to · **독자**: Level 2 · **읽는 시간**: ~30분
 
-> 이 문서는 **template 관리자 본인의 Mac mini** 를 운영 호스트로 쓰는 실제 설정을 기록한 참조 문서다. 파생레포 개발자들이 자기 환경으로 어댑팅할 때 복제 대상이 되는 "worked example" 이기도 하다. 템플릿 원칙에 따라 개별 값(IP, UUID, 도메인 등)은 예시이며, 본인 환경에선 각자 값으로 치환하면 된다.
+> ⚠️ **이 문서는 *template 관리자 본인의 Mac mini* 실제 설정을 기록한 *worked example*** 이에요. 파생 레포 개발자가 자기 환경으로 어댑팅할 때 *복제 대상 샘플* 로 활용하세요. 개별 값 (IP / UUID / 도메인 / 호스트명 등) 은 *본인 환경의 값으로 치환* 필요. 전체 인프라 *구성도 / 책임 분담 / 결정 근거* 는 [`infrastructure.md`](../deploy/infrastructure.md) 가 canonical (본 문서는 *그 위에 얹은 실제 설치 스냅샷*).
 >
 > 관련 문서:
 > - 운영 배포 절차: [`운영 배포 가이드 (파생레포 onboarding)`](../deploy/deployment.md)

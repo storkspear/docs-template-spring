@@ -89,6 +89,13 @@ Migration: search/replace `userSummary.name()` → `userSummary.displayName()`.
 
 Breaking 감지 시 **major bump 가 필수** 예요.
 
+### Subject 명령형 (imperative mood)
+
+Subject 는 **동사 원형 (현재형)** 으로 — *"이 행동을 하라"* 의미. Git rebase 메시지 스타일이에요.
+
+- ✅ `add feature` / `fix bug` / `refactor parser` / `rename UserSummary.name`
+- ❌ `added feature` (과거형) / `adding feature` (진행형) / `Added feature` (대문자 시작)
+
 ### 예시
 
 **허용**:

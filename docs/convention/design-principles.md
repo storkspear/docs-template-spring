@@ -470,6 +470,13 @@ public UserProfile findProfileById(Long id) {
 
 **잘못된 상태** 는 예외로 명시적으로 던져요. null 반환, 빈 리스트 반환, 0 반환 같은 "조용한 실패" 는 피해요.
 
+### null handling 정책
+
+- **`findXxx()`** 는 `Optional<T>` 반환 — 호출자가 *없을 수 있는* 케이스 처리
+- **`getXxx()`** 는 *반드시 존재* 가정 — 없으면 도메인 예외 throw (예: `UserException(USER_NOT_FOUND)`)
+- **필드 / 파라미터** 는 `@NonNull` 기본 가정. null 가능 시 `Optional<T>` 또는 명시적 *nullable* 주석
+- **null 체크는 boundary 한 곳에서만** — 메서드 초반 `Objects.requireNonNull()` 또는 *Bean Validation* (`@NotNull`). 내부 흐름은 *non-null* 가정.
+
 ---
 
 ## 요약 체크리스트

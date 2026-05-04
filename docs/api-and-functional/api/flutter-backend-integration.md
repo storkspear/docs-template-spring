@@ -79,6 +79,8 @@ Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할
 
 DTO 는 모두 `core-auth-api/src/main/java/.../dto/` 에 있는 Java record 입니다. Flutter 쪽에서는 필드명과 타입만 맞춰서 동일한 구조로 매핑하면 돼요.
 
+> **응답 래퍼 (`{data, error}` 구조)** 는 [`API Response`](./api-response.md) 가 canonical. 본 문서는 *DTO 필드명 / 타입* 만 다뤄요. *상호배타성 / null 필드 생략 / pagination 형식* 같은 응답 래퍼 규칙은 `API Response` 에서 확인하세요.
+
 ### SignUpRequest
 
 ```java

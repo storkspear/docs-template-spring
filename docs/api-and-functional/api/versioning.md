@@ -4,6 +4,8 @@
 
 이 문서는 `template-spring` 의 semver 버저닝 · CHANGELOG · Deprecation 프로세스를 정의해요.
 
+> 📌 **현재 상태**: 최신 태그 `template-v0.3.0` (CHANGELOG.md 의 *Released versions* 참조). major 0 → 1 승격은 *Phase 0 안정화* 후 예정 — breaking change 없이 기본 기능이 완성되는 시점이에요.
+
 ---
 
 ## 버전 단위 — 템플릿 전체

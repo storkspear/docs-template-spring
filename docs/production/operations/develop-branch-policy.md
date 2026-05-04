@@ -4,9 +4,7 @@
 
 이 문서는 **main / develop 브랜치 정책 + GHA workflow trigger** 를 정리합니다. 빌링 절약 + 리뷰 품질.
 
-> 📌 **현재 상태 (2026-05 기준)**: GHA workflow 가 이미 `branches: [main]` 으로 trigger 제한 — develop / feature 브랜치 push 는 CI 안 돔. main push 또는 main 으로의 PR 시점에만 검증 + deploy.
->
-> 즉 plan 의 Phase 3-4 변경은 코드 차원 이미 완료 — 본 doc 는 정책 운영 가이드 역할.
+> 📌 **현재 상태**: GHA workflow 가 `branches: [main]` 으로 trigger 제한되어 있어요 — develop / feature 브랜치 push 는 CI 안 돌아요. main push 또는 main 으로의 PR 시점에만 검증 + deploy 가 진행돼요. 본 문서는 정책 운영 가이드.
 
 ---
 

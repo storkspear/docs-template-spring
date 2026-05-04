@@ -157,6 +157,20 @@ throw new UserException(UserError.USER_NOT_FOUND, Map.of("id", String.valueOf(us
 
 자세한 체계는 [`Exception Handling Convention`](./exception-handling.md) 를 참고하세요.
 
+### Enum
+
+- **클래스명**: `XxxError`, `XxxStatus`, `XxxType` 등 도메인 + 의미 접미사
+- **constant 명**: Java 표준 `UPPER_SNAKE_CASE` (예: `INVALID_CREDENTIALS`, `TOKEN_EXPIRED`, `EMAIL_NOT_VERIFIED`)
+- **에러 enum** 의 constant 는 [`Exception Handling`](./exception-handling.md) 의 에러 코드 (예: `ATH_001`) 와 1:1 매칭 — 동일 도메인 의미 통일
+
+```java
+public enum AuthError implements ErrorInfo {
+    INVALID_CREDENTIALS(401, "ATH_001", "이메일 또는 비밀번호가 올바르지 않습니다"),
+    TOKEN_EXPIRED(401, "ATH_002", "토큰이 만료되었습니다"),
+    ...
+}
+```
+
 ### 설정 클래스
 
 - `XxxConfig` — 일반 Spring 설정 클래스
