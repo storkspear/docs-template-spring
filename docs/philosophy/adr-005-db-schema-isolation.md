@@ -24,7 +24,7 @@
 
 여기에 **외부 제약** 하나가 추가됩니다. 우리는 Supabase (관리형 Postgres) 를 쓰기로 이미 결정했습니다 — 그 이유는 [`제약 1`](./README.md#제약-1--운영-가능성이-최우선) (운영을 외주화해 솔로 부담 감소). 그런데 Supabase 는 **`postgres` database 중심으로 설계** 되어 있어요:
 
-- 대시보드 · Auth · Storage · Realtime 모두 `postgres` database 의 schema 로 구현됨
+- 대시보드 · Auth · Storage · Realtime 모두 `postgres` database 의 schema 로 구현돼 있어요
 - 추가 database 생성은 제한되거나 대시보드가 제대로 인식하지 못해요
 
 이 결정이 답할 물음은 이거예요.
@@ -49,7 +49,7 @@
 
 한 Supabase 프로젝트 안에 database 를 여러 개.
 
-- **장점**: 같은 인스턴스라 백업/모니터링은 통합. database 경계는 schema 보다 강함.
+- **장점**: 같은 인스턴스라 백업 / 모니터링이 통합돼요. database 경계는 schema 보다 강해요.
 - **단점**:
   - **Supabase 구조적 제약** — Supabase 는 `postgres` database 에 맞춰 설계돼 있어요. 추가 database 를 만들어도 대시보드/RLS/Auth 기능이 인식하지 못해요.
   - 결국 Supabase 의 관리형 이점을 반만 누리게 돼요 (custom database 는 self-managed 상태예요).
@@ -191,7 +191,7 @@ r2 · r3 · r11 이 schema 격리를 기계적으로 강제합니다.
 
 ### 부정적 결과
 
-**Postgres 인스턴스 장애가 전사 장애** — 한 Supabase 프로젝트 다운 = 모든 앱 다운. 완화: Supabase 의 관리형 SLA 에 의존 ([`제약 1`](./README.md#제약-1--운영-가능성이-최우선) 비목표 - 99.99% 불필요). 실제 사용 기간 중 Supabase 다운 빈도는 월 1회 이내 · 수분 단위로 집계됨.
+**Postgres 인스턴스 장애가 전사 장애** — 한 Supabase 프로젝트가 다운되면 모든 앱이 함께 다운돼요. 완화: Supabase 의 관리형 SLA 에 의존합니다 ([`제약 1`](./README.md#제약-1--운영-가능성이-최우선) 비목표 — 99.99% 불필요). 실제 사용 기간 중 Supabase 다운 빈도는 월 1 회 이내 · 수 분 단위로 집계돼요.
 
 **schema 간 트랜잭션 불가** — 한 앱이 다른 앱의 테이블을 같은 트랜잭션에서 조작하는 건 불가능해요. 완화: 애초에 ADR 의 의도 — 앱은 **독립** 이라야 해요. 크로스 앱 데이터는 포트 호출 (비동기 경계) 로만 다뤄요.
 

@@ -11,6 +11,8 @@
 
 Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`, Rust 컴파일러처럼 **컨벤션을 문서가 아니라 빌드 자체가 강제** 하는 장치입니다. 우리 프로젝트에서 그 역할을 하는 것이 `DependencyRules.groovy` DSL (빌드 시) 과 ArchUnit (소스 스캔 시) 의 조합이에요. 사람이 "이 규칙 지켜주세요" 라고 부탁하는 대신, **규칙 위반 시 빌드가 실패** 하도록 설계했습니다.
 
+여기서 *컨벤션* 은 추상 개념이 아니라 [`docs/convention/`](../convention/README.md) 의 8 개 문서 — [네이밍](../convention/naming.md), [설계 원칙](../convention/design-principles.md), [DTO Factory](../convention/dto-factory.md), [Records / Classes](../convention/records-and-classes.md), [코드 주석](../convention/code-comments.md), [Git Workflow](../convention/git-workflow.md), [예외 처리](../convention/exception-handling.md) — 가 정리한 *구체 규칙* 들이에요. 본 ADR 의 ArchUnit 22 규칙과 Gradle convention plugin 5 종이 그 컨벤션을 *기계가 검증할 수 있는 형태* 로 강제합니다.
+
 ## 왜 이런 고민이 시작됐나?
 
 [`ADR-001`](./adr-001-modular-monolith.md) 에서 "2단계 방어" 를 선언했어요. [`ADR-003`](./adr-003-api-impl-split.md) 에서 "-api/-impl 을 분리해서 추출 가능성을 보장한다" 고 선언했고요. 이 선언들이 **실제로 지켜지려면** 누군가가 규칙 위반을 감지해야 합니다. 이 결정이 답해야 할 물음은 이거예요.
@@ -285,7 +287,18 @@ ArchUnit 규칙은 `r1`, `r2`, ..., `r22` 처럼 **번호로** 참조합니다.
 - [`ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java)
 - [`BootstrapArchitectureTest.java`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/test/java/com/factory/bootstrap/BootstrapArchitectureTest.java)
 
-**관련 스펙 문서**:
-- [`docs/structure/module-dependencies.md`](https://github.com/storkspear/template-spring/blob/main/docs/structure/module-dependencies.md)
-- [`docs/production/test/contract-testing.md`](https://github.com/storkspear/template-spring/blob/main/docs/production/test/contract-testing.md)
+**관련 스펙 문서 — 구조 / 의존**:
+- [`structure/module-dependencies.md`](../structure/module-dependencies.md) — Gradle convention plugin 의 의존 매트릭스 / DSL 사용 가이드
+- [`structure/architecture-rules.md`](../structure/architecture-rules.md) — ArchUnit r1~r22 의 규칙 명세
+- [`production/test/contract-testing.md`](../production/test/contract-testing.md) — Port 계약 테스트 패턴 (r10 / r17 정합)
+
+**관련 스펙 문서 — 컨벤션 (본 ADR 의 ArchUnit 룰이 강제하는 영역)**:
+- [`convention/naming.md`](../convention/naming.md) — 네이밍 규약 (r12 / r13 / r14 가 위치 강제)
+- [`convention/design-principles.md`](../convention/design-principles.md) — 모듈 설계 원칙 (SOLID, YAGNI 등)
+- [`convention/dto-factory.md`](../convention/dto-factory.md) — Entity → DTO 변환 패턴 (r22 가 Mapper 클래스 차단)
+- [`convention/records-and-classes.md`](../convention/records-and-classes.md) — DTO record + Entity class 분리 (r18 / r19 강제)
+- [`convention/code-comments.md`](../convention/code-comments.md) — 주석 컨벤션 (코드 자체 가독성을 첫 강제선으로)
+- [`convention/git-workflow.md`](../convention/git-workflow.md) — Conventional Commits 강제 ([`ADR-015`](./adr-015-conventional-commits-semver.md) + commitlint)
+- [`convention/exception-handling.md`](../convention/exception-handling.md) — ErrorCode enum + 도메인별 예외 (`*Exception` 위치 강제)
+- [`convention/README.md`](../convention/README.md) — 컨벤션 그룹 인덱스
 
