@@ -122,7 +122,7 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **목적** — 의존 방향은 항상 apps → core 예요. 반대 방향이 생기면 순환이 되고 모듈을 독립적으로 빌드할 수 없게 됩니다.
 
-**위반 예시** — `core.user.api.UserPort` 가 `apps.sumtally.SomeClass` 를 파라미터로 받음.
+**위반 예시** — `core.user.api.UserPort` 가 `apps.sumtally.SomeClass` 를 파라미터로 받는 경우예요.
 
 ### r8: CORE_IMPL_MUST_NOT_DEPEND_ON_APPS
 
@@ -146,7 +146,7 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **목적** — r9 의 어노테이션 버전이에요. DTO 라고 선언해놓고 실수로 `@Entity` 가 붙으면 api 가 Hibernate runtime 을 끌어오게 됩니다.
 
-**위반 예시** — `core.user.api.dto.UserSummary` 에 `@Entity` 를 붙임.
+**위반 예시** — `core.user.api.dto.UserSummary` 에 `@Entity` 를 붙이는 경우예요.
 
 ### r11: PORT_METHODS_MUST_NOT_EXPOSE_ENTITIES
 
@@ -241,7 +241,7 @@ public void oldMethod() { ... }
 
 **목적** — JPA 엔티티의 위치를 강제합니다. 엔티티가 api 패키지에 있으면 r9 (JPA 독립) 가 자동으로 깨져요. 네이밍 + 위치를 함께 강제하면 실수가 줄어들어요.
 
-**위반 예시** — `core.user.api.User` 에 `@Entity` 가 붙음.
+**위반 예시** — `core.user.api.User` 에 `@Entity` 가 붙어 있는 경우예요.
 
 ### r22: NO_MAPPER_CLASSES
 

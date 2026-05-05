@@ -83,7 +83,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 - **대안**: DB 분리, 단일 schema, 단일 테이블 + tenant_id
 - **Trade-off**:
   - schema 경계 실수 위험 (FK cross-schema 사용 시 cascade 영향) — `search_path` + 앱별 DB user 로 완화
-  - 단일 DB 용량 한계 (Supabase Free 500MB) → 재검토 트리거에 포함
+  - 단일 DB 용량 한계 (Supabase Free 500MB) → 재검토 트리거에 포함돼요
 - **재검토 트리거**:
   - 앱당 DB 용량 > 200MB (5앱 = 1GB 초과 예상) → DB 분리 검토
   - 앱 격리 요구 상승 (컴플라이언스 등)
@@ -288,7 +288,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 
 ## 결정 I-09. 배포 — Kamal + Docker blue/green (Mac mini)
 
-- **status**: `template-ready` (template 에 `config/deploy.yml`, `.github/workflows/deploy.yml`, `Dockerfile`, `docker-entrypoint.sh` 커밋됨. 파생레포가 env/Secrets 채우고 `kamal setup` 한 번 실행하면 운영 진입)
+- **status**: `template-ready` (template 에 `config/deploy.yml`, `.github/workflows/deploy.yml`, `Dockerfile`, `docker-entrypoint.sh` 가 커밋돼 있어요. 파생레포가 env/Secrets 채우고 `kamal setup` 한 번 실행하면 운영에 진입할 수 있어요)
 - **결정일**: 2026-04-19
 - **결정**: 운영 Spring 배포는 **Kamal (37signals) + Docker + GHA** 조합. Mac mini 에서 blue/green 컨테이너 스왑, kamal-proxy 가 health check 통과 후 트래픽을 Green 으로 원자 전환. GHA runner 가 Tailscale 로 tailnet 조인 → SSH → Kamal 로 Mac mini 원격 제어.
 - **근거**:
@@ -330,7 +330,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
   - **delete:packages scope** 는 cleanup step (image 2개 유지 정책) 에 필수.
   - **operational simplicity** — 매번 권한 정책 토글하지 말고 PAT 하나로 통일.
 - **대안**:
-  - **GITHUB_TOKEN + workflow permissions write** — 첫 패키지 생성 후엔 동작할 수 있다는 보고 있으나 일관성 없음. 탈락.
+  - **GITHUB_TOKEN + workflow permissions write** — 첫 패키지 생성 후에는 동작한다는 보고가 있지만 일관성이 없어요. 탈락이에요.
   - **OIDC + GHCR** — GitHub OIDC 토큰으로 ghcr 인증. 탈락: 본 GHCR 의 OIDC 지원이 packages scope 에선 불완전.
   - **Docker Hub 전환** — 한도 더 넉넉하지만 외부 의존성 추가. 탈락 (현 단계 불필요).
 - **Trade-off**:
@@ -405,7 +405,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 - **결정일**: 2026-04-20
 - **결정**: deploy workflow 가 `docker/build-push-action` 으로 직접 GHCR 에 push 한 뒤 `kamal deploy --skip-push --version=<sha> --verbose` 호출. kamal 의 자체 빌드 / push 우회.
 - **근거**:
-  - **kamal 의 docker build 가 또 gradle 빌드를 부름** — 우리는 이미 CI artifact 의 jar 를 받아 Dockerfile.runtime 으로 패키징했음. kamal 이 같은 작업 반복 안 하도록 `--skip-push`.
+  - **kamal 의 docker build 가 또 gradle 빌드를 호출해요** — 우리는 이미 CI artifact 의 jar 를 받아 Dockerfile.runtime 으로 패키징해 둔 상태예요. kamal 이 같은 작업을 반복하지 않도록 `--skip-push` 옵션을 줍니다.
   - **이미지 태그 일치 보장** — `--version=<commit-sha>` 로 명시. CI 의 `${{ github.sha }}` 로 push 한 태그와 정확히 매치.
   - **`docker/build-push-action` 의 안정성** — provenance/sbom 토글, multi-platform, cache 등 검증된 GHA 표준.
 - **대안**:

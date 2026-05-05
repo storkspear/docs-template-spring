@@ -24,7 +24,7 @@
 |---|---|---|---|
 | `common/*` | `common/common-*/` | 뼈대 유틸리티 (웹/보안/로깅/영속성/스토리지/테스트) | 상태 없음 |
 | `core/*` | `core/core-*-api/` + `core/core-*-impl/` | 공유 플랫폼 기능 (인증/이메일/유저/디바이스/푸시/billing/iap/payment/스토리지/감사) | 상태 있음, -api / -impl 쌍 |
-| `apps/*` | `apps/app-<slug>/` | 앱별 도메인 로직 | 템플릿엔 비어있음. 파생 레포에서 `new-app.sh` 로 추가 |
+| `apps/*` | `apps/app-<slug>/` | 앱별 도메인 로직 | 템플릿엔 비어 있어요. 파생 레포에서 `new-app.sh` 로 추가해요 |
 | `bootstrap` | `bootstrap/` | Spring Boot 엔트리 포인트 | 모든 core-impl + common 을 조립 |
 
 ### 주요 기술 스택

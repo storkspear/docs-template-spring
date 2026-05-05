@@ -26,10 +26,10 @@
 | NAS MinIO (오브젝트 스토리지) | `provisioned` | `192.168.X.X:9000`. **LAN 전용** — template 관리자 홈 네트워크만 접근 |
 | 맥미니 (운영 호스트) | `hardware-acquired` | 물리 보유 / Kamal 초기 셋업은 파생레포 `kamal setup` 한 번 |
 | Cloudflare Tunnel | `template-ready` | cloudflared 설치는 파생레포 개발자 몫. ingress 샘플은 `§4.2`. 상세: `guides/deployment.md` |
-| 배포 파이프라인 (Kamal + GHA) | `template-ready` | `config/deploy.yml` + `.github/workflows/deploy.yml` 커밋됨. 파생레포가 env + Secrets 채우면 바로 동작. 결정 I-09 |
+| 배포 파이프라인 (Kamal + GHA) | `template-ready` | `config/deploy.yml` + `.github/workflows/deploy.yml` 가 커밋돼 있어요. 파생레포가 env + Secrets 만 채우면 바로 동작해요. 결정 I-09 |
 | 알림 (Discord webhook) | `provisioned (임계치 미정)` | Alertmanager 컨테이너 · Slack-compat Discord receiver 구성 완료. `DISCORD_WEBHOOK_URL` env 로 즉시 동작. 실제 알림 룰(CPU/메모리/5xx/p95 임계치)은 Phase 2 |
 | 운영 관측성 스택 | `template-ready` | `infra/docker-compose.observability.yml` (retention 7일, mem_limit 명시). Mac mini 에서 `docker compose up -d` 한 번 |
-| 로컬 docker 관측성 | `not-applicable` | 로컬에서는 기동하지 않음 — 운영 전용 (I-06 노트) |
+| 로컬 docker 관측성 | `not-applicable` | 로컬에서는 기동하지 않아요 — 운영 전용 (I-06 노트) |
 | 2-tier bucket 정책 | `provisioned` (로컬 `dev-shared`) / `planned` (운영 `{slug}-{category}`) | `BucketProvisioner` 자동 생성. 상세: `features/storage.md` I-07 |
 
 상태 필드 정의 (`planned` / `provisioned` / `in-prod` / `hardware-acquired`) 및 전이 규칙: [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) 참조.
@@ -242,7 +242,7 @@ ingress:
 ### 8.2 운영 설계
 - **외부 노출**: Cloudflare Tunnel 경유 호스트명 — `server.<domain>` (Spring), `log.<domain>` (Grafana, CF Access 게이팅)
 - **Spring actuator**: app port (:8080) 와 공유. `management.endpoints.web.exposure.include` 로 `health, info, prometheus` 만 열어두고 나머지 경로는 차단. 더 엄격한 격리가 필요해지면 `management.server.port` 를 별도 포트로 분리하고 kamal-proxy healthcheck 를 main-port 의 가벼운 엔드포인트로 교체하는 후속 과제.
-- **내부 전용 포트** (kamal 네트워크 내부 + loopback): Prometheus :9090, Loki :3100, Alertmanager 127.0.0.1:9093 — 어느 것도 cloudflared ingress 에 노출하지 않음
+- **내부 전용 포트** (kamal 네트워크 내부 + loopback): Prometheus :9090, Loki :3100, Alertmanager 127.0.0.1:9093 — 어느 것도 cloudflared ingress 에 노출하지 않아요
 - **NAS MinIO 외부 접근**: Tailscale vs Cloudflare Tunnel vs DDNS+포트포워딩 선택은 Phase 2 에서 결정 (backlog 참조)
 
 ### 8.3 시크릿 보관 (planned)

@@ -582,7 +582,7 @@ slug 자체는 하이픈을 허용하지만 Postgres schema/role 이름에는 `S
 | **`--provision-db` 있으면** | schema + role + grant 자동 생성, DB 비밀번호 랜덤 생성 후 `.env` 치환 |
 | **로컬 docker** | `.env` 의 `DATABASE_URL` 기본값 자동 로드 — export 불필요 |
 | **운영 DB** | `export DATABASE_URL='postgresql://...'` 로 일시 덮어쓰기 |
-| **멱등성** | 디렉토리만 없음. `.env` / settings.gradle / DB schema/role 모두 있음 |
+| **멱등성** | 디렉토리만 없는 상태예요. `.env` / settings.gradle / DB schema / role 은 모두 남아 있어요 |
 | **남은 수동 작업** | `.env` host/credentials 실제 값 · V007 도메인 테이블 · 커밋 |
 
 ---

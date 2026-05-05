@@ -111,8 +111,8 @@ INFO: Waiting for changelog lock....
 ```
 ERROR: Validate failed: Migration checksum mismatch for migration version 1
 ```
-- 원인: 이미 적용된 V001 등의 SQL 파일을 수정.
-- **금지**: 적용된 V스크립트는 수정하지 않음. 항상 새 V스크립트로 정정.
+- 원인: 이미 적용된 V001 등의 SQL 파일을 수정한 경우예요.
+- **금지**: 적용된 V스크립트는 수정하지 않아요. 항상 새 V스크립트로 정정합니다.
 - 임시 우회 (운영자 직접):
   ```sql
   UPDATE <schema>.flyway_schema_history
@@ -153,7 +153,7 @@ ADR-033 의 hybrid 정책에 따라 prod 는 `validate-only` — `repair-on-migr
 
 마지막 수단으로 schema_history 의 row 직접 UPDATE/DELETE 사용 (`flyway-runbook.md §4-3` 참조). 또는 **임시로 prod 의 `app.flyway.mode=AUTO` + `repair-on-migrate=true`** 로 부팅 → 1회 정정 → 즉시 `validate-only` 로 복귀.
 
-> 💀 **위험**: repair-on-migrate=true 는 V스크립트의 모든 변경을 silently 받아들임. 의도치 않은 schema drift 가능. 사용 후 즉시 false.
+> 💀 **위험**: repair-on-migrate=true 는 V스크립트의 모든 변경을 silently 받아들여요. 의도치 않은 schema drift 가 가능합니다. 사용 후에는 즉시 false 로 되돌리세요.
 
 ---
 

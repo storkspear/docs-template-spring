@@ -13,7 +13,7 @@
 
 ## 개요
 
-MinIO 스토리지의 **로컬 개발** (Docker Compose) + **운영 NAS** (시놀로지) 셋업 절차. 연결 확인 · 용량 모니터링 · 백업 · 장애 대응 포함.
+MinIO 스토리지의 **로컬 개발** (Docker Compose) + **운영 NAS** (시놀로지) 셋업 절차예요. 연결 확인 · 용량 모니터링 · 백업 · 장애 대응까지 포함합니다.
 
 ---
 
@@ -110,7 +110,7 @@ Alertmanager 규칙 (이미 설정됨):
 
 ## 백업
 
-NAS 자체 RAID/Snapshot 활용 권장. docker volume 은 NAS 볼륨 안이라 NAS 가 백업하면 자동 포함.
+NAS 자체 RAID / Snapshot 활용을 권장해요. docker volume 은 NAS 볼륨 안에 있어서 NAS 가 백업하면 자동으로 포함됩니다.
 
 ## 장애 대응
 

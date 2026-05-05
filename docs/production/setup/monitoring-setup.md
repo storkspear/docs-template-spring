@@ -93,7 +93,7 @@ curl -X POST http://localhost:9090/-/reload
 
 ## 백업 (선택)
 
-`infra/scripts/backup-to-nas.sh.example` 복사 후 NAS 마운트 경로 맞춰 수정. 대시보드 설정(Grafana DB) 은 백업 우선순위. TSDB(Prometheus) 와 Loki chunks 는 용량 크니 retention 재검토가 더 효과적일 수 있음.
+`infra/scripts/backup-to-nas.sh.example` 을 복사한 뒤 NAS 마운트 경로에 맞춰 수정해요. 대시보드 설정 (Grafana DB) 이 백업 우선순위예요. TSDB (Prometheus) 와 Loki chunks 는 용량이 크기 때문에 retention 재검토가 더 효과적일 수 있어요.
 
 ## 장애 대응
 
@@ -144,7 +144,7 @@ docker compose -f infra/docker-compose.observability.yml ps
 
 ### 자동 destroy 와 multi-repo 안전 — `--include-observability` flag 가 의도적인 이유
 
-`<repo> prod clear` 의 default 는 observability **유지**. `--include-observability` flag 명시할 때만 4 컨테이너 + grafana-data volume 까지 함께 destroy. 이는 **여러 backend 가 1 대 Mac mini 를 공유하는 시나리오** 안전 위함.
+`<repo> prod clear` 의 default 는 observability 를 **유지** 해요. `--include-observability` flag 를 명시할 때만 4 컨테이너 + grafana-data volume 까지 함께 destroy 합니다. 이는 **여러 backend 가 1 대 Mac mini 를 공유하는 시나리오** 의 안전을 위함이에요.
 
 #### 시나리오 — Mac mini 1 대에 backend 2 개 운영
 
@@ -173,7 +173,7 @@ Mac mini (예: 100.76.10.127)
 <repo> prod init                              # observability 자동 재배치 (Step 9.5)
 ```
 
-dogfood 또는 1 backend 운영 시 매 reset 시 flag 명시. `prod init` 이 자동 재배치하므로 사이클 짧음.
+dogfood 또는 1 backend 운영 시에는 매 reset 마다 flag 를 명시해요. `prod init` 이 자동으로 재배치하므로 사이클이 짧아요.
 
 ## 다음 단계
 

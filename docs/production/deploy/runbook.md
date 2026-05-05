@@ -149,7 +149,7 @@ docker start kamal-proxy
    ```bash
    curl -sSfv https://server.<도메인>/actuator/health/liveness 2>&1 | head -30
    ```
-   - 200 OK → 앱은 살아있음, 특정 엔드포인트 문제일 수 있음
+   - 200 OK → 앱은 살아 있고, 특정 엔드포인트 문제일 수 있어요
    - 522/530 → Cloudflare Tunnel 장애 (cloudflared 프로세스 확인)
    - 502/503 → kamal-proxy 는 살아있으나 백엔드 Spring 컨테이너 문제
    - 이상 없으면 사용자 측 문제일 수도 (Cloudflare 대시보드 → Analytics 확인)
