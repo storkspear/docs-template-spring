@@ -98,7 +98,8 @@
             { "path": "philosophy/adr-027-admin-role-authorization.md","title": "Admin Role Authorization","desc": "ADR-027 · @AdminOnly meta annotation + JWT role claim" },
             { "path": "philosophy/adr-028-audit-log-domain.md",        "title": "Audit Log Domain (AOP)","desc": "ADR-028 · @Audited / AuditAspect / REQUIRES_NEW 트랜잭션" },
             { "path": "philosophy/adr-029-password-policy.md",         "title": "Password Policy","desc": "ADR-029 · @ValidPassword (min=10 / blacklist / property override)" },
-            { "path": "philosophy/adr-030-2fa-totp.md",                "title": "2FA TOTP","desc": "ADR-030 · RFC 6238 · Google Authenticator 호환 · backup codes" }
+            { "path": "philosophy/adr-030-2fa-totp.md",                "title": "2FA TOTP","desc": "ADR-030 · RFC 6238 · Google Authenticator 호환 · backup codes" },
+            { "path": "philosophy/adr-036-ssrf-url-whitelist.md",      "title": "SSRF URL Whitelist","desc": "ADR-036 · 외부 호출 hardcode/env 만 + timeout/redirect 정책" }
         ]},
         { "title": "운영 정책 (테마 8)", "children": [
             { "path": "philosophy/adr-033-flyway-hybrid-policy.md",    "title": "Flyway Hybrid Policy","desc": "ADR-033 · dev=auto / prod=validate-only" },
@@ -160,7 +161,8 @@
             { "path": "production/setup/mac-mini-setup.md",              "title": "Mac Mini Setup",       "desc": "Worked example — 실제 호스트 셋업 샘플" },
             { "path": "production/setup/monitoring-setup.md",            "title": "Monitoring Setup",     "desc": "관측성 스택 (Loki/Grafana/Prometheus) 설정" },
             { "path": "production/setup/storage-bucket-isolation.md",    "title": "Storage Bucket Isolation","desc": "슬러그별 bucket 격리 정책" },
-            { "path": "production/setup/storage-setup.md",               "title": "Storage Setup",        "desc": "MinIO / NAS 스토리지 설정" }
+            { "path": "production/setup/storage-setup.md",               "title": "Storage Setup",        "desc": "MinIO / NAS 스토리지 설정" },
+            { "path": "production/setup/owasp-top10-mapping.md",         "title": "OWASP Top 10 Mapping", "desc": "OWASP Top 10 (2021) 카테고리별 현 방어 + Gap (보안 audit reference)" }
         ]},
         { "title": "Operations", "children": [
             { "path": "production/operations/feature-toggle.md",         "title": "Feature Toggle",       "desc": "Lite 모드 운영자 가이드 (ADR-034)" },
