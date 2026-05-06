@@ -47,7 +47,7 @@
 ### 보안 / 자격증명
 
 - [ ] [Security] TLS/HTTPS 내부 구간 검토 — CF 가 edge 처리 OK, 맥미니 ↔ NAS 내부 통신은? (2026-04-18)
-- [ ] [Security] CVE 스캔 도구 CI 통합 (OWASP Dependency Check 또는 Snyk) — Dependabot 은 update PR 만 제공, CVE 심각도 기반 자동 차단 부재. critical/high 임계값 정책 포함 (owasp A06.1) (생성일: 2026-05-06)
+- [ ] [Security] 의존성 CVE 스캔 도구 CI 통합 (OWASP Dependency Check 또는 Renovate self-hosted) — 본 프로젝트 정책상 Dependabot 미사용. critical/high CVE 자동 차단 + 의존성 버전 자동 update PR 두 기능 만족하는 도구 선택. 분기별 manual audit 도 대안 (owasp A06.1) (생성일: 2026-05-06)
 - [ ] [Security] 로그인 실패 계정 잠금 정책 — N회 실패 후 계정 lockout. 현재 rate limit (요청 횟수) 만 있고 brute-force 방어로 부족. ADR-029 line 187 에 등재된 항목 (owasp A07.1) (생성일: 2026-05-06)
 - [ ] [Security] 보안 이벤트 명시 로그 정책 — 로그인 실패/권한 거부/TOTP 실패/webhook 서명 실패/암호 변경 같은 보안 이벤트의 로그 레벨 + 형식 명시 (`observability.md` 보강 또는 별도 security-logging.md). Grafana alert rule cycle 과 묶어 진행 가능 (owasp A09.1) (생성일: 2026-05-06)
 - [ ] [Security] Docker image signing (cosign / Sigstore) CI 통합 — GHCR push 한 image 가 진짜 우리 CI 에서 온 건지 검증 부재. Kamal 배포 시 서명 검증 추가 (owasp A08.1) (생성일: 2026-05-06)

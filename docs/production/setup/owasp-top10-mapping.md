@@ -122,15 +122,17 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 **현 방어**:
 - `gradle/libs.versions.toml:1-59` — 중앙 버전 카탈로그. Spring Boot 3.5.13, JJWT 0.13.0, Firebase 9.8.0, Testcontainers 1.20.6 등 모두 명시
-- `.github/dependabot.yml:1-38` — Dependabot 자동화. gradle/github-actions/docker 주1 (월요일) PR. spring/testing/monitoring 그루핑
 - `.gitleaks.toml:1-48` — secret 누출 검사. default rule + 테스트 fixture allowlist
 
+**프로젝트 정책**:
+- **Dependabot 미사용** — PR 노이즈 / 관리 부담 trade-off 평가 후 미채택 결정. 의존성 update 는 별도 자동화 도구 (Renovate / OWASP Dependency Check) 또는 분기 manual review 로 대체 예정 (backlog 등재).
+
 **검증**:
-- Dependabot 의 weekly PR 자체가 검증 — 사람이 PR 마다 review
 - `tools/ci-test.sh` 의 secret stage (gitleaks 실행)
 
 **Gap**:
-- **CVE 스캔 도구 부재** — Dependabot 은 "버전 update PR" 이지 "CVE 심각도 기반 차단" 아님. OWASP Dependency Check 또는 Snyk 가 CI 에 없음
+- **의존성 CVE 자동 스캔 부재** — `npm audit` 같은 명시 stage 없음. critical/high CVE 가 떠도 운영자가 manual 추적 필요
+- **자동 update PR 부재** (Dependabot 미사용) — 의존성 버전 갱신이 manual. 분기별 audit cycle 설정 필요
 - **CVE threshold 정책 없음** — critical/high CVE 자동 차단 룰 부재
 - **Gradle dependency verification 미구성** — `org.gradle.dependency-verification` 으로 jar checksum lock 부재. Maven central 에서 받은 의존성 무결성 검증 없음
 - **License 검증 부재** — GPL/AGPL 같은 회피 license 자동 감지 없음
