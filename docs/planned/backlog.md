@@ -47,8 +47,6 @@
 ### 보안 / 자격증명
 
 - [ ] [Security] TLS/HTTPS 내부 구간 검토 — CF 가 edge 처리 OK, 맥미니 ↔ NAS 내부 통신은? (2026-04-18)
-- [ ] [Security] **Swagger UI prod 노출 차단** — `application-prod.yml` 에 `springdoc.swagger-ui.enabled: false` 또는 SecurityConfig 에서 prod 시 인증 요구. 현재 누구나 `/swagger-ui.html` 접근 가능. **즉시 fix 권장** (owasp-top10-mapping.md A05.1) (생성일: 2026-05-06)
-- [ ] [Security] Resend HTTP timeout 명시 — `ResendEmailAdapter` 가 `HttpClient.newHttpClient()` 기본 timeout 사용. 다른 client (Apple/Google/Kakao/Naver JWKS) 와 동일 connect=5s/request=10s 적용. **즉시 fix 권장** (owasp A10.2) (생성일: 2026-05-06)
 - [ ] [Security] CVE 스캔 도구 CI 통합 (OWASP Dependency Check 또는 Snyk) — Dependabot 은 update PR 만 제공, CVE 심각도 기반 자동 차단 부재. critical/high 임계값 정책 포함 (owasp A06.1) (생성일: 2026-05-06)
 - [ ] [Security] 로그인 실패 계정 잠금 정책 — N회 실패 후 계정 lockout. 현재 rate limit (요청 횟수) 만 있고 brute-force 방어로 부족. ADR-029 line 187 에 등재된 항목 (owasp A07.1) (생성일: 2026-05-06)
 - [ ] [Security] 보안 이벤트 명시 로그 정책 — 로그인 실패/권한 거부/TOTP 실패/webhook 서명 실패/암호 변경 같은 보안 이벤트의 로그 레벨 + 형식 명시 (`observability.md` 보강 또는 별도 security-logging.md). Grafana alert rule cycle 과 묶어 진행 가능 (owasp A09.1) (생성일: 2026-05-06)
@@ -138,6 +136,8 @@
 
 ## 완료 (archive, 지난 2개월)
 
+- [x] [Security] Swagger UI prod 노출 차단 — `application-prod.yml` 에 `springdoc.swagger-ui.enabled=false` + `api-docs.enabled=false` 추가. /swagger-ui.html 과 /v3/api-docs 둘 다 prod 에서 404. dev profile 은 활성 유지 (OWASP A05.1) (완료일: 2026-05-06, commit: `ceb9d45`)
+- [x] [Security] Resend HTTP timeout 명시 — `ResendEmailAdapter` 의 HttpClient 에 connectTimeout=5s, HttpRequest 에 timeout=10s 적용. 다른 외부 client (Apple/Google/Kakao/Naver JWKS) 와 동일 패턴 (OWASP A10.2) (완료일: 2026-05-06, commit: `c8eb350`)
 - [x] Item 7 — DTO/API 네이밍 정리 (완료일: 2026-04-18, commit: `647b0c4`)
 - [x] Item 9 v1 → v2 plan 개정 (완료일: 2026-04-18, commit: `ef9b912`)
 - [x] Item 10 — 앱 프로비저닝 통합 스크립트 (완료일: 2026-04-19, merge: `ff4bcbb`)
