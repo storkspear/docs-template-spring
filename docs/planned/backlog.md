@@ -60,6 +60,8 @@
 
 - [ ] [Obs] Performance baseline (JMeter / Gatling) — 릴리스 전 기준 RPS / p95 (2026-04-18)
 - [ ] [Obs] On-call 알림 피로 방지 규칙 (솔로 운영 기준) — 중요도별 알림 채널 분리 (2026-04-18)
+- [ ] [Obs] Performance playbook 작성 — `docs/production/operations/performance-playbook.md` 신규. DB 인덱스 정책, Caffeine 캐시 hit-rate, connection pool 튜닝, N+1 추적 절차. 추측 기반 회피 위해 트리거: 첫 prod 앱 슬로우쿼리 1건 발생 또는 DAU 1000 도달 (생성일: 2026-05-06)
+- [ ] [Obs] Grafana 대시보드 JSON + alert rule 표준화 — `docs/production/setup/monitoring-setup.md` 보강 또는 `grafana/` 디렉토리 신설. latency p95, error rate, JVM heap, DB pool 포화 alert. alert fatigue 회피 위해 트리거: 첫 prod 앱 출시 + 1주 baseline 메트릭 수집 후 (생성일: 2026-05-06)
 
 ### 앱 기능 (Phase 1+)
 
@@ -81,6 +83,7 @@
 - [ ] [DX] `factory install` 의 alias 이름 입력 단계에 *bash 빌트인·예약어 충돌 검증* — 운영자가 `test` 같은 빌트인 명령을 입력하면 `~/.local/bin/test` symlink 가 등록되어도 bash 가 빌트인을 우선해 `test init` 이 no-op 으로 동작 (조건 검사로 해석되어 0 exit). 차단 대상 후보: `test`, `[`, `[[`, `true`, `false`, `cd`, `pwd`, `echo`, `set`, `eval`, `source`, `.`, `:`, `command`, `type`, `which`, `time`, `exec`, `exit`, `kill`, `jobs`, `bg`, `fg`, `wait`, `read`, `local`, `export`, `unset`, `alias`, `unalias`, `history`, `let`, `printf`. 입력 후 `compgen -b <name>` 또는 hardcoded 목록으로 검증 → 매치 시 *재입력 요구*. 도그푸딩 사이클에서 `test` 입력으로 발견됨 (2026-05-03)
 - [ ] [DX] `init-server.sh` 의 partial-fail 인지성 강화 — 현재 Step 6 끝의 `[OK] GitHub Secrets / Variables 등록 완료` 가 *최종 성공* 처럼 보여 사용자가 그 뒤의 Step 9.5 (observability deploy) / Step 10 (verify-server) 가 안 돈 partial fail 을 놓치는 케이스 발생. 보강 방향: ①중간 step 메시지를 `[OK] Step 6 완료` 처럼 단계 표시로 약화. ②`trap EXIT` 추가해 비정상 종료 시 `❌ init 비정상 종료 (exit=$rc) — re-run 권장` 명시. ③최종 success 마커를 박스 형태로 강조 (없으면 곧 실패). 도그푸딩 사이클에서 line 559 bash 에러로 init 이 partial 종료됐는데 deploy 는 decoupled 라 정상 동작 → 사용자가 init 결함을 늦게 발견 (2026-05-03)
 - [ ] [DX] `tools/ci-test.sh` 에 `actionlint` 통합 — 현재 ci-test 는 *content* (build / docs / secrets) 만 검증하고 `.github/workflows/*.yml` 자체의 정적 검증은 누락돼요. 결과적으로 워크플로우의 YAML 구문 오류 / 잘못된 action 버전 / job dependency 누락 같은 컨피그 실수가 push 전에 catch 되지 않아요. `actionlint` 단계 추가 (5-stage → 6-stage 또는 spotless 단계와 병합). 한계: secret 부재 같은 *runtime* 에러는 actionlint 도 catch 하지 못해요 — 그건 별개 보강 (예: 워크플로우 시작 시 token 존재 검증 + graceful skip). 도그푸딩 사이클에서 `template-spring` 의 `GHCR_TOKEN` 미등록으로 sync-docs 가 2일치 모든 push 에서 실패한 케이스로 발견 (2026-05-03)
+- [ ] [DX] Multi-session spec 진행 상태 헤더 (S1~SN 체크박스) — multi-session spec 의 복귀 비용 차단. 현재 `superpowers/specs/2026-05-04-cleanup-legacy-cycle*` 같은 8-subsession spec 이 중단된 후 "어디까지 했지?" 추적 어려움. 헤더에 체크박스 도입 후 각 subsession 완료 시 체크. 트리거: 다음 multi-session spec 작성 시 적용 (생성일: 2026-05-06)
 - [ ] [Template] **ADR 형식 통일 사이클** — ADR-021~035 의 *결론부터* 섹션 헤더 명시 (현재는 *상태* 다음 단락으로 통합). ADR-018 같은 *명시 헤더* 형식과 일관성 맞추기 — 15+ 파일 산문 재구성 (생성일: 2026-05-04, audit T9 발견)
 - [x] ~~[Template] ADR Code Reference 보강~~ — T14 재검증 결과 *이미 충실* (모든 ADR 이 file 경로 + 클래스 + 메서드 + line 번호 보유). audit T9 의 누락 분류는 과도 엄격이었음. **불필요로 closed** (2026-05-04)
 - [ ] [Template] **ADR-002 + ADR-015 consolidation** — *Template Governance + Versioning* 으로 통합. 현재 두 ADR 이 *commitlint / template-v* 태그 / CHANGELOG / Deprecation* 의 같은 메커니즘을 별도로 기록 (~70% 중복). 단일 ADR 로 통합 (생성일: 2026-05-04, audit T9 발견)
