@@ -62,7 +62,9 @@ cd myapp-backend
 
 이 프로젝트는 Java Gradle 기반이지만 **커밋 메시지 규약 도구 (husky / commitlint / commitizen)** 를 npm 으로 관리해요.
 
-`./tools/init-server.sh` 실행 시 내부적으로 `npm install` 을 자동 수행하므로 **별도로 수동 실행할 필요가 없어요**. 대신 **Node 18+ 가 필수** 예요. bootstrap 이 Node 를 찾지 못하면 즉시 fail 해요.
+`./tools/init-server.sh` 실행 시 (또는 `./factory <cmd>` 의 어떤 명령이든 첫 진입 시) 내부적으로 `npm install` 을 자동 수행하므로 **별도로 수동 실행할 필요가 없어요**. 대신 **Node 18+ 가 필수** 예요. bootstrap 이 Node 를 찾지 못하면 즉시 fail 해요.
+
+> **백업 안전망**: `./gradlew` 를 직접 호출 (factory CLI 우회) 시에는 build 시점에 husky 미활성 warning 이 출력돼요. 그래도 활성화하려면 `npm install` 1회 수동.
 
 자동 수행되는 것:
 - `node_modules/` 디렉토리 생성 (약 50 MB, `.gitignore` 포함)
