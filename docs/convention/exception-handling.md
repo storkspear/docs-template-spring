@@ -173,6 +173,52 @@ throw new CommonException(CommonError.NOT_FOUND, Map.of("resource", "Device", "i
 throw new EmailException(EmailError.EMAIL_DELIVERY_FAILED, cause);  // ADR-024
 ```
 
+### Service 레이어 패턴 — 리소스 못 찾을 때
+
+리소스 미발견 / 권한 거부 / 검증 실패 같은 *예측 가능한 비즈니스 예외* 는 *반드시* 도메인 `XxxException` 또는 `CommonException` 을 사용해요. `IllegalArgumentException` / `IllegalStateException` 같은 표준 예외는 `GlobalExceptionHandler` 의 fallback (500) 으로 잘못 매핑되어 *클라이언트에 generic message* 만 노출돼요.
+
+**✓ 권장 — 도메인 enum 우선**:
+
+```java
+// 도메인 enum 이 있으면 그것을 사용
+public UserProfile getProfile(long userId) {
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new UserException(
+            UserError.USER_NOT_FOUND,
+            Map.of("id", String.valueOf(userId))
+        ));
+    return user.toProfile();
+}
+```
+
+**✓ 권장 — 도메인 enum 없을 때 CommonError**:
+
+```java
+// 도메인 전용 enum 이 없는 일반 케이스
+Device device = deviceRepository.findById(deviceId)
+    .orElseThrow(() -> new CommonException(
+        CommonError.NOT_FOUND,
+        Map.of("resource", "Device", "id", String.valueOf(deviceId))
+    ));
+```
+
+**✗ 금지 — 표준 예외 직접 throw**:
+
+```java
+// IllegalArgumentException → 500 으로 매핑 (잘못된 응답)
+throw new IllegalArgumentException("user not found: " + userId);
+
+// IllegalStateException → 500 으로 매핑
+throw new IllegalStateException("subscription already cancelled");
+
+// RuntimeException → 500
+throw new RuntimeException("invalid state");
+```
+
+**예외**: 입력 validation (Bean Validation `@Valid`) 의 `MethodArgumentNotValidException`, JPA / Spring 의 inferral RuntimeException 같은 *프레임워크 발생 예외* 는 `GlobalExceptionHandler` 가 적절히 매핑해서 처리해요. 이건 application code 가 직접 throw 하는 것과 별개.
+
+**InternalServerError 의 정당한 케이스**: 진짜 서버 내부 invariant 위반 (예: SHA-256 미지원, Class.forName 실패 같은) 은 `IllegalStateException` 으로 throw 가능. 단 매우 드문 케이스. 일반적 비즈니스 예외는 모두 `XxxException` 또는 `CommonException`.
+
 ---
 
 ## 5. 새 도메인에 예외 추가하기
