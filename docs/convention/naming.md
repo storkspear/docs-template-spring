@@ -121,17 +121,22 @@ public class User { ... }               // UserEntity 아님
 
 ### DTO
 
-DTO 는 용도에 따라 접미사를 달리해요.
+DTO 는 용도에 따라 접미사를 달리해요. 크게 **입력**, **단일 entity view**, **복합/래퍼** 세 종류로 나뉘어요.
 
-| 접미사 | 용도 | 예시 |
-|---|---|---|
-| `Request` | 클라이언트가 보내는 입력 | `SignUpRequest`, `UpdateProfileRequest` |
-| `Response` | 서버가 반환하는 출력 (복합) | `AuthResponse`, `HealthResponse` |
-| `Dto` | 내부/외부 교환 객체 (일반적) | `UserAppAccessDto` |
-| `Summary` | 최소 필드만 담은 요약 뷰 | `UserSummary` |
-| `Profile` | 전체 필드를 담은 상세 뷰 | `UserProfile` |
+| 분류 | 접미사 | 용도 | 예시 |
+|---|---|---|---|
+| 입력 | `Request` | 클라이언트가 보내는 입력 | `SignUpRequest`, `UpdateProfileRequest` |
+| 단일 entity view | `Summary` | 최소 필드만 담은 요약 뷰 | `UserSummary` |
+| 단일 entity view | `Profile` | 전체 필드를 담은 상세 뷰 | `UserProfile` |
+| 단일 entity view | `Account` | 인증/인가 컨텍스트 뷰 (passwordHash, role 포함) | `UserAccount` |
+| 복합/래퍼 | `Response` | 여러 도메인 데이터를 묶은 응답 | `AuthResponse` (`UserSummary` + `AuthTokens`), `HealthResponse` |
+| 복합/래퍼 | `Tokens` | 토큰 묶음 | `AuthTokens` (access + refresh) |
+| 일반 | `Dto` | 위 분류에 안 맞는 내부/외부 교환 객체 | `UserAppAccessDto` |
 
-복합 사용도 가능해요 (`UserProfileResponse` 등). 다만 과하면 이름이 길어지니까 가능한 한 명료한 하나의 단어를 선택해요.
+**규칙**:
+- **단일 entity view** 접미사 (`Summary`/`Profile`/`Account` 등) 는 [`dto-factory.md`](./dto-factory.md) 의 `Entity.toXxx()` 메서드와 1:1 로 대응돼요. 새 view 가 필요하면 Entity 에 `to<NewView>()` 메서드를 추가하세요.
+- **복합/래퍼** 접미사 (`Response`/`Tokens` 등) 는 단일 entity 로 표현 안 되는 경우에만 만들어요. 단일 entity 1개를 그대로 반환할 거면 view 접미사를 그대로 쓰세요 (예: `getProfile()` 은 `UserProfile` 을 반환, `UserProfileResponse` 로 한 번 더 감싸지 않음).
+- 복합 사용도 가능해요 (`UserProfileResponse` 등). 다만 과하면 이름이 길어지니까 가능한 한 명료한 하나의 단어를 선택해요.
 
 ### 예외
 
