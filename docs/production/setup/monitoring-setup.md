@@ -80,6 +80,25 @@ ingress:
 2. JSON export → 같은 경로에 commit (파생레포에서 — 본인 운영용 커스텀)
 3. `provisioning/dashboards/dashboards.yml` 이 30초마다 reload
 
+## Passive monitoring 정책
+
+**Grafana panel 의 alert 기능은 본 프로젝트에서 사용 안 해요** (사용자 결정 2026-05-06).
+
+| 영역 | 정책 |
+|---|---|
+| **Grafana panel-level alert** | **미사용**. 4 dashboard 모두 panel 에 alert 미첨부 — 운영자가 직접 보러 가는 passive 모드 |
+| **Prometheus rules.yml (system-level)** | 사용 — `HighErrorRate`, `HighLatencyP95`, `RateLimitSpike`, `BackendDown`, `MinioDown` 5건. Discord webhook 으로 발송 |
+| **보안 이벤트 alert** (로그인 실패 spike, webhook 검증 실패 등) | **미도입**. 솔로 운영자 alert fatigue 회피. 의심 사건은 `audit_logs` 테이블 + Loki ERROR 로그 직접 조회 |
+
+이 정책의 trade-off:
+- 장점: alert 발송 채널 (Discord 등) 관리 부담 0. alert fatigue 자동 회피.
+- 단점: 운영자가 능동 점검 안 하면 사고 인지 늦음. Mac mini 자체 down (`BackendDown`) 같은 critical 사건만 Prometheus rules.yml 가 커버.
+- 적용 조건: 솔로 운영자 + 트래픽 임계점 미도달 단계. 본격 prod 트래픽 들어오면 *passive → active* 로 정책 재평가 (backlog 항목).
+
+새 dashboard / panel 추가 시:
+- panel 의 `"alert"` 키 두지 말 것 (passive 정책)
+- 시스템 critical alert 가 필요하면 `infra/prometheus/rules.yml` 에 Prometheus rule 로 추가
+
 ## 알림 튜닝
 
 `infra/prometheus/rules.yml` 에서 임계치 조정. 예:
