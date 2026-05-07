@@ -81,22 +81,25 @@ flowchart TB
         appN[app-gymlog ...]
     end
 
-    subgraph coreImpl["core/ -impl (비즈니스 구현)"]
+    subgraph coreImpl["core/ -impl (비즈니스 구현 — 10 도메인)"]
         authImpl[core-auth-impl]
         userImpl[core-user-impl]
         pushImpl[core-push-impl]
+        otherImpl[device / email / audit / billing / iap / payment / storage]
     end
 
-    subgraph coreApi["core/ -api (포트 인터페이스)"]
+    subgraph coreApi["core/ -api (포트 인터페이스 — 10 도메인)"]
         authApi[core-auth-api]
         userApi[core-user-api]
         pushApi[core-push-api]
+        otherApi[device / email / audit / billing / iap / payment / storage]
     end
 
-    subgraph common["common/ (공용 인프라)"]
+    subgraph common["common/ (공용 인프라 — 5 모듈)"]
         web[common-web]
         sec[common-security]
         per[common-persistence]
+        otherCommon[logging / testing]
     end
 
     bootstrap --> coreImpl

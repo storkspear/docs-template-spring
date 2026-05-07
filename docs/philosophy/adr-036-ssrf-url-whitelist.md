@@ -12,7 +12,7 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 
 본 프로젝트의 모든 외부 HTTP 호출은 *고정 URL (hardcode)* 또는 *운영자가 통제하는 환경변수* 로만 결정돼요. 사용자가 입력한 값으로 URL 이 만들어지거나 redirect 가 자동 따라가는 지점이 *코드 어디에도 없어요*. 즉 SSRF 의 일반적 공격 벡터가 *설계상 불가능* 합니다.
 
-이 정책의 핵심은 *명문화* 와 *향후 확장 가이드* 예요. 현재 8 곳의 외부 호출 (Apple JWKS / Google tokeninfo / Google JWKS / Kakao API 2 / Naver API / Resend / MinIO / FCM) 모두 정책 부합 상태이지만, 새 외부 호출을 추가하는 개발자가 *별생각 없이 사용자 입력으로 URL 을 만드는 케이스* 를 사전에 차단해야 해요. ADR 에 정책을 박아두면 *코드 review / ArchUnit / 향후 본인의 future-self* 에게 같은 message 를 일관되게 전달할 수 있어요.
+이 정책의 핵심은 *명문화* 와 *향후 확장 가이드* 예요. 현재 13 곳의 외부 호출 (Apple JWKS / Google tokeninfo / Google JWKS (IAP webhook) / Kakao API 2 / Naver API / Resend / Apple App Store Server API / Google Play Developer API / Google OAuth / PortOne / MinIO / FCM) 모두 정책 부합 상태이지만, 새 외부 호출을 추가하는 개발자가 *별생각 없이 사용자 입력으로 URL 을 만드는 케이스* 를 사전에 차단해야 해요. ADR 에 정책을 박아두면 *코드 review / ArchUnit / 향후 본인의 future-self* 에게 같은 message 를 일관되게 전달할 수 있어요.
 
 ---
 
@@ -60,19 +60,25 @@ InterruptedException 처리도 표준 패턴 따름 — `Thread.currentThread().
 
 ## 현재 적용 상태 (감사 결과)
 
-본 ADR 작성 시점 (2026-05-06) 의 외부 호출 인벤토리:
+본 ADR 인벤토리 (코드 정합 기준):
 
 | # | 호출 | 파일 (식별자) | URL 결정 | timeout |
 |---|---|---|---|---|
 | 1 | Apple JWKS | `AppleJwksClient.DEFAULT_JWKS_URL` | hardcode | connect 5s |
 | 2 | Google tokeninfo | `GoogleSignInService.DEFAULT_TOKENINFO_URL` | hardcode | connect 5s, req 10s |
-| 3 | Google JWKS | `GoogleJwksClient.DEFAULT_JWKS_URL` | hardcode | connect 5s |
+| 3 | Google JWKS (IAP webhook) | `core-iap-impl/google/GoogleJwksClient.DEFAULT_JWKS_URL` | hardcode | connect 5s |
 | 4 | Kakao token info | `KakaoSignInService.DEFAULT_TOKEN_INFO_URL` | hardcode | connect 5s, req 10s |
 | 5 | Kakao user/me | `KakaoSignInService.DEFAULT_USER_ME_URL` | hardcode | connect 5s, req 10s |
 | 6 | Naver user info | `NaverSignInService.DEFAULT_USER_ME_URL` | hardcode | connect 5s, req 10s |
 | 7 | Resend 이메일 | `ResendEmailAdapter.RESEND_API_URL` | hardcode | connect 5s, req 10s |
-| 8 | MinIO 스토리지 | (MinIO SDK 내부) | `APP_STORAGE_MINIO_ENDPOINT` (env) | SDK default |
-| 9 | FCM 푸시 | (Firebase Admin SDK 내부) | SDK 내부 관리 | SDK default |
+| 8 | Apple App Store Server API | `AppleAppStoreAdapter` (`config.apiUrl()` + `/inApps/v1/transactions/{txId}`) | env (slug별 `IapProperties.apple.apiUrl`) | connect 5s, req 10s |
+| 9 | Google Play Developer API | `GooglePlayAdapter` (`config.apiUrl()` + `/androidpublisher/v3/.../tokens/{token}`) | env (slug별 `IapProperties.google.apiUrl`) | connect 5s, req 10s |
+| 10 | Google OAuth (Play API token) | `GooglePlayAdapter.OAUTH_URL` | hardcode | connect 5s, req 10s |
+| 11 | PortOne 결제 API | `PortOneApiClient` (`properties.apiUrl()` + path) | env (`app.payment.portone.api-url`) | connect 5s, req 10s |
+| 12 | MinIO 스토리지 | (MinIO SDK 내부) | `APP_STORAGE_MINIO_ENDPOINT` (env) | SDK default |
+| 13 | FCM 푸시 | (Firebase Admin SDK 내부) | SDK 내부 관리 | SDK default |
+
+> connect timeout 은 `iapHttpClient` Bean (`IapAutoConfiguration`) / `paymentHttpClient` Bean (`PaymentAutoConfiguration`) 에서 일괄 5s. 개별 어댑터는 request timeout 만 명시.
 
 > 식별자 (상수명) 로 인벤토리화 — line number 는 코드 편집 빈번하므로 자동 outdated 위험. 정확한 위치는 `grep -rn '<상수명>' core/` 로 즉시 파악 가능.
 

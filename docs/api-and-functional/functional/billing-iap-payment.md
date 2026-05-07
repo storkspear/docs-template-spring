@@ -52,7 +52,7 @@ sequenceDiagram
     App->>Store: 결제 위젯 (StoreKit / BillingClient)
     Store-->>App: transactionId / purchaseToken
     App->>API: POST /api/apps/<slug>/iap/verify
-    API->>IapPort: verifyReceipt(platform, receipt, productId)
+    API->>IapPort: verifyReceipt(IapReceiptRequest)
     IapPort->>Verify: receipt 검증 요청
     Verify-->>IapPort: 검증 결과
     IapPort-->>API: PurchaseVerificationResult

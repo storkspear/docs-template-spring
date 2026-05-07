@@ -63,7 +63,7 @@
      - GymlogAuthController (/api/apps/gymlog/auth/*)
      - GymlogDataSourceConfig (gymlog schema 전용)
      - GymlogAppAutoConfiguration
-     - V001~V006 마이그레이션 (users, social_identities, refresh_tokens 등)
+     - V001~V014 마이그레이션 (users, social_identities, refresh_tokens, V007 admin 시드 등)
      - build.gradle
 3. 도메인 코드 작성 (controller / service / entity / repository / Flyway)
 4. core-* 는 건드리지 않음 — 새 기능이 core 에 필요하면 별도 ADR
@@ -102,7 +102,7 @@ template-spring/
 ├── README.md                          # 템플릿 소개
 │
 ├── .github/
-│   └── workflows/                     # 10 개 workflow
+│   └── workflows/                     # 11 개 workflow
 │       ├── ci.yml                     # 빌드 + 테스트 + ArchUnit
 │       ├── deploy.yml                 # main → workflow_run 게이트 → 배포
 │       ├── release.yml                # template-v* 태그 → GitHub Release
@@ -112,6 +112,7 @@ template-spring/
 │       ├── changelog-check.yml        # CHANGELOG.md 업데이트 여부 검증
 │       ├── release-pr-validate.yml    # 릴리스 PR 체크
 │       ├── security-scan.yml          # gitleaks + Dependabot
+│       ├── sync-docs.yml              # docs/** → docs-template-spring 자동 sync
 │       └── docs-check.yml             # 문서 링크 검증
 │
 ├── build.gradle                       # 루트 빌드 설정 (공통 plugin, Java 21)
@@ -172,7 +173,7 @@ template-spring/
 │   │   └── test/                      # contract-testing, testing-strategy
 │   ├── philosophy/                    # L3 — 36 개 ADR
 │   │   ├── README.md                  # ADR 인덱스 + 테마별 그룹
-│   │   └── adr-001 ~ adr-035.md       # Architecture Decision Records
+│   │   └── adr-001 ~ adr-036.md       # Architecture Decision Records
 │   ├── planned/                       # backlog (미완료 / 향후 작업)
 │   └── reference/                     # 참조 사전
 │       ├── glossary.md
@@ -793,8 +794,10 @@ protected DataSource buildDataSource(String url, String user, String pw) {
     return new HikariDataSource(cfg);
 }
 
-// Hibernate 가 접근하는 schema 를 명시
-properties.put("hibernate.default_schema", slug);
+// hibernate.default_schema 는 의도적으로 설정하지 않음 — entity 가 schema 를 박지 않고
+// connection 의 search_path (slug 별 DataSource 의 currentSchema URL) 가 결정하도록 (ADR-018).
+// SchemaRoutingDataSource + SlugContext 가 ThreadLocal 슬러그 기반으로 connection 을 분기.
+properties.setProperty("hibernate.hbm2ddl.auto", "none");
 
 // Flyway 도 schema 별 분리
 Flyway.configure()
