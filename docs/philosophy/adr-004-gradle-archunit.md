@@ -194,8 +194,10 @@ public static final ArchRule DEPRECATED_MUST_DECLARE_SINCE_AND_FOR_REMOVAL =
 public static final ArchRule NO_MAPPER_CLASSES =
     noClasses()
         .that().haveSimpleNameEndingWith("Mapper")
+        .and().resideInAPackage("com.factory..")
         .and().areNotInterfaces()
         .should().bePublic()
+        .allowEmptyShould(true)
         .as("r22: *Mapper classes (non-interface) are forbidden — use Entity to<Dto>() methods instead");
 ```
 

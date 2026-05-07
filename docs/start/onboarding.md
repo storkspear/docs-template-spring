@@ -486,7 +486,7 @@ openssl rand -hex 32   # 64자 출력
 |---|---|
 | 코드 아키텍처 (포트/어댑터, 모듈 의존) | [`Architecture Reference`](../structure/architecture.md) |
 | 인프라 구성 (DB/스토리지/관측성 전체 상태) | [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) |
-| 설계 철학 (20개 ADR) | [`Repository Philosophy — 책 안내`](../philosophy/README.md) |
+| 설계 철학 (36개 ADR) | [`Repository Philosophy — 책 안내`](../philosophy/README.md) |
 | 문서 작성 규칙 | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) |
 | 인프라 결정 근거 (Supabase/NAS/맥미니 등) | [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) |
 | 코딩 규약 (naming, DTO, exception 등) | [`../convention/`](../convention/) |
@@ -521,4 +521,4 @@ openssl rand -hex 32   # 64자 출력
 | → 다음 | [`소셜 로그인 설정 가이드`](./social-auth-setup.md) | 4단계 — 외부 자격 증명 발급 (Google/Apple) |
 
 **막혔을 때**: §6 흔한 에러 / [`도그푸딩 함정`](./dogfood-pitfalls.md) / [`FAQ`](./dogfood-faq.md) / [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
-**왜 이렇게?**: [`Repository Philosophy — 책 안내`](../philosophy/README.md) (20개 ADR · 테마 1~5) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) (I-01~I-13)
+**왜 이렇게?**: [`Repository Philosophy — 책 안내`](../philosophy/README.md) (36개 ADR · 테마 1~8) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) (I-01~I-13)

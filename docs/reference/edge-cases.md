@@ -368,7 +368,7 @@
 
 ### 🟢 5-3. 매 앱마다 동일한 인증 테이블 Flyway 마이그레이션 반복
 
-**시나리오:** `new-app.sh` 가 V001~V006 (유저/인증 테이블) 을 매 앱마다 생성. 앱 20 개면 동일 구조 테이블이 20 벌.
+**시나리오:** `new-app.sh` 가 V001~V014 (인증 / admin / 결제 / audit / 2FA / 알림 테이블) 을 매 앱마다 생성. 앱 20 개면 동일 구조 테이블이 20 벌.
 
 **영향:** Flyway 실행 시간 약간 증가. DB 저장 공간 약간 증가. 기능에는 영향이 없습니다.
 
@@ -428,7 +428,7 @@
 
 ## 관련 문서
 
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 20 개 ADR 인덱스 (설계 결정의 이유)
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 36 개 ADR 인덱스 (설계 결정의 이유)
 - [`Architecture Reference`](../structure/architecture.md) — 시스템 구조
 - [`API Response Format`](../api-and-functional/api/api-response.md) — API 응답 포맷
 - [`Design Principles`](../convention/design-principles.md) — 설계 원칙

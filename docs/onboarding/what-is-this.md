@@ -94,4 +94,4 @@
 - [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 개발 환경 셋업 (1 시간 예상)
 
 "왜 이렇게 설계됐는지부터 알고 싶다" 면:
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 20 개 ADR 의 프롤로그만 먼저
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 36 개 ADR 의 프롤로그만 먼저

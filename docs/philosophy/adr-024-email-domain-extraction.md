@@ -116,7 +116,7 @@ ADR-019 = billing/iap/payment 분리 결정 (channel-specific vs policy layer). 
 
 - **모듈 수 +2** — settings.gradle / bootstrap/build.gradle 갱신 필요. Gradle 빌드 시간 minor 증가
 - **import 일괄 갱신** — `core-auth-impl` 의 모든 `EmailPort` import 변경 (`core-auth-api` → `core-email-api`)
-- **테스트 fixture 위치 모호** — `EmailRecorder` / `InMemoryEmailAdapter` 가 현재는 `core-auth-api/testFixtures` 에 남아 있어 *테스트 fixture 도 email 도메인으로 이동* 이 자연스러움 (다음 사이클)
+- **테스트 fixture 위치 일부 분리** — `EmailRecorder` 는 `core-auth-api/testFixtures` 에 잔존, `InMemoryEmailAdapter` 는 `core-auth-impl/test` 로 이동된 상태. *테스트 fixture 도 email 도메인 (`core-email-api/testFixtures`) 으로 통합 이동* 이 자연스러움 (다음 사이클)
 
 ---
 
@@ -151,7 +151,7 @@ ArchUnit 의 패턴 기반 룰 (r3) 이 *도메인 경계* 를 자동 강제해 
 ## 안 다루는 범위 (다음 사이클)
 
 - **SubscriptionNotificationListener 의 email 발송** — push + email 둘 다 발송하려면 UserPort 를 통한 email 조회 + 메시지 템플릿 분리가 필요해요. 별도 사이클로 다뤄요.
-- **Email contract test** — `core-email-api/testFixtures` 로 `EmailRecorder` 이동 + `InMemoryEmailAdapter` 추출. 현재는 `core-auth-api/testFixtures` 에 남아 있어요.
+- **Email contract test** — `core-email-api/testFixtures` 로 `EmailRecorder` 이동 (현재 `core-auth-api/testFixtures` 잔존) + `InMemoryEmailAdapter` 통합 (현재 `core-auth-impl/test` 위치).
 - **추가 발송 채널** — SMTP / Gmail API / SES / SendGrid 어댑터. 필요 시 `core-email-impl` 에 추가만 하면 돼요.
 
 ---

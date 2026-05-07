@@ -52,7 +52,7 @@
 | **로그인 흐름 변경** | totp_enabled=true 사용자만 추가 step. 1단계 통과 후 임시 token 5분 TTL |
 | **임시 token** | JWT type="2fa_pending" — 정상 access token 과 type 으로 구분 |
 | **Disable 보안** | 현재 비밀번호 + TOTP/backup 코드 둘 다 검증 (단순 disable 차단) |
-| **DB schema** | `users` 테이블에 totp_secret/enabled/backup_codes 컬럼 추가 (V013) |
+| **DB schema** | `users` 테이블에 `totp_secret` / `totp_enabled` / `totp_backup_codes` 컬럼 추가 (V013) |
 
 ---
 

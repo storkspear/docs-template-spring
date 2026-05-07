@@ -1,6 +1,6 @@
 # ADR-014 · Delegation mock 테스트 금지
 
-**Status**: Accepted. 430 개 테스트 중 Mockito 사용처는 외부 인프라 모킹 + 비결정 의존성 고정의 30여 건으로 제한돼 있어요. "A 가 B.foo() 를 호출하는가" 같은 내부 위임 검증은 두지 않아요. Port 계약 테스트 + Integration 테스트가 주력 검증 메커니즘이에요.
+**Status**: Accepted. (정량 snapshot — 2026-04-29 기준 430 테스트 중 Mockito ~30건; 본 문서의 정량 수치는 작성 시점 snapshot 으로 신규 cycle 마다 변동. 최신 카운트는 `./gradlew test` build report 또는 `grep -rE 'when\(.+\)\.thenReturn|verify\(' --include='*.java' test/` 참조.) Mockito 사용처는 외부 인프라 모킹 + 비결정 의존성 고정으로 제한돼 있어요. "A 가 B.foo() 를 호출하는가" 같은 내부 위임 검증은 두지 않아요. Port 계약 테스트 + Integration 테스트가 주력 검증 메커니즘이에요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

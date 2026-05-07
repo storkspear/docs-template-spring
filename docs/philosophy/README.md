@@ -115,8 +115,9 @@
 | "Flyway 의 prod 자동 migrate 가 위험한데?" | [`ADR-033: Flyway Hybrid Policy`](./adr-033-flyway-hybrid-policy.md) |
 | "도메인을 부분만 켜고 끄려면?" | [`ADR-034: Feature Toggle Lite mode`](./adr-034-feature-toggle-lite-mode.md) |
 | "Lite 모드의 사용자 UI 노출은?" | [`ADR-035: Lite mode 사용자 인터페이스`](./adr-035-lite-mode-user-interface.md) |
+| "공개 webhook 등 외부 호출의 SSRF 방어는?" | [`ADR-036: SSRF URL whitelist 정책`](./adr-036-ssrf-url-whitelist.md) |
 
-> **35 개 ADR 작성 완료** (ADR-001 ~ ADR-035). 테마별로 그룹화되어 있고 각 카드는 독립적으로 읽을 수 있습니다.
+> **36 개 ADR 작성 완료** (ADR-001 ~ ADR-036). 테마별로 그룹화되어 있고 각 카드는 독립적으로 읽을 수 있습니다.
 
 ### ADR 카드의 읽는 법
 
@@ -331,9 +332,9 @@ ADR-029 (password policy) + ADR-030 (2FA TOTP)
 
 **테마 7 의 결론**: auth / billing 의 core 흐름과 별도로 *보안 / 감사 / 알림* 도메인을 독립 모듈로 추출. 메일 발송은 EmailPort 로 분리해서 어느 도메인이든 의존 가능하고 (ADR-024), 관리자 권한은 `@AdminOnly` 어노테이션 + JWT role claim 으로 강제 (ADR-027). 감사 로그는 `@Audited` AOP 로 자동 기록되어 *사용자 흐름을 차단하지 않는* 부산물 형태 (ADR-028). 비밀번호 정책 (ADR-029) 과 2FA (ADR-030) 는 표준 라이브러리 (Bean Validation / RFC 6238) 위에서 최소 구현으로 강도를 올림.
 
-### 테마 8 — 운영 정책 / Lite 모드 ✅ 완료
+### 테마 8 — 운영 정책 / Lite 모드 / SSRF ✅ 완료
 
-**이 테마가 답하는 물음**: "프로덕션 안정성과 도메인 토글 가능성을 어떻게 양립시키는가?"
+**이 테마가 답하는 물음**: "프로덕션 안정성과 도메인 토글 가능성, 외부 호출 보안 baseline 을 어떻게 양립시키는가?"
 
 ```
 ADR-033 (Flyway Hybrid Policy)
@@ -348,13 +349,19 @@ ADR-034 (Feature Toggle Lite mode)
    ▼
 ADR-035 (Lite mode 사용자 인터페이스)
   ".env.prod 의 토글 상태가 사용자에게 보이는 흐름 정리"
+   │
+   │ 외부 HTTP 호출의 보안 baseline 은?
+   ▼
+ADR-036 (SSRF URL whitelist 정책)
+  "URL 은 hardcode 또는 환경변수만. 사용자 입력으로 host/path 결정 금지"
 ```
 
 - [`ADR-033 · Flyway Hybrid Policy`](./adr-033-flyway-hybrid-policy.md)
 - [`ADR-034 · Feature Toggle Lite mode`](./adr-034-feature-toggle-lite-mode.md)
 - [`ADR-035 · Lite mode 사용자 인터페이스`](./adr-035-lite-mode-user-interface.md)
+- [`ADR-036 · SSRF URL whitelist 정책`](./adr-036-ssrf-url-whitelist.md)
 
-**테마 8 의 결론**: 운영 안전성과 유연성을 동시에 확보하는 운영 정책. Flyway 는 dev/test 에서는 자동 migrate, prod 는 validate 만 하고 운영자가 명시적으로 적용 (ADR-033 — `tools/migrate-prod.sh`). Lite 모드는 8 개 도메인 (payment / iap / email / 2fa / audit / push / billing-notification / password-policy) 을 `.env.prod` 의 환경변수로 opt-out 가능 (ADR-034). 사용자 UI 차원의 노출은 ADR-035 에서 별도 정리. *솔로 인디 운영자가 자기 앱의 복잡도에 맞게 도메인을 골라 켜는* 흐름.
+**테마 8 의 결론**: 운영 안전성과 유연성을 동시에 확보하는 운영 정책 + 외부 호출 보안 baseline. Flyway 는 dev/test 에서는 자동 migrate, prod 는 validate 만 하고 운영자가 명시적으로 적용 (ADR-033 — `tools/migrate-prod.sh`). Lite 모드는 8 개 도메인 (payment / iap / email / 2fa / audit / push / billing-notification / password-policy) 을 `.env.prod` 의 환경변수로 opt-out 가능 (ADR-034). 사용자 UI 차원의 노출은 ADR-035 에서 별도 정리. 외부 HTTP 호출 (Apple / Google / Kakao / Naver / Resend / MinIO / FCM) 은 모두 hardcode 또는 운영자 통제 환경변수로만 결정해 SSRF 가 설계상 불가능 (ADR-036). *솔로 인디 운영자가 자기 앱의 복잡도에 맞게 도메인을 골라 켜되, 외부 호출 보안 baseline 은 일관 유지하는* 흐름.
 
 ---
 

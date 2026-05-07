@@ -134,6 +134,8 @@ protected DataSource buildDataSource(String url, String user, String pw) {
 }
 
 // Hibernate 가 이 DataSource 로 접근하는 schema 를 명시
+// (참고: ADR-018 에서 SchemaRoutingDataSource 도입 후 — connection URL 의
+//  currentSchema 로 위임해 hibernate.default_schema 는 미설정. 본 ADR 시점 형태)
 properties.put("hibernate.default_schema", slug);
 ```
 
@@ -216,15 +218,15 @@ REVOKE ALL ON SCHEMA public FROM <app_role>;
 
 **교훈**: RBAC 는 "허용된 것만 준다" 가 아니라 "기본 허용 + 선별적 회수" 로 동작할 수 있다. Postgres 의 default privileges 를 반드시 명시 회수해야 경계가 완성된다.
 
-### Hibernate `default_schema` 설정을 빠뜨리지 말 것
+### Hibernate schema 결정 방식의 진화 — `default_schema` 명시 → connection URL `currentSchema`
 
-DataSource 만 schema 별 user 로 연결해도, Hibernate 는 여전히 `public.users` 같은 완전 한정 이름을 생성하려 할 수 있습니다. 이 경우 permission denied 가 발생하거나, 최악의 경우 search_path 에 들어있던 다른 schema 의 테이블에 접근.
+DataSource 만 schema 별 user 로 연결해도, Hibernate 는 `public.users` 같은 완전 한정 이름을 생성하려 할 수 있습니다. 이 경우 permission denied 가 발생하거나, 최악의 경우 search_path 에 들어있던 다른 schema 의 테이블에 접근.
 
-```java
-properties.put("hibernate.default_schema", slug);
-```
+본 ADR 시점에는 `properties.put("hibernate.default_schema", slug)` 한 줄을 명시하는 형태로 잡았어요. 이 한 줄이 없으면 방어선 2 가 무너졌습니다.
 
-이 한 줄이 없으면 방어선 2 가 무너집니다. **교훈**: DataSource 격리와 ORM 매핑의 schema 설정은 **분리된 두 가지 단계**. 둘 다 명시해야 안전.
+> ⚠️ **이후 갱신 (ADR-018)** — 본 ADR 작성 후 [`ADR-018 · SchemaRoutingDataSource`](./adr-018-schema-routing-datasource.md) 가 도입되면서 `hibernate.default_schema` 는 *의도적으로 설정하지 않는* 방향으로 바뀌었어요. 이유: 단일 EntityManagerFactory 가 *복수 슬러그 schema* 를 routing 으로 처리하려면, entity 가 *어떤 schema 도 박지 않은* 상태여야 하고 connection 의 search_path (slug 별 DataSource 의 `currentSchema` URL parameter) 가 결정하도록 위임해야 합니다. `default_schema` 를 박으면 ThreadLocal 라우팅과 충돌해 *슬러그 schema 의 entity 가 default schema 에서 검증되는* 부팅 실패가 발생해요. 현재 코드는 `AbstractAppDataSourceConfig.java:182-184` 에 이 결정의 주석을 둡니다 — `// hibernate.default_schema 는 의도적으로 설정하지 않음 — entity 가 schema 를 박지 않고 connection 의 search_path 가 결정하도록`.
+>
+> **결론**: ADR-005 의 5 중 방어선은 그대로 유지되되, *방어선 2 의 schema 결정 매커니즘* 만 (a) "hibernate.default_schema 명시" → (b) "connection URL `currentSchema` + `SchemaRoutingDataSource` routing" 로 진화. 본 교훈의 본질 — *DataSource 와 ORM 매핑의 schema 설정은 분리된 두 단계, 둘 다 명시해야 안전* — 는 (b) 형태에서도 유효하지만 *명시 위치만 달라짐*.
 
 ### schema 당 Flyway 히스토리 분리의 중요성
 

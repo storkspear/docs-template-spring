@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~30분
 
-이 문서는 `template-spring` 의 **실제 구조** 를 설명해요. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 20 개 ADR 에 기록되어 있습니다.
+이 문서는 `template-spring` 의 **실제 구조** 를 설명해요. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 36 개 ADR 에 기록되어 있습니다.
 
 > **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내해요. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 를 먼저 참고하세요.
 
@@ -170,7 +170,7 @@ template-spring/
 │   │   ├── setup/                     # secret-chain-4stage, key-issuance, key-rotation, mac-mini-setup, monitoring-setup, storage-setup, storage-bucket-isolation
 │   │   ├── operations/                # feature-toggle 등 운영자 가이드
 │   │   └── test/                      # contract-testing, testing-strategy
-│   ├── philosophy/                    # L3 — 20 개 ADR
+│   ├── philosophy/                    # L3 — 36 개 ADR
 │   │   ├── README.md                  # ADR 인덱스 + 테마별 그룹
 │   │   └── adr-001 ~ adr-035.md       # Architecture Decision Records
 │   ├── planned/                       # backlog (미완료 / 향후 작업)
@@ -891,7 +891,7 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 
 ## 관련 문서
 
 ### 핵심 레퍼런스
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 20 개 ADR 설계 결정의 근거
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 36 개 ADR 설계 결정의 근거
 - [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) — 문서 작성 규칙
 - [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 개발 환경 셋업
 
