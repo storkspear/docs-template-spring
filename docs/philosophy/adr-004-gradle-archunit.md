@@ -272,7 +272,7 @@ ArchUnit 규칙은 `r1`, `r2`, ..., `r22` 처럼 **번호로** 참조합니다.
 
 - **[ESLint `no-restricted-imports`](https://eslint.org/docs/latest/rules/no-restricted-imports)** — JS 생태계에서 비슷한 목적.
 - **[Dependency Cruiser](https://github.com/sverweij/dependency-cruiser)** — Node.js 모듈 의존 검증.
-- **[Nx Tags & Boundaries](https://nx.dev/concepts/more-concepts/enforce-project-boundaries)** — Nx monorepo.
+- **[Nx Tags & Boundaries](https://nx.dev/features/enforce-module-boundaries)** — Nx monorepo.
 - **Rust 의 module visibility (`pub`, `pub(crate)`, `pub(super)`)** — 언어 레벨 강제.
 - **[Checkstyle](https://checkstyle.sourceforge.io/) / [PMD](https://pmd.github.io/) / [SpotBugs](https://spotbugs.github.io/)** — Java 전통 lint.
 

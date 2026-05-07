@@ -23,6 +23,8 @@
 | **Gradle Convention Plugin** | — | `build-logic/` 에 5 개 (bootstrap / common / core-api / core-impl / app-module) |
 | **Spring Boot Gradle Plugin** | 3.5.13 | Fat JAR 빌드, bootRun |
 | **Spring Dependency Management Plugin** | 1.1.7 | 의존성 BOM 관리 |
+| **Spotless** | 6.25.0 | google-java-format 4-space 자동 적용 (커밋 전 강제) |
+| **OWASP Dependency Check** | 11.1.0 | 의존성 CVE 스캔 (옵트인 task) |
 
 ## Spring 생태계
 
@@ -73,6 +75,10 @@ Spring Boot 3.5.13 BOM 으로 버전 일괄 관리.
 | **Testcontainers PostgreSQL / JUnit5 / MinIO** | 1.20.6 | 각 리소스별 컨테이너 |
 | **ArchUnit JUnit5** | 1.4.2 | 아키텍처 규칙 테스트 (22 개) |
 | **Jackson Databind / JSR310** | Spring Boot BOM | 계약 테스트 JSON 비교 |
+| **WireMock standalone** | 3.10.0 | OAuth provider HTTP mock (test only — Spring Boot Jetty/Jackson 충돌 회피용 standalone) |
+| **PIT (Pitest) plugin** | 1.15.0 | Mutation testing Gradle plugin |
+| **PIT core** | 1.17.0 | Mutation testing 엔진 |
+| **PIT junit5** | 1.2.1 | JUnit5 plugin |
 
 ## 관측성 (Observability)
 

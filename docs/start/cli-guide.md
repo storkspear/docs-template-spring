@@ -61,11 +61,11 @@
 
 | verb | local | 비고 |
 |---|---|---|
-| **new app** `[slug]` | 새 앱 모듈 (schema + V001~V007 + 시드 + 검증). `slug` 생략 시 prompt | `tools/new-app/new-app.sh` |
+| **new app** `[slug]` | 새 앱 모듈 (schema + V001~V014 + V007 admin 시드 + 검증). `slug` 생략 시 prompt | `tools/new-app/new-app.sh` |
 | **feature list** | Lite 모드 토글 가능 모듈 + 현재 상태 (ADR-034) | `local feature` 만 |
 | **feature enable** `<n>` | `APP_FEATURES_<N>=true` (`.env` + `.env.prod` 동시 갱신) | — |
 | **feature disable** `<n>` | `APP_FEATURES_<N>=false` | — |
-| **monitor** | actuator/prometheus 메트릭 폴링 (5초 간격, Grafana 대안). `--interval=N` / `--base=URL` | — |
+| **monitor** | actuator/prometheus 메트릭 폴링 (5초 간격, Grafana 대안). `--interval=N` / `--base=URL`. `prod monitor` 는 차단 — 운영은 Grafana 대시보드 사용 | `local monitor` 만 |
 
 ### 마이그레이션 / 정리 (DESTRUCTIVE)
 
