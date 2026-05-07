@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2~3 · **읽는 시간**: ~12분
 
-프로젝트의 환경별 인프라 구성, 책임 분담, 프로비저닝 상태를 기록해요. 코드 아키텍처의 **왜** 는 [`philosophy/` 20 개 ADR](../../philosophy/README.md) 에, **무엇/어디** 는 [`Architecture Reference`](../../structure/architecture.md) 에 있고, 이 문서는 그 위에서 **운영 환경의 실체** 를 다룹니다.
+프로젝트의 환경별 인프라 구성, 책임 분담, 프로비저닝 상태를 기록해요. 코드 아키텍처의 **왜** 는 [`philosophy/` 36 개 ADR](../../philosophy/README.md) 에, **무엇/어디** 는 [`Architecture Reference`](../../structure/architecture.md) 에 있고, 이 문서는 그 위에서 **운영 환경의 실체** 를 다룹니다.
 
 > **독자 대상**: 본인 (미래의 자신) / 파생 레포를 만든 개발자 / 운영 담당 (Phase 1+).
 
@@ -345,7 +345,7 @@ V008__init_devices.sql
 
 ### 코드 아키텍처 / 설계 결정
 - [`Architecture Reference`](../../structure/architecture.md) — 코드 아키텍처 (포트/어댑터, 모듈 의존성)
-- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 20 개 ADR 인덱스 (설계 결정의 근거)
+- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 36 개 ADR 인덱스 (설계 결정의 근거)
 - 특히: [`ADR-001 (모듈러 모놀리스)`](../../philosophy/adr-001-modular-monolith.md), [`ADR-005 (Postgres schema 격리)`](../../philosophy/adr-005-db-schema-isolation.md), [`ADR-007 (솔로 친화적 운영)`](../../philosophy/adr-007-solo-friendly-operations.md)
 
 ### 인프라 결정 / 운영

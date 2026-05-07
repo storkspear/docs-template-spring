@@ -62,17 +62,19 @@ InterruptedException 처리도 표준 패턴 따름 — `Thread.currentThread().
 
 본 ADR 작성 시점 (2026-05-06) 의 외부 호출 인벤토리:
 
-| # | 호출 | 파일 | URL 결정 | timeout |
+| # | 호출 | 파일 (식별자) | URL 결정 | timeout |
 |---|---|---|---|---|
-| 1 | Apple JWKS | `AppleJwksClient.java:31` | hardcode | connect 5s |
-| 2 | Google tokeninfo | `GoogleSignInService.java:41-42` | hardcode | connect 5s, req 10s |
-| 3 | Google JWKS | `GoogleJwksClient.java:29` | hardcode | connect 5s |
-| 4 | Kakao token info | `KakaoSignInService.java:48` | hardcode | connect 5s, req 10s |
-| 5 | Kakao user/me | `KakaoSignInService.java:50` | hardcode | connect 5s, req 10s |
-| 6 | Naver user info | `NaverSignInService.java:53` | hardcode | connect 5s, req 10s |
-| 7 | Resend 이메일 | `ResendEmailAdapter.java:24` | hardcode | connect 5s, req 10s |
+| 1 | Apple JWKS | `AppleJwksClient.DEFAULT_JWKS_URL` | hardcode | connect 5s |
+| 2 | Google tokeninfo | `GoogleSignInService.DEFAULT_TOKENINFO_URL` | hardcode | connect 5s, req 10s |
+| 3 | Google JWKS | `GoogleJwksClient.DEFAULT_JWKS_URL` | hardcode | connect 5s |
+| 4 | Kakao token info | `KakaoSignInService.DEFAULT_TOKEN_INFO_URL` | hardcode | connect 5s, req 10s |
+| 5 | Kakao user/me | `KakaoSignInService.DEFAULT_USER_ME_URL` | hardcode | connect 5s, req 10s |
+| 6 | Naver user info | `NaverSignInService.DEFAULT_USER_ME_URL` | hardcode | connect 5s, req 10s |
+| 7 | Resend 이메일 | `ResendEmailAdapter.RESEND_API_URL` | hardcode | connect 5s, req 10s |
 | 8 | MinIO 스토리지 | (MinIO SDK 내부) | `APP_STORAGE_MINIO_ENDPOINT` (env) | SDK default |
 | 9 | FCM 푸시 | (Firebase Admin SDK 내부) | SDK 내부 관리 | SDK default |
+
+> 식별자 (상수명) 로 인벤토리화 — line number 는 코드 편집 빈번하므로 자동 outdated 위험. 정확한 위치는 `grep -rn '<상수명>' core/` 로 즉시 파악 가능.
 
 모두 정책 부합. 사용자 입력으로 URL 결정되는 지점 0건.
 

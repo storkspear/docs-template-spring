@@ -8,7 +8,7 @@
 
 | 문서 | 범위 |
 |---|---|
-| [`Repository Philosophy — 책 안내`](../../philosophy/README.md) | **코드 설계 결정 (20 ADR)** — 모듈 구조, 포트/어댑터, Mapper 금지, 테스트 전략 등 |
+| [`Repository Philosophy — 책 안내`](../../philosophy/README.md) | **코드 설계 결정 (36 ADR)** — 모듈 구조, 포트/어댑터, Mapper 금지, 테스트 전략 등 |
 | **`decisions-infra.md`** (이 문서) | **물리/운영 인프라 결정** — DB, 오브젝트 스토리지, 운영 호스트, 엣지, 관측성 |
 
 경계 케이스 (예: 서비스별 schema — 코드 규약이자 인프라 결정) 는 양쪽에서 상호 참조해요.
@@ -490,7 +490,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 
 ## 관련 문서
 
-- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 코드 설계 결정 (20 ADR)
+- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 코드 설계 결정 (36 ADR)
 - [`인프라 (Infrastructure)`](./infrastructure.md) — 인프라 현재 상태 + 구성도
 - [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md) — 2-tier bucket 상세 규약
 - [`Observability 규약`](../../api-and-functional/functional/observability.md) — 관측성 규약

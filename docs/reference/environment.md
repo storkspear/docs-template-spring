@@ -99,8 +99,8 @@ Spring Boot 3.5.13 BOM 으로 버전 일괄 관리.
 
 | 이름 | 버전 | 용도 |
 |---|---|---|
-| **springdoc-openapi-starter-webmvc-ui** | 2.6.0 | Swagger UI (`/swagger-ui.html`) |
-| **springdoc-openapi-starter-webmvc-api** | 2.6.0 | OpenAPI 문서 (`/v3/api-docs`) |
+| **springdoc-openapi-starter-webmvc-ui** | 2.8.13 | Swagger UI (`/swagger-ui.html`) |
+| **springdoc-openapi-starter-webmvc-api** | 2.8.13 | OpenAPI 문서 (`/v3/api-docs`) |
 
 ## Rate Limiting & 유틸
 
@@ -141,7 +141,7 @@ Spring Boot 3.5.13 BOM 으로 버전 일괄 관리.
 
 | 이름 | 버전 | 용도 |
 |---|---|---|
-| **GitHub Actions** | — | CI/CD 플랫폼 (`.github/workflows/` 총 10 개) |
+| **GitHub Actions** | — | CI/CD 플랫폼 (`.github/workflows/` 총 11 개) |
 | **GitHub Container Registry (GHCR)** | — | 도커 이미지 저장소 |
 
 **주요 워크플로우:**

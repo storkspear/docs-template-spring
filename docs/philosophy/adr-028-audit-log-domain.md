@@ -126,7 +126,7 @@ public void record(AuditEvent event) {
 
 ---
 
-## 검증 (단위 테스트 7건)
+## 검증 (단위 테스트 13건)
 
 `AuditAspectTest`:
 
@@ -137,6 +137,12 @@ public void record(AuditEvent event) {
 5. `recordFailure_doesNotPropagate_logOnly` — 실패 격리
 6. `noAuthentication_actorIsNull` — 익명 액션 (시스템 등)
 7. `noSlugContext_slugIsNull` — slug 없는 호출
+8. `principalNotAuthenticatedUser_actorIsNull` — Principal 이 AuthenticatedUser 가 아닐 때
+9. `ipAddress_xForwardedForSingleValue_capturedAsIs` — X-Forwarded-For 단일 값
+10. `ipAddress_xForwardedForCommaSeparated_takesFirstHop` — 첫 hop 만 사용
+11. `ipAddress_noForwardedHeader_fallsBackToRemoteAddr` — 헤더 없으면 RemoteAddr fallback
+12. `ipAddress_blankForwardedHeader_fallsBackToRemoteAddr` — blank 헤더 fallback
+13. `truncate_longExceptionMessageInFailureDetails` — 긴 예외 메시지 truncate (500자)
 
 `AspectJProxyFactory` 로 target 객체에 aspect wrap → fake `AuditPort` 가 호출 캡처. ADR-014 (delegation mock 금지, fake adapter).
 

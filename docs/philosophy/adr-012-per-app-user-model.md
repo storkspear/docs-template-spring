@@ -211,7 +211,9 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 ### 긍정적 결과
 
-**ThreadLocal 복잡도 완전 제거** — 코드베이스 전체에 `ThreadLocal`, `AbstractRoutingDataSource`, `TenantContext` 흔적이 **0 개** 예요 (grep 확인 완료). 비동기 경계 (`@Async`, Virtual Thread) 에서 컨텍스트 유실 걱정이 없고, 테스트에서 컨텍스트 오염 걱정도 없어요.
+**ThreadLocal 복잡도 — controller 레이어에서 완전 제거** — controller 가 자기 앱의 DataSource 를 DI 로 직접 주입받으므로, 통합 계정 모델에서 필요했던 *전역 ThreadLocal 라우팅* 자체는 사라졌어요. 비동기 경계 (`@Async`, Virtual Thread) 에서 controller 의 DataSource 결정에 ThreadLocal 유실 영향이 없고, 테스트에서도 controller 단의 DataSource 오염 걱정이 없습니다.
+
+> ⚠️ **이후 갱신 (ADR-018)** — 본 ADR 작성 시점에는 *코드베이스 전체 ThreadLocal 0건* 이었지만, 이후 [`ADR-018 · SchemaRoutingDataSource`](./adr-018-schema-routing-datasource.md) 에서 *service-layer 까지의 schema 라우팅* 을 위해 `SchemaRoutingDataSource extends AbstractRoutingDataSource` + `SlugContext` (ThreadLocal) 를 도입했어요. 이 ThreadLocal 은 *controller 단의 통합 계정 라우팅* 과는 다른 결로, *service / repository 가 SlugContext 의 슬러그를 보고 schema 를 자동 결정* 하는 limited scope. 비동기 경계에서의 유실은 `AppSlugMdcFilter` + `try-finally` 의 명시적 정리로 차단합니다. 본 ADR 의 "통합 계정 ThreadLocal 라우팅" 거부 결정은 여전히 유효하고, ADR-018 의 ThreadLocal 은 *그 결정의 부분 우회가 아니라* 별도 layer 의 정합 매커니즘이에요.
 
 **유저 모델과 schema 경계의 완전 정합** — users 테이블도 schema 단위로 완전 격리됩니다. [`ADR-005`](./adr-005-db-schema-isolation.md) 5 중 방어선이 예외 없이 작동하고, "유저 테이블만 다른 schema" 같은 특수 케이스가 없어요.
 
@@ -241,13 +243,15 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 
 **교훈**: 코드의 런타임 역할이 파일 외형과 다를 때, 그 차이를 **3중으로** 표시하지 않으면 반드시 누군가가 혼란을 겪는다. 주석만으론 부족.
 
-### ThreadLocal 기반 멀티테넌시는 처음부터 피할 것
+### ThreadLocal 기반 *통합 계정 라우팅* 은 처음부터 피할 것
 
-**대안 — `AbstractRoutingDataSource` + ThreadLocal 조합** 의 한계: 구현은 되지만 **테스트가 새어나갑니다**. Spring Security 필터 체인 · `@Async` · 테스트 fixture 정리 등 각 경계마다 ThreadLocal 관리 코드가 필요하고, 한 군데만 빠뜨려도 통합 테스트에서 미스터리한 실패가 발생해요.
+**대안 — `AbstractRoutingDataSource` + ThreadLocal 조합** 의 한계: *통합 계정 모델 + 모든 layer 의 ThreadLocal 라우팅* 형태로 구현은 되지만 **테스트가 새어나갑니다**. Spring Security 필터 체인 · `@Async` · 테스트 fixture 정리 등 각 경계마다 ThreadLocal 관리 코드가 필요하고, 한 군데만 빠뜨려도 통합 테스트에서 미스터리한 실패가 발생해요.
 
-그 시점에 "통합 계정 모델을 버리면 ThreadLocal 자체가 불필요해진다" 를 깨달은 게 Option 3 채택의 트리거였어요.
+그 시점에 "통합 계정 모델을 버리면 controller 단의 ThreadLocal 자체가 불필요해진다" 를 깨달은 게 Option 3 채택의 트리거였어요.
 
-**교훈**: 아키텍처 대안 탐색에서 "이게 정말 필요한 복잡도인가?" 를 항상 재귀적으로 묻기. ThreadLocal 이 필요해진 **원인** 을 제거하면 ThreadLocal 자체가 불필요해진다.
+**교훈**: 아키텍처 대안 탐색에서 "이게 정말 필요한 복잡도인가?" 를 항상 재귀적으로 묻기. *통합 계정* 의 ThreadLocal 이 필요해진 **원인** 을 제거하면 controller 단의 ThreadLocal 자체가 불필요해진다.
+
+> ⚠️ **scope 명시**: 이 교훈은 *controller 가 통합 계정 라우팅을 위해 ThreadLocal 을 쓰는 형태* 를 거부하는 결정. ADR-018 의 `SchemaRoutingDataSource` 가 *service-layer 의 schema 라우팅* 을 위해 별도 ThreadLocal (`SlugContext`) 을 도입한 건 이 교훈의 적용 외 영역 — 사용 시 *try-finally 명시 정리* + *비동기 경계의 명시 propagation* 으로 한계를 통제했어요.
 
 ### JWT claim 이름 변경은 DB 마이그레이션만큼 중요한 breaking change
 

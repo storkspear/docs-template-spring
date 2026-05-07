@@ -1,6 +1,6 @@
 # ADR-003 · core 모듈을 `-api` / `-impl` 로 분리
 
-**Status**: Accepted. core × 6 도메인 (user, auth, device, push, billing, storage) 모두 `-api` / `-impl` 쌍으로 구성돼 있어요. ArchUnit 9 개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 구조를 강제합니다.
+**Status**: Accepted. core × 10 도메인 (user, auth, device, push, billing, iap, payment, storage, email, audit) 모두 `-api` / `-impl` 쌍으로 구성돼 있어요. ArchUnit 9 개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 구조를 강제합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -83,7 +83,7 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 
 ### Option 4 — `-api` / `-impl` Gradle 모듈 분리 ★ (채택)
 
-6개 도메인 각각을 `core-<domain>-api` + `core-<domain>-impl` 두 개의 Gradle 모듈로 분리.
+10개 도메인 각각을 `core-<domain>-api` + `core-<domain>-impl` 두 개의 Gradle 모듈로 분리.
 
 - **`-api` 모듈**: 인터페이스 + DTO + Exception 만. JPA 의존 0. Spring 의존 0.
 - **`-impl` 모듈**: Spring 빈 + JPA 엔티티 + 비즈니스 로직.
@@ -95,7 +95,7 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 - 미래 추출 시 `-api` 는 그대로, `-impl` 만 HTTP 클라이언트로 교체.
 
 **단점**:
-- 모듈 수 2배 (6개 도메인 → 12 모듈).
+- 모듈 수 2배 (10개 도메인 → 20 모듈).
 - 인터페이스와 구현체 사이의 매핑 파일 관리 필요 (DTO ↔ Entity 변환 등).
 - 초기 설정 복잡도 약간 상승.
 
@@ -103,7 +103,7 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 
 ## 결정
 
-core 6개 도메인 전부 `-api` / `-impl` 쌍으로 분리합니다.
+core 10개 도메인 전부 `-api` / `-impl` 쌍으로 분리합니다.
 
 ```
 core/
@@ -265,7 +265,7 @@ references class <com.factory.core.user.impl.entity.User>
 
 ### 부정적 결과
 
-**모듈 수 2배** — 6개 도메인 × 2 = 12 core 모듈이에요. IDE 프로젝트 트리가 길어져요. 완화: 관습으로 짝 구조가 명확해서 탐색은 쉬워요.
+**모듈 수 2배** — 10개 도메인 × 2 = 20 core 모듈이에요. IDE 프로젝트 트리가 길어져요. 완화: 관습으로 짝 구조가 명확해서 탐색은 쉬워요.
 
 **DTO ↔ Entity 변환 비용** — Port 가 Entity 반환을 금지하므로 `-impl` 내부에서 Entity 를 DTO 로 변환해야 해요. 완화: ADR-016 (DTO Mapper 금지, Entity 메서드 패턴) 이 이 비용을 최소화해요.
 

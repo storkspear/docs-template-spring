@@ -109,8 +109,10 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 **검증**:
 - 운영 함정 6개 (`README.md`) + dogfood-pitfalls 12개 — 설정 실수 케이스 정리
 
-**Gap (높음)**:
-- **🚨 Swagger UI prod 노출** — `application.yml:15-19` 에 `springdoc.swagger-ui.path: /swagger-ui.html` 활성화. **prod profile 에서 override 없음** → production 환경에서 누구나 `/swagger-ui.html` 접근 가능. SecurityConfig 의 `ApiEndpoints.System.SWAGGER` 가 `permitAll`. 즉시 fix 권장
+**해결됨**:
+- **✅ Swagger UI prod 비활성** (resolved) — `application-prod.yml:43-47` 에 `springdoc.swagger-ui.enabled: false` + `api-docs.enabled: false` 적용. prod 에서 `/swagger-ui.html` / `/v3/api-docs` 모두 404. dev/default profile 은 `application.yml` 의 활성 설정 그대로 유지
+
+**Gap (남은 항목)**:
 - **CORS 미설정 가이드 부재** — 의도적 결정 (모바일 전제) 이지만 파생 레포가 브라우저 client 추가 시 자동 안내 없음
 - **`server.error.include-stacktrace` 명시 부재** — 환경별 기본값 다름 (dev=ALWAYS, prod=ON_PARAM). prod 안전 위해 `never` 명시 권장
 - **Admin credential 시드 변경 강제 부재** — `new-app.sh` 가 admin 계정 자동 생성. 첫 로그인 시 비밀번호 변경 강제 로직 없음
@@ -230,12 +232,12 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 | # | 호출 | 파일 (line) | URL |
 |---|---|---|---|
 | 1 | Apple JWKS | `AppleJwksClient.java:31` | 고정: `https://appleid.apple.com/auth/keys` |
-| 2 | Google tokeninfo | `GoogleSignInService.java:41-42` | 고정: `https://oauth2.googleapis.com/tokeninfo` |
-| 3 | Google JWKS (webhook) | `GoogleJwksClient.java:29` | 고정: `https://www.googleapis.com/oauth2/v3/certs` |
-| 4 | Kakao token info | `KakaoSignInService.java:48,50` | 고정: `https://kapi.kakao.com/v1/user/access_token_info`, `https://kapi.kakao.com/v2/user/me` |
-| 5 | Naver user info | `NaverSignInService.java:53` | 고정: `https://openapi.naver.com/v1/nid/me` |
+| 2 | Google tokeninfo | `GoogleSignInService.DEFAULT_TOKENINFO_URL` | 고정: `https://oauth2.googleapis.com/tokeninfo` |
+| 3 | Google JWKS (webhook) | `GoogleJwksClient.DEFAULT_JWKS_URL` | 고정: `https://www.googleapis.com/oauth2/v3/certs` |
+| 4 | Kakao token info | `KakaoSignInService.DEFAULT_TOKEN_INFO_URL` / `DEFAULT_USER_ME_URL` | 고정: `https://kapi.kakao.com/v1/user/access_token_info`, `https://kapi.kakao.com/v2/user/me` |
+| 5 | Naver user info | `NaverSignInService.DEFAULT_USER_ME_URL` | 고정: `https://openapi.naver.com/v1/nid/me` |
 | 6 | FCM 푸시 | Firebase Admin SDK | SDK 내부 관리 |
-| 7 | Resend 이메일 | `ResendEmailAdapter.java:24` | 고정: `https://api.resend.com/emails` |
+| 7 | Resend 이메일 | `ResendEmailAdapter.RESEND_API_URL` | 고정: `https://api.resend.com/emails` |
 | 8 | MinIO 스토리지 | MinIO SDK | `APP_STORAGE_MINIO_ENDPOINT` (환경 설정) |
 
 **모든 URL 이 hardcode 또는 운영자 설정값**. 사용자 입력으로 URL 결정되는 지점 없음.
@@ -253,9 +255,11 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `AppleJwksClient`, `GoogleSignInService`, `KakaoSignInService`, `NaverSignInService`, `GoogleWebhookAuthFilter` 모두 WireMock IT
 - `ResendEmailAdapter` 테스트 (HTTP spy)
 
-**Gap**:
-- **URL whitelist 정책 ADR 부재** — 모든 호출이 고정 URL 인 의도가 ADR 로 명시 안 됨 (현재 코드만 봐야 알 수 있음). 향후 외부 URL 받는 endpoint 추가 시 가이드 부재
-- **Resend timeout 미명시** — `ResendEmailAdapter.java:31` 의 `HttpClient.newHttpClient()` 가 기본 timeout. 다른 client 들이 모두 5/10s 명시인데 Resend 만 누락
+**해결됨**:
+- **✅ URL whitelist 정책 ADR-036 작성됨** (resolved) — [`ADR-036 · SSRF URL whitelist 정책`](../../philosophy/adr-036-ssrf-url-whitelist.md) 이 4 가이드라인 (host/path hardcode, connectTimeout 5s, request timeout 10s, no auto-redirect) + 9 호출 인벤토리 명문화
+- **✅ Resend connectTimeout 명시** (resolved) — `ResendEmailAdapter.java:32` 에 `HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()` 적용. 다른 client 와 동일 baseline
+
+**Gap (남은 항목)**:
 - **MinIO endpoint 검증 부재** — `APP_STORAGE_MINIO_ENDPOINT` 가 admin 통제이지만 도메인 검증 없음. `http://internal-server:9000` 같은 내부 주소 설정 가능 (실수 케이스)
 - **Private IP 차단 정책 명시 없음** — RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) 차단 룰 부재. 현재 모든 호출이 public cloud endpoint 라 현실적 위험 낮음
 - **DNS rebinding 방어 없음** — TOCTOU 취약점 mitigation 없음 (매우 낮은 확률)
@@ -266,9 +270,9 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 본 매핑의 self-audit 결과를 우선순위별로 정리해요. 모두 [`backlog.md`](../../planned/backlog.md) 의 Security 카테고리에 등재.
 
-### 즉시 fix (운영 보안 critical)
-- **A05.1 Swagger UI prod 노출** — `application-prod.yml` 에 `springdoc.swagger-ui.enabled: false` 또는 SecurityConfig 에서 prod 시 인증 요구
-- **A10.2 Resend timeout 명시** — `ResendEmailAdapter` 에 다른 client 와 동일 5/10s 적용
+### 즉시 fix — 모두 해결됨 ✅
+- ~~**A05.1 Swagger UI prod 노출**~~ — `application-prod.yml:43-47` 에 `springdoc.swagger-ui.enabled: false` + `api-docs.enabled: false` 적용 완료
+- ~~**A10.2 Resend timeout 명시**~~ — `ResendEmailAdapter.java:32` `connectTimeout(5s)` 적용 + ADR-036 정책 명문화 완료
 
 ### 1~2 cycle 내
 - **A02.2 Key rotation 자동화** — 6개월 주기 reminder + grace period

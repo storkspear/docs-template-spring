@@ -183,7 +183,7 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 | 📚 입문 | 0 | 3~10분 | [`Level 0 진입점`](./getting-started.md) · [`5분 투어`](./five-minute-tour.md) · 용어 사전 · 첫 실행/수정/배포 맛보기 |
 | 🏃 시작하기 | 1 | 1~2시간 | [`Onboarding`](../start/onboarding.md) · Social Auth · App Scaffolding · Dogfood · Cherry-pick |
 | 🏗️ 구조 이해하기 | 2 | 1시간 | [`Architecture`](../structure/architecture.md) · Module Deps · ArchUnit Rules · Multitenant · JWT Auth |
-| 📖 프로젝트 철학 | 3 | 2~3시간 | [`20 ADR 인덱스`](../philosophy/README.md) · 테마 1~5 (모듈/데이터/인증/운영/내부설계/OAuth) |
+| 📖 프로젝트 철학 | 3 | 2~3시간 | [`36 ADR 인덱스`](../philosophy/README.md) · 테마 1~8 (모듈/데이터/인증/운영/내부설계/OAuth/결제/보안) |
 | 📝 코딩 규약 | 2 | 1시간 | Design Principles · Naming · DTO · Exception · Git Workflow |
 | 🔌 API 및 기능 | 2 | 필요 시 | API Response · Push · Email · Storage · Migration · Observability |
 | ✅ 테스팅 | 2 | 필요 시 | [`Testing Strategy`](../production/test/testing-strategy.md) · Contract Testing |
@@ -194,7 +194,7 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 
 | 궁금한 것 | 문서 | 한 줄 |
 |---|---|---|
-| 왜 이렇게 설계? | [`Repository Philosophy — 책 안내`](../philosophy/README.md) | 20 ADR · 프롤로그 3 제약 |
+| 왜 이렇게 설계? | [`Repository Philosophy — 책 안내`](../philosophy/README.md) | 36 ADR · 프롤로그 3 제약 |
 | 문서 작성 규칙 (저자) | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) | 5 유형 템플릿 · 메타블록 규격 · 검증 체크리스트 |
 | 모듈 구조 상세 | [`Architecture Reference`](../structure/architecture.md) | 파일 트리 + 의존 그래프 + Extraction 6 레이어 |
 | 환경별 인프라 현황 | [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) | 어떤 서비스가 어디에서 도는지 |

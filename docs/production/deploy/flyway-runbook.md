@@ -58,9 +58,9 @@ psql $DB_URL -c "SELECT version, description, success, installed_on
 
 | 위치 | 적용 schema | 비고 |
 |---|---|---|
-| `bootstrap/.../db/migration/core/` | core | 모든 앱 공통 (audit_logs, users 의 totp 컬럼 등) |
-| `apps/app-<slug>/.../db/migration/<slug>/` | `<slug>` | 앱별 도메인 테이블 |
-| `core/core-*-impl/.../db/migration/core/` | core | 도메인 모듈이 추가하는 core 테이블 |
+| `core/core-{user,auth,device}-impl/.../db/migration/core/` | core | 모든 앱 공통 — V001~V008 (V001/V002/V003 user, V005/V006/V007 auth, V008 device, V004 reserved) |
+| `apps/app-<slug>/.../db/migration/<slug>/` | `<slug>` | 앱별 도메인 테이블 — `new-app.sh` 가 V001~V014 자동 생성 (V007 admin seed) |
+| `core/core-*-impl/.../db/migration/core/` | core | 도메인 모듈이 추가하는 core 테이블 (audit_logs, users 의 totp 컬럼 등 — 향후 추가 시 이 위치) |
 
 ---
 

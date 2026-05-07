@@ -156,7 +156,7 @@ public static final class Auth {
 ### `AuthPort` — 17개 메서드 (core-auth-api)
 
 ```java
-// core-auth-api/AuthPort.java
+// core-auth-api/AuthPort.java — 핵심 11 메서드 발췌 (전체 17)
 public interface AuthPort {
     AuthResponse signUpWithEmail(SignUpRequest request);
     AuthResponse signInWithEmail(SignInRequest request);
@@ -169,11 +169,13 @@ public interface AuthPort {
     void changePassword(long userId, ChangePasswordRequest request);
     void verifyEmail(VerifyEmailRequest request);
     void resendVerificationEmail(long userId);
+    // + signInWithKakao / signInWithNaver (ADR-017)
+    // + TOTP 4 메서드 (ADR-030: setupTotp / verifyTotpSetup / disableTotp / loginWithTotp)
 }
 ```
 
 - **모든 파라미터/반환이 DTO** — [`ADR-011 (레이어드 포트)`](./adr-011-layered-port-adapter.md) · [`ADR-016 (Mapper 금지)`](./adr-016-dto-mapper-forbidden.md) 의 규칙에 따름
-- **메서드 수 = 인증 도메인 전체** — 이메일/소셜 가입·로그인, 토큰 갱신, 탈퇴, 비밀번호 리셋/변경, 이메일 인증
+- **메서드 수 = 인증 도메인 전체** — 이메일/소셜 (4 provider) 가입·로그인, 토큰 갱신, 탈퇴, 비밀번호 리셋/변경, 이메일 인증, 2FA TOTP
 - ArchUnit r11 (Port 가 Entity 노출 금지) 으로 기계 강제
 
 ### `AuthServiceImpl` — 위임 조합 (core-auth-impl)
@@ -229,8 +231,8 @@ public class AuthController { ... }
 ### `new-app.sh` 의 Controller 자동 생성
 
 ```bash
-# tools/new-app/new-app.sh L296-430 발췌
-cat > "${JAVA_DIR}/auth/${SLUG_PASCAL}AuthController.java" << EOF
+# tools/new-app/new-app.sh L595-767 발췌
+cat > "${JAVA_DIR}/controller/${SLUG_PASCAL}AuthController.java" << EOF
 package com.factory.apps.${SLUG_PACKAGE}.auth;
 
 import com.factory.core.auth.api.AuthPort;
@@ -368,7 +370,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 **Controller (레퍼런스 + 앱별)**:
 - [`core-auth-impl/controller/AuthController.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — 레퍼런스 소스, 런타임 미등록
-- [`tools/new-app/new-app.sh` L296-430](https://github.com/storkspear/template-spring/blob/main/tools/new-app/new-app.sh#L296-L430) — `<Slug>AuthController` 자동 생성
+- [`tools/new-app/new-app.sh` L595-767](https://github.com/storkspear/template-spring/blob/main/tools/new-app/new-app.sh#L595-L767) — `<Slug>AuthController` 자동 생성
 
 **경계 강제**:
 - [`common-security/AppSlugVerificationFilter.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/AppSlugVerificationFilter.java) — URL slug vs JWT appSlug 일치 검증 (403)
