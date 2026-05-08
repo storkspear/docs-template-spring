@@ -118,7 +118,8 @@
         { "path": "convention/dto-factory.md",               "title": "DTO Factory",          "desc": "DTO 생성 패턴" },
         { "path": "convention/exception-handling.md",        "title": "Exception Handling",   "desc": "예외 처리 표준" },
         { "path": "convention/git-workflow.md",              "title": "Git Workflow",         "desc": "브랜치 전략 + Conventional Commits 명령형" },
-        { "path": "convention/code-comments.md",             "title": "Code Comments",        "desc": "Javadoc + 인라인 주석 작성 규약" }
+        { "path": "convention/code-comments.md",             "title": "Code Comments",        "desc": "Javadoc + 인라인 주석 작성 규약" },
+        { "path": "convention/dynamic-query.md",             "title": "Dynamic Query",        "desc": "RequestDTO → Assembler → conditions Map → JPAQuery 표준 패턴 (QueryDslPredicateBuilder)" }
       ]
     },
     {
