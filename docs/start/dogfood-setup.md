@@ -160,7 +160,7 @@ postgresql://postgres.sebqrqi...:[YOUR-PASSWORD]@aws-1-<region>.pooler.supabase.
 **⚠️ 그대로 쓰면 안 돼요** — JDBC 형식이 아니에요 ([`pitfalls #11`](./dogfood-pitfalls.md)). 다음처럼 분리해서 `.env.prod` 에 넣어요.
 
 ```bash
-DB_URL=jdbc:postgresql://aws-1-<region>.pooler.supabase.com:5432/postgres
+JDBC_DB_URL=jdbc:postgresql://aws-1-<region>.pooler.supabase.com:5432/postgres
 DB_USER=postgres.sebqrqi...
 DB_PASSWORD=<your-actual-password>
 ```
@@ -168,17 +168,17 @@ DB_PASSWORD=<your-actual-password>
 핵심:
 - `jdbc:` prefix 가 필수예요
 - user/password 는 URL 안에 inline 하지 말고 별도 변수로 분리해요
-- `init-server.sh` 가 `DB_URL` 시작 부분을 검증해서 잘못 넣으면 즉시 fail 해요
+- `init-server.sh` 가 `JDBC_DB_URL` 시작 부분을 검증해서 잘못 넣으면 즉시 fail 해요
 
 > `DB_PASSWORD` 는 `init-server.sh` Step 5 에서 자동으로 무작위 발급된 값이 들어가 있을 거예요. **Supabase 의 실제 비밀번호로 덮어쓰는 것을 잊지 마세요** — 자동 발급 값은 placeholder 일 뿐이에요.
 
-#### 슬러그별 DataSource — `<SLUG>_DB_URL` 은 비워두세요
+#### 슬러그별 DataSource — `<SLUG>_JDBC_DB_URL` 은 비워두세요
 
-`<your-backend> new <slug>` 가 새 앱을 추가하면 슬러그별 DataSource 가 자동으로 등록돼요. 슬러그별 자격은 별도로 채울 필요가 없어요. `AbstractAppDataSourceConfig` 의 derive 로직이 core 의 `DB_URL` 에서 `currentSchema=<slug>` 부분만 슬러그로 자동 교체하기 때문이에요 (USER 와 PASSWORD 도 core 의 값을 그대로 재사용해요).
+`<your-backend> new <slug>` 가 새 앱을 추가하면 슬러그별 DataSource 가 자동으로 등록돼요. 슬러그별 자격은 별도로 채울 필요가 없어요. `AbstractAppDataSourceConfig` 의 derive 로직이 core 의 `JDBC_DB_URL` 에서 `currentSchema=<slug>` 부분만 슬러그로 자동 교체하기 때문이에요 (USER 와 PASSWORD 도 core 의 값을 그대로 재사용해요).
 
 ```bash
 # .env.prod 의 슬러그별 자격은 비워둬요 — 자동 derive 돼요
-GYMLOG_DB_URL=
+GYMLOG_JDBC_DB_URL=
 GYMLOG_DB_USER=
 GYMLOG_DB_PASSWORD=
 ```
@@ -225,7 +225,7 @@ $EDITOR .env.prod
 | 키 | 값 출처 |
 |---|---|
 | `APP_DOMAIN` | §3.6 의 도메인 (예: `https://server.example.com`). cloudflared 안 깔면 placeholder OK |
-| `DB_URL` | §3.5 의 Supabase JDBC URL (`jdbc:postgresql://...` — `jdbc:` prefix 필수) |
+| `JDBC_DB_URL` | §3.5 의 Supabase JDBC URL (`jdbc:postgresql://...` — `jdbc:` prefix 필수) |
 | `DB_USER` | §3.5 의 Supabase user (`postgres.<ref>`) |
 | `GHCR_TOKEN` | §3.1 의 GitHub PAT |
 | `SSH_PRIVATE_KEY` | §3.3 의 Mac mini private key 전체 내용 (`-----BEGIN ... -----END ...`) |
@@ -286,7 +286,7 @@ bash tools/init-server.sh <owner>/<repo>
 이번엔 `.env.prod` REQUIRED 5 가 다 채워져 있어 Step 6 ~ 11 까지 진행돼요.
 
 - **Step 6** — GitHub Secrets push (REQUIRED 7 + 활성 OPTIONAL features) + Variables push (5)
-  - REQUIRED 7: `APP_DOMAIN`, `DB_PASSWORD`, `DB_URL`, `DB_USER`, `GHCR_TOKEN`, `JWT_SECRET`, `SSH_PRIVATE_KEY`
+  - REQUIRED 7: `APP_DOMAIN`, `DB_PASSWORD`, `JDBC_DB_URL`, `DB_USER`, `GHCR_TOKEN`, `JWT_SECRET`, `SSH_PRIVATE_KEY`
   - OAuth credentials (`APP_CREDENTIALS_*`) 는 `.env.prod` 에 있는 만큼 자동 push (소셜 로그인 활성 시)
 - **Step 7** — `npm install` (husky 훅 활성화)
 - **Step 8** — `docker compose -f infra/docker-compose.dev.yml up -d postgres minio`

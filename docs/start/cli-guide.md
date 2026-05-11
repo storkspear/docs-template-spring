@@ -109,7 +109,7 @@
 
 ### 2. 운영 셋업 (로컬 익숙해진 후)
 
-`.env.prod` 의 REQUIRED 키 (`BASE_DOMAIN`, `SUBDOMAIN`, `CLOUDFLARE_API_TOKEN`, `DB_URL`, `DB_USER`, `GHCR_TOKEN`, `SSH_PRIVATE_KEY`) 를 채운 뒤에 진행해요.
+`.env.prod` 의 REQUIRED 키 (`BASE_DOMAIN`, `SUBDOMAIN`, `CLOUDFLARE_API_TOKEN`, `JDBC_DB_URL`, `DB_USER`, `GHCR_TOKEN`, `SSH_PRIVATE_KEY`) 를 채운 뒤에 진행해요.
 
 ```bash
 # 4) prod init — 운영 환경 자동 셋업

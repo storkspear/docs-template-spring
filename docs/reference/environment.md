@@ -181,7 +181,7 @@ Spring Boot 3.5.13 BOM 으로 버전 일괄 관리.
 
 | 서비스 | 역할 | 관련 환경변수 |
 |---|---|---|
-| **Supabase** | 운영 Postgres (대안: 자체 호스트, AWS RDS, Fly.io) | `DB_URL`, `DB_USER`, `DB_PASSWORD` |
+| **Supabase** | 운영 Postgres (대안: 자체 호스트, AWS RDS, Fly.io) | `JDBC_DB_URL`, `DB_USER`, `DB_PASSWORD` |
 | **Cloudflare** | Tunnel · DNS · Access | — |
 | **Cloudflare R2** | S3 호환 오브젝트 스토리지 (선택) | `APP_STORAGE_MINIO_*` 재사용 |
 | **FCM (Firebase)** | Android/iOS 푸시 | `FCM_SERVICE_ACCOUNT_JSON` |

@@ -97,7 +97,7 @@
 **폐기 + 재발급** (한 번에):
 1. Supabase Dashboard → Settings → Database → "Reset database password"
 2. 새 password 표시 → 즉시 복사
-3. `.env.dogfood` 의 `DB_PASSWORD` 갱신 (DB_URL / DB_USER 는 그대로)
+3. `.env.dogfood` 의 `DB_PASSWORD` 갱신 (JDBC_DB_URL / DB_USER 는 그대로)
 4. `bash tools/dogfooding/setup.sh` 실행
 
 ⚠️ 현재 운영 컨테이너가 옛 password 로 연결 중이면, 새 password 적용 후 재배포 (또는 컨테이너 재기동) 필요.

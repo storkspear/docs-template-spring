@@ -32,7 +32,7 @@ template 첫 도그푸딩 배포에서 **11번 시도** 후 성공 + 이후 JDK 
 | **9** | kamal docker login | `flag needs argument: 'p' in -p` | `.kamal/secrets.example` 가 `$GHCR_TOKEN` 참조하는데 GHA env 에 `GHCR_TOKEN` 미주입 | env 블록에 `GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}` 추가 | `c312bb5` |
 | **10a** | kamal pull | 이미지 경로 `ghcr.io/ghcr.io/owner/repo:<sha>` 이중 prefix | `KAMAL_IMAGE` 에 `ghcr.io/` 까지 넣음 → kamal `registry.server` 가 자동 prefix → 이중화 | `KAMAL_IMAGE` 를 `owner/repo` 만 (ghcr.io 제거) | `d610cb5` |
 | **10b** | kamal inspect | `Image ... is missing the 'service' label` | 직접 `docker buildx` 빌드라 kamal 자동 부여 label 없음 | `docker/build-push-action` 에 `labels: \| service=${KAMAL_SERVICE_NAME}` | `d610cb5` |
-| **11** | Spring 기동 | `No suitable driver` for jdbcUrl=postgresql://... | `DB_URL` 이 `postgresql://...` (jdbc: prefix 누락) + user/password inline | `DB_URL = jdbc:postgresql://host:port/db` (host:port/db 만), `DB_USER`/`DB_PASSWORD` 별도 | `5c54b86` |
+| **11** | Spring 기동 | `No suitable driver` for jdbcUrl=postgresql://... | `JDBC_DB_URL` 이 `postgresql://...` (jdbc: prefix 누락) + user/password inline | `JDBC_DB_URL = jdbc:postgresql://host:port/db` (host:port/db 만), `DB_USER`/`DB_PASSWORD` 별도 | `5c54b86` |
 | **12** | Gradle 빌드 | `Unsupported class file major version 70` | 시스템 JDK 가 26 (또는 17·26 만 설치) — Gradle/Groovy 가 class file major 70 (JDK 26) 을 못 읽음 | `brew install openjdk@21` + `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` | init-server.sh prereq 가 `21 ≤ JAVA < 26` 로 즉시 거부 (`Java 21~25 필요`) |
 
 > 표 안의 "원인 한 줄 / 해결 한 줄" 컬럼은 *명사구 reference* 형식이라 의도적으로 압축돼 있어요 ([`STYLE_GUIDE §3 의 표 안 명사구 허용 규정`](../reference/STYLE_GUIDE.md)).
@@ -225,11 +225,11 @@ Caused by: java.sql.SQLException: No suitable driver
 
 **왜 발생했나요?** JDBC 가 인식하는 URL 형식은 `jdbc:postgresql://...` 인데 사용자가 자주 헷갈리는 게 Supabase 가 보여주는 connection string `postgresql://user:pass@host:port/db` 를 그대로 복사하는 거예요. 그러면 `jdbc:` prefix 가 없고 user/password 가 inline 이 돼요.
 
-application-prod.yml 은 `spring.datasource.url=${DB_URL}` 로 직접 사용 → URL 형식이 안 맞으면 driver 를 결정하지 못해요 → "No suitable driver" 에러가 나요.
+application-prod.yml 은 `spring.datasource.url=${JDBC_DB_URL}` 로 직접 사용 → URL 형식이 안 맞으면 driver 를 결정하지 못해요 → "No suitable driver" 에러가 나요.
 
 **해결 방법**:
 ```
-DB_URL=jdbc:postgresql://aws-1-<region>.pooler.supabase.com:5432/postgres
+JDBC_DB_URL=jdbc:postgresql://aws-1-<region>.pooler.supabase.com:5432/postgres
 DB_USER=postgres.<ref>
 DB_PASSWORD=<password>
 ```
@@ -237,7 +237,7 @@ DB_PASSWORD=<password>
 - `host:port/db` 만 (user/pass 빼고)
 - user/pass 는 별도 secret 으로 분리해요
 
-자동화 적용 — setup.sh 의 Step 2 검증에 `DB_URL` 형식 정규식 체크 (`^jdbc:postgresql://`) 가 박혀 있어 잘못된 형식이면 시작 단계에서 즉시 fail 해요.
+자동화 적용 — setup.sh 의 Step 2 검증에 `JDBC_DB_URL` 형식 정규식 체크 (`^jdbc:postgresql://`) 가 박혀 있어 잘못된 형식이면 시작 단계에서 즉시 fail 해요.
 
 ---
 
@@ -272,7 +272,7 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 1. **이 문서의 "한눈에 표" 에 한 행 추가** (다음 번호 #13)
 2. **함정별 자세한 분석 섹션** 에 같은 패턴으로 한 항목 추가
 3. **commit 메시지** 에 `pitfalls: add #N` 접두사 사용
-4. 가능하면 `setup.sh` 의 검증 step 에 가드를 추가하세요 (예: #11 의 DB_URL 형식 체크처럼)
+4. 가능하면 `setup.sh` 의 검증 step 에 가드를 추가하세요 (예: #11 의 JDBC_DB_URL 형식 체크처럼)
 5. ADR 변경이 필요한 결정이면 [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) 에 새 카드를 추가하세요
 
 ## 다음 단계
