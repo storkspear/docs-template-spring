@@ -55,7 +55,7 @@
 
 이 12 함정의 결과로 *자동화 가드* 들이 박혔어요:
 - `init-server.sh` Step 1 의 prereq 검증 (Java 21~25, gh 설치, ssh-keygen 등)
-- `tools/dogfooding/setup.sh` 의 `DB_URL` 형식 정규식 체크
+- `tools/dogfooding/setup.sh` 의 `JDBC_DB_URL` 형식 정규식 체크
 - `deploy.yml` 의 `provenance: false` / `sbom: false`
 - 그 외 여러 *defensive default*
 
@@ -189,7 +189,7 @@
 | **secret chain 4-stage** | [`secret-chain-4stage.md`](../production/setup/secret-chain-4stage.md) — 4 곳 매핑 + 체크리스트 |
 | **deploy.sh = origin/main SHA 기준** | [`runbook.md §평시배포`](../production/deploy/runbook.md) — 로컬 working tree / HEAD 무관 |
 | **`@Profile("!test")` 슬러그 모듈** | `apps/app-*/.../*AppAutoConfiguration.java` + `*DataSourceConfig.java` — bootstrap test 에서 비활성 |
-| **`AbstractAppDataSourceConfig.deriveSlugUrl`** | `common/common-persistence/.../AbstractAppDataSourceConfig.java` — `<SLUG>_DB_URL` 비우면 `${DB_URL}` 의 currentSchema 만 슬러그로 자동 교체 |
+| **`AbstractAppDataSourceConfig.deriveSlugUrl`** | `common/common-persistence/.../AbstractAppDataSourceConfig.java` — `<SLUG>_JDBC_DB_URL` 비우면 `${JDBC_DB_URL}` 의 currentSchema 만 슬러그로 자동 교체 |
 | **`BucketProvisioner` idempotent** | `core/core-storage-impl/.../BucketProvisioner.java` — `APP_STORAGE_MINIO_BUCKETS_*` 부팅 자동 생성 |
 | **force-clear 5단계 confirm** | [`runbook.md`](../production/deploy/runbook.md), [`cli-guide.md`](./cli-guide.md) — DB / Storage / 관측성 / 백업 / 최종 |
 | **Stub 503 graceful (IAP / Payment 동일)** | `core/core-iap-impl/.../impl/StubIapAdapter.java` + `core/core-payment-impl/.../impl/StubPaymentAdapter.java` |
