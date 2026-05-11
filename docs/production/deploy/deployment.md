@@ -248,6 +248,52 @@ curl -I https://log.<도메인>                                   # 302 (CF Acce
 
 ---
 
+## dev 환경 자동 배포 (opt-in)
+
+prod 셋업 완료 후, 같은 Mac mini 에 `dev-server.<도메인>` 을 격리 운영하고 싶을 때 (사내/외주 검증용). kamal service 이름 (`server-dev`) 으로 컨테이너·네트워크 자동 분리.
+
+격리 모델: [`develop-branch-policy.md §5`](../operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델).
+
+### 추가 셋업 (1회)
+
+1. `.env.dev` 채우기 — `.env.dev.example` 참고. REQUIRED: `BASE_DOMAIN`, `SUBDOMAIN_DEV`, `JDBC_DB_URL` (별도 Supabase dev 계정), `DB_USER`, `DB_PASSWORD`, `APP_STORAGE_MINIO_BUCKETS_0` (dev 전용 bucket — 같은 MinIO 인스턴스).
+
+2. `<repo> dev init` 실행 — Cloudflare DNS / Tunnel ingress 등록 + GitHub Secrets/Variables (`_DEV` suffix) push.
+
+   추가되는 Repo Variables:
+   ```bash
+   gh variable set KAMAL_SERVICE_NAME_DEV --body 'server-dev'
+   gh variable set PUBLIC_HOSTNAME_DEV    --body 'dev-server.<도메인>'
+   gh variable set DEPLOY_ENABLED_DEV     --body 'true'   # gate opt-in
+   ```
+
+   추가되는 Repo Secrets:
+   ```bash
+   gh secret set JDBC_DB_URL_DEV                     # 별도 Supabase
+   gh secret set DB_USER_DEV
+   gh secret set DB_PASSWORD_DEV
+   gh secret set APP_STORAGE_MINIO_BUCKETS_0_DEV     # dev bucket
+   ```
+
+   나머지 (JWT/RESEND/PortOne/Tailscale/SSH/MinIO ENDPOINT·KEY/LOKI_URL/DISCORD_WEBHOOK_URL/GHCR) 는 prod 와 공용 secret 그대로 사용.
+
+### 자동 배포
+
+`develop` 브랜치 push → CI 통과 → `deploy-dev.yml` 이 workflow_run 으로 자동 트리거 → `:dev-<sha>` 이미지 빌드 + push + `kamal deploy -c config/deploy-dev.yml`. `DEPLOY_ENABLED_DEV=true` 인 경우만 진행 (template 레포는 미설정 → skip).
+
+수동 배포는 `<repo> dev deploy` 또는 `tools/deploy.sh --target=dev`.
+
+### 폐기
+
+```bash
+<repo> dev cleanup       # 인프라만 (Cloudflare + kamal app remove + _DEV secrets 회수)
+                          # → Supabase 스키마 / MinIO bucket 보존
+<repo> dev force-clear   # + Supabase 스키마 DROP + MinIO bucket 제거 (3단계 confirm)
+                          # → prod host 충돌 safety check 내장
+```
+
+---
+
 ## 6. 체크리스트 (처음 한 번)
 
 - [ ] `new-app.sh` 로 첫 앱 모듈 생성 완료 (Supabase schema 확인)

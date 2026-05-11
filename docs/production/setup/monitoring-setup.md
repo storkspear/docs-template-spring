@@ -80,6 +80,25 @@ ingress:
 2. JSON export → 같은 경로에 commit (파생레포에서 — 본인 운영용 커스텀)
 3. `provisioning/dashboards/dashboards.yml` 이 30초마다 reload
 
+## dev / prod 라벨 분리
+
+dev-server 도 같은 Loki/Grafana/Prometheus 인스턴스를 공유 (관측성 컨테이너 추가 X). env 라벨로 구분:
+
+| metric 출처 | dev | prod |
+|---|---|---|
+| Loki (logback) | `env=dev` (`logback-common.xml` 의 dev profile) | `env=prod` (prod profile) |
+| Prometheus metrics | `env=dev` (`management.metrics.tags.env`, `spring.profiles.active` 자동 반영) | `env=prod` |
+
+LogQL / PromQL 필터 예:
+```
+{app="app-server-bootstrap", env="prod"} |= "ERROR"
+sum(rate(http_server_requests_seconds_count{env="prod", status=~"5.."}[5m])) by (app)
+```
+
+Grafana 대시보드에 `$env` variable 을 추가하면 dev/prod 토글 가능. 기본 dashboard 는 `env="prod"` 하드코딩 — 필요 시 사용자가 dashboard JSON 에 variable 추가하여 재provision.
+
+> ⚠ 알람 규칙 (`infra/prometheus/rules.yml`) 은 현재 env 필터 미적용 → dev 도 prod 규칙으로 평가됨. 단 alertmanager 가 운영 가동 전이라 실제 webhook 발사는 발생 안 함 (`mac-mini-setup.md` "restart loop, Phase 2 수정 예정"). alertmanager 활성화 시점에 rule expression 에 `env="prod"` 필터를 명시적으로 추가.
+
 ## Passive monitoring 정책
 
 **Grafana panel 의 alert 기능은 본 프로젝트에서 사용 안 해요** (사용자 결정 2026-05-06).

@@ -10,6 +10,8 @@
 
 ---
 
+> 📌 **dev-server 흐름은 본 다이어그램의 main 대신 develop 으로 평행하게 진행돼요.** develop push → ci.yml → deploy-dev.yml (대신 deploy.yml) → `dev-server.<도메인>`. 격리 모델: [`develop-branch-policy.md §5`](../operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델). 본 문서는 main → prod 기준으로 작성.
+
 ## 한 문장 요약
 
 이 문서는 **`main` 브랜치 push 부터 운영 배포까지** 의 전체 CI / CD 흐름을 다이어그램과 Phase 별로 추적해요. 함정 12 개와 시간 분석까지 함께 포함합니다.
@@ -299,30 +301,30 @@ artifact retention 이 1일이라 storage 를 거의 차지하지 않습니다.
 
 ### PHASE 6 — workflow_run + deploy
 
+main / develop 각자의 deploy workflow 가 별도로 트리거됩니다.
+
 ```yaml
-# deploy.yml
-on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      version:
-        description: '재배포할 commit SHA'
+# deploy.yml (prod)         # deploy-dev.yml (dev)
+on:                         on:
+  workflow_run:               workflow_run:
+    workflows: ["CI"]           workflows: ["CI"]
+    types: [completed]          types: [completed]
+    branches: [main]            branches: [develop]
 ```
 
 CI 의 success 가 트리거. 단 workflow_run 은 default 로 trigger 자체가 발동하지만 conclusion 이 success 인지 별도 체크 필요:
 
 ```yaml
-gate:
-  if: |
-    (github.event_name == 'workflow_dispatch' ||
-     github.event.workflow_run.conclusion == 'success') &&
-    vars.DEPLOY_ENABLED == 'true'
+# deploy.yml (prod)              # deploy-dev.yml (dev)
+gate:                            gate:
+  if: |                            if: |
+    workflow_run.conclusion         workflow_run.conclusion
+      == 'success' &&                 == 'success' &&
+    vars.DEPLOY_ENABLED              vars.DEPLOY_ENABLED_DEV
+      == 'true'                       == 'true'
 ```
 
-이게 **명시적 CI→CD 게이트** 예요. CI fail 이면 deploy 가 시작되지 않아요.
+이게 **명시적 CI→CD 게이트** 예요. CI fail 이면 해당 환경의 deploy 가 시작되지 않아요. template 레포는 `DEPLOY_ENABLED_DEV` 미설정 → dev 배포 항상 skip.
 
 ### PHASE 7 — 운영 노출
 
