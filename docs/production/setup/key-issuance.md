@@ -26,7 +26,7 @@
 | **필수 — 앱 부팅** | `BASE_DOMAIN` / `SUBDOMAIN` / `APP_DOMAIN` | 도메인 등록 대행 (Cloudflare / Namecheap 등) | 항상 |
 |  | `CLOUDFLARE_API_TOKEN` 외 3개 | https://dash.cloudflare.com | Tunnel 사용 시 (사실상 항상) |
 |  | `JWT_SECRET` | `init-server.sh` 자동 발급 | 항상 |
-|  | `JDBC_DB_URL` / `DB_USER` / `DB_PASSWORD` | Supabase / RDS / Fly Postgres | 항상 |
+|  | `DB_URL` / `DB_USER` / `DB_PASSWORD` | Supabase / RDS / Fly Postgres | 항상 |
 | **필수 — 배포** | `GHCR_TOKEN` | https://github.com/settings/tokens | 항상 |
 |  | `SSH_PRIVATE_KEY` | 로컬 `ssh-keygen` + 운영 서버 등록 | 항상 |
 | **선택 — 기능별** | `APP_STORAGE_MINIO_*` | MinIO 콘솔 / `mc admin user add` | `feature=storage` |
@@ -120,14 +120,14 @@ postgresql://postgres.sebqrqi...:[YOUR-PASSWORD]@aws-1-ap-northeast-2.pooler.sup
 
 **`.env.prod` 채울 위치**:
 ```bash
-JDBC_DB_URL=jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?currentSchema=core
+DB_URL=jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?currentSchema=core
 DB_USER=postgres.sebqrqi...
 DB_PASSWORD=<2단계에서 복사한 Supabase password>
 ```
 
 **주의 사항**. `init-server.sh` 1회차가 `DB_PASSWORD` 에 임의 placeholder 를 채워두므로, **반드시 Supabase 의 실제 비밀번호로 덮어써야 합니다**. Placeholder 를 그대로 두면 운영 부팅 시 인증 실패로 차단됩니다.
 
-`<SLUG>_JDBC_DB_URL` 같은 슬러그별 자격은 도그푸딩 단계에서는 비워둡니다. `AbstractAppDataSourceConfig` 의 `deriveSlugUrl` 이 core 의 `JDBC_DB_URL` 에서 `currentSchema=<slug>` 부분만 자동 교체합니다 ([`도그푸딩 환경 셋업 §3.5`](../../start/dogfood-setup.md#슬러그별-datasource-slug_db_url-은-비워두기) 참조).
+`<SLUG>_DB_URL` 같은 슬러그별 자격은 도그푸딩 단계에서는 비워둡니다. `AbstractAppDataSourceConfig` 의 `deriveSlugUrl` 이 core 의 `DB_URL` 에서 `currentSchema=<slug>` 부분만 자동 교체합니다 ([`도그푸딩 환경 셋업 §3.5`](../../start/dogfood-setup.md#슬러그별-datasource-slug_db_url-은-비워두기) 참조).
 
 **검증**. `verify-server.sh` Step 2 (DB 연결) 가 PASS 면 정상입니다. 운영 부팅 시 HikariCP 가 정상 연결되었음을 의미합니다.
 

@@ -36,7 +36,7 @@ git clone <파생레포>
 `bootstrap.sh` 가 해주는 것은 다음과 같아요.
 
 - JDK 21+ / Docker / Node 18+ prereqs 체크 (없으면 즉시 fail)
-- `.env` 준비 (없으면 `.env.example` 에서 복사 — `PSQL_DB_URL` 기본값 포함)
+- `.env` 준비 (없으면 `.env.example` 에서 복사 — `DB_PSQL_URL` 기본값 포함)
 - `npm install` 자동 실행 → husky 훅 활성화
 - docker compose 로 Postgres + MinIO 기동
 - Postgres ready 대기
@@ -87,7 +87,7 @@ fi
 |---|---|---|---|
 | `SLUG` | 원본 | `my-app` | URL 경로 (`/api/apps/my-app/...`), 디렉토리명 |
 | `SLUG_PASCAL` | Pascal case | `MyApp` | Java 클래스명 |
-| `SLUG_UPPER` | UPPER_SNAKE | `MY_APP` | 환경변수 (`MY_APP_JDBC_DB_URL`) |
+| `SLUG_UPPER` | UPPER_SNAKE | `MY_APP` | 환경변수 (`MY_APP_DB_URL`) |
 | `SLUG_PACKAGE` | 하이픈 제거 | `myapp` | Java 패키지, Postgres 식별자 (schema/role 이름) |
 
 Postgres 는 식별자에 하이픈을 허용하지 않으므로 schema/role 이름에는 `SLUG_PACKAGE` 를 사용해요.
@@ -204,7 +204,7 @@ com.factory.apps.<slugPackage>.config.<SlugPascal>AppAutoConfiguration
 public class <SlugPascal>DataSourceConfig extends AbstractAppDataSourceConfig {
 
     public <SlugPascal>DataSourceConfig(
-        @Value("${<SLUG_UPPER>_JDBC_DB_URL}") String url,
+        @Value("${<SLUG_UPPER>_DB_URL}") String url,
         @Value("${<SLUG_UPPER>_DB_USER}") String user,
         @Value("${<SLUG_UPPER>_DB_PASSWORD}") String password
     ) {
@@ -229,7 +229,7 @@ public class <SlugPascal>DataSourceConfig extends AbstractAppDataSourceConfig {
 
 `AbstractAppDataSourceConfig` 가 build\* 헬퍼를 제공하고 concrete class 가 `@Bean` 으로 래핑하는 구조예요. 이렇게 하면 앱마다 `HikariCP` pool 이 하나씩 생기고, 빈 이름이 `<slugPackage>` prefix 로 유니크하게 갈라져 여러 앱이 한 JVM 에서 충돌 없이 공존해요.
 
-> `AbstractAppDataSourceConfig` 는 `<SLUG>_JDBC_DB_URL` 이 비어있으면 core 의 `${JDBC_DB_URL}` 에서 `currentSchema=<slugPackage>` 부분만 슬러그로 자동 교체하는 derive 로직을 제공해요. 도그푸딩 단계에서는 슬러그별 자격을 비워두면 core 자격을 그대로 재사용하므로 운영 진입 부담이 줄어요. 자세한 설계는 [`ADR-018 — SchemaRoutingDataSource`](../philosophy/adr-018-schema-routing-datasource.md) 를 참고하세요.
+> `AbstractAppDataSourceConfig` 는 `<SLUG>_DB_URL` 이 비어있으면 core 의 `${DB_URL}` 에서 `currentSchema=<slugPackage>` 부분만 슬러그로 자동 교체하는 derive 로직을 제공해요. 도그푸딩 단계에서는 슬러그별 자격을 비워두면 core 자격을 그대로 재사용하므로 운영 진입 부담이 줄어요. 자세한 설계는 [`ADR-018 — SchemaRoutingDataSource`](../philosophy/adr-018-schema-routing-datasource.md) 를 참고하세요.
 
 Repository scan 이 `apps.<slugPackage>.repository` 만 대상으로 한정되는 이유는 `core-*` 레포지토리가 이미 자기 `@EnableJpaRepositories` 에서 default EMF 에 등록되었기 때문이에요. 여기서 다시 core 패키지를 스캔하면 `BeanDefinitionOverrideException` 이 나요.
 
@@ -279,7 +279,7 @@ bootstrap 은 앱 모듈을 `implementation` 으로 의존해야 `@AutoConfigura
 ### 4.1 DB 변수
 
 ```env
-<SLUG_UPPER>_JDBC_DB_URL=jdbc:postgresql://<host>:5432/postgres?currentSchema=<slugPackage>
+<SLUG_UPPER>_DB_URL=jdbc:postgresql://<host>:5432/postgres?currentSchema=<slugPackage>
 <SLUG_UPPER>_DB_USER=<slugPackage>_app
 <SLUG_UPPER>_DB_PASSWORD=CHANGE_ME
 ```
@@ -340,7 +340,7 @@ echo "${key}=${value}" >> .env
 `.env.example` 에 다음 값이 기본으로 들어있어서 **추가 설정 없이** 바로 동작해요.
 
 ```env
-PSQL_DB_URL=postgresql://postgres:dev@localhost:5433/postgres
+DB_PSQL_URL=postgresql://postgres:dev@localhost:5433/postgres
 ```
 
 ```bash
@@ -348,7 +348,7 @@ PSQL_DB_URL=postgresql://postgres:dev@localhost:5433/postgres
 ./tools/new-app/new-app.sh gymlog --provision-db
 ```
 
-스크립트 내부적으로 `PSQL_DB_URL` 환경변수가 shell 에 없으면 `.env` 에서 자동 로드해요. Docker 로컬 환경은 결정적이라 사용자 조작이 전혀 필요 없어요.
+스크립트 내부적으로 `DB_PSQL_URL` 환경변수가 shell 에 없으면 `.env` 에서 자동 로드해요. Docker 로컬 환경은 결정적이라 사용자 조작이 전혀 필요 없어요.
 
 ### 5.3 운영 DB 에 provision 하는 경우
 
@@ -356,13 +356,13 @@ PSQL_DB_URL=postgresql://postgres:dev@localhost:5433/postgres
 
 ```bash
 # Supabase / RDS / Fly.io 등 운영 Postgres admin credential
-export PSQL_DB_URL='postgresql://postgres.<ref>:<pw>@aws-1-<region>.pooler.supabase.com:5432/postgres'
+export DB_PSQL_URL='postgresql://postgres.<ref>:<pw>@aws-1-<region>.pooler.supabase.com:5432/postgres'
 ./tools/new-app/new-app.sh gymlog --provision-db
 
 # 작업 끝나면 shell 종료 시 자연스럽게 export 사라짐
 ```
 
-`PSQL_DB_URL` 은 schema/role 을 **생성할 권한이 있는 관리자 credential** 이어야 해요 (앱 role 아님). 로컬에선 docker-compose 의 superuser, 운영에선 Supabase `postgres` 같은 계정이에요. `psql` 이 설치되어 있어야 해요 (`brew install libpq` 또는 `postgresql`).
+`DB_PSQL_URL` 은 schema/role 을 **생성할 권한이 있는 관리자 credential** 이어야 해요 (앱 role 아님). 로컬에선 docker-compose 의 superuser, 운영에선 Supabase `postgres` 같은 계정이에요. `psql` 이 설치되어 있어야 해요 (`brew install libpq` 또는 `postgresql`).
 
 ### 5.4 `provision_db` 함수 내부 동작
 
@@ -372,10 +372,10 @@ provision_db() {
     local SLUG_IDENT="$1"      # schema 이름
     local SLUG_PACKAGE="$2"    # role prefix
 
-    # PSQL_DB_URL 이 shell 에 없으면 .env 에서 자동 로드 (로컬 docker 케이스)
-    if [[ -z "${PSQL_DB_URL:-}" ]] && [[ -f .env ]]; then
-        PSQL_DB_URL=$(grep -E '^PSQL_DB_URL=' .env | head -1 | cut -d= -f2- | tr -d '"' || true)
-        export PSQL_DB_URL
+    # DB_PSQL_URL 이 shell 에 없으면 .env 에서 자동 로드 (로컬 docker 케이스)
+    if [[ -z "${DB_PSQL_URL:-}" ]] && [[ -f .env ]]; then
+        DB_PSQL_URL=$(grep -E '^DB_PSQL_URL=' .env | head -1 | cut -d= -f2- | tr -d '"' || true)
+        export DB_PSQL_URL
     fi
 
     local password
@@ -384,7 +384,7 @@ provision_db() {
     APP_SLUG="${SLUG_IDENT}" \
     APP_ROLE="${SLUG_PACKAGE}_app" \
     APP_PASSWORD="${password}" \
-    psql "${PSQL_DB_URL}" \
+    psql "${DB_PSQL_URL}" \
         -v ON_ERROR_STOP=1 \
         -v app_slug="${SLUG_IDENT}" \
         -v app_role="${SLUG_PACKAGE}_app" \
@@ -478,7 +478,7 @@ fi
 남은 수동 작업:
 
 1. .env 의 placeholder 값 실제 값으로 교체:
-   - <SLUG_UPPER>_JDBC_DB_URL 의 <host> (Supabase pooler 호스트 등)
+   - <SLUG_UPPER>_DB_URL 의 <host> (Supabase pooler 호스트 등)
    - APP_CREDENTIALS_<SLUG_UPPER>_GOOGLE_CLIENT_IDS_0/1, _APPLE_BUNDLE_ID
    → 발급 방법: docs/start/social-auth-setup.md
 
@@ -490,7 +490,7 @@ fi
    feat(apps): scaffold app-<slug>
 ```
 
-이 케이스에서는 **DB schema 수동 생성 단계가 출력에 아예 등장하지 않아요.** 이미 DB 에 반영되었기 때문이에요. 로컬 `docker compose` 환경이든 운영 Postgres 든 동일하게 적용되고, `new-app.sh` 가 실행 시점에 `.env` 의 `PSQL_DB_URL` (또는 shell export) 을 보고 해당 DB 에 적용해요.
+이 케이스에서는 **DB schema 수동 생성 단계가 출력에 아예 등장하지 않아요.** 이미 DB 에 반영되었기 때문이에요. 로컬 `docker compose` 환경이든 운영 Postgres 든 동일하게 적용되고, `new-app.sh` 가 실행 시점에 `.env` 의 `DB_PSQL_URL` (또는 shell export) 을 보고 해당 DB 에 적용해요.
 
 ### 7.2 케이스 B — `--provision-db` 를 붙이지 않은 경우
 
@@ -510,10 +510,10 @@ fi
 
 1. Postgres schema 수동 생성 (또는 --provision-db 로 재실행):
    export APP_SLUG=<slug> APP_ROLE=<slug>_app APP_PASSWORD='강력한비번'
-   psql "$PSQL_DB_URL" -f infra/scripts/init-app-schema.sql
+   psql "$DB_PSQL_URL" -f infra/scripts/init-app-schema.sql
 
 2. .env 의 placeholder 값 실제 값으로 교체:
-   - <SLUG_UPPER>_JDBC_DB_URL 의 <host> (Supabase pooler 호스트 등)
+   - <SLUG_UPPER>_DB_URL 의 <host> (Supabase pooler 호스트 등)
    - APP_CREDENTIALS_<SLUG_UPPER>_GOOGLE_CLIENT_IDS_0/1, _APPLE_BUNDLE_ID
    → 발급 방법: docs/start/social-auth-setup.md
 
@@ -580,8 +580,8 @@ slug 자체는 하이픈을 허용하지만 Postgres schema/role 이름에는 `S
 | **`.env` 주입** | DB 3종 · MinIO bucket · 소셜 credentials placeholder |
 | **`--provision-db` 없으면** | DB 작업 skip → 7.2 "0번" 이 수동 작업으로 추가 |
 | **`--provision-db` 있으면** | schema + role + grant 자동 생성, DB 비밀번호 랜덤 생성 후 `.env` 치환 |
-| **로컬 docker** | `.env` 의 `PSQL_DB_URL` 기본값 자동 로드 — export 불필요 |
-| **운영 DB** | `export PSQL_DB_URL='postgresql://...'` 로 일시 덮어쓰기 |
+| **로컬 docker** | `.env` 의 `DB_PSQL_URL` 기본값 자동 로드 — export 불필요 |
+| **운영 DB** | `export DB_PSQL_URL='postgresql://...'` 로 일시 덮어쓰기 |
 | **멱등성** | 디렉토리만 없는 상태예요. `.env` / settings.gradle / DB schema / role 은 모두 남아 있어요 |
 | **남은 수동 작업** | `.env` host/credentials 실제 값 · V007 도메인 테이블 · 커밋 |
 

@@ -43,7 +43,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 
 - **status**: template 자체는 provider-agnostic. template 관리자 본인의 운영 배포는 Supabase `provisioned`.
 - **결정일**: 2026-04-18 (Supabase 선택), 2026-04-20 (multi-provider 지원 명시)
-- **Template 의 요구사항**: 표준 JDBC Postgres 인스턴스 하나예요. `JDBC_DB_URL` / `DB_USER` / `DB_PASSWORD` + `PSQL_DB_URL` (admin, `new-app.sh --provision-db` 용) 만 있으면 돼요. 코드는 HikariCP + 표준 JDBC 만 사용 — provider 특화 API (Supabase Realtime/RLS/auth.users 등) 에 미의존이에요.
+- **Template 의 요구사항**: 표준 JDBC Postgres 인스턴스 하나예요. `DB_URL` / `DB_USER` / `DB_PASSWORD` + `DB_PSQL_URL` (admin, `new-app.sh --provision-db` 용) 만 있으면 돼요. 코드는 HikariCP + 표준 JDBC 만 사용 — provider 특화 API (Supabase Realtime/RLS/auth.users 등) 에 미의존이에요.
 - **Template 관리자 default**: **Supabase** (aws-1-ap-northeast-2 Supavisor pooler). 파생레포는 이 default 그대로 써도 되고, 다른 provider 로 교체 가능.
 - **Supabase 를 default 로 고른 근거** (template 관리자 본인 기준):
   - 관리형 Postgres — 백업/스케일/보안패치 대행
@@ -56,7 +56,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
   - **Fly.io Postgres** — 앱 근접 배포, 글로벌 edge. 관리 UI 빈약. `.flycast` endpoint.
   - **self-host Postgres** — 완전 통제, 비용 0. 백업/SPOF 부담 ↑.
   - **Neon** — branching DB 훌륭. Seoul region 부재 → latency ↑.
-  - Provider 교체 시 코드/Flyway 수정 0 — `.env` 의 `JDBC_DB_URL` / `DB_USER` / `DB_PASSWORD` 만 바뀜.
+  - Provider 교체 시 코드/Flyway 수정 0 — `.env` 의 `DB_URL` / `DB_USER` / `DB_PASSWORD` 만 바뀜.
 - **Trade-off** (Supabase 사용 시):
   - Free tier 7일 비활성 → pause — `keep-alive.sh` cron 또는 Pro 업그레이드 필요
   - IPv6 이슈 경험 — pooler 경유로 우회 중

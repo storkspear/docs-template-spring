@@ -222,7 +222,7 @@ kamal app boot                # 마지막 배포 버전으로 다시 기동
 ### DB 백업 (모든 schema)
 
 ```bash
-# .env.prod 의 JDBC_DB_URL/USER/PASSWORD 를 환경변수로 export 한 뒤
+# .env.prod 의 DB_URL/USER/PASSWORD 를 환경변수로 export 한 뒤
 PGPASSWORD="$DB_PASSWORD" pg_dump \
     "postgresql://$DB_USER@${DB_HOST}:${DB_PORT}/postgres" \
     > backup-$(date +%s).sql

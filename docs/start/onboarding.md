@@ -235,7 +235,7 @@ Started FactoryApplication in 4.xxx seconds
 
 **로컬 dev 는 Supabase 가 필요 없어요** — 위 §4.3 의 `docker compose ... postgres` 로 자급자족이 돼요. 아래는 **운영 배포 (Mac mini Kamal) 시점에 결정**할 내용이에요.
 
-`tools/new-app/new-app.sh <slug> --provision-db` 는 어떤 provider 여도 동일한 표준 `psql` 을 호출해요. 결정해야 할 것은 **`PSQL_DB_URL`** (admin role, schema/role 생성 용) 한 줄과 **`JDBC_DB_URL` / `DB_USER` / `DB_PASSWORD`** (앱 런타임 credential) 예요.
+`tools/new-app/new-app.sh <slug> --provision-db` 는 어떤 provider 여도 동일한 표준 `psql` 을 호출해요. 결정해야 할 것은 **`DB_PSQL_URL`** (admin role, schema/role 생성 용) 한 줄과 **`DB_URL` / `DB_USER` / `DB_PASSWORD`** (앱 런타임 credential) 예요.
 
 | Provider | 특징 | connection string 형태 |
 |---|---|---|
@@ -246,9 +246,9 @@ Started FactoryApplication in 4.xxx seconds
 
 준비 체크리스트 (운영 provider 사용 시):
 - [ ] 인스턴스/프로젝트 생성
-- [ ] admin credential 확보 (운영용 `PSQL_DB_URL` — `.env` 에 저장 금지, shell export 로만 사용)
-- [ ] 앱용 `JDBC_DB_URL` / `DB_USER` / `DB_PASSWORD` 확보 — `.env` 에 저장
-- [ ] `new-app.sh --provision-db` 실행 **직전에** shell 에서 `export PSQL_DB_URL='postgresql://postgres:<pw>@<host>:5432/postgres'` (운영 DB 에 provision 할 때만. 로컬 docker 는 `.env.example` 의 기본값으로 자동 처리)
+- [ ] admin credential 확보 (운영용 `DB_PSQL_URL` — `.env` 에 저장 금지, shell export 로만 사용)
+- [ ] 앱용 `DB_URL` / `DB_USER` / `DB_PASSWORD` 확보 — `.env` 에 저장
+- [ ] `new-app.sh --provision-db` 실행 **직전에** shell 에서 `export DB_PSQL_URL='postgresql://postgres:<pw>@<host>:5432/postgres'` (운영 DB 에 provision 할 때만. 로컬 docker 는 `.env.example` 의 기본값으로 자동 처리)
 
 **Supabase 사용 시 주의**: Supavisor pooler (`:6543`) 를 쓰면 Spring Boot blue/green 배포 오버랩 구간의 connection 폭증이 안전해져요. Free tier 의 direct (`:5432`) connection 한도가 낮아서 production 부하엔 pooler 가 필수예요.
 
@@ -277,17 +277,17 @@ Started FactoryApplication in 4.xxx seconds
 ### 2단계 — 환경 setup (대부분 자동)
 
 `./tools/new-app/new-app.sh gymlog` 가 자동 수행해요.
-- ✅ `.env` 에 `GYMLOG_JDBC_DB_URL/USER/PASSWORD` placeholder 추가
+- ✅ `.env` 에 `GYMLOG_DB_URL/USER/PASSWORD` placeholder 추가
 - ✅ `.env` 에 `APP_STORAGE_MINIO_BUCKETS_<N>=gymlog-uploads` 추가 (BucketProvisioner 가 Spring 기동 시 실제 생성)
 - ✅ `.env` 에 `APP_CREDENTIALS_GYMLOG_*` placeholder 추가
 
 Opt-in 자동 수행 (`--provision-db` 플래그 사용 시):
 - ✅ Postgres 에 `gymlog` schema + role 생성
 
-> **`PSQL_DB_URL` 이 뭔가요?** schema 와 role 을 **생성할 관리자 권한** connection string 이에요.
-> 앱 전용 `GYMLOG_JDBC_DB_URL` (앱 role `gymlog_app` 로 접속) 과는 다른 개념 — 수퍼유저/관리자 credential 이 필요해요.
+> **`DB_PSQL_URL` 이 뭔가요?** schema 와 role 을 **생성할 관리자 권한** connection string 이에요.
+> 앱 전용 `GYMLOG_DB_URL` (앱 role `gymlog_app` 로 접속) 과는 다른 개념 — 수퍼유저/관리자 credential 이 필요해요.
 >
-> - **로컬 dev** (docker-compose postgres): **별도 설정 불필요** — `.env.example` 에 `PSQL_DB_URL=postgresql://postgres:dev@localhost:5433/postgres` 기본값이 있고, `new-app.sh` 가 `.env` 에서 자동 로드해요. 로컬 docker 환경은 결정적이라 사용자 조작이 없어요.
+> - **로컬 dev** (docker-compose postgres): **별도 설정 불필요** — `.env.example` 에 `DB_PSQL_URL=postgresql://postgres:dev@localhost:5433/postgres` 기본값이 있고, `new-app.sh` 가 `.env` 에서 자동 로드해요. 로컬 docker 환경은 결정적이라 사용자 조작이 없어요.
 > - **운영** (Supabase 등): 관리자 credential 을 **shell 에서 export** 해야 해요 (`.env` 에 저장 금지). `new-app.sh` 는 shell 환경변수를 `.env` 값보다 우선 사용하므로 일시 덮어써요.
 >
 > ```bash
@@ -295,14 +295,14 @@ Opt-in 자동 수행 (`--provision-db` 플래그 사용 시):
 > ./tools/new-app/new-app.sh gymlog --provision-db
 >
 > # 운영 (Supabase 등) — shell export 필수
-> export PSQL_DB_URL='postgresql://postgres:<pw>@<host>:5432/postgres'
+> export DB_PSQL_URL='postgresql://postgres:<pw>@<host>:5432/postgres'
 > ./tools/new-app/new-app.sh gymlog --provision-db
 > ```
 >
-> `--provision-db` 없이 수동 실행도 가능해요: `psql "$PSQL_DB_URL" -v ON_ERROR_STOP=1 -f infra/scripts/init-app-schema.sql`
+> `--provision-db` 없이 수동 실행도 가능해요: `psql "$DB_PSQL_URL" -v ON_ERROR_STOP=1 -f infra/scripts/init-app-schema.sql`
 
 여전히 수동으로 채워야 해요.
-- JDBC_DB_URL 의 `<host>` 실제 값으로 교체
+- DB_URL 의 `<host>` 실제 값으로 교체
 - GOOGLE_CLIENT_IDS / APPLE_BUNDLE_ID 실제 값 발급 ([`docs/social-auth-setup.md`](./social-auth-setup.md))
 - 도메인 테이블 작성 (V007+, 비즈니스 로직)
 

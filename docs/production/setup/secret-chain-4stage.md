@@ -54,7 +54,7 @@ MY_NEW_KEY=
 ```yaml
 env:
   secret:
-    - JDBC_DB_URL
+    - DB_URL
     - DB_USER
     - DB_PASSWORD
     - MY_NEW_KEY        # ← 추가
@@ -63,7 +63,7 @@ env:
 ### 3) `.kamal/secrets.example` 에 매핑 추가
 
 ```bash
-JDBC_DB_URL=$JDBC_DB_URL
+DB_URL=$DB_URL
 DB_USER=$DB_USER
 DB_PASSWORD=$DB_PASSWORD
 MY_NEW_KEY=$MY_NEW_KEY    # ← 추가
@@ -74,7 +74,7 @@ MY_NEW_KEY=$MY_NEW_KEY    # ← 추가
 ```yaml
 env:
   KAMAL_REGISTRY_PASSWORD: ${{ secrets.GHCR_TOKEN }}
-  JDBC_DB_URL: ${{ secrets.JDBC_DB_URL }}
+  DB_URL: ${{ secrets.DB_URL }}
   DB_USER: ${{ secrets.DB_USER }}
   DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
   MY_NEW_KEY: ${{ secrets.MY_NEW_KEY }}    # ← 추가
