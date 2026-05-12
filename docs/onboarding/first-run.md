@@ -51,7 +51,7 @@ HikariPool-1 - Start completed.
 실패하면 다음 두 가지를 확인하세요.
 
 - `Connection refused` → Docker Postgres 가 안 켜져 있어요. `docker compose -f infra/docker-compose.dev.yml up -d postgres`
-- `password authentication failed` → `.env` 의 `PSQL_DB_URL` 또는 POSTGRES_PASSWORD 가 일치하지 않아요.
+- `password authentication failed` → `.env` 의 `DB_PSQL_URL` 또는 POSTGRES_PASSWORD 가 일치하지 않아요.
 
 ## 4. [Flyway](../reference/glossary.md#데이터베이스) 마이그레이션
 

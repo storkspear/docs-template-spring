@@ -207,7 +207,7 @@ REQUIRED fail = 즉시 중단 (운영 backend 가 응답하지 않는 상태). O
 | `.env.prod` 존재 + REQUIRED 5 채움 | **2회차** | Step 6 에서 GitHub Secrets/Variables push → Step 7~11 까지 진행 |
 
 판정 키:
-- **REQUIRED 5**: `APP_DOMAIN`, `JDBC_DB_URL`, `DB_USER`, `GHCR_TOKEN`, `SSH_PRIVATE_KEY` (사용자 채우기). `JWT_SECRET` / `DB_PASSWORD` 는 자동 발급되므로 사용자 입력 대상이 아니에요.
+- **REQUIRED 5**: `APP_DOMAIN`, `DB_URL`, `DB_USER`, `GHCR_TOKEN`, `SSH_PRIVATE_KEY` (사용자 채우기). `JWT_SECRET` / `DB_PASSWORD` 는 자동 발급되므로 사용자 입력 대상이 아니에요.
 - **idempotent 보장**: Step 4 (.env), Step 5 (.env.prod) 둘 다 "이미 존재하면 skip" 동작이고, `gh secret set` 은 overwrite, husky 훅도 이미 활성화돼 있으면 skip 해요.
 
 따라서 같은 명령을 여러 번 안전하게 재실행할 수 있어요. 잘못된 값으로 secrets 를 push 했다면 `.env.prod` 의 해당 키만 갱신 후 다시 돌리면 그 키만 overwrite 돼요.

@@ -153,7 +153,7 @@ app:
    │
    ▼
 2) tools/migrate-prod.sh <slug> V<N>  실행
-   │   ├── SSH prod-host → psql $JDBC_DB_URL -f V<N>__*.sql
+   │   ├── SSH prod-host → psql $DB_URL -f V<N>__*.sql
    │   ├── 성공 시 INSERT INTO <slug>.flyway_schema_history 자동
    │   └── 실패 시 ROLLBACK + 에러 보고
    │
