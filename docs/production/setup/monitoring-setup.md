@@ -14,7 +14,7 @@ Mac mini 운영 호스트에서 관측성 스택(Loki + Grafana + Prometheus + A
 
 **이 가이드는 운영(Mac mini)에서만 필요해요.** 로컬 개발 환경에서는 관측성 스택을 띄우지 않습니다 — 메모리·docker 리소스 부담 대비 활용 빈도가 낮아서예요. 대시보드·쿼리 동작 검증이 필요하면 운영 Mac mini 의 Grafana (예: `log.<domain>`) 에서 확인하세요.
 
-로컬 compose(`infra/docker-compose.dev.yml`)는 Postgres + MinIO 만 제공합니다.
+로컬 compose(`infra/docker-compose.local.yml`)는 Postgres + MinIO 만 제공합니다.
 
 ## 전제조건
 

@@ -98,7 +98,7 @@ RateLimitFilter (optional) ← common-web 있을 때만 활성화
 | 갱신 방식 | refresh token 으로 재발급 | 회전 (rotation) |
 | 위치 | `Authorization: Bearer <token>` 헤더 | 클라이언트가 보관, `/refresh` 요청 body |
 
-TTL 설정은 `application-dev.yml`, `application-prod.yml` 의 `app.jwt.access-token-ttl`, `app.jwt.refresh-token-ttl` 에서 관리합니다.
+TTL 설정은 `application-local.yml` / `application-dev.yml` / `application-prod.yml` 의 `app.jwt.access-token-ttl`, `app.jwt.refresh-token-ttl` 에서 관리합니다.
 
 ---
 
@@ -460,26 +460,27 @@ Compact constructor 에서 보안 필수 조건을 강제합니다. 애플리케
 ### YAML 예시
 
 ```yaml
-# application-dev.yml
+# application-local.yml (개발자 맥북 docker)
 app:
   jwt:
     secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
     access-token-ttl: PT15M
     refresh-token-ttl: P30D
-    issuer: ${JWT_ISSUER:app-factory-dev}
+    issuer: ${JWT_ISSUER:app-factory-local}
 ```
 
 ```yaml
-# application-prod.yml
+# application-dev.yml (Mac mini dev 서버 — production-like)
+# application-prod.yml (운영)
 app:
   jwt:
     secret: ${JWT_SECRET}         # default 없음 — 주입 누락 시 즉시 실패
     access-token-ttl: PT15M
     refresh-token-ttl: P30D
-    issuer: ${JWT_ISSUER:app-factory}
+    issuer: ${JWT_ISSUER:app-factory-dev}   # prod 는 app-factory
 ```
 
-Prod 는 default 값 없이 `${VAR}` strict 방식을 사용해서 환경변수 주입이 빠지면 즉시 실패하도록 만들어요 — 운영 안전망이에요.
+dev (Mac mini) / prod 는 default 값 없이 `${VAR}` strict 방식을 사용해서 환경변수 주입이 빠지면 즉시 실패하도록 만들어요 — 운영 안전망이에요. issuer 만 prod (`app-factory`) 와 dev (`app-factory-dev`) 로 분리해서 토큰 출처를 구별합니다.
 
 ---
 

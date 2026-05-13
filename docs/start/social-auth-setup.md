@@ -249,7 +249,7 @@ APP_CREDENTIALS_SUMTALLY_NAVER_CLIENT_ID=abcDEF123_xyz
 
 ```bash
 cd infra
-docker compose -f docker-compose.dev.yml up -d postgres wiremock
+docker compose -f docker-compose.local.yml up -d postgres wiremock
 ```
 
 `infra/wiremock/mappings/` 의 4개 stub JSON (google-tokeninfo, kakao-token-info, kakao-user-me, naver-nid-me) 이 자동 로드돼요.
@@ -411,7 +411,7 @@ WARN  MockAppleSignInService activated — Apple RS256 verification is BYPASSED.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|
-| ← 이전 | [`Onboarding — 템플릿 첫 사용 가이드`](./onboarding.md) | 2~3단계, 로컬 dev + 첫 앱 모듈 |
+| ← 이전 | [`Onboarding — 템플릿 첫 사용 가이드`](./onboarding.md) | 2~3단계, 로컬 local + 첫 앱 모듈 |
 | → 다음 | [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) §3 | 4단계 두 번째, 운영 자격 증명 (Tailscale OAuth · GitHub PAT · Supabase) |
 
 **막혔을 때**: [`도그푸딩 함정`](./dogfood-pitfalls.md) / [`FAQ`](./dogfood-faq.md) / [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
