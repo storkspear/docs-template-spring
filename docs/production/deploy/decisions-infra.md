@@ -190,7 +190,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 ## 결정 I-06. 관측성 스택 — 셀프 호스트 (Loki + Grafana + Prometheus)
 
 - **status**: `provisioned` (운영 `infra/docker-compose.observability.yml` 파일 준비 완료; 실제 기동은 파생레포 onboarding 시 Mac mini 에서)
-- **적용 범위**: Item 5 — 운영 전용 (로컬 dev 에서는 의미 X 라 제외).
+- **적용 범위**: Item 5 — 운영 전용 (로컬 local 에서는 의미 X 라 제외).
 - **결정**: 로그/메트릭/대시보드/알림 스택은 **셀프 호스트 오픈소스** — Loki, Grafana, Prometheus, Alertmanager. **운영(Mac mini) 전용** 구성. 로컬 개발에서는 활용 빈도 대비 메모리/docker 부담이 크므로 기동하지 않는다 (대시보드 동작 확인은 운영 `log.<domain>` 에서).
 - **근거**:
   - 데이터 주권 — 유저 로그/메트릭이 외부 SaaS 로 나가지 않음
@@ -214,7 +214,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
 - **관련 문서**:
   - `features/observability.md`
   - `guides/monitoring-setup.md`
-  - `infra/docker-compose.dev.yml`
+  - `infra/docker-compose.local.yml`
   - Item Ops-1 — 알림 종류/임계치 정의
 
 ---
@@ -226,7 +226,7 @@ Phase 1+ 에는 우선순위를 재조정합니다 (예: 보안 기준 상향).
   - 운영 (`{slug}-{category}`): `planned` (Item Ops-1 에서 앱별 bucket 생성)
 - **결정일**: 2026-04-18 (Item 7 작업 중)
 - **결정**: 오브젝트 저장소는 2-tier 로 환경 분리. 코드는 env 무관, `.env` 의 bucket 이름만 스위치:
-  - **로컬 dev**: `dev-shared` 단일 bucket (여러 파생 레포 공유)
+  - **로컬 local**: `dev-shared` 단일 bucket (여러 파생 레포 공유)
   - **운영**: `{appSlug}-{category}` per-app (예: `sumtally-receipts`, `rny-avatars`)
   - **Key 패턴 (환경 무관)**: `{appSlug}/{category}/{yyyy}/{MM}/{dd}/{userId}/{uuid}.{ext}`
 - **근거**:

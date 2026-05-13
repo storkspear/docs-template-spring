@@ -136,7 +136,7 @@ Spring Boot 3.5.13 BOM 으로 버전 일괄 관리.
 | **Docker** | — | 컨테이너 런타임 |
 | **Eclipse Temurin JDK** | 21-alpine | Dockerfile 빌더 스테이지 |
 | **Eclipse Temurin JRE** | 21-alpine | Dockerfile 런타임 스테이지 |
-| **Docker Compose** | — | 로컬 dev 스택 (`infra/docker-compose.dev.yml`, `.observability.yml`) |
+| **Docker Compose** | — | 로컬 dev 스택 (`infra/docker-compose.local.yml`, `.observability.yml`) |
 | **Kamal** | latest (gem install) | Blue/Green 배포 오케스트레이션 |
 | **kamal-proxy** | Kamal 내포 | 프록시 / 무중단 전환 |
 | **Cloudflare Tunnel (cloudflared)** | — | 홈서버 → 인터넷 노출 |

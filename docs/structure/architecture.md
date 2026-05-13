@@ -421,8 +421,9 @@ template-spring/
 │       │   │       └── JpaConfig.java
 │       │   └── resources/
 │       │       ├── application.yml                # 공통 기본값 (port 8081, APP_FLYWAY_MODE default = AUTO)
-│       │       ├── application-dev.yml            # 로컬 Postgres
-│       │       ├── application-prod.yml           # Supabase 연결 + prod 엄격 endpoint
+│       │       ├── application-local.yml          # 개발자 맥북 docker (localhost Postgres + WireMock fallback)
+│       │       ├── application-dev.yml            # Mac mini dev 서버 (Supabase dev + 실 OAuth + strict ${VAR})
+│       │       ├── application-prod.yml           # 운영 (Supabase prod + prod 엄격 endpoint)
 │       │       └── application-test.yml           # Testcontainers
 │       └── test/
 │           └── BootstrapArchitectureTest.java     # ArchUnit r1~r22 바인딩
@@ -444,7 +445,7 @@ template-spring/
 ├── factory                             # wrapper 진입점 (FACTORY_ALIAS export)
 │
 └── infra/
-    ├── docker-compose.dev.yml                     # 로컬 Postgres 16 + MinIO
+    ├── docker-compose.local.yml                     # 로컬 Postgres 16 + MinIO
     ├── docker-compose.observability.yml           # Prometheus + Loki + Grafana + Alertmanager
     ├── scripts/
     │   ├── init-core-schema.sql                   # core schema + core_app role

@@ -62,7 +62,7 @@ Successfully tagged my-backend-template:local
 
 ```bash
 # Postgres 먼저 떠 있어야 함
-docker compose -f infra/docker-compose.dev.yml up -d postgres
+docker compose -f infra/docker-compose.local.yml up -d postgres
 
 # 앱 실행 (참고: --network host 는 macOS Docker Desktop 기준)
 # Linux 환경에서는 --network host 대신 -p 8080:8080 단독 사용 또는 docker compose 권장

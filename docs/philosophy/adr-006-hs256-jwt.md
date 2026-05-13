@@ -148,15 +148,24 @@ app:
 ```
 
 ```yaml
-# bootstrap/src/main/resources/application-dev.yml
+# bootstrap/src/main/resources/application-local.yml
 app:
   jwt:
     secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
     # ...
 ```
 
+```yaml
+# bootstrap/src/main/resources/application-dev.yml (Mac mini dev 서버)
+app:
+  jwt:
+    secret: ${JWT_SECRET}              # 기본값 없음 — prod 와 동일 strict
+    issuer: ${JWT_ISSUER:app-factory-dev}  # prod 와 다른 issuer 로 토큰 출처 분리
+```
+
 - **prod**: 환경변수 주입 필수. 누락 시 즉시 부트 실패.
-- **dev**: 개발 편의를 위한 고정 기본값 (32자 이상). 프로덕션 키 아님.
+- **dev** (Mac mini 서버): prod 와 동일 strict. issuer 만 분리 (`app-factory-dev`).
+- **local** (개발자 맥북 docker): 개발 편의를 위한 고정 기본값 (32자 이상). 프로덕션 키 아님.
 
 ```java
 // JwtProperties compact constructor — 부팅 시 길이 검증
@@ -249,17 +258,17 @@ if (secret.length() < 32) {
 
 **교훈**: 보안 설정의 실수는 **최대한 이른 시점** 에서 **명확한 메시지** 로 터져야 해요. 부팅 직후 > 첫 토큰 발급 시점 > 첫 검증 시점 > 프로덕션 후 발견 순서로 좋아요.
 
-### dev secret 기본값을 application-dev.yml 에 박아둘 것
+### local secret 기본값을 application-local.yml 에 박아둘 것
 
-dev 환경에서 `JWT_SECRET` 환경변수를 설정하지 않으면 매번 "Secret must be provided" 로 부트 실패 → 개발 시작마다 환경변수 설정하는 번거로움. 그래서 `application-dev.yml` 에:
+local 환경 (개발자 맥북 docker) 에서 `JWT_SECRET` 환경변수를 설정하지 않으면 매번 "Secret must be provided" 로 부트 실패 → 개발 시작마다 환경변수 설정하는 번거로움. 그래서 `application-local.yml` 에:
 
 ```yaml
 secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 ```
 
-이 `dev-secret-...` 은 **명백히 프로덕션 키가 아님을 이름으로 표명** 해요. 실수로 prod 로 새어나가도 즉시 식별이 가능해요. prod yml 에는 기본값이 없어요 (`${JWT_SECRET}` only) — prod 에서 환경변수 누락은 반드시 실패해야 해요.
+이 `dev-secret-...` 은 **명백히 프로덕션 키가 아님을 이름으로 표명** 해요. 실수로 prod 로 새어나가도 즉시 식별이 가능해요. prod / dev (Mac mini) yml 에는 기본값이 없어요 (`${JWT_SECRET}` only) — 환경변수 누락은 반드시 실패해야 해요.
 
-**교훈**: 개발 편의를 위한 기본값과 프로덕션 strict 모드는 **파일 단위로 분리해요**. 같은 파일에서 profile 조건부로 두면 실수 여지가 남아요.
+**교훈**: 개발 편의를 위한 기본값과 production-like strict 모드는 **파일 단위로 분리해요**. 같은 파일에서 profile 조건부로 두면 실수 여지가 남아요.
 
 ### key-rotation 은 grace period 가 없으니 정기화할 것
 
@@ -290,7 +299,8 @@ secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 **의존성 / 설정**:
 - [`common/common-security/build.gradle`](https://github.com/storkspear/template-spring/blob/main/common/common-security/build.gradle) — jjwt 0.13.0
 - [`bootstrap/src/main/resources/application-prod.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-prod.yml) — prod strict 설정
-- [`bootstrap/src/main/resources/application-dev.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-dev.yml) — dev 기본값
+- [`bootstrap/src/main/resources/application-local.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-local.yml) — local 기본값
+- [`bootstrap/src/main/resources/application-dev.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-dev.yml) — dev (Mac mini) strict
 - [`.env.example`](https://github.com/storkspear/template-spring/blob/main/.env.example) — `JWT_SECRET` 생성 명령 포함
 
 **로테이션 가이드**:

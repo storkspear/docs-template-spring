@@ -74,13 +74,13 @@ DB 는 docker-compose postgres (dev 전용), MinIO 는 로컬 docker 또는 NAS 
 
 최소 (DB 만 — 빠른 테스트용, 대부분의 개발에 충분):
 ```bash
-docker compose -f infra/docker-compose.dev.yml up -d postgres
+docker compose -f infra/docker-compose.local.yml up -d postgres
 ./gradlew :bootstrap:bootRun
 ```
 
 MinIO 포함 (로컬에서 파일 업로드 경로 테스트):
 ```bash
-docker compose -f infra/docker-compose.dev.yml up -d postgres minio
+docker compose -f infra/docker-compose.local.yml up -d postgres minio
 ./gradlew :bootstrap:bootRun
 ```
 
@@ -264,7 +264,7 @@ ingress:
 5. `guides/onboarding.md` 흔한 에러 목록에 누락 시 동작 추가 (필요 시)
 
 ### 9.2 새 Docker 서비스 추가
-1. `infra/docker-compose.dev.yml` 에 서비스 정의
+1. `infra/docker-compose.local.yml` 에 서비스 정의
 2. `infrastructure.md §3.1` 포트 표 업데이트
 3. `.gitignore` 에 volume 디렉토리 추가
 4. `guides/monitoring-setup.md` 또는 `storage-setup.md` 에 설정 가이드 (해당 시)

@@ -103,7 +103,7 @@ core.social_identities (
 ### `AppCredentialProperties` 의 앱별 매핑
 
 ```yaml
-# application-dev.yml 발췌
+# application-local.yml 발췌 (개발자 맥북 docker — 로컬 테스트용 더미값)
 app:
   credentials:
     sumtally:

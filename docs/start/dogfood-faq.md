@@ -152,7 +152,7 @@ curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
 2. `PROJECT_README_TEMPLATE.md` 부재 (이미 README.md 로 교체된 상태)
 3. `.env.prod` 부재 (이 작업자는 운영 secrets 가 필요 없어요)
 
-이 모드에서는 `Step 5 (.env.prod 생성)` / `Step 6 (Secrets push)` / `Step 10 (verify-server.sh)` 를 자동 skip 하고 **로컬 dev 환경 (.env + docker compose + postgres ready) 만 준비해요**.
+이 모드에서는 `Step 5 (.env.prod 생성)` / `Step 6 (Secrets push)` / `Step 10 (verify-server.sh)` 를 자동 skip 하고 **로컬 local 환경 (.env + docker compose + postgres ready) 만 준비해요**.
 
 ```bash
 # 두 번째 이상의 작업자: REPO 인자 없이 실행 가능

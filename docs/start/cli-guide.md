@@ -24,9 +24,9 @@
 
 | env | 의미 | 대상 |
 |---|---|---|
-| `local` | 로컬 dev (docker compose) | postgres / minio / spring 컨테이너 (wiremock 은 OAuth dev-mock 옵션) |
-| `dev` | 사내 / 외주 검증용 dev-server | Mac mini + 별도 Supabase + 같은 MinIO 의 dev bucket + Cloudflare Tunnel (`dev-server.<도메인>`) |
-| `prod` | 운영 | Mac mini + Supabase prod + NAS MinIO + Cloudflare Tunnel (`server.<도메인>`) |
+| `local` | 개발자 맥북의 docker-compose 환경 | postgres / minio / spring / wiremock 컨테이너. application-local.yml (WireMock fallback + dev-fallback-raw) |
+| `dev`   | Mac mini dev 서버 (사내 / 외주 검증용) | 별도 Supabase + MinIO 의 dev bucket + Cloudflare Tunnel (`dev-server.<도메인>`). application-dev.yml (production-like, 실 OAuth + strict ${VAR}) |
+| `prod`  | 운영 | Mac mini + Supabase prod + NAS MinIO + Cloudflare Tunnel (`server.<도메인>`). application-prod.yml |
 | `all` | 셋 다 sequential (local → dev → prod) | 가용한 env 만 호출됨 |
 
 > `dev` 와 `prod` 는 같은 Mac mini host 에 kamal service 이름만 다르게 격리돼요 (`server` vs `server-dev`). 자세한 격리 모델: [`develop-branch-policy.md §5`](../production/operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델).

@@ -176,7 +176,7 @@ app:
 
 Flyway 의 advisory lock 은 **migrate() 호출 시점의 동시성 방어** 예요 — 여러 인스턴스가 동시에 부팅해도 한 인스턴스만 V스크립트를 적용해요. validate-only 모드에선 lock 을 사용하지 않아요 (read-only).
 
-prod 에서 validate-only 로 바뀌어도 **로컬 dev / test 의 lock 보장은 그대로 유지돼요** — 본 ADR 는 prod 의 자동 migrate 만 제거합니다.
+prod 에서 validate-only 로 바뀌어도 **로컬 local / test 의 lock 보장은 그대로 유지돼요** — 본 ADR 는 prod 의 자동 migrate 만 제거합니다.
 
 ---
 

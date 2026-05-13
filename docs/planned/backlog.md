@@ -100,6 +100,12 @@
 
 ### 템플릿 진화
 
+- [x] ~~[Template] **local/dev/prod 3환경 분리 cycle 의 후속 docs 정리**~~ — 2단계 완료. 1차 (README/CLAUDE/cli-guide/onboarding/getting-started/dogfood-{setup,faq}/social-auth-setup/decisions-infra/adr-033) + 2차 (adr-005/006/007/017 + structure/architecture/jwt-authentication) 정리 완료. docs/production/* 의 다른 yml 언급은 의미 보존 (운영 절차 historical context). (완료일: 2026-05-13)
+- [ ] [Template] **회원가입 (1/11) 500 CMN_006 진단** — 도그푸딩 cycle 에서 발견. local/dev/prod 분리 cycle 후 깨끗한 환경 (sf init 신규 → sf test) 에서 재현 + spring stack trace 추출. WireMock OAuth fallback 이 정상 작동하는데도 회원가입 endpoint 자체가 500. (2026-05-12)
+- [ ] [Template] **server-factory 마이그레이션 가이드** — 어제 push (66f3a67..3d51830) + 오늘 local/dev/prod 분리 cycle 이 use-this-template snapshot 인 server-factory 에 자동 sync 안 됨. 6+20 파일 수동 sync 가이드 또는 `tools/sync-from-template.sh` 자동화 (2026-05-12)
+- [x] ~~[Template] `@Profile("!prod")` → `@Profile("local")` 정밀화~~ — `core-email-impl/EmailAutoConfiguration.java:49` 의 LoggingEmailAdapter fallback `@Profile("!prod")` → `@Profile("local")` 변경 완료. dev (Mac mini) / prod 는 RESEND_API_KEY 필수 (strict ${VAR}). test profile 은 application-test.yml 의 placeholder api-key 로 ResendEmailAdapter 자동 등록. (완료일: 2026-05-13)
+- [x] ~~[Template] `PortOneProdConfigGuard` 를 dev 에도 적용~~ — `core-payment-impl/PaymentAutoConfiguration.java:101` 의 `@Profile("prod")` → `@Profile({"prod","dev"})` 확장 완료. dev (Mac mini) 도 외부 노출 + 실 PortOne 연동이라 prod 와 동일 가드. (완료일: 2026-05-13)
+- [ ] [Template] Script 이름 정합 (`init-server.sh`, `start-server.sh`, `init-dev.sh`) — 본 cycle 에서 내부 참조 (compose 경로 + container_name) 만 정정. 파일 이름 자체 (`init-server.sh` 가 로컬 셋업 의미인지 server 셋업 의미인지) 는 영향 큼 (factory script + symlink 등) — 별도 cycle. 후보: `init-server.sh` → `setup.sh` (모드별 dispatch), `init-dev.sh` → `setup-dev-server.sh` (2026-05-13)
 - [ ] [Template] Roll-forward 가이드 보강 (`cross-repo-cherry-pick.md` 에 인프라 변경 반영법) — 파생 레포가 template 업데이트 가져가는 법 (2026-04-18)
 - [ ] [Template] Release cadence 규칙 (`template-v` 태그 찍는 주기) — 의도적 cadence 정의 (2026-04-18)
 - [ ] [Template] 파생 레포 "inventory 자동 업데이트" 가이드 — 본인 파생 레포가 새 env/service 추가 시 문서 동기화 (2026-04-18)
