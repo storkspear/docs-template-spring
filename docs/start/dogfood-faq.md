@@ -13,10 +13,10 @@
 
 **권장해요**. 이유는 다음과 같아요.
 
-- template 의 `tools/init-server.sh` 등 자동화 코드는 그대로 복사되지만 **GitHub Settings (Variables/Secrets) / Mac mini 의 SSH 키 / GHCR 패키지** 는 파생 레포가 직접 셋업해야 해요.
+- template 의 `tools/init-prod.sh` / `init-local.sh` 등 자동화 코드는 그대로 복사되지만 **GitHub Settings (Variables/Secrets) / Mac mini 의 SSH 키 / GHCR 패키지** 는 파생 레포가 직접 셋업해야 해요.
 - 첫 실배포 전에 도그푸딩으로 한 번 검증하면 실제 사용자 트래픽이 들어오기 전에 모든 함정을 잡을 수 있어요.
 
-수행 — 첫 작업자가 `bash tools/init-server.sh <owner>/<repo>` 1·2회차 → `verify-server.sh` 7/7 PASS → `./gradlew :bootstrap:bootRun` UP 까지 검증해요. 자세한 흐름은 [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) 와 [`도그푸딩 walkthrough`](./dogfood-walkthrough.md) 에서 확인하세요.
+수행 — 첫 작업자가 `./factory init <owner>/<repo>` (= `init-local.sh && init-prod.sh`) 1·2회차 → `verify-server.sh` 7/7 PASS → `./gradlew :bootstrap:bootRun` UP 까지 검증해요. 자세한 흐름은 [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) 와 [`도그푸딩 walkthrough`](./dogfood-walkthrough.md) 에서 확인하세요.
 
 (임시 trial 환경을 한 번에 cleanup 하고 싶을 때만 옛 `tools/dogfooding/setup.sh + cleanup.sh` 를 사용해요. 새 흐름과 별개예요.)
 
@@ -142,21 +142,21 @@ curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
 
 ---
 
-### Q12. 공동 작업자/fresh clone 받은 두 번째 작업자도 `init-server.sh` 를 돌려야 하나요? <a id="q12"></a>
+### Q12. 공동 작업자/fresh clone 받은 두 번째 작업자도 `init-prod.sh` / `init-local.sh` 를 돌려야 하나요? <a id="q12"></a>
 
 **아니에요**. 이미 첫 작업자가 셋업해서 main 에 push 한 레포를 fresh clone 한 두 번째 이상의 작업자는 운영 secrets 를 다시 push 할 필요가 없어요 (이미 GitHub Secrets 에 등록돼 있어요).
 
-`init-server.sh` 를 그대로 돌리면 **공동 작업자 모드**가 자동 감지돼요. 다음 세 단서가 모두 만족할 때 발동해요.
+`./factory init` (= `init-local.sh && init-prod.sh`) 를 그대로 돌리면 **공동 작업자 모드**가 자동 감지돼요. 다음 세 단서가 모두 만족할 때 발동해요.
 
 1. `settings.gradle` 에 sentinel `template-spring` 매칭 0 (이미 rename 된 상태)
 2. `PROJECT_README_TEMPLATE.md` 부재 (이미 README.md 로 교체된 상태)
 3. `.env.prod` 부재 (이 작업자는 운영 secrets 가 필요 없어요)
 
-이 모드에서는 `Step 5 (.env.prod 생성)` / `Step 6 (Secrets push)` / `Step 10 (verify-server.sh)` 를 자동 skip 하고 **로컬 local 환경 (.env + docker compose + postgres ready) 만 준비해요**.
+이 모드에서는 `init-prod.sh` 의 `Step 5 (.env.prod 생성)` / `Step 6 (Secrets push)` / `Step 10 (verify-server.sh)` + `init-local.sh` 의 `Step 2 (rename)` / `Step 3 (README cp)` 를 자동 skip 하고 **로컬 local 환경 (.env + docker compose + postgres ready) 만 준비해요**.
 
 ```bash
 # 두 번째 이상의 작업자: REPO 인자 없이 실행 가능
-bash tools/init-server.sh
+./factory init
 ```
 
 또는 더 가벼운 흐름을 쓸 수 있어요.
@@ -168,7 +168,9 @@ cp .env.example .env       # (없으면)
 
 **최초 셋업 흐름을 강제로 다시 돌려야 한다면** (운영 secrets 갈아엎기 등) 다음 명령을 사용해요.
 ```bash
-bash tools/init-server.sh <owner>/<repo> --reinit
+./factory init <owner>/<repo> --reinit
+# 또는 개별로: bash tools/init-local.sh <owner>/<repo> --reinit
+#              bash tools/init-prod.sh  <owner>/<repo> --reinit
 ```
 ⚠️ `--reinit` 은 운영 secrets 가 무작위 새 값(`JWT_SECRET`/`DB_PASSWORD`)으로 덮어쓰일 수 있어 팀과 충분히 협의 후 사용하세요. 모든 발급된 토큰이 무효화될 수 있어요.
 
@@ -176,7 +178,7 @@ bash tools/init-server.sh <owner>/<repo> --reinit
 
 ### Q13. `verify-server.sh` 의 7 단계는 무엇을 검증하나요?
 
-`init-server.sh` Step 10 에서 자동 호출돼요 (단독 실행도 가능해요: `<repo-name> prod server-test`).
+`init-prod.sh` Step 10 에서 자동 호출돼요 (단독 실행도 가능해요: `<repo-name> prod server-test`).
 
 | Step | 분류 | 항목 | PASS 의미 |
 |---|---|---|---|
@@ -190,15 +192,15 @@ bash tools/init-server.sh <owner>/<repo> --reinit
 
 REQUIRED fail = 즉시 중단 (운영 backend 가 응답하지 않는 상태). OPTIONAL fail = 경고 + 계속 진행.
 
-**OPTIONAL feature 가 `.env.prod` 에서 비어있으면 자동 SKIP 돼요** — 그 feature 를 안 쓴다는 뜻으로 간주해요 (예: `RESEND_API_KEY=` 비어있으면 Step 5 SKIP, "feature 비활성화" 로 취급). 따라서 SKIP 결과는 **fail 이 아니에요**. 활성화하고 싶으면 해당 키들을 `.env.prod` 에 채우고 `init-server.sh` 를 재실행하세요.
+**OPTIONAL feature 가 `.env.prod` 에서 비어있으면 자동 SKIP 돼요** — 그 feature 를 안 쓴다는 뜻으로 간주해요 (예: `RESEND_API_KEY=` 비어있으면 Step 5 SKIP, "feature 비활성화" 로 취급). 따라서 SKIP 결과는 **fail 이 아니에요**. 활성화하고 싶으면 해당 키들을 `.env.prod` 에 채우고 `init-prod.sh` 를 재실행하세요.
 
 기대 결과 (DEPLOY_ENABLED=true + 모든 OPTIONAL 활성화 시): **7/7 PASS** (`✅ 운영 가용 상태 — 활성 기능 모두 작동`).
 
 ---
 
-### Q14. `init-server.sh` 1회차/2회차는 어떻게 자동 분기되나요? <a id="q14"></a>
+### Q14. `init-prod.sh` 1회차/2회차는 어떻게 자동 분기되나요? <a id="q14"></a>
 
-`init-server.sh` 는 명시 플래그 없이 **`.env.prod` 의 상태**로 1·2회차를 idempotent 하게 분기해요.
+`init-prod.sh` 는 명시 플래그 없이 **`.env.prod` 의 상태**로 1·2회차를 idempotent 하게 분기해요. (init-local.sh 는 .env 만 다루므로 .env.prod 와 무관.)
 
 | 상태 | 판정 | 동작 |
 |---|---|---|
@@ -214,11 +216,11 @@ REQUIRED fail = 즉시 중단 (운영 backend 가 응답하지 않는 상태). O
 
 ---
 
-### Q15. `RESEND_TEST_ADMIN_USER_EMAIL` 은 왜 `init-server.sh` 카탈로그에 없나요? <a id="q15"></a>
+### Q15. `RESEND_TEST_ADMIN_USER_EMAIL` 은 왜 `init-prod.sh` 카탈로그에 없나요? <a id="q15"></a>
 
 이 키는 **운영 deploy 자동화에 필요 없는** 검증 전용이에요 — `verify-server.sh` Step 5 (이메일 발송) 가 Resend API 로 테스트 메일을 보낼 *수신자* 로만 사용돼요.
 
-| 키 | 용도 | init-server.sh 카탈로그 | GitHub Secrets push |
+| 키 | 용도 | init-prod.sh 카탈로그 | GitHub Secrets push |
 |---|---|---|---|
 | `RESEND_API_KEY` | 운영 발송 + 검증 | ✓ (email feature) | ✓ |
 | `RESEND_FROM_ADDRESS` | 운영 발송 + 검증 | ✓ (email feature) | ✓ |
@@ -233,7 +235,7 @@ REQUIRED fail = 즉시 중단 (운영 backend 가 응답하지 않는 상태). O
 
 ### Q16. 원본 `template-spring` 자체를 clone 받으면 어떻게 동작하나요? <a id="q16"></a>
 
-template 개발자가 원본 `storkspear/template-spring` repo 를 그대로 clone 받아 `init-server.sh` 를 돌리면 **공동 작업자 모드가 아닌 1회차 모드** 로 진입해요 — 의도된 동작이에요.
+template 개발자가 원본 `storkspear/template-spring` repo 를 그대로 clone 받아 `./factory init` (= `init-local.sh && init-prod.sh`) 를 돌리면 **공동 작업자 모드가 아닌 1회차 모드** 로 진입해요 — 의도된 동작이에요.
 
 | 검사 항목 | 원본 template-spring | 파생 레포 fresh clone |
 |---|---|---|
@@ -242,20 +244,20 @@ template 개발자가 원본 `storkspear/template-spring` repo 를 그대로 clo
 | `.env.prod` 부재 | ✓ → 1회차 후보 | ✓ → 공동작업자 후보 |
 | **결과** | **1회차 모드** | **공동 작업자 모드** |
 
-따라서 원본 repo 를 clone 받으면 `bash tools/init-server.sh <test-org>/<test-repo>` 처럼 REPO 인자가 필요하고, 실행 시 settings.gradle 등이 `<test-repo>` 이름으로 rename 돼요 — 즉 *원본을 이름만 바꿔 시험하는* 흐름이에요. 시험 후엔 변경을 commit 하지 말고 `git restore .` 로 되돌리면 돼요.
+따라서 원본 repo 를 clone 받으면 `./factory init <test-org>/<test-repo>` 처럼 REPO 인자가 필요하고, 실행 시 settings.gradle 등이 `<test-repo>` 이름으로 rename 돼요 — 즉 *원본을 이름만 바꿔 시험하는* 흐름이에요. 시험 후엔 변경을 commit 하지 말고 `git restore .` 로 되돌리면 돼요.
 
-이 동작을 강제로 막으려면 `--reinit` 없이 `init-server.sh` (REPO 인자 없음) 를 시도하면 인자 누락으로 usage 가 출력 → 의도치 않은 rename 을 방지할 수 있어요.
+이 동작을 강제로 막으려면 `--reinit` 없이 `bash tools/init-prod.sh` (REPO 인자 없음) 를 시도하면 인자 누락으로 usage 가 출력 → 의도치 않은 rename 을 방지할 수 있어요.
 
 ---
 
 ### Q17. `APP_CREDENTIALS_<SLUG>_*` 를 `.env.prod` 에 추가하면 운영에 자동 반영되나요? <a id="q17"></a>
 
-**아니에요. `init-server.sh` 가 GitHub Secrets push 까지만 자동이고**, 운영 컨테이너 inject 는 현재 *수동 작업* 이에요.
+**아니에요. `init-prod.sh` 가 GitHub Secrets push 까지만 자동이고**, 운영 컨테이너 inject 는 현재 *수동 작업* 이에요.
 
 | 흐름 | 자동/수동 | 위치 |
 |---|---|---|
 | `.env.prod` 에 `APP_CREDENTIALS_<SLUG>_GOOGLE_CLIENT_IDS_0` 등 추가 | 수동 | 사용자 |
-| `init-server.sh` 2회차 실행 시 정규식으로 자동 발견 + GitHub Secrets push | ✅ 자동 | init-server.sh L376~395 |
+| `init-prod.sh` 2회차 실행 시 정규식으로 자동 발견 + GitHub Secrets push | ✅ 자동 | init-prod.sh L341~360 |
 | `config/deploy.yml` 의 `env.secret` 목록에 같은 키 추가 | ❌ **수동** | 파생 레포 |
 | `.kamal/secrets.example` 에 같은 키 매핑 추가 | ❌ **수동** | 파생 레포 |
 | Kamal 이 컨테이너에 inject → Spring relaxed binding 으로 `app.credentials.<slug>.google-client-ids[0]` 으로 받음 | ✅ 자동 | Spring |

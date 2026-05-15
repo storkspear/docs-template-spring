@@ -33,7 +33,7 @@ template 첫 도그푸딩 배포에서 **11번 시도** 후 성공 + 이후 JDK 
 | **10a** | kamal pull | 이미지 경로 `ghcr.io/ghcr.io/owner/repo:<sha>` 이중 prefix | `KAMAL_IMAGE` 에 `ghcr.io/` 까지 넣음 → kamal `registry.server` 가 자동 prefix → 이중화 | `KAMAL_IMAGE` 를 `owner/repo` 만 (ghcr.io 제거) | `d610cb5` |
 | **10b** | kamal inspect | `Image ... is missing the 'service' label` | 직접 `docker buildx` 빌드라 kamal 자동 부여 label 없음 | `docker/build-push-action` 에 `labels: \| service=${KAMAL_SERVICE_NAME}` | `d610cb5` |
 | **11** | Spring 기동 | `No suitable driver` for jdbcUrl=postgresql://... | `DB_URL` 이 `postgresql://...` (jdbc: prefix 누락) + user/password inline | `DB_URL = jdbc:postgresql://host:port/db` (host:port/db 만), `DB_USER`/`DB_PASSWORD` 별도 | `5c54b86` |
-| **12** | Gradle 빌드 | `Unsupported class file major version 70` | 시스템 JDK 가 26 (또는 17·26 만 설치) — Gradle/Groovy 가 class file major 70 (JDK 26) 을 못 읽음 | `brew install openjdk@21` + `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` | init-server.sh prereq 가 `21 ≤ JAVA < 26` 로 즉시 거부 (`Java 21~25 필요`) |
+| **12** | Gradle 빌드 | `Unsupported class file major version 70` | 시스템 JDK 가 26 (또는 17·26 만 설치) — Gradle/Groovy 가 class file major 70 (JDK 26) 을 못 읽음 | `brew install openjdk@21` + `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` | init-prod.sh / init-local.sh prereq 가 `21 ≤ JAVA < 26` 로 즉시 거부 (`Java 21~25 필요`) |
 
 > 표 안의 "원인 한 줄 / 해결 한 줄" 컬럼은 *명사구 reference* 형식이라 의도적으로 압축돼 있어요 ([`STYLE_GUIDE §3 의 표 안 명사구 허용 규정`](../reference/STYLE_GUIDE.md)).
 
@@ -259,7 +259,7 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 
 쉘 환경에 영구 반영하려면 `~/.zshrc` 등에 export 를 추가하세요. IntelliJ / VS Code 사용 시 프로젝트 SDK 도 21 로 명시해요.
 
-**자동화 적용** — `init-server.sh` Step 1 의 prereq 검증이 `21 ≤ JAVA_VERSION < 26` 로 좁혀져 있어 JDK 26 단독 환경에선 prereq 단계에서 즉시 fail 해요 (`Java 21~25 필요`). 빌드까지 가서 깨지는 일이 없어요.
+**자동화 적용** — `init-prod.sh` / `init-local.sh` Step 1 의 prereq 검증 (lib/init-common.sh 의 `_validate_prereqs`) 이 `21 ≤ JAVA_VERSION < 26` 로 좁혀져 있어 JDK 26 단독 환경에선 prereq 단계에서 즉시 fail 해요 (`Java 21~25 필요`). 빌드까지 가서 깨지는 일이 없어요.
 
 **결정 카드** — 권장 범위는 `21 ≤ major < 26` 이에요. JDK 22~25 도 사용 가능하지만 LTS 인 21 을 권장해요.
 

@@ -25,7 +25,7 @@
 |---|---|---|---|
 | **필수 — 앱 부팅** | `BASE_DOMAIN` / `SUBDOMAIN` / `APP_DOMAIN` | 도메인 등록 대행 (Cloudflare / Namecheap 등) | 항상 |
 |  | `CLOUDFLARE_API_TOKEN` 외 3개 | https://dash.cloudflare.com | Tunnel 사용 시 (사실상 항상) |
-|  | `JWT_SECRET` | `init-server.sh` 자동 발급 | 항상 |
+|  | `JWT_SECRET` | `init-prod.sh` 자동 발급 | 항상 |
 |  | `DB_URL` / `DB_USER` / `DB_PASSWORD` | Supabase / RDS / Fly Postgres | 항상 |
 | **필수 — 배포** | `GHCR_TOKEN` | https://github.com/settings/tokens | 항상 |
 |  | `SSH_PRIVATE_KEY` | 로컬 `ssh-keygen` + 운영 서버 등록 | 항상 |
@@ -47,7 +47,7 @@
 
 ### 2.1 도메인 (`BASE_DOMAIN` / `SUBDOMAIN` / `APP_DOMAIN`)
 
-**발급 목적**. 운영 백엔드의 외부 접근 주소입니다. `BASE_DOMAIN` 과 `SUBDOMAIN` 을 분리한 이유는 한 사람이 여러 파생 레포를 운영할 때 같은 도메인을 재사용하기 위해서입니다 (예: `example.com` 아래에 `api.example.com` / `admin.example.com` / `log.example.com` 을 각각 다른 레포로 운영). `init-server.sh` 가 두 값을 합쳐서 `APP_DOMAIN=https://${SUBDOMAIN}.${BASE_DOMAIN}` 을 자동으로 조립하므로 직접 채울 필요는 없습니다.
+**발급 목적**. 운영 백엔드의 외부 접근 주소입니다. `BASE_DOMAIN` 과 `SUBDOMAIN` 을 분리한 이유는 한 사람이 여러 파생 레포를 운영할 때 같은 도메인을 재사용하기 위해서입니다 (예: `example.com` 아래에 `api.example.com` / `admin.example.com` / `log.example.com` 을 각각 다른 레포로 운영). `init-prod.sh` 가 두 값을 합쳐서 `APP_DOMAIN=https://${SUBDOMAIN}.${BASE_DOMAIN}` 을 자동으로 조립하므로 직접 채울 필요는 없습니다.
 
 **발급 절차**. 도메인은 어떤 등록 대행이든 가능합니다. Cloudflare 에 등록해두면 다음 단계의 API Token 발급과 자연스럽게 이어집니다. 도메인을 새로 사는 경우라면 Cloudflare 의 *Add a site* 메뉴에서 도메인을 추가하고 네임서버를 변경하는 절차까지 마쳐야 합니다.
 
@@ -55,14 +55,14 @@
 ```bash
 BASE_DOMAIN=example.com
 SUBDOMAIN=server
-# APP_DOMAIN 은 비워둠 — init-server.sh 가 https://server.example.com 으로 자동 조립
+# APP_DOMAIN 은 비워둠 — init-prod.sh 가 https://server.example.com 으로 자동 조립
 ```
 
-**검증**. `init-server.sh` 1회차가 자동 조립한 `APP_DOMAIN` 값을 `.env.prod` 에서 확인합니다. 직접 채워야 한다면 그 값이 우선합니다.
+**검증**. `init-prod.sh` 1회차가 자동 조립한 `APP_DOMAIN` 값을 `.env.prod` 에서 확인합니다. 직접 채워야 한다면 그 값이 우선합니다.
 
 ### 2.2 Cloudflare API Token + ID 4종
 
-**발급 목적**. `init-server.sh` 가 `${SUBDOMAIN}.${BASE_DOMAIN}` 의 DNS CNAME 과 Tunnel ingress 를 자동 등록·정리하기 위해 필요합니다. Token 1 개만 채우면 `ZONE_ID` / `ACCOUNT_ID` / `TUNNEL_ID` 는 `BASE_DOMAIN` 을 단서로 자동 추출됩니다. Cloudflare Tunnel 을 쓰지 않고 직접 IP 노출로 운영한다면 이 절을 건너뛸 수 있지만, Mac mini 같은 가정용 회선 환경에서는 Tunnel 사용이 사실상 필수입니다.
+**발급 목적**. `init-prod.sh` 가 `${SUBDOMAIN}.${BASE_DOMAIN}` 의 DNS CNAME 과 Tunnel ingress 를 자동 등록·정리하기 위해 필요합니다. Token 1 개만 채우면 `ZONE_ID` / `ACCOUNT_ID` / `TUNNEL_ID` 는 `BASE_DOMAIN` 을 단서로 자동 추출됩니다. Cloudflare Tunnel 을 쓰지 않고 직접 IP 노출로 운영한다면 이 절을 건너뛸 수 있지만, Mac mini 같은 가정용 회선 환경에서는 Tunnel 사용이 사실상 필수입니다.
 
 **발급 절차**.
 1. https://dash.cloudflare.com/profile/api-tokens 접속.
@@ -76,19 +76,19 @@ SUBDOMAIN=server
 **`.env.prod` 채울 위치**:
 ```bash
 CLOUDFLARE_API_TOKEN=<발급한 토큰 값>
-# 나머지 3개는 비워두면 init-server.sh 가 자동 추출
+# 나머지 3개는 비워두면 init-prod.sh 가 자동 추출
 CLOUDFLARE_ZONE_ID=
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_TUNNEL_ID=
 ```
 
-**검증**. `init-server.sh` 2회차의 *Cloudflare resource discovery* 단계에서 ZONE_ID / ACCOUNT_ID / TUNNEL_ID 를 자동 추출하고 결과를 표시합니다. 추출이 실패하면 토큰 권한·Zone Resources 설정을 다시 확인합니다.
+**검증**. `init-prod.sh` 2회차의 *Cloudflare resource discovery* 단계에서 ZONE_ID / ACCOUNT_ID / TUNNEL_ID 를 자동 추출하고 결과를 표시합니다. 추출이 실패하면 토큰 권한·Zone Resources 설정을 다시 확인합니다.
 
 ### 2.3 JWT_SECRET
 
 **발급 목적**. JWT 토큰 서명·검증에 사용하는 32자 이상의 임의 시크릿입니다 ([`ADR-006 (HS256 JWT)`](../../philosophy/adr-006-hs256-jwt.md) 참조). 이 값을 알면 임의의 사용자 토큰을 위조할 수 있으므로 절대 노출되어서는 안 됩니다.
 
-**발급 절차**. 별도의 콘솔 발급이 필요 없습니다. `init-server.sh` 1회차가 `openssl rand -base64 48` 결과로 자동 생성해 `.env.prod` 에 채워줍니다. 직접 만들고 싶다면 다음 명령을 사용합니다.
+**발급 절차**. 별도의 콘솔 발급이 필요 없습니다. `init-prod.sh` 1회차가 `openssl rand -base64 48` 결과로 자동 생성해 `.env.prod` 에 채워줍니다. 직접 만들고 싶다면 다음 명령을 사용합니다.
 
 ```bash
 openssl rand -base64 48 | tr -d '\n'
@@ -125,7 +125,7 @@ DB_USER=postgres.sebqrqi...
 DB_PASSWORD=<2단계에서 복사한 Supabase password>
 ```
 
-**주의 사항**. `init-server.sh` 1회차가 `DB_PASSWORD` 에 임의 placeholder 를 채워두므로, **반드시 Supabase 의 실제 비밀번호로 덮어써야 합니다**. Placeholder 를 그대로 두면 운영 부팅 시 인증 실패로 차단됩니다.
+**주의 사항**. `init-prod.sh` 1회차는 `DB_PASSWORD` 를 자동 발급하지 않습니다 (외부 DB 발급 비번 그대로 쓰는 디자인). **반드시 Supabase 의 실제 비밀번호로 직접 채워야 합니다**. 비워두거나 placeholder 그대로 두면 운영 부팅 시 인증 실패로 차단됩니다.
 
 `<SLUG>_DB_URL` 같은 슬러그별 자격은 도그푸딩 단계에서는 비워둡니다. `AbstractAppDataSourceConfig` 의 `deriveSlugUrl` 이 core 의 `DB_URL` 에서 `currentSchema=<slug>` 부분만 자동 교체합니다 ([`도그푸딩 환경 셋업 §3.5`](../../start/dogfood-setup.md#슬러그별-datasource-slug_db_url-은-비워두기) 참조).
 
@@ -163,7 +163,7 @@ GHCR_USERNAME=
 # 로컬에서 kamal 을 직접 실행할 때만 본인 GitHub 계정명을 채웁니다.
 ```
 
-**검증**. `init-server.sh` 2회차가 PAT 로 GHCR 로그인을 시도하고, GHA 의 첫 deploy workflow 실행 시 push 가 성공하면 권한 설정 정상입니다.
+**검증**. `init-prod.sh` 2회차가 PAT 로 GHCR 로그인을 시도하고, GHA 의 첫 deploy workflow 실행 시 push 가 성공하면 권한 설정 정상입니다.
 
 ### 3.2 SSH_PRIVATE_KEY (운영 서버 접근 키)
 
@@ -193,7 +193,7 @@ b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 -----END OPENSSH PRIVATE KEY-----
 ```
 
-`gh secret set` 이 다중행 값을 자동 처리하므로 `init-server.sh` 가 큰 수정 없이 GitHub Secrets 로 push 합니다.
+`gh secret set` 이 다중행 값을 자동 처리하므로 `init-prod.sh` 가 큰 수정 없이 GitHub Secrets 로 push 합니다.
 
 **검증**. `verify-server.sh` Step 3 (SSH + Tailscale) 가 PASS 면 정상입니다.
 
@@ -454,7 +454,7 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub-push@my-project.iam
 
 → **상세 절차**: [`Secret Chain 4-Stage 동기화`](./secret-chain-4stage.md)
 
-`init-server.sh` 가 `.env.prod` → GitHub Secrets 까지는 자동으로 처리하지만, `config/deploy.yml` 의 `env.secret:` 목록과 `.kamal/secrets.example` 의 `KEY=$VAR` 매핑, `.github/workflows/deploy.yml` 의 `env:` block 은 *현재 수동* 입니다 ([`도그푸딩 FAQ Q17`](../../start/dogfood-faq.md#q17) 참조).
+`init-prod.sh` 가 `.env.prod` → GitHub Secrets 까지는 자동으로 처리하지만, `config/deploy.yml` 의 `env.secret:` 목록과 `.kamal/secrets.example` 의 `KEY=$VAR` 매핑, `.github/workflows/deploy.yml` 의 `env:` block 은 *현재 수동* 입니다 ([`도그푸딩 FAQ Q17`](../../start/dogfood-faq.md#q17) 참조).
 
 ---
 
@@ -464,7 +464,7 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub-push@my-project.iam
 
 → **상세 절차**: [`키 교체 절차 (Key Rotation)`](./key-rotation.md)
 
-각 키 종류별 폐기 위치 (`https://github.com/settings/tokens` / `https://login.tailscale.com/admin/settings/oauth` 등) 와 재발급 후 `init-server.sh` 재실행으로 GitHub Secrets 을 갱신하는 흐름을 그곳에서 다룹니다.
+각 키 종류별 폐기 위치 (`https://github.com/settings/tokens` / `https://login.tailscale.com/admin/settings/oauth` 등) 와 재발급 후 `init-prod.sh` 재실행으로 GitHub Secrets 을 갱신하는 흐름을 그곳에서 다룹니다.
 
 ---
 
@@ -500,13 +500,13 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub-push@my-project.iam
 
 **원인**. `.p8` 파일 내용을 환경변수로 옮길 때 줄바꿈이 사라져 한 줄로 합쳐졌습니다.
 
-**조치**. multi-line 변수로 BEGIN/END 라인 포함 그대로 붙여넣고, `init-server.sh` 가 `gh secret set` 으로 push 한 결과를 GitHub Secrets 화면에서 다시 다운로드해 검증합니다.
+**조치**. multi-line 변수로 BEGIN/END 라인 포함 그대로 붙여넣고, `init-prod.sh` 가 `gh secret set` 으로 push 한 결과를 GitHub Secrets 화면에서 다시 다운로드해 검증합니다.
 
 ---
 
 ## 다음 단계
 
-- 발급한 자격으로 첫 운영 배포를 진행하려면: [`도그푸딩 환경 셋업 가이드`](../../start/dogfood-setup.md) §6 (`init-server.sh` 2회차) 로 돌아갑니다.
+- 발급한 자격으로 첫 운영 배포를 진행하려면: [`도그푸딩 환경 셋업 가이드`](../../start/dogfood-setup.md) §6 (`init-prod.sh` 2회차) 로 돌아갑니다.
 - 4-Stage 동기화 누락 케이스를 방지하려면: [`Secret Chain 4-Stage 동기화`](./secret-chain-4stage.md) 의 체크리스트를 참조합니다.
 - 운영 중 키 노출이 의심되면: [`키 교체 절차 (Key Rotation)`](./key-rotation.md) 의 즉시 폐기 절차를 따릅니다.
 

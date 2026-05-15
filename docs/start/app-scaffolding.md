@@ -24,7 +24,7 @@
 git clone <파생레포>
     │
     ▼
-./tools/init-server.sh           ← prereqs 검증, .env 생성, docker compose(postgres+minio) 기동
+./tools/init-local.sh            ← prereqs 검증, .env 생성, docker compose(postgres+minio) 기동
     │
     ▼
 ./tools/new-app/new-app.sh <slug> --provision-db   ← 이 문서가 다루는 단계

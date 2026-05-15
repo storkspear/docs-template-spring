@@ -429,7 +429,9 @@ template-spring/
 │           └── BootstrapArchitectureTest.java     # ArchUnit r1~r22 바인딩
 │
 ├── tools/
-│   ├── init-server.sh                 # 1·2회차 부팅 (.env / .env.prod / Secrets push)
+│   ├── init-local.sh                  # local 셋업 (rename / .env / docker compose / postgres)
+│   ├── init-prod.sh                   # prod 셋업 (.env.prod / Cloudflare / Secrets push / observability)
+│   ├── init-dev.sh                    # dev 셋업 (.env.dev / Kamal dev 배포 사전 검증)
 │   ├── new-app/
 │   │   └── new-app.sh                 # 새 앱 스캐폴딩 (schema/role/Flyway/Controller 자동)
 │   ├── deploy.sh                      # origin/main SHA 추출 + kamal --version 명시
@@ -437,7 +439,8 @@ template-spring/
 │   ├── ci-test.sh                     # 5-stage 로컬 검증 (spotless / build / docs-contract / docs-unit / gitleaks)
 │   ├── lib/
 │   │   ├── cloudflare.sh              # cloudflare_register_hostname (NS polling + 자동 재생성)
-│   │   └── common.sh                  # detect_factory_alias 등 helper
+│   │   ├── common.sh                  # detect_factory_alias 등 helper
+│   │   └── init-common.sh             # init-local / init-prod 공통 함수 (repo 감지 / .env 생성 / Secrets push)
 │   ├── dogfooding/
 │   │   └── setup.sh                   # Trial 환경 자동화 (GHA + Mac mini + GHCR, 1회성 운영 도구)
 │   └── docs-check/                    # 문서 링크/메타 검증

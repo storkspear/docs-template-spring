@@ -143,5 +143,5 @@ diff <(grep -E '^[A-Z_]+=' .kamal/secrets.example | sort) \
 
 - [`dogfood-setup §5`](../../start/dogfood-setup.md) — `.env.prod` REQUIRED 5 + OPTIONAL feature
 - [`FAQ Q17`](../../start/dogfood-faq.md#q17) — `APP_CREDENTIALS_<SLUG>_*` 수동 추가 흐름
-- `tools/init-server.sh` — Stage 4 (GitHub Secrets) push 자동화
+- `tools/init-prod.sh` — Stage 4 (GitHub Secrets) push 자동화
 - `tools/deploy.sh` — 로컬 흐름 진입점

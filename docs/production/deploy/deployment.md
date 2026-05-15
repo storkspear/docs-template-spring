@@ -199,7 +199,7 @@ gh secret set DISCORD_WEBHOOK_URL --body 'https://discord.com/api/webhooks/...'
 ```
 
 Tailscale OAuth client 발급: Tailscale admin → Settings → OAuth clients → `Generate` (scope `devices:ci`, tag `tag:ci`).
-**GHCR 토큰**: ⚠️ `secrets.GITHUB_TOKEN` 자동 주입은 *push 권한 한계* 가 있어 본 template 의 deploy 흐름에는 부족합니다 ([`decisions-infra.md I-10`](./decisions-infra.md) — *GHCR push 용 PAT 필수*, [`dogfood-pitfalls.md #7`](../../start/dogfood-pitfalls.md) 의 함정 사례). Classic PAT (`repo` + `write:packages` scope) 를 발급해 `GHCR_TOKEN` secret 으로 등록해야 합니다. `init-server.sh` 가 `.env.prod` 의 `GHCR_TOKEN` 을 GitHub Secrets 로 자동 push 하므로, 운영자는 *발급 + .env.prod 채우기* 만 하면 끝.
+**GHCR 토큰**: ⚠️ `secrets.GITHUB_TOKEN` 자동 주입은 *push 권한 한계* 가 있어 본 template 의 deploy 흐름에는 부족합니다 ([`decisions-infra.md I-10`](./decisions-infra.md) — *GHCR push 용 PAT 필수*, [`dogfood-pitfalls.md #7`](../../start/dogfood-pitfalls.md) 의 함정 사례). Classic PAT (`repo` + `write:packages` scope) 를 발급해 `GHCR_TOKEN` secret 으로 등록해야 합니다. `init-prod.sh` 가 `.env.prod` 의 `GHCR_TOKEN` 을 GitHub Secrets 로 자동 push 하므로, 운영자는 *발급 + .env.prod 채우기* 만 하면 끝.
 
 ---
 

@@ -11,7 +11,7 @@
 > symlink 미등록 시 `bash ./factory <verb>` 또는 직접 `bash tools/<low-level>.sh`
 > 호출도 동등해요.
 
-파생 레포의 모든 작업 (셋업 / 기동 / 테스트 / 배포 / 정리 / 마이그레이션) 은 `factory` wrapper 한 곳에서 호출해요. `factory install` 또는 `init-server.sh` 의 Step 12 가 `~/.local/bin/<repo-name>` symlink 를 자동으로 등록하므로, 그 이후로는 어디서든 `<repo-name> <subcommand>` 형태로 명령을 실행할 수 있어요.
+파생 레포의 모든 작업 (셋업 / 기동 / 테스트 / 배포 / 정리 / 마이그레이션) 은 `factory` wrapper 한 곳에서 호출해요. `factory install` 또는 `init-local.sh` 의 Step 12 가 `~/.local/bin/<repo-name>` symlink 를 자동으로 등록하므로, 그 이후로는 어디서든 `<repo-name> <subcommand>` 형태로 명령을 실행할 수 있어요.
 
 ## 명령어 패턴
 
@@ -275,7 +275,8 @@ dev force-clear / prod force-clear: 모든 자원 영구 삭제 (clean slate)
 `factory` wrapper 를 거치지 않고도 다음과 같이 직접 호출할 수 있어요.
 
 ```bash
-bash tools/init-server.sh --local <owner>/<repo>
+bash tools/init-local.sh <owner>/<repo>         # local init 본체
+bash tools/init-prod.sh  <owner>/<repo>         # prod init 본체
 bash tools/init-dev.sh                          # dev init 본체
 bash tools/verify-local.sh
 bash tools/verify-server.sh --target={prod,dev} # server-test 본체

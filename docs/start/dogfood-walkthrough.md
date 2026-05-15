@@ -21,7 +21,7 @@
 도그푸딩은 *template 자기 자신을* Mac mini 에 배포해서 한 사이클 검증하는 일이에요. "Use this template" 으로 만든 새 파생 레포에서도 같은 검증을 합니다.
 
 **왜 필요한가요?**
-- template 의 자동화 코드 (`tools/init-server.sh` 등) 는 그대로 복사돼요. 하지만 GitHub Settings (Variables/Secrets) / Mac mini SSH 키 / GHCR 패키지는 파생 레포가 *직접 셋업* 해야 해요.
+- template 의 자동화 코드 (`tools/init-prod.sh` / `init-local.sh` / `init-dev.sh` 등) 는 그대로 복사돼요. 하지만 GitHub Settings (Variables/Secrets) / Mac mini SSH 키 / GHCR 패키지는 파생 레포가 *직접 셋업* 해야 해요.
 - 첫 실배포 전에 도그푸딩으로 한 번 검증하면, 실제 사용자 트래픽이 들어오기 전에 모든 함정을 잡을 수 있어요.
 
 설계 근거는 [`ADR-002 (Use this template)`](../philosophy/adr-002-use-this-template.md) 에 정리되어 있어요.
@@ -54,7 +54,7 @@
 - **`#12` JDK 26 호환성** — Gradle 의 Groovy 가 class file major 70 (JDK 26) 을 못 읽어서 빌드 자체가 안 돼요. JDK 21 LTS 권장.
 
 이 12 함정의 결과로 *자동화 가드* 들이 박혔어요:
-- `init-server.sh` Step 1 의 prereq 검증 (Java 21~25, gh 설치, ssh-keygen 등)
+- `init-prod.sh` / `init-local.sh` Step 1 의 prereq 검증 (Java 21~25, gh 설치, ssh-keygen 등 — `lib/init-common.sh` 의 `_validate_prereqs`)
 - `tools/dogfooding/setup.sh` 의 `DB_URL` 형식 정규식 체크
 - `deploy.yml` 의 `provenance: false` / `sbom: false`
 - 그 외 여러 *defensive default*
@@ -79,7 +79,7 @@
 **무엇이 정착됐나요?**
 - 파생 레포의 secret 등록은 *4-stage chain* 의 마지막 stage (GHA workflow `env:` 블록) 와 직접 연결돼요. 본문 `${{ secrets.X }}` 가 등록되지 않은 secret 을 참조하면 빈 문자열이 되고, workflow 가 어느 step 에서 silently fail 해요.
 - *모든 secret 은 4-stage 모두에 등록됐는지 확인해야 함* — 이 원칙이 [`secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) 의 canonical 위치에서 명문화됐어요.
-- `init-server.sh` 가 8개의 REQUIRED secret 을 push 하지만, *그 외에도 GHA workflow 가 의존하는 secret* 이 빠져 있을 수 있어 운영자가 명시적으로 점검해야 해요.
+- `init-prod.sh` 가 8개의 REQUIRED secret 을 push 하지만, *그 외에도 GHA workflow 가 의존하는 secret* 이 빠져 있을 수 있어 운영자가 명시적으로 점검해야 해요.
 
 ### 4.2 결제 모듈이 부팅을 막는다 — PortOne 더미값 함정
 
@@ -119,7 +119,7 @@
 
 **무엇이 정착됐나요?**
 - `APP_FLYWAY_MODE` 가 4-stage chain 모두에 wire 됐어요 (commit `5a04206`).
-- 그리고 *`.env.prod.example` 의 default 값* 이 빈 문자열에서 `AUTO` 로 변경됐어요. `init-server.sh` 가 이 example 을 그대로 복사해서 `.env.prod` 를 만들기 때문에, 사용자가 명시적으로 안 채워도 첫 deploy 가 부팅 fail 하지 않아요.
+- 그리고 *`.env.prod.example` 의 default 값* 이 빈 문자열에서 `AUTO` 로 변경됐어요. `init-prod.sh` 가 이 example 을 그대로 복사해서 `.env.prod` 를 만들기 때문에, 사용자가 명시적으로 안 채워도 첫 deploy 가 부팅 fail 하지 않아요.
 - 이 함정의 일반화된 교훈 — *모든 새 env 변수는 4-stage 동시 등록* — 이 [`secret-chain-4stage.md`](../production/setup/secret-chain-4stage.md) 의 체크리스트에 명문화됐어요.
 
 ### 4.5 alias 'test' 가 bash builtin 과 충돌
@@ -143,15 +143,15 @@
 
 **무엇이 정착됐나요?**
 - `factory` wrapper 가 시작 시 `export FACTORY_ALIAS="$(basename "$0")"` 를 실행해요 (commit `e822736`).
-- 자식 프로세스 (`new-app.sh`, `init-server.sh`) 는 `$FACTORY_ALIAS` 환경변수를 우선 읽고, 없으면 symlink 리버스 lookup 으로 fallback 해요. 이 helper 가 `tools/lib/common.sh` 의 `detect_factory_alias()` 로 정착했어요.
+- 자식 프로세스 (`new-app.sh`, `init-prod.sh`, `init-local.sh`) 는 `$FACTORY_ALIAS` 환경변수를 우선 읽고, 없으면 symlink 리버스 lookup 으로 fallback 해요. 이 helper 가 `tools/lib/common.sh` 의 `detect_factory_alias()` 로 정착했어요.
 - 동시에 `<repo-name>` placeholder 가 출력될 때 ANSI 컬러 (red bold border + yellow bg highlight) 로 *시각적 강조* 처리도 추가됐어요 (commit `16e50de`).
 
-### 4.7 `init-server.sh` partial-fail 의 인지성
+### 4.7 `init-prod.sh` partial-fail 의 인지성
 
-`init-server.sh` 실행이 line 559 부근에서 명령 not found 에러를 출력했는데, 그 다음 단계에서 "[OK] 등록 완료" 가 출력되고 정상 종료처럼 보였어요. 사용자가 정상 완료로 인식했지만, 사실 8 개 REQUIRED secret 중 7 개만 push 되고 1 개가 누락된 상태였어요.
+`init-prod.sh` (당시엔 `init-server.sh`) 실행이 line 559 부근에서 명령 not found 에러를 출력했는데, 그 다음 단계에서 "[OK] 등록 완료" 가 출력되고 정상 종료처럼 보였어요. 사용자가 정상 완료로 인식했지만, 사실 8 개 REQUIRED secret 중 7 개만 push 되고 1 개가 누락된 상태였어요.
 
 **왜 발생했나요?**
-- `init-server.sh` 가 부분 실패 (partial fail) 시에도 *그대로 다음 step 으로 진행* 하는 구조예요.
+- `init-prod.sh` 가 부분 실패 (partial fail) 시에도 *그대로 다음 step 으로 진행* 하는 구조예요.
 - Step 6 의 "[OK] 등록 완료" 는 *해당 step 만의* 성공 메시지인데, 사용자 관점에선 *전체 init 의 종료 메시지* 로 보였어요.
 - Step 9.5 / 10 같은 후속 step 이 silently skip 됐어요.
 

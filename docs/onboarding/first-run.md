@@ -4,7 +4,7 @@
 
 로컬에서 `./gradlew bootRun` 을 처음 돌렸을 때 나오는 로그가 **무엇을 의미하는지** 한 번 훑어봐요. 실제로 돌리지 않아도 읽을 수 있도록 구성했어요. 막히는 로그가 있으면 이 문서로 돌아오세요.
 
-> **전제**: [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 의 환경 셋업 (§1~§3) 완료. `./tools/init-server.sh` 또는 `./gradlew bootRun` 직접 실행.
+> **전제**: [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 의 환경 셋업 (§1~§3) 완료. `./tools/init-local.sh` (또는 `./factory local init`) 또는 `./gradlew bootRun` 직접 실행.
 
 ## 1. Gradle 단계
 

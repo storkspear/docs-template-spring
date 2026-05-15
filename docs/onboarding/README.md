@@ -20,7 +20,7 @@
 
 QuickStart 는 다음 세 가지를 해요.
 
-- 로컬 dev 환경 부팅 (`tools/init-server.sh`)
+- 로컬 dev 환경 부팅 (`tools/init-local.sh`)
 - Spring 첫 기동 확인
 - 첫 앱 모듈 생성 (`tools/new-app/new-app.sh`)
 
@@ -58,7 +58,7 @@ QuickStart 는 다음 세 가지를 해요.
 1. `§1 사전 설치 체크리스트` — JDK 21+, Docker, Node 18+ 설치 확인.
 2. `§2 파생 레포 생성` — "Use this template" 으로 본인 레포 만들기 (지금 template 자체를 보고 있다면 skip).
 3. `§3 환경 변수 설정` — `.env.example` → `.env` 복사 후 채우기.
-4. `§4 첫 기동` — `tools/init-server.sh` 실행 → Spring `bootRun` 으로 동작 확인.
+4. `§4 첫 기동` — `tools/init-local.sh` 실행 → Spring `bootRun` 으로 동작 확인.
 
 여기까지 마치면 본인 노트북에서 Spring 이 살아 움직여요.
 
