@@ -1,6 +1,6 @@
 # ADR-013 · 앱별 인증 엔드포인트 (core-auth 는 라이브러리 역할)
 
-**Status**: Accepted. 모든 인증 엔드포인트가 `/api/apps/{appSlug}/auth/*` 형태로 통일돼 있어요. `core-auth-impl/AuthController.java` 는 레퍼런스 소스로만 존재하고 런타임 Bean 으로 등록되지 않습니다. `new-app.sh` 가 앱 스캐폴딩 시 앱별 Controller 를 자동 생성해요.
+**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — core schema 의 *auth/refresh_tokens/email_verification_tokens* 가 폐기되어 각 app schema 의 동일 table 만 남음 (per-app 격리 완성). 모든 인증 엔드포인트가 `/api/apps/{appSlug}/auth/*` 형태로 통일돼 있어요. `core-auth-impl/AuthController.java` 는 레퍼런스 소스로만 존재하고 런타임 Bean 으로 등록되지 않습니다. `new-app.sh` 가 앱 스캐폴딩 시 앱별 Controller 를 자동 생성해요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

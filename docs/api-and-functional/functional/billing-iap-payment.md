@@ -117,23 +117,27 @@ APP_PAYMENT_PORTONE_WEBHOOK_SECRET=dogfood-dummy
 
 이 세 키는 [secret chain 4-stage](../../production/setup/secret-chain-4stage.md) 에 따라 네 곳에 모두 동기화해야 컨테이너에 정상적으로 주입됩니다. 실제 PortOne 콘솔에서 자격을 발급받는 절차는 추후 별도 가이드로 정리될 예정입니다.
 
-## 5. IAP credentials — 슬러그별 분리
+## 5. IAP credentials — 자격증명은 글로벌, 식별자만 슬러그별
 
-Apple 과 Google 의 IAP 자격은 *슬러그별* 로 분리됩니다. 각 앱이 별도의 Bundle ID 와 Package Name 을 갖기 때문입니다. `.env.prod` 에는 슬러그를 prefix 로 가진 형태로 키를 등록합니다 (아래 예시는 `mynewapp` 슬러그의 경우 — 실제로는 본인의 슬러그 이름이 들어갑니다).
+Apple 과 Google 의 IAP **자격증명** (.p8 private key, service account JSON 등) 은 한 Apple Developer 계정 / 한 GCP project 의 키 1개로 모든 슬러그가 공유합니다. 슬러그별로 다른 것은 **Bundle ID** (Apple) 와 **Package Name** (Google) 두 식별자뿐입니다. 코드 분리는 `IapProperties` (글로벌 자격증명) 와 `IapAppCredentialProperties` (슬러그별 식별자) 두 ConfigurationProperties 로 표현됩니다.
 
 ```bash
-# Apple
-APP_CREDENTIALS_MYNEWAPP_IAP_APPLE_KEY_ID=...
-APP_CREDENTIALS_MYNEWAPP_IAP_APPLE_ISSUER_ID=...
-APP_CREDENTIALS_MYNEWAPP_IAP_APPLE_BUNDLE_ID=com.example.mynewapp
-APP_CREDENTIALS_MYNEWAPP_IAP_APPLE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----...
+# 글로벌 — 한 Apple Developer 계정 / GCP project 의 키 1개로 모든 슬러그 공용
+APP_IAP_APPLE_API_URL=https://api.storekit.itunes.apple.com
+APP_IAP_APPLE_KEY_ID=...
+APP_IAP_APPLE_ISSUER_ID=...
+APP_IAP_APPLE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----...
+APP_IAP_APPLE_ENVIRONMENT=production
 
-# Google
+APP_IAP_GOOGLE_API_URL=https://androidpublisher.googleapis.com
+APP_IAP_GOOGLE_SERVICE_ACCOUNT_JSON=...
+
+# 슬러그별 식별자 — App Store / Play Console 에 등록된 앱 ID (앱마다 다름)
+APP_CREDENTIALS_MYNEWAPP_IAP_APPLE_BUNDLE_ID=com.example.mynewapp
 APP_CREDENTIALS_MYNEWAPP_IAP_GOOGLE_PACKAGE_NAME=com.example.mynewapp
-APP_CREDENTIALS_MYNEWAPP_IAP_GOOGLE_SERVICE_ACCOUNT_JSON=...
 ```
 
-`<your-backend> new <slug>` 명령이 슬러그에 맞는 placeholder 키를 자동으로 추가해 줍니다. 실제 값은 Apple Developer 콘솔과 Google Play Console 에서 발급받은 뒤 채워 넣으면 됩니다. 자세한 절차는 [`social-auth-setup`](../../start/social-auth-setup.md) 의 IAP 섹션을 참고하시면 됩니다.
+`<your-backend> new <slug>` 명령이 자동으로 추가하는 것은 슬러그별 식별자 두 줄 (`APP_CREDENTIALS_<SLUG>_IAP_APPLE_BUNDLE_ID`, `APP_CREDENTIALS_<SLUG>_IAP_GOOGLE_PACKAGE_NAME`) 뿐입니다. 글로벌 자격증명은 처음 한 번 발급해서 채워두면 이후 모든 슬러그가 공유합니다. Google Play 의 경우 service account email 을 Play Console 의 각 앱에 권한자로 추가만 하면 됩니다. 자세한 절차는 [`social-auth-setup`](../../start/social-auth-setup.md) 의 IAP 섹션을 참고하시면 됩니다.
 
 ## 6. Feature toggle — `app.features.{payment,iap}`
 

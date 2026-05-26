@@ -1,6 +1,6 @@
 # ADR-018 · SchemaRoutingDataSource — service-layer 의 슬러그 격리
 
-**Status**: Accepted. `SchemaRoutingDataSource` 가 `SlugContext` (ThreadLocal) 의 슬러그 값으로 connection 을 슬러그별 DataSource 로 분기해요. INSERT / SELECT 가 자동으로 슬러그 schema 로 라우팅됩니다.
+**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — *core fallback* → `IllegalStateException` (fail-secure). slug 없는 DB 접근은 *configuration 오류* 로 간주, silent core fallback 폐기. `SchemaRoutingDataSource` 가 `SlugContext` (ThreadLocal) 의 슬러그 값으로 connection 을 슬러그별 DataSource 로 분기해요. INSERT / SELECT 가 자동으로 슬러그 schema 로 라우팅됩니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~4분
 

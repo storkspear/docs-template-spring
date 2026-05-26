@@ -1,6 +1,6 @@
 # ADR-005 · 단일 Postgres database + 앱당 schema
 
-**Status**: Accepted. `infra/scripts/init-app-schema.sql` + `common-persistence/AbstractAppDataSourceConfig.java` 로 구현되어 있어요. Supabase production 도 동일한 구조를 따릅니다.
+**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — 5중 방어선의 *core schema* 부분 제거 (4중으로 단순화). `infra/scripts/init-app-schema.sql` + `common-persistence/AbstractAppDataSourceConfig.java` 로 구현되어 있어요. Supabase production 도 동일한 구조를 따릅니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
