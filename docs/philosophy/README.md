@@ -116,6 +116,7 @@
 | "도메인을 부분만 켜고 끄려면?" | [`ADR-034: Feature Toggle Lite mode`](./adr-034-feature-toggle-lite-mode.md) |
 | "Lite 모드의 사용자 UI 노출은?" | [`ADR-035: Lite mode 사용자 인터페이스`](./adr-035-lite-mode-user-interface.md) |
 | "공개 webhook 등 외부 호출의 SSRF 방어는?" | [`ADR-036: SSRF URL whitelist 정책`](./adr-036-ssrf-url-whitelist.md) |
+| "core schema 가 *legacy* 잔재라면?" | [`ADR-037: core schema + coreDataSource Bean 폐기`](./adr-037-core-schema-deprecation.md) |
 
 > **36 개 ADR 작성 완료** (ADR-001 ~ ADR-036). 테마별로 그룹화되어 있고 각 카드는 독립적으로 읽을 수 있습니다.
 

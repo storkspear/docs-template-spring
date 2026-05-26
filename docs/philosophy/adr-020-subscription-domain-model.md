@@ -1,6 +1,6 @@
 # ADR-020 · Subscription / Plan / PaymentRecord 도메인 모델 + Webhook 보안
 
-**Status**: Accepted. [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 도메인 분리 골격 위에 비즈 로직 + DB 모델 + 트랜잭션 정책 + webhook 보안을 채웠어요. PG (포트원) 결제 검증 → PaymentRecord 저장 → Subscription 활성화의 e2e 흐름이 동작합니다.
+**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — billing entity (Plan/Subscription/PaymentRecord 등) 가 *core schema 가 아닌 *각 app schema 에만* 존재 (per-app 격리). [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 도메인 분리 골격 위에 비즈 로직 + DB 모델 + 트랜잭션 정책 + webhook 보안을 채웠어요. PG (포트원) 결제 검증 → PaymentRecord 저장 → Subscription 활성화의 e2e 흐름이 동작합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

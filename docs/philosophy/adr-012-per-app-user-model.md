@@ -1,6 +1,6 @@
 # ADR-012 · 앱별 독립 유저 모델 (통합 계정 폐기)
 
-**Status**: Accepted. 각 앱이 자기 schema 에 독립 users 테이블을 가지는 모델로 운영합니다. `AppSlugVerificationFilter` 가 JWT 의 `appSlug` claim 과 URL 의 `{slug}` 일치를 검증해 런타임 경계를 강제해요.
+**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — *core.users* 가 *legacy 잔재* 였다는 부분 정확화 (core schema 자체 폐기 후 각 app schema 의 users 만 남음). 각 앱이 자기 schema 에 독립 users 테이블을 가지는 모델로 운영합니다. `AppSlugVerificationFilter` 가 JWT 의 `appSlug` claim 과 URL 의 `{slug}` 일치를 검증해 런타임 경계를 강제해요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
