@@ -11,13 +11,13 @@
 
 ## 개요
 
-template 첫 도그푸딩 배포에서 **11번 시도** 후 성공 + 이후 JDK 호환성 함정 1건 추가 = **총 12 함정** 이에요. 매 시도마다 새 에러 한 개씩 나왔어요. 이 문서는 그 실록 — **에러 메시지로 검색해서 원인 + 해결을 빠르게 찾기 위한 reference** 예요. 정상 흐름 설명은 가이드에서 보세요.
+template 첫 도그푸딩 배포에서 **11번 시도** 후 성공 + 이후 JDK 호환성 함정 1건 + 파생레포 실배포(server-backend, dev/prod)에서 운영 함정 3건 추가 = **총 15 함정** 이에요. 매 시도마다 새 에러 한 개씩 나왔어요. 이 문서는 그 실록 — **에러 메시지로 검색해서 원인 + 해결을 빠르게 찾기 위한 reference** 예요. 정상 흐름 설명은 가이드에서 보세요.
 
 자동화된 `tools/dogfooding/setup.sh` + `cleanup.sh` 가 아래 함정 대부분을 회피하지만, 외부 서비스 (Tailscale ACL, GitHub PAT scope) 의 **사람 손이 가야 하는 부분에서 같은 에러를 다시 만날 수 있어요**. 그때 이 문서를 보세요.
 
 ---
 
-## 한눈에 — 함정 12개 표
+## 한눈에 — 함정 15개 표
 
 | # | 단계 | 증상 (에러 메시지 검색용 키워드) | 원인 한 줄 | 해결 한 줄 | 관련 commit |
 |---|---|---|---|---|---|
@@ -34,6 +34,9 @@ template 첫 도그푸딩 배포에서 **11번 시도** 후 성공 + 이후 JDK 
 | **10b** | kamal inspect | `Image ... is missing the 'service' label` | 직접 `docker buildx` 빌드라 kamal 자동 부여 label 없음 | `docker/build-push-action` 에 `labels: \| service=${KAMAL_SERVICE_NAME}` | `d610cb5` |
 | **11** | Spring 기동 | `No suitable driver` for jdbcUrl=postgresql://... | `DB_URL` 이 `postgresql://...` (jdbc: prefix 누락) + user/password inline | `DB_URL = jdbc:postgresql://host:port/db` (host:port/db 만), `DB_USER`/`DB_PASSWORD` 별도 | `5c54b86` |
 | **12** | Gradle 빌드 | `Unsupported class file major version 70` | 시스템 JDK 가 26 (또는 17·26 만 설치) — Gradle/Groovy 가 class file major 70 (JDK 26) 을 못 읽음 | `brew install openjdk@21` + `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` | init-prod.sh / init-local.sh prereq 가 `21 ≤ JAVA < 26` 로 즉시 거부 (`Java 21~25 필요`) |
+| **13** | 첫 배포 health | `target failed to become healthy within configured timeout (30s)` (부팅 로그에 Flyway `Migrating` 진행 중 kill) | 원거리/콜드 DB(타 리전 Supabase)라 빈 schema V001~V014 마이그레이션이 kamal default 30s 초과 | `config/deploy.yml` 루트 `deploy_timeout: 120` (템플릿 default 반영) | post-deploy 보강 |
+| **14** | Cloudflare 라우팅 | 배포 성공인데 외부 도메인 **404** / `dig <host>` **NXDOMAIN** | 터널이 **remote-managed**(로컬 `~/.cloudflared/*.yml` 무효) + manual `prod deploy` 라 `prod init` 의 ingress/DNS 자동등록을 건너뜀 | `<repo> prod init` 으로 자동등록(cloudflare.sh `PUT cfd_tunnel/configurations`) — 또는 API 로 ingress + DNS CNAME 수동 | post-deploy 보강 |
+| **15** | Loki 로그 | Grafana 에 로그 0 / 앱 컨테이너 로그 `loki4j … ConnectException` 반복 | 앱 컨테이너가 Loki(observability)보다 **먼저** 떠서 appender 영구 fail — Loki 떠도 자가복구 안 됨 | observability 를 **첫 앱 배포 전** 기동, 또는 배포 후 앱 컨테이너 `docker restart` | post-deploy 보강 |
 
 > 표 안의 "원인 한 줄 / 해결 한 줄" 컬럼은 *명사구 reference* 형식이라 의도적으로 압축돼 있어요 ([`STYLE_GUIDE §3 의 표 안 명사구 허용 규정`](../reference/STYLE_GUIDE.md)).
 
@@ -265,11 +268,41 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 
 ---
 
+### #13. 첫 배포 health-check 타임아웃 — 원거리 DB 의 Flyway 마이그레이션
+
+**증상** — kamal 배포가 빌드·push·기동까지 가고 `ERROR: target failed to become healthy within configured timeout (30s)` 로 실패. 앱 컨테이너 로그를 보면 죽기 직전까지 Flyway 가 `Migrating schema "<slug>" to version "00X"` 를 정상 진행 중이었다. 재시도하면 더 높은 버전까지 가다 또 죽는다.
+
+**원인** — 첫 배포는 빈 schema 라 Spring 기동 중 Flyway 가 V001~V014 를 전부 migrate 한 *뒤에야* `/actuator/health/liveness` 가 200 이 된다. DB 가 배포 호스트에서 멀거나(예: Supabase 가 Mac mini 와 다른 리전 — 시드니 vs 서울) 콜드 상태면 쿼리 왕복 지연이 커서 마이그레이션이 kamal-proxy 기본 `deploy-timeout` 30s 를 넘긴다 → 컨테이너 kill → 배포 실패 루프. (dev 는 같은 리전이라 통과하는데 prod 만 실패하면 이걸 의심.)
+
+**해결** — `config/deploy.yml` 루트에 `deploy_timeout: 120` (이 PR 부터 템플릿 default). kamal 은 *로컬* config 를 deploy 설정으로 읽으므로(이미지는 origin SHA) 커밋 전이라도 적용된다. 평시 재배포는 schema 가 up-to-date 라 마이그레이션 없이 빠르게 부팅한다. 매 재시도가 마이그레이션을 누적 진행하므로(Flyway 가 버전별 커밋) 끝내 수렴하지만, timeout 을 키우는 게 정석.
+
+**자동화 적용** — `config/deploy.yml` · `config/deploy-dev.yml` 둘 다 `deploy_timeout: 120`.
+
+### #14. 배포 성공인데 외부 도메인 404 — Cloudflare 터널 remote-managed
+
+**증상** — kamal 배포는 성공(`kamal-proxy list` 에 `<host> → :8080 running` 등록 확인)인데 `https://<host>/...` 가 **404**(kamal-proxy 의 styled 404). 혹은 아예 `dig <host>` 가 **NXDOMAIN**.
+
+**원인** — 두 가지가 겹친다. ① 이 인프라의 cloudflared 터널은 **remote-managed** 라 실제 라우팅을 로컬 `~/.cloudflared/*.yml` 가 아니라 Cloudflare API/대시보드 설정에서 가져온다(`cloudflared` 로그의 `Updated to new configuration version=N`). 로컬 yaml 을 편집해도 무효. ② manual `<repo> prod deploy` 만 돌리면 `<repo> prod init` 이 하는 **DNS CNAME + 터널 ingress 자동등록**을 건너뛴다 → 해당 host 가 ingress 에 없어 catch-all 404, DNS 없으면 NXDOMAIN.
+
+**해결** — 정석은 `<repo> prod init` 을 먼저(또는 함께) 돌리는 것. `tools/lib/cloudflare.sh` 가 `PUT /accounts/{acct}/cfd_tunnel/{tunnel}/configurations` 로 ingress 를, DNS CNAME(→ `<tunnel>.cfargotunnel.com`, proxied)을 자동 등록한다. 이미 배포만 해버렸다면 같은 API 로 ingress(catch-all 앞)와 DNS 를 직접 추가하면 된다.
+
+**기억할 점** — "kamal-proxy 라우트는 있는데 외부 404" = 앱/배포 문제가 아니라 **Cloudflare 터널 ingress 누락**. 내부에서 `curl -H 'Host: <host>' http://localhost:80/...` 가 200 이면 확정.
+
+### #15. Grafana 에 로그가 안 옴 — Loki appender 가 startup 시 stuck
+
+**증상** — dev/prod 가 정상인데 `log.<domain>`(Grafana)/Loki 에 로그 스트림이 0. 앱 컨테이너 로그엔 `com.github.loki4j … java.net.ConnectException`(또는 `UnresolvedAddressException`)이 반복. Loki 를 나중에 띄워도 로그가 흐르지 않는다.
+
+**원인** — 앱 컨테이너가 **Loki(observability 스택)보다 먼저** 떴다. loki4j appender 는 startup 시 `loki` 호스트 연결에 실패하면 그 상태로 굳어버려, 이후 Loki 가 같은 docker network 에 떠도 자가복구하지 않는다.
+
+**해결** — `infra/docker-compose.observability.yml`(Loki/Grafana/Prometheus, `kamal` 네트워크에 external join)을 **첫 앱 배포 전에** 기동한다. 이미 앱이 떠 있었다면 Loki 기동 후 앱 컨테이너를 `docker restart` 하면 appender 가 새로 붙어 즉시 흐른다(`{env="dev"}` / `{env="prod"}` 로 구분). dev·prod **둘 다** Loki 로 push 한다(logback-common.xml).
+
+---
+
 ## 새 함정 발견 시 추가하는 방법
 
 도그푸딩 / 파생레포 실배포에서 새 함정을 만나면 다음 절차를 따라요.
 
-1. **이 문서의 "한눈에 표" 에 한 행 추가** (다음 번호 #13)
+1. **이 문서의 "한눈에 표" 에 한 행 추가** (다음 번호 #16)
 2. **함정별 자세한 분석 섹션** 에 같은 패턴으로 한 항목 추가
 3. **commit 메시지** 에 `pitfalls: add #N` 접두사 사용
 4. 가능하면 `setup.sh` 의 검증 step 에 가드를 추가하세요 (예: #11 의 DB_URL 형식 체크처럼)
