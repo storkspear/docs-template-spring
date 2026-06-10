@@ -139,6 +139,23 @@ APP_CREDENTIALS_MYNEWAPP_IAP_GOOGLE_PACKAGE_NAME=com.example.mynewapp
 
 `<your-backend> new <slug>` 명령이 자동으로 추가하는 것은 슬러그별 식별자 두 줄 (`APP_CREDENTIALS_<SLUG>_IAP_APPLE_BUNDLE_ID`, `APP_CREDENTIALS_<SLUG>_IAP_GOOGLE_PACKAGE_NAME`) 뿐입니다. 글로벌 자격증명은 처음 한 번 발급해서 채워두면 이후 모든 슬러그가 공유합니다. Google Play 의 경우 service account email 을 Play Console 의 각 앱에 권한자로 추가만 하면 됩니다. 자세한 절차는 [`social-auth-setup`](../../start/social-auth-setup.md) 의 IAP 섹션을 참고하시면 됩니다.
 
+## 5.5 PortOne PG 결제 활성화 — "키만 채우면 동작"
+
+자주 받는 질문: *출시 앱이 아직 없는데, 나중에 PortOne 키만 받으면 바로 결제가 되나, 아니면 추가 코드 작업이 필요한가?*
+
+**답: 코드는 이미 완성·테스트되어 있어 키만 채우면 동작합니다.** `core-payment` 의 `PortOneAdapter`(검증/환불/재결제) + `PortOneWebhookVerifier`(HMAC-SHA256 + timestamp) + 슬러그 `…PaymentController`(verify/refund/webhook) + 부팅 가드(`PaymentAutoConfiguration`) + WireMock stub + 단위 테스트가 모두 들어있습니다. 채널 추가 코드 작업은 없습니다.
+
+**실결제 켜는 절차 (1회):**
+
+1. PortOne 콘솔에서 가맹점 등록 → 채널(나이스/토스/이니시스) 활성 → **v1 key/secret + 가맹점 식별코드** 발급.
+2. `.env.prod` 채우기 — `APP_PAYMENT_PORTONE_API_V1_KEY` / `_API_V1_SECRET` / `_CUSTOMER_CODE`, 그리고 `_WEBHOOK_SECRET`(없으면 `openssl rand -hex 32` 로 생성).
+3. PortOne 콘솔의 **webhook URL** 에 `https://<운영도메인>/api/apps/<slug>/payment/webhook` 등록 + 위 webhook secret 입력.
+4. 재배포 → 끝. (v1 key/secret/webhook 3개가 모두 차 있어야 `PortOneAdapter` 가 등록됨 — 일부만 채우면 부팅 fail = 의도된 fail-secure.)
+
+**키 없이도 미리 검증 가능:** 로컬 `dev` 프로파일은 WireMock stub(`infra/wiremock/mappings/portone-*.json`)으로 토큰·결제·환불·재결제 전 플로우를 흉내냅니다. 키 발급 전에 `<repo> local test` 로 결제 경로를 e2e 선검증할 수 있습니다. 즉 *선작업이 가능*하며, 키는 출시 직전에 받아 채우면 됩니다.
+
+> 단일 `/payment/webhook` 엔드포인트가 슬러그별 schema 라우팅으로 모든 앱을 처리하므로, 앱마다 별도 webhook 코드/엔드포인트를 만들 필요가 없습니다.
+
 ## 6. Feature toggle — `app.features.{payment,iap}`
 
 ADR-034 의 Lite 모드를 사용하면 `.env.prod` 의 `APP_FEATURES_PAYMENT=false` 또는 `APP_FEATURES_IAP=false` 로 결제 도메인 자체를 끌 수 있습니다. 다만 주의할 점이 있습니다. 도메인을 *끄면* `PaymentPort` 와 `IapPort` 가 빈으로 등록되지 않기 때문에, 슬러그 컨트롤러가 의존성을 찾지 못해 부팅에 실패합니다.

@@ -117,8 +117,8 @@ docker compose -f infra/docker-compose.local.yml up -d postgres minio
        │             - 파괴적 DDL 은 `migrate-only` 모드로 사전 수동 실행 권장
        │             │
        │             ├─→ JDBC (Supavisor :6543) → [Supabase Seoul]
-       │             │     - core schema (users/auth/devices)
-       │             │     - <slug> schema (apps/app-<slug>/ 가 소유)
+       │             │     - <slug> schema (apps/app-<slug>/ 가 소유 — users/auth/devices/도메인 테이블)
+       │             │     - ADR-037: core schema 자체는 unused (coreDataSource Bean 폐기)
        │             │
        │             └─→ S3 API (Tailscale) → [시놀로지 NAS MinIO]
        │                   192.168.X.X:9000 / 9001  (LAN 직접 접근)
@@ -285,35 +285,31 @@ ingress:
 
 ### 10.1 Schema 구조
 
-단일 DB 안에 앱별 schema ([`ADR-005`](../../philosophy/adr-005-db-schema-isolation.md)):
+단일 DB 안에 앱별 schema ([`ADR-005`](../../philosophy/adr-005-db-schema-isolation.md), [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)):
 ```
 postgres (Supabase or 로컬 docker)
-├── core schema              ← 템플릿 기준선 (users/auth/devices 레거시, core_app role)
-│   ├── users
-│   ├── social_identities
-│   ├── refresh_tokens
-│   ├── email_verification_tokens
-│   ├── password_reset_tokens
-│   └── devices
 └── <slug> schema            ← apps/app-<slug> 이 소유 — 자기 users/auth/devices + 도메인 테이블
-    ├── users / social_identities / refresh_tokens / ...  ([ADR-012](../../philosophy/adr-012-per-app-user-model.md): 앱별 독립 유저)
+    ├── users / social_identities / refresh_tokens / email_verification_tokens
+    ├── password_reset_tokens / devices
     └── (앱 도메인 테이블)
 ```
 
-> **Template 상태**: 현재 레포에는 앱이 없으므로 core schema 만 존재. 파생 레포가 `new-app.sh <slug> --provision-db` 실행 시 `<slug>` schema 가 자동 생성되고 Flyway 가 users/auth/device 기본 테이블 세트를 앱 schema 에 migrate. Multi-DataSource wiring 은 구현 완료 (`CoreDataSourceConfig` + `<Slug>DataSourceConfig`, `common-persistence/AbstractAppDataSourceConfig` 기반).
+> **Template 상태**: 현재 레포에는 앱이 없으므로 *Spring application 자체가 부팅 불가* (`RoutingDataSourceConfig` 의 routing targets 비어 fail-secure, [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)). 파생 레포가 `new-app.sh <slug> --provision-db` 실행 시 `<slug>` schema 가 자동 생성되고 Flyway 가 users/auth/device 기본 테이블 세트를 앱 schema 에 migrate. Multi-DataSource wiring 은 구현 완료 (`RoutingDataSourceConfig` + `<Slug>DataSourceConfig`, `common-persistence/AbstractAppDataSourceConfig` 기반).
+>
+> `core` schema 자체는 *ADR-037 이후 unused* — `infra/scripts/init-core-schema.sql` 는 *legacy artifact* 로 잔존 (별 cycle 폐기 후보).
 
 ### 10.2 초기 Schema 스크립트
 
 | 파일 | 용도 |
 |---|---|
-| `infra/scripts/init-core-schema.sql` | core schema 생성 + role grant (Supabase 초기 셋업용) |
+| `infra/scripts/init-core-schema.sql` | (ADR-037 후 unused legacy) — schema 자체 + `core_app` role 생성 |
 | `infra/scripts/init-app-schema.sql` | 앱별 schema 생성 template (`{slug}` placeholder) |
 
 파생 레포가 새 앱 만들 때 `new-app.sh <slug> --provision-db` 를 실행하면 `init-app-schema.sql` 이 자동 실행됨 (Item 10 완료). 수동 실행이 필요한 경우 `APP_SLUG=<slug> APP_ROLE=<slug>_app APP_PASSWORD=<pw> psql ... -f infra/scripts/init-app-schema.sql`.
 
 ### 10.3 Flyway 마이그레이션
 
-현재 core schema 의 마이그레이션 파일:
+ADR-037 이후 *core/core-\*-impl/src/main/resources/db/migration/core/V\*.sql 7개 production migration 삭제*. 각 앱의 `<slug>` schema 만 마이그레이션:
 ```
 V001__init_users.sql
 V002__init_social_identities.sql
@@ -321,11 +317,15 @@ V005__init_refresh_tokens.sql
 V006__init_email_verification_tokens.sql
 V007__init_password_reset_tokens.sql
 V008__init_devices.sql
+V016__init_audit_logs.sql
+... (앱 도메인 V0xx)
 ```
+
+`core/core-*-impl/src/test/resources/db/migration/core/` 는 *Testcontainers 용으로만 잔존* — production runtime 에는 영향 없음.
 
 ### 10.4 서비스별 DataSource
 
-앱별 schema 에 붙는 DataSource 는 각 앱 모듈의 `<Slug>DataSourceConfig` 에서 `@Value` 로 환경변수 주입. Bootstrap 은 core schema 만, 각 앱은 자기 schema 에. 5중 방어선 (DB role · DataSource · Flyway · 포트 · ArchUnit) 의 구조적 근거: [`ADR-005 (단일 Postgres + 앱당 schema)`](../../philosophy/adr-005-db-schema-isolation.md). 구조 상세: [`Architecture Reference`](../../structure/architecture.md) 데이터베이스 구조 섹션.
+앱별 schema 에 붙는 DataSource 는 각 앱 모듈의 `<Slug>DataSourceConfig` 에서 `@Value` 로 환경변수 주입. ADR-037 이후 *bootstrap 은 `RoutingDataSourceConfig` 만* — core schema DataSource 는 없음. 각 앱이 자기 schema 의 DataSource Bean 을 등록하고 `SchemaRoutingDataSource` 가 ThreadLocal `SlugContext` 의 slug 로 connection 을 분기. 4중 방어선 (DB role · DataSource · Flyway · ArchUnit) 의 구조적 근거: [`ADR-005`](../../philosophy/adr-005-db-schema-isolation.md) (5중 → 4중 정정: `Updated by ADR-037`). 구조 상세: [`Architecture Reference`](../../structure/architecture.md) 데이터베이스 구조 섹션.
 
 ### 10.5 `keep-alive.sh` — Supabase Free 7일 비활성 방지
 

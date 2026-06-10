@@ -416,9 +416,8 @@ template-spring/
 │       │   │   │   ├── HealthController.java      # GET /health (무인증)
 │       │   │   │   └── VersionController.java     # GET /version (무인증)
 │       │   │   └── config/
-│       │   │       ├── CoreDataSourceConfig.java  # @Primary, slug="core"
-│       │   │       ├── OpenApiConfig.java         # Swagger UI
-│       │   │       └── JpaConfig.java
+│       │   │       ├── RoutingDataSourceConfig.java  # @Primary routing + JPA 통합 (ADR-037)
+│       │   │       └── OpenApiConfig.java            # Swagger UI
 │       │   └── resources/
 │       │       ├── application.yml                # 공통 기본값 (port 8081, APP_FLYWAY_MODE default = AUTO)
 │       │       ├── application-local.yml          # 개발자 맥북 docker (localhost Postgres + WireMock fallback)
@@ -451,7 +450,7 @@ template-spring/
     ├── docker-compose.local.yml                     # 로컬 Postgres 16 + MinIO
     ├── docker-compose.observability.yml           # Prometheus + Loki + Grafana + Alertmanager
     ├── scripts/
-    │   ├── init-core-schema.sql                   # core schema + core_app role
+    │   ├── init-core-schema.sql                   # core_app role 생성용 (ADR-037 후 schema 자체는 unused)
     │   ├── init-app-schema.sql                    # 앱별 schema + role (멱등)
     │   ├── keep-alive.sh                          # Supabase Free 활성 유지
     │   └── backup-to-nas.sh.example
@@ -814,17 +813,17 @@ Flyway.configure()
 
 ### 멀티 DataSource Wiring
 
-`bootstrap/CoreDataSourceConfig` (`@Primary`, slug="core") 와 각 앱 모듈의 `<Slug>DataSourceConfig` 가 공존해요. 공통 빌더는 `AbstractAppDataSourceConfig` 예요.
+`bootstrap/RoutingDataSourceConfig` (`@Primary`, routing + JPA 통합) 와 각 앱 모듈의 `<Slug>DataSourceConfig` 가 공존해요. 공통 빌더는 `AbstractAppDataSourceConfig` 예요. ADR-037 이후 *core schema / coreDataSource Bean 은 폐기* — slug 없는 DB 접근은 `IllegalStateException` (fail-secure).
 
 ```
-bootstrap/CoreDataSourceConfig (@Primary, slug="core")
-  @Bean dataSource / entityManagerFactory / transactionManager / flyway
+bootstrap/RoutingDataSourceConfig (@Primary)
+  @Bean dataSource (= SchemaRoutingDataSource: <slug>DataSource 자동 수집 + SlugContext routing)
+  @Bean entityManagerFactory / transactionManager  (모든 core entity 패키지 scan)
+  @Bean dbHealthContributor                        (각 <slug>DataSource 별 SELECT 1, routing 우회)
 
 apps/app-<slug>/config/<Slug>DataSourceConfig (slug="<slug>", @Profile("!test"))
-  @Bean <slug>DataSource / <slug>EntityManagerFactory /
-        <slug>TransactionManager / <slug>Flyway
-  @EnableJpaRepositories(basePackages = "apps.<slug>.repository",
-                         entityManagerFactoryRef = "<slug>EntityManagerFactory")
+  @Bean <slug>DataSource / <slug>Flyway
+  (EMF/TM 은 routing 의 @Primary 가 공유)
 ```
 
 새 앱 추가 시 `new-app.sh` 가 `<Slug>DataSourceConfig` 클래스를 자동 생성합니다. `@Profile("!test")` 가 함께 붙어 있어서 bootstrap test (Testcontainers 단일 DB) 환경에서 슬러그 모듈이 비활성화됩니다.

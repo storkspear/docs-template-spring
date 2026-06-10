@@ -397,6 +397,28 @@ END $$;
 
 ---
 
+## 외부 결제(PG) — 백엔드/프론트 테스트 책임 분리
+
+PG 결제(PortOne)는 **풀 e2e 를 하나의 테스트로 강제하면 안 된다.** 결제 행위의 책임이 프론트와 백엔드로 갈리기 때문이다.
+
+| 책임 | 주체 | 검증 대상 | 테스트 위치 |
+|---|---|---|---|
+| 결제 **생성** | 프론트(Flutter + PortOne SDK) | 결제창 → 카드 인증 → `impUid` 발급 (실 트랜잭션) | 앱 통합테스트 (PG 테스트모드) |
+| 결제 **검증** | 백엔드 | 주어진 `impUid` 를 PortOne API 로 검증 → 구독 활성 | 백엔드 테스트 |
+| **webhook** | 백엔드 | PortOne→서버 상태 통지, HMAC 검증·처리 | 백엔드 테스트 |
+| **연결·인증** | 백엔드 | PortOne API 도달성 + getToken(키 자격) | 백엔드 테스트 |
+
+**핵심**: headless 백엔드 smoke test 는 `impUid` 를 만들 수 없다(프론트 영역). 따라서 환경별로 검증 범위가 다르다.
+
+- **local** — wiremock 이 임의 `impUid` 를 paid 로 stub → 결제 생성→검증 풀플로우까지 검증 (mock 이라 의미 있음). dev/prod 에 wiremock 은 무의미(실 통합 검증이 목적).
+- **dev/prod** — 실 PortOne(`api.iamport.kr`). 가짜 `impUid` 는 거부되지만, 그 응답 코드로 **백엔드 책임을 정직하게 판별**한다:
+  - `422 PAY_009` (`PORTONE_BUSINESS_ERROR`) = PortOne **도달·인증·왕복 성공**, 단 가짜 `impUid` 거부 → **백엔드 연결·인증 책임 PASS** (실 결제 e2e 는 앱 영역).
+  - `502 PAY_005/006` = PortOne **연결/인증 실패** → 진짜 FAIL.
+
+이 구분을 위해 `PortOneApiClient` 는 **네트워크 실패(IOException → 502)** 와 **PortOne 응답 거부(code≠0 → 422)** 를 다른 에러로 던진다. 즉 `api-smoke-test.sh` 의 `[7] PG 결제` 는 "풀 결제"가 아니라 **"백엔드가 책임진 만큼"** 을 검증한다.
+
+---
+
 ## 요약
 
 - **단위 테스트** — Spring 없이, Mockito 적극 활용, Port 계약으로 환원 불가능한 로직만.
