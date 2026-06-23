@@ -8,13 +8,13 @@
 
 ## 결론부터
 
-**이 문서는 *Google 의 결제 알림 webhook 이 진짜 Google 에서 온 것인지* 를 우리 백엔드가 어떻게 검증할지 정의합니다.** Google Play 의 결제 시스템은 사용자가 환불 / 갱신 / 취소 같은 사건을 일으킬 때마다 *우리 백엔드의 특정 URL 로 알림을 보내는데*, 그 URL 은 *인터넷에 공개되어 있어* 누구든 그 URL 을 알면 *가짜 알림을 흉내내 보낼* 수 있어요. 이 위조를 막지 않으면 *공격자가 가짜 환불 알림을 보내 다른 사용자의 구독을 임의로 취소* 하거나 *가짜 결제 알림으로 권한을 부정 부여* 할 수 있는 보안 구멍이 됩니다.
+이 문서는 *Google 의 결제 알림 webhook 이 진짜 Google 에서 온 것인지* 를 우리 백엔드가 어떻게 검증할지 정의합니다. Google Play 의 결제 시스템은 사용자가 환불·갱신·취소 같은 사건을 일으킬 때마다 *우리 백엔드의 특정 URL 로 알림을 보내는데*, 그 URL 은 *인터넷에 공개되어 있어* 누구든 그 URL 을 알면 *가짜 알림을 흉내내 보낼* 수 있어요. 이 위조를 막지 않으면 *공격자가 가짜 환불 알림을 보내 다른 사용자의 구독을 임의로 취소* 하거나 *가짜 결제 알림으로 권한을 부정 부여* 할 수 있는 보안 구멍이 됩니다.
 
 해결 방법은 *Google 이 보낸 알림에는 Google 의 디지털 서명이 들어 있다* 는 사실을 활용하는 것이에요. 우체국이 등기 우편을 보낼 때 *우체국 도장* 이 찍혀 있어서 *진짜 우체국에서 온 우편* 임을 증명할 수 있는 것과 같은 원리입니다. Google 이 우리에게 알림을 보낼 때마다 *Google 이 가진 비밀 키로 서명한 토큰* 을 함께 첨부하고, 우리는 *Google 이 공개한 검증 키* 로 그 서명이 진짜인지 확인해요. 위조된 알림은 *서명이 맞지 않아* 검증 단계에서 즉시 거절됩니다.
 
 본 ADR 은 그 검증을 *4 단계 체크* 로 구체화합니다. 첫째, *서명이 진짜 Google 의 것인지* (Google 이 공개한 검증 키로 확인). 둘째, *이 알림이 우리에게 보내진 게 맞는지* (토큰 안의 *받는 사람 주소* 가 우리 webhook URL 과 일치하는지). 셋째, *우리가 사전에 등록한 Google 계정에서 발송된 게 맞는지* (whitelist 한 service account 이메일과 일치하는지). 넷째, *오래된 토큰을 누가 가로채 다시 쓰지 않았는지* (토큰 만료 시각 확인). 이 네 가지를 모두 통과해야 *진짜 Google 발송* 으로 신뢰합니다.
 
-검증에 필요한 *Google 의 공개 검증 키* 는 1 시간 동안 캐시해서 사용해요. Google 이 키를 주기적으로 바꾸기 때문에 *영구 저장* 은 위험하고, 매 알림마다 Google 에 키를 다시 묻기에는 *비용과 응답 시간* 이 부담이라 *1 시간 정도가 균형* 이에요 (Google 공식 권장). 검증 자체는 *운영 환경에서만 활성화* 되도록 옵션을 둬서, *개발 / 테스트 환경* 에서는 검증을 끄고 부담 없이 webhook 을 시뮬레이션할 수 있어요.
+검증에 필요한 *Google 의 공개 검증 키* 는 1 시간 동안 캐시해서 사용해요. Google 이 키를 주기적으로 바꾸기 때문에 *영구 저장* 은 위험하고, 매 알림마다 Google 에 키를 다시 묻기에는 *비용과 응답 시간* 이 부담이라 *1 시간 정도가 균형* 이에요 (Google 공식 권장). 검증 자체는 *운영 환경에서만 활성화* 되도록 옵션을 둬서, *개발·테스트 환경* 에서는 검증을 끄고 부담 없이 webhook 을 시뮬레이션할 수 있어요.
 
 이 ADR 의 범위는 *왜 단순한 IP 주소 화이트리스트로는 안 되는지*, *Google 이 보낸 알림의 디지털 서명이 어떻게 작동하는지*, *4 단계 검증의 각 단계가 어떤 공격을 막는지*, *공개 키를 어떻게 캐시할지*, 그리고 *Apple 알림과의 차이 (Apple 은 알림 자체에 서명이 내장된 형태라 별도 인증 단계가 필요 없음)* 까지입니다.
 
@@ -26,15 +26,15 @@
 
 [`ADR-022`](./adr-022-iap-server-notifications.md) 가 Google RTDN webhook 의 *처리 로직* 을 정의했지만, *인증* 은 별개의 영역으로 남아 있어요. webhook endpoint 는 *공개 인터넷에 노출* 되어야 Google 의 push 를 받을 수 있고, 그 *공개성* 자체가 *무방비 공격 표면* 의 시작점입니다.
 
-인증 없는 webhook 의 위험성을 시나리오로 보면 명확해요. 공격자가 우리 시스템의 `/iap/google/webhook` URL 만 알면 (URL 은 보통 *문서 / 운영 로그 / 코드 저장소* 어디든 노출될 수 있어요), *임의의 RTDN 페이로드를 POST* 할 수 있습니다. RTDN 페이로드의 형식은 *Google 공식 문서에 공개되어 있어* 누구나 가짜 메시지를 만들어낼 수 있고, 그 메시지가 *REFUND* type 이면 우리 백엔드는 `BillingPort.handleIapNotification` 을 호출해 *PaymentRecord 를 REFUNDED 로 변경 + Subscription 을 CANCELLED 로 전환* 합니다. 사용자가 *결제한 적도 없는 환불* 을 받게 되어 *사용자 자산이 임의로 조작* 되는 사고예요.
+인증 없는 webhook 의 위험성을 시나리오로 보면 명확해요. 공격자가 우리 시스템의 `/iap/google/webhook` URL 만 알면 (URL 은 보통 *문서·운영 로그·코드 저장소* 어디든 노출될 수 있어요), *임의의 RTDN 페이로드를 POST* 할 수 있습니다. RTDN 페이로드의 형식은 *Google 공식 문서에 공개되어 있어* 누구나 가짜 메시지를 만들어낼 수 있고, 그 메시지가 *REFUND* type 이면 우리 백엔드는 `BillingPort.handleIapNotification` 을 호출해 *PaymentRecord 를 REFUNDED 로 변경 + Subscription 을 CANCELLED 로 전환* 합니다. 사용자가 *결제한 적도 없는 환불* 을 받게 되어 *사용자 자산이 임의로 조작* 되는 사고예요.
 
-*transactionId 가 추측 어렵다* 는 사실이 일부 방어가 되긴 하지만, 완벽하지 않습니다. transactionId 는 *Google 이 발급한 16+ 자리 random ID* 라 brute-force 추측은 불가능하지만, *DB dump 유출 / 로그 노출 / 직원 인사이드 위협* 같은 경로로 *진짜 transactionId 가 leak 되는* 시점이 오면 *그 ID 로 가짜 환불 페이로드* 를 만들어 cross-app 공격이 가능해져요. *데이터 leak 자체가 즉시 자산 손실로 환산되는* 보안 모델은 매우 취약한 형태입니다.
+*transactionId 가 추측 어렵다* 는 사실이 일부 방어가 되긴 하지만, 완벽하지 않습니다. transactionId 는 *Google 이 발급한 16+ 자리 random ID* 라 brute-force 추측은 불가능하지만, *DB dump 유출·로그 노출·직원 인사이드 위협* 같은 경로로 *진짜 transactionId 가 leak 되는* 시점이 오면 *그 ID 로 가짜 환불 페이로드* 를 만들어 cross-app 공격이 가능해져요. *데이터 leak 자체가 즉시 자산 손실로 환산되는* 보안 모델은 매우 취약한 형태입니다.
 
 운영 보안 audit 측면에서도 부담이 커요. *PCI-DSS* 나 *ISO 27001* 같은 표준은 *webhook endpoint 에 대한 인증 메커니즘* 을 요구하고, *인증 부재* 는 audit 에서 *compliance 미달* 로 분류돼요. 결제 관련 시스템이 audit 를 통과하지 못하면 *PG 측 약관 위반* 이나 *카드사 수수료 협상의 마이너스 요인* 이 될 수 있습니다.
 
 Apple webhook 은 이 영역이 *자동으로* 해결되어 있어요. Apple App Store Server Notifications V2 의 페이로드는 *JWS (이중 서명)* 형태라 *우리 백엔드가 페이로드를 디코드하면서 자연스럽게 cert chain + ES256 서명 검증* 을 수행하고, 이 검증을 통과하지 못하면 페이로드 자체가 무효해집니다. *별도 인증 단계 없이도 인증이 페이로드에 내장* 된 형태예요. Google RTDN 은 이런 내장 검증이 없어 *별도 Bearer JWT 인증* 을 추가해야 같은 수준의 안전성을 확보할 수 있습니다.
 
-해결책의 후보로 *IP allowlist* 같은 단순한 형태도 있어요. *Google Pub/Sub 의 발송 IP 범위만 허용* 하는 방식인데, 이는 두 가지 한계가 있습니다. 첫째, *Google Pub/Sub IP 범위* 는 *모든 GCP 사용자가 공유* 해서 *같은 GCP 의 다른 프로젝트* 도 우리 IP allowlist 를 통과할 수 있어요. 둘째, 우리 인프라가 *Cloudflare Tunnel / Kamal proxy* 를 거치면 *원본 IP 가 가짜화* 되어 IP 검증 자체가 무력화됩니다.
+해결책의 후보로 *IP allowlist* 같은 단순한 형태도 있어요. *Google Pub/Sub 의 발송 IP 범위만 허용* 하는 방식인데, 이는 두 가지 한계가 있습니다. 첫째, *Google Pub/Sub IP 범위* 는 *모든 GCP 사용자가 공유* 해서 *같은 GCP 의 다른 프로젝트* 도 우리 IP allowlist 를 통과할 수 있어요. 둘째, 우리 인프라가 *Cloudflare Tunnel·Kamal proxy* 를 거치면 *원본 IP 가 가짜화* 되어 IP 검증 자체가 무력화됩니다.
 
 진짜 안전한 방법은 *Bearer JWT 검증* 이에요. Google Pub/Sub push 발송 시 첨부되는 JWT 는 *우리가 지정한 service account 가 발급한 RS256 서명* 이라 *위조가 사실상 불가능* 하고, *우리 audience URL 매칭 + email whitelist* 까지 더하면 *우리 plzkt 만이 발급할 수 있는 토큰* 으로 좁혀집니다. 추가 인프라 없이 *Google JWKS endpoint* 만으로 검증이 가능한 점도 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 솔로 친화 정신에 정합해요.
 
@@ -127,7 +127,7 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub@my-project.iam.gser
 키 rotate → kid 미스매치 → 한 번 더 refresh
 ```
 
-→ 외부 호출 횟수 = **시간당 최대 1회**. Pub/Sub push 100~1000건/시간이라도 부하 0.
+→ 외부 호출 횟수 = 시간당 최대 1회. Pub/Sub push 100~1000건/시간이라도 부하 0.
 
 ---
 

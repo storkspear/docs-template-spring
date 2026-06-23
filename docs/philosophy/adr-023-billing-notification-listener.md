@@ -10,17 +10,17 @@
 
 구독형 SaaS 의 결제 흐름은 *사용자가 알지 못하는 사이에 권한이 바뀌는* 사건들로 가득해요. 자동 갱신이 실패하거나, 환불이 처리되거나, 가족 공유 해지로 구독이 강제 취소되는 순간 사용자는 *내 권한이 왜 사라졌는지* 알 수 없습니다. 이런 사건을 *즉시 알림으로 사용자에게 전달* 하는 게 결제 알림 listener 의 역할이에요.
 
-본 ADR 은 결제 도메인이 발행하는 이벤트들 — 갱신 성공 / 갱신 실패 / 갱신 포기 (Abandoned) / IAP REFUND / IAP REVOKE — 를 push 알림으로 변환하는 listener 를 정의합니다. 위치는 정책 layer (`core-billing-impl`) 안의 `SubscriptionNotificationListener` 이고, *어떤 이벤트에 어떤 메시지를 보낼지* 의 알림 정책도 같은 모듈에서 관리해요. 채널은 push (FCM) 만 다루고, email 채널은 [`ADR-025`](./adr-025-billing-notification-email-channel.md) 에서 별도로 추가합니다 — push 인프라 (`PushPort`, `FcmPushAdapter`) 가 이미 갖춰져 있는 반면 email 은 별도 도메인 ([`ADR-024`](./adr-024-email-domain-extraction.md)) 으로 추출해야 했기 때문이에요.
+본 ADR 은 결제 도메인이 발행하는 이벤트들 — 갱신 성공·갱신 실패·갱신 포기(Abandoned)·IAP REFUND·IAP REVOKE — 를 push 알림으로 변환하는 listener 를 정의합니다. 위치는 정책 layer `core-billing-impl` 안의 `SubscriptionNotificationListener` 이고, *어떤 이벤트에 어떤 메시지를 보낼지* 의 알림 정책도 같은 모듈에서 관리해요. 채널은 push(FCM) 만 다루고, email 채널은 [`ADR-025`](./adr-025-billing-notification-email-channel.md) 에서 별도로 추가합니다. push 인프라 (`PushPort`, `FcmPushAdapter`) 가 이미 갖춰져 있는 반면, email 은 별도 도메인 [`ADR-024`](./adr-024-email-domain-extraction.md) 로 추출해야 했기 때문이에요.
 
-이 ADR 은 listener 의 등록 조건 (`@ConditionalOnBean` + `@ConditionalOnProperty`), 이벤트별 처리 매핑, 트랜잭션 경계 (`@TransactionalEventListener(AFTER_COMMIT)` 으로 멱등성 보장), 슬러그 컨텍스트 처리 (push token 이 슬러그별 schema 에 있으므로 listener 시작 시 `SlugContext.set` + finally 정리), 그리고 알림 발송 실패가 비즈 로직을 막지 않게 하는 격리 정책을 다룹니다.
+이 ADR 이 다루는 범위는 다섯 가지예요. listener 의 등록 조건 (`@ConditionalOnBean` + `@ConditionalOnProperty`), 이벤트별 처리 매핑, `@TransactionalEventListener(AFTER_COMMIT)` 으로 멱등성을 보장하는 트랜잭션 경계, 슬러그 컨텍스트 처리, 그리고 알림 발송 실패가 비즈 로직을 막지 않게 하는 격리 정책입니다. 슬러그 컨텍스트는 push token 이 슬러그별 schema 에 있으므로 listener 시작 시 `SlugContext.set` 으로 셋업하고 finally 에서 정리해요.
 
 ---
 
 ## 왜 이런 결정이 필요했나?
 
-결제 도메인이 *이벤트는 정확히 발행하지만 그 이벤트를 받는 listener 가 없는* 상태로는 사용자에게 *권한 변경의 이유* 가 전달되지 않아요. 이벤트는 시스템 내부의 시그널일 뿐이라 *외부 채널 (push / email) 로 변환* 하는 단계가 별도로 필요합니다.
+결제 도메인이 *이벤트는 정확히 발행하지만 그 이벤트를 받는 listener 가 없는* 상태로는 사용자에게 *권한 변경의 이유* 가 전달되지 않아요. 이벤트는 시스템 내부의 시그널일 뿐이라 *외부 채널 (push·email) 로 변환* 하는 단계가 별도로 필요합니다.
 
-알림이 없을 때 운영에서 실제로 발생하는 시나리오를 보면 그 부담이 명확해요. 자동 갱신 실패 — 카드 한도 초과나 카드 만료 같은 일시적 문제 — 가 발생하면 [`ADR-021`](./adr-021-renewal-failure-policy.md) 의 재시도 정책 (1시간 후, 6시간 후) 이 동작하지만, 사용자가 *알림을 받지 못하면 카드 정보를 갱신할 기회조차 잃어요*. 결국 7시간 후 ABANDONED 처리되어 자동 취소되고, 사용자는 *어느 날 갑자기 Pro 권한이 사라진* 상태를 마주합니다.
+알림이 없을 때 운영에서 실제로 발생하는 시나리오를 보면 그 부담이 명확해요. 자동 갱신 실패 — 카드 한도 초과나 카드 만료 같은 일시적 문제 — 가 발생하면 [`ADR-021`](./adr-021-renewal-failure-policy.md) 의 재시도 정책 (1h → 6h → 24h 백오프) 이 동작하지만, 사용자가 *알림을 받지 못하면 카드 정보를 갱신할 기회조차 잃어요*. 결국 3회 시도가 모두 실패하면 ABANDONED 처리되어 자동 취소되고, 사용자는 *어느 날 갑자기 Pro 권한이 사라진* 상태를 마주합니다.
 
 환불도 마찬가지예요. PG 환불이 처리되면 PaymentRecord 의 status 가 REFUNDED 로 바뀌고 Subscription 이 CANCELLED 로 전환되지만, 사용자는 *왜 권한이 사라졌는지* 즉시 알 수 없어요. CS 문의로 *내 환불이 잘 처리됐나?* 같은 질문이 누적되는 형태로 운영 부담이 돌아옵니다.
 

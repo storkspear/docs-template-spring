@@ -6,9 +6,9 @@
 
 ## 결론부터
 
-[`ADR-005`](./adr-005-db-schema-isolation.md) 의 *앱당 schema 격리* 가 **데이터베이스 레벨에서 작동하려면 서버의 service-layer 도 그 격리를 따라야 해요**. controller 가 *URL 에서 받은 슬러그* 로 자기 앱의 DataSource 를 골랐다 해도, service 가 *single Bean* 으로 동작하면서 *항상 default DataSource 로 INSERT* 를 하면 격리가 무너집니다. *testsvc 슬러그의 회원가입* 이 *core schema 의 users 테이블에 INSERT* 되는 형태로요.
+[`ADR-005`](./adr-005-db-schema-isolation.md) 의 *앱당 schema 격리* 가 데이터베이스 레벨에서 작동하려면 **서버의 service-layer 도 그 격리를 따라야 해요**. controller 가 URL 에서 받은 슬러그로 자기 앱의 DataSource 를 골랐다 해도, service 가 single Bean 으로 동작하면서 항상 default DataSource 로 INSERT 를 하면 격리가 무너집니다. testsvc 슬러그의 회원가입이 core schema 의 users 테이블에 INSERT 되는 형태로요.
 
-`SchemaRoutingDataSource` 는 그 격리를 service-layer 까지 완성하는 메커니즘이에요. Spring 의 `AbstractRoutingDataSource` 를 확장한 단일 Bean 으로, *connection 을 잡는 시점* 에 `SlugContext` (ThreadLocal) 의 현재 슬러그 값을 보고 *해당 슬러그의 `<slug>DataSource`* (각 슬러그별 HikariCP pool) 로 분기해요. 요청이 들어오면 `AppSlugMdcFilter` 가 URL 의 `{appSlug}` 를 `SlugContext.set` 으로 박아두고, 요청이 끝나면 finally 블록에서 `clear` 합니다.
+`SchemaRoutingDataSource` 는 그 격리를 service-layer 까지 완성하는 메커니즘이에요. Spring 의 `AbstractRoutingDataSource` 를 확장한 단일 Bean 으로, connection 을 잡는 시점에 `SlugContext` (ThreadLocal) 의 현재 슬러그 값을 보고 해당 슬러그의 `<slug>DataSource` — 슬러그별 HikariCP pool — 로 분기해요. 요청이 들어오면 `AppSlugMdcFilter` 가 URL 의 `{appSlug}` 를 `SlugContext.set` 으로 박아두고, 요청이 끝나면 finally 블록에서 `clear` 합니다.
 
 이 구조의 장점은 *service Bean 은 그대로 단일* 이라는 점이에요. `AuthServiceImpl` 한 개가 모든 슬러그의 회원가입을 처리하지만, *connection 자체가 슬러그별로 분기되므로* `INSERT INTO users` 가 *현재 요청의 슬러그 schema* 로 자동으로 흘러가요. `@Transactional` 도 단일 TransactionManager 그대로 쓰고, JPA Repository 도 default EntityManagerFactory 그대로 쓰는데, *connection 이 결정하는 search_path* 덕에 자연스럽게 격리가 작동합니다.
 
@@ -20,7 +20,7 @@
 
 명시적 파라미터 방식은 *시그니처가 비대해지는* 비용이 크고, *서비스 한 메서드가 다른 메서드를 부르는 체인* 에서 슬러그를 계속 전달해야 하는 부담이 누적돼요. 17 개 메서드를 가진 `AuthPort` 를 비롯해 모든 service 인터페이스가 *모든 메서드 첫 파라미터에 appSlug* 를 갖는 형태가 되고, 그 파라미터를 *service 안에서 어떤 분기에 쓰는지도 모호* 해집니다.
 
-ThreadLocal 기반 라우팅은 *Spring 의 표준 패턴* 이에요. `AbstractRoutingDataSource` 가 *현재 lookup key* 를 ThreadLocal 에서 읽어 적절한 DataSource 로 분기하는 구조는 Spring 공식 문서가 멀티테넌시 패턴으로 권장하는 형태입니다. 우리 환경에서 ThreadLocal 의 약점 — *비동기 경계에서 컨텍스트 유실* — 도 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 *비목표 (분산 추적 / 비동기 처리 회피)* 정신과 정합해 큰 문제가 되지 않아요.
+ThreadLocal 기반 라우팅은 *Spring 의 표준 패턴* 이에요. `AbstractRoutingDataSource` 가 *현재 lookup key* 를 ThreadLocal 에서 읽어 적절한 DataSource 로 분기하는 구조는 Spring 공식 문서가 멀티테넌시 패턴으로 권장하는 형태입니다. 우리 환경에서 ThreadLocal 의 약점 — *비동기 경계에서 컨텍스트 유실* — 도 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 비목표 (분산 추적·비동기 처리 회피) 정신과 정합해 큰 문제가 되지 않아요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
@@ -47,22 +47,23 @@ public class SchemaRoutingDataSource extends AbstractRoutingDataSource {
     @Override
     protected Object determineCurrentLookupKey() {
         String slug = SlugContext.get();
+        // ADR-037 — slug 없으면 fail-secure. core fallback 폐기.
+        if (slug == null) {
+            throw new IllegalStateException("SlugContext not set — 비-slug DB 접근은 configuration 오류");
+        }
         // Bean 이름 규약 (<slug>DataSource, 하이픈 제거된 형태) 와 매칭
-        return slug != null ? slug.replace("-", "") : "core";
+        return slug.replace("-", "");
     }
 }
 ```
 
-### `bootstrap/CoreDataSourceConfig` — Primary `dataSource` 를 routing 으로
+### `bootstrap/config/RoutingDataSourceConfig` — Primary `dataSource` 를 routing 으로
 
 ```java
 @Primary @Bean(name = "dataSource")
-public DataSource dataSource(
-        @Qualifier("coreDataSource") DataSource coreDataSource,
-        Map<String, DataSource> allDataSources) {
+public DataSource dataSource(Map<String, DataSource> allDataSources) {
     SchemaRoutingDataSource routing = new SchemaRoutingDataSource();
     Map<Object, Object> targets = new HashMap<>();
-    targets.put("core", coreDataSource);
     allDataSources.forEach((beanName, ds) -> {
         if (beanName.endsWith("DataSource") && !beanName.equals("dataSource")) {
             String slug = beanName.substring(0, beanName.length() - "DataSource".length());
@@ -70,7 +71,7 @@ public DataSource dataSource(
         }
     });
     routing.setTargetDataSources(targets);
-    routing.setDefaultTargetDataSource(coreDataSource);
+    // ADR-037 — setDefaultTargetDataSource 미설정 → slug null 시 fail-secure
     routing.afterPropertiesSet();
     return routing;
 }
@@ -96,7 +97,7 @@ ADR-013 이 ThreadLocal 라우팅 거부한 두 이유:
 ## 채택 이유 (ADR-013 대비 구체화)
 
 - **ADR-005 (앱당 schema 격리) 의 진짜 보장** — controller 만 분리한 대안은 데이터가 core 통합 상태로 남아요 (격리 미달)
-- **service / `@Transactional` 변경 0** — 단일 service Bean 그대로. 시그니처에 slug 파라미터를 추가하지 않아요
+- **service·`@Transactional` 변경 0** — 단일 service Bean 그대로. 시그니처에 slug 파라미터를 추가하지 않아요
 - **각 앱 module 의 `<slug>DataSource` Bean 활용** — 데드 코드 → 라우팅 target
 - **filter 한 군데서 set/clear** — context 누수 위험 통제 가능
 
@@ -114,10 +115,10 @@ hibernate SQL log: insert into users (...) — schema prefix 없음, connection 
 - `common/common-persistence/SlugContext.java` (신규)
 - `common/common-persistence/SchemaRoutingDataSource.java` (신규)
 - `common/common-persistence/AbstractAppDataSourceConfig.java` (`hibernate.default_schema` 제거)
-- `bootstrap/config/CoreDataSourceConfig.java` (Primary `dataSource` → routing)
+- `bootstrap/config/RoutingDataSourceConfig.java` (Primary `dataSource` → routing)
 - `common/common-security/AppSlugMdcFilter.java` (SlugContext.set/clear)
 
 ## 안 다루는 범위
 
 - **Cross-schema 트랜잭션** — 한 트랜잭션 안에서 여러 슬러그 변경 불가 (intentional — schema 격리 보장).
-- **백그라운드 작업의 슬러그 컨텍스트** — request 외 (Scheduled task 등) 에선 `SlugContext` 미설정 → default (`coreDataSource`) 사용. 별도 슬러그 작업 필요 시 명시 set/clear.
+- **백그라운드 작업의 슬러그 컨텍스트** — request 외 (Scheduled task 등) 에선 `SlugContext` 미설정 → ADR-037 이후 `IllegalStateException` (fail-secure). 슬러그 작업이 필요하면 작업 진입에서 명시 set, 종료에서 clear.

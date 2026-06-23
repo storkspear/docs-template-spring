@@ -60,7 +60,7 @@
 
 ## 이 문서의 사용법
 
-이 문서는 **20개의 ADR 카드** 로 구성되어 있으며, 각 카드는 하나의 설계 결정을 다룹니다. 전체를 순서대로 읽는 것이 가장 좋지만, 독자의 상황과 목적에 따라 진입점이 달라질 수 있습니다.
+이 문서는 **38개의 ADR 카드** 로 구성되어 있으며, 각 카드는 하나의 설계 결정을 다룹니다. 전체를 순서대로 읽는 것이 가장 좋지만, 독자의 상황과 목적에 따라 진입점이 달라질 수 있습니다.
 
 ### 독자별 추천 경로
 
@@ -300,7 +300,7 @@ ADR-020 (Subscription/Payment 도메인 모델 + Webhook 보안)
 - [`ADR-031 · 알림 사용자 선호도`](./adr-031-notification-preferences.md)
 - [`ADR-032 · Google webhook auth (Bearer JWT)`](./adr-032-google-webhook-auth.md)
 
-**테마 6 의 결론**: 결제 도메인은 "정책 (Billing — subscription/plan)" 위에 "채널 (IAP — Apple/Google, Payment — PG=포트원)" 두 갈래를 두는 layer 구조로 분리. Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블은 [`ADR-005`](./adr-005-db-schema-isolation.md) 정합으로 슬러그별 schema 에 위치. Webhook 은 HMAC SHA-256 + timestamp tolerance + (source, externalId) UNIQUE 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 점유하지 않도록 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 `TransactionTemplate` 으로 phase 마다 자기 트랜잭션 시작. 갱신 실패 / 환불 / 알림 같은 후속 흐름은 ADR-021~026 + ADR-031~032 에서 listener / email channel / metrics / preference / Pub/Sub 인증 등으로 구체화.
+**테마 6 의 결론**: 결제 도메인은 "정책 (Billing — subscription/plan)" 위에 "채널 (IAP — Apple/Google, Payment — PG=포트원)" 두 갈래를 두는 layer 구조로 분리. Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블은 [`ADR-005`](./adr-005-db-schema-isolation.md) 정합으로 슬러그별 schema 에 위치. Webhook 은 HMAC SHA-256 + timestamp tolerance + (source, externalId) UNIQUE 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 점유하지 않도록 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 `TransactionTemplate` 으로 phase 마다 자기 트랜잭션 시작. 갱신 실패 · 환불 · 알림 같은 후속 흐름은 ADR-021~026 + ADR-031~032 에서 listener · email channel · metrics · preference · Pub/Sub 인증 등으로 구체화.
 
 ### 테마 7 — 보안 / 감사 / 알림 도메인 ✅ 완료
 
@@ -332,7 +332,7 @@ ADR-029 (password policy) + ADR-030 (2FA TOTP)
 - [`ADR-029 · 비밀번호 정책 (Bean Validation)`](./adr-029-password-policy.md)
 - [`ADR-030 · 2FA TOTP (RFC 6238)`](./adr-030-2fa-totp.md)
 
-**테마 7 의 결론**: auth / billing 의 core 흐름과 별도로 *보안 / 감사 / 알림* 도메인을 독립 모듈로 추출. 메일 발송은 EmailPort 로 분리해서 어느 도메인이든 의존 가능하고 (ADR-024), 관리자 권한은 `@AdminOnly` 어노테이션 + JWT role claim 으로 강제 (ADR-027). 감사 로그는 `@Audited` AOP 로 자동 기록되어 *사용자 흐름을 차단하지 않는* 부산물 형태 (ADR-028). 비밀번호 정책 (ADR-029) 과 2FA (ADR-030) 는 표준 라이브러리 (Bean Validation / RFC 6238) 위에서 최소 구현으로 강도를 올림.
+**테마 7 의 결론**: auth · billing 의 core 흐름과 별도로 *보안 · 감사 · 알림* 도메인을 독립 모듈로 추출. 메일 발송은 EmailPort 로 분리해서 어느 도메인이든 의존 가능하고 (ADR-024), 관리자 권한은 `@AdminOnly` 어노테이션 + JWT role claim 으로 강제 (ADR-027). 감사 로그는 `@Audited` AOP 로 자동 기록되어 *사용자 흐름을 차단하지 않는* 부산물 형태 (ADR-028). 비밀번호 정책 (ADR-029) 과 2FA (ADR-030) 는 표준 라이브러리 (Bean Validation · RFC 6238) 위에서 최소 구현으로 강도를 올림.
 
 ### 테마 8 — 운영 정책 / Lite 모드 / SSRF ✅ 완료
 
@@ -371,7 +371,7 @@ ADR-036 (SSRF URL whitelist 정책)
 
 ## L2 ↔ L3 매핑 — 어떤 L2 문서가 어느 ADR 의 결과인가
 
-L2 (구조 / 규약 / API / 운영) 의 각 문서가 어느 ADR 결정의 *구체 구현* 인지를 한눈에 보는 표예요. ADR 만 읽고 나서 *실제 코드 / 운영* 으로 어디로 가야 할지 모를 때 참고하세요.
+L2 (구조 · 규약 · API · 운영) 의 각 문서가 어느 ADR 결정의 *구체 구현* 인지를 한눈에 보는 표예요. ADR 만 읽고 나서 *실제 코드 · 운영* 으로 어디로 가야 할지 모를 때 참고하세요.
 
 | L2 문서 | 영역 | 근거 ADR |
 |---|---|---|

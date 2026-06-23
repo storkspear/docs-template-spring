@@ -2,13 +2,13 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
-**Status**: Accepted. `core-email-api` + `core-email-impl` 별도 모듈에서 `EmailPort` / `ResendEmailAdapter` / `EmailException` 을 관리해요. 어떤 도메인 (`auth` / `billing` / 운영) 도 ArchUnit r3 위반 없이 의존할 수 있습니다.
+**Status**: Accepted. `core-email-api` + `core-email-impl` 별도 모듈에서 `EmailPort` / `ResendEmailAdapter` / `EmailException` 을 관리해요. 어떤 도메인 (`auth`·`billing`·운영) 도 ArchUnit r3 위반 없이 의존할 수 있습니다.
 
 ---
 
 ## 결론부터
 
-이메일 발송은 *어느 한 도메인의 전용 기능* 이 아니에요. 인증 도메인이 *가입 인증 메일 / 비밀번호 재설정 메일* 을 보내는 것이 가장 두드러지지만, 결제 도메인도 *갱신 실패 알림* 을 보내고, 운영 도메인도 *공지 메일* 을 보내요. *어느 도메인이든 자유롭게 쓸 수 있어야* 자연스러운 *cross-cutting 기능* 입니다. push 알림이나 SMS 도 같은 결의 기능이에요.
+이메일 발송은 *어느 한 도메인의 전용 기능* 이 아니에요. 인증 도메인이 *가입 인증 메일·비밀번호 재설정 메일* 을 보내는 것이 가장 두드러지지만, 결제 도메인도 *갱신 실패 알림* 을 보내고, 운영 도메인도 *공지 메일* 을 보내요. *어느 도메인이든 자유롭게 쓸 수 있어야* 자연스러운 *cross-cutting 기능* 입니다. push 알림이나 SMS 도 같은 결의 기능이에요.
 
 본 ADR 은 이메일 발송 인프라 (`EmailPort`, `ResendEmailAdapter`, `LoggingEmailAdapter`, `EmailException`, `ResendProperties`) 를 `core-email-api` + `core-email-impl` 별도 모듈로 추출하는 결정을 기록합니다. 이 분리의 핵심 동기는 *ArchUnit 의 r3 룰 (`core-*-impl` 끼리 import 금지)* 과 *도메인 횡단 기능* 의 자연스러운 모듈 위치를 정합시키는 것이에요. 이메일이 한 도메인 (`core-auth`) 안에 묶여 있으면 다른 도메인들이 *그 도메인의 부속물처럼 의존* 하는 어색한 구조가 생기는데, 별도 모듈로 추출하면 *어느 도메인도 평등하게 의존* 할 수 있는 형태가 됩니다.
 
@@ -32,7 +32,7 @@ ArchUnit 룰의 정합성도 함께 정리돼요. 기존 `r3 CORE_IMPL_MUST_NOT_
 
 이 결정이 답해야 할 물음은 이거예요.
 
-> **여러 도메인이 자유롭게 사용해야 하는 cross-cutting 기능 (이메일 / push / SMS) 을 어느 모듈에 두면, ArchUnit 룰을 유지하면서 도메인 의미도 자연스럽게 표현할 수 있는가?**
+> **여러 도메인이 자유롭게 사용해야 하는 cross-cutting 기능 (이메일·push·SMS) 을 어느 모듈에 두면, ArchUnit 룰을 유지하면서 도메인 의미도 자연스럽게 표현할 수 있는가?**
 
 ---
 
@@ -107,7 +107,7 @@ ADR-019 = billing/iap/payment 분리 결정 (channel-specific vs policy layer). 
   ```java
   throw new EmailException(EmailError.EMAIL_DELIVERY_FAILED, cause);
   ```
-  각 호출 도메인 (auth / billing) 이 필요 시 자기 도메인 exception 으로 wrap. 또는 그대로 propagate (BaseException 자식이라 ApiResponseAdvice 가 캐치)
+  각 호출 도메인 (auth·billing) 이 필요 시 자기 도메인 exception 으로 wrap. 또는 그대로 propagate — BaseException 자식이라 ApiResponseAdvice 가 캐치해요
 - **환경변수 호환성** — `app.email.resend.*` properties 를 그대로 유지해요 (`RESEND_API_KEY`, `RESEND_FROM_ADDRESS`, `RESEND_FROM_NAME` 등 .env 변수 변경 X). ResendProperties 의 패키지만 이동해요. ConfigurationPropertiesScan 이 자동으로 발견합니다
 - **운영 배포 영향 0** — 모듈 리팩터링이라 jar 안의 클래스 위치만 바뀌고 외부 인터페이스 (REST endpoint, env, 비즈동작) 동일
 - **새 발송 채널 추가 단순** — SMTP / Gmail API / SES / SendGrid 등 추가 시 `core-email-impl` 에 어댑터 1개만 추가

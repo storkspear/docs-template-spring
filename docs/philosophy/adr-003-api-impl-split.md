@@ -1,12 +1,12 @@
 # ADR-003 · core 모듈을 `-api` / `-impl` 로 분리
 
-**Status**: Accepted. core × 10 도메인 (user, auth, device, push, billing, iap, payment, storage, email, audit) 모두 `-api` / `-impl` 쌍으로 구성돼 있어요. ArchUnit 9 개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 구조를 강제합니다.
+**Status**: Accepted. core 의 12 개 도메인 (user, auth, phone-auth, device, push, billing, iap, payment, storage, email, sms, audit) 이 모두 `-api`·`-impl` 쌍으로 구성돼 있어요. ArchUnit 9 개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 이 구조를 강제합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
 ## 결론부터
 
-REST API 서버와 클라이언트를 떠올려보세요. 클라이언트는 **API 스펙 (OpenAPI 문서)** 만 알고 HTTP 호출을 합니다. 서버 내부가 PostgreSQL 을 쓰는지 MongoDB 를 쓰는지, Java 로 짜였는지 Go 로 짜였는지 전혀 신경 쓰지 않습니다. 같은 원리를 **한 JVM 안의 모듈 간 호출** 에 적용한 것이 `-api` / `-impl` 분리예요. `-api` 모듈은 "스펙과 DTO", `-impl` 은 "내부 구현". 앱 모듈은 스펙만 보고 호출합니다.
+REST API 서버와 클라이언트를 떠올려보세요. 클라이언트는 **API 스펙** (OpenAPI 문서) 만 알고 HTTP 호출을 합니다. 서버 내부가 PostgreSQL 을 쓰는지 MongoDB 를 쓰는지, Java 로 짜였는지 Go 로 짜였는지 전혀 신경 쓰지 않습니다. 같은 원리를 한 JVM 안의 모듈 간 호출에 적용한 것이 `-api` / `-impl` 분리예요. `-api` 모듈은 "스펙과 DTO", `-impl` 은 "내부 구현" 을 담고, 앱 모듈은 스펙만 보고 호출합니다.
 
 > Java 표준 라이브러리로 비유하면 `java.sql.Connection` (인터페이스, 모든 앱이 의존) vs `org.postgresql.jdbc.PgConnection` (구현체, 특정 벤더). 앱은 Connection 만 알고, 실제 구현체는 런타임에 주입. 같은 패턴입니다.
 
@@ -42,16 +42,16 @@ public AuthResponse signup(SignUpRequest req) {
 }
 ```
 
-위 두 코드는 **완전히 같습니다**. 바뀐 건 단 하나 — `AuthPort` 의 구현체가 `AuthServiceImpl` (같은 JVM) 에서 `AuthHttpClient` (HTTP 호출) 로 교체되었을 뿐이에요. 앱 모듈의 코드는 **한 줄도 바뀌지 않습니다**.
+위 두 코드는 **완전히 같습니다**. 바뀐 건 단 하나 — `AuthPort` 의 구현체가 같은 JVM 의 `AuthServiceImpl` 에서 HTTP 호출하는 `AuthHttpClient` 로 교체되었을 뿐이에요. 앱 모듈의 코드는 한 줄도 바뀌지 않습니다.
 
-이 시나리오가 실현되려면 **지금 이 시점에서** 앱 모듈이 `AuthPort` 인터페이스만 보고, `AuthServiceImpl` 클래스를 **직접 참조하지 않도록** 강제해야 해요.
+이 시나리오가 실현되려면 지금 이 시점에서 앱 모듈이 `AuthPort` 인터페이스만 보고 `AuthServiceImpl` 클래스를 직접 참조하지 않도록 강제해야 해요.
 
 만약 앱이 `AuthServiceImpl` 을 직접 import 하고 있었다면, 추출 시점에 두 가지 나쁜 선택만 남습니다.
 
-- **(a) `core-auth-impl` 코드를 복사해서 새 레포로 가져가기** — 두 곳에서 같은 코드를 유지해야 하는 지옥.
-- **(b) 모든 `AuthServiceImpl` 호출 지점을 찾아서 HTTP 클라이언트로 교체** — 수십~수백 곳 수동 리팩토링.
+- **(a)** `core-auth-impl` 코드를 복사해서 새 레포로 가져가기 — 두 곳에서 같은 코드를 유지해야 하는 지옥.
+- **(b)** 모든 `AuthServiceImpl` 호출 지점을 찾아서 HTTP 클라이언트로 교체 — 수십~수백 곳 수동 리팩토링.
 
-두 선택지 모두 **"코드 변경 0" 약속을 깨뜨립니다**.
+두 선택지 모두 "코드 변경 0" 약속을 깨뜨립니다.
 
 ## 고민했던 대안들
 
@@ -69,7 +69,7 @@ public AuthResponse signup(SignUpRequest req) {
 
 - **장점**: 유연성이 높아요. 런타임에 구현 교체가 가능해요.
 - **단점**:
-  - **컴파일 타임 보장이 없어요** — 앱이 `AuthServiceImpl` 을 직접 import 하는 것을 막지 못해요.
+  - 컴파일 타임 보장이 없어요 — 앱이 `AuthServiceImpl` 을 직접 import 하는 것을 막지 못해요.
   - Spring 이 없는 환경 (테스트 등) 에서는 이 강제가 무력화돼요.
 - **탈락 이유**: 경계가 런타임 어노테이션에만 의존해요. 빌드 시스템 수준의 기계 강제력이 없어요.
 
@@ -78,12 +78,12 @@ public AuthResponse signup(SignUpRequest req) {
 Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 외부에서 접근하도록 허용해요.
 
 - **장점**: Java 언어 레벨에서 강제돼요.
-- **단점**: **Spring Boot + Java 9 모듈 시스템 궁합이 어려워요**. classpath vs module path 혼재 문제가 있고, 디버깅도 까다로워요.
+- **단점**: Spring Boot 와 Java 9 모듈 시스템의 궁합이 어려워요. classpath 와 module path 가 혼재하는 문제가 있고, 디버깅도 까다로워요.
 - **탈락 이유**: 이론적으로 완벽하지만 Spring Boot 생태계와 궁합이 나빠 실무 채택이 많지 않아요.
 
 ### Option 4 — `-api` / `-impl` Gradle 모듈 분리 ★ (채택)
 
-10개 도메인 각각을 `core-<domain>-api` + `core-<domain>-impl` 두 개의 Gradle 모듈로 분리.
+12개 도메인 각각을 `core-<domain>-api` + `core-<domain>-impl` 두 개의 Gradle 모듈로 분리.
 
 - **`-api` 모듈**: 인터페이스 + DTO + Exception 만. JPA 의존 0. Spring 의존 0.
 - **`-impl` 모듈**: Spring 빈 + JPA 엔티티 + 비즈니스 로직.
@@ -95,15 +95,15 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 - 미래 추출 시 `-api` 는 그대로, `-impl` 만 HTTP 클라이언트로 교체.
 
 **단점**:
-- 모듈 수 2배 (10개 도메인 → 20 모듈).
+- 모듈 수 2배 (12개 도메인 → 24 모듈).
 - 인터페이스와 구현체 사이의 매핑 파일 관리 필요 (DTO ↔ Entity 변환 등).
 - 초기 설정 복잡도 약간 상승.
 
-**채택 이유**: 단점들이 전부 **한 번의 초기 설정 비용** 이고, 장점은 **프로젝트 수명 동안 지속적 가치** (추출 가능성 + 경계 강제).
+**채택 이유**: 단점들이 전부 **한 번의 초기 설정 비용** 이고, 장점은 추출 가능성과 경계 강제라는 프로젝트 수명 동안의 지속적 가치예요.
 
 ## 결정
 
-core 10개 도메인 전부 `-api` / `-impl` 쌍으로 분리합니다.
+core 12개 도메인 전부 `-api` / `-impl` 쌍으로 분리합니다.
 
 ```
 core/
@@ -122,6 +122,7 @@ core/
 `-api` 모듈의 인터페이스는 `*Port` 접미사를 사용합니다 (Hexagonal Architecture 용어). 실제 예시 ([`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java)):
 
 ```java
+// core-auth-api/AuthPort.java 발췌 — 전체 18 메서드 중 일부
 public interface AuthPort {
     AuthResponse signUpWithEmail(SignUpRequest request);
     AuthResponse signInWithEmail(SignInRequest request);
@@ -138,15 +139,15 @@ public interface AuthPort {
 ```
 
 **Port 의 규칙**:
-- 파라미터와 반환 타입은 **DTO 만** (`Request` / `Response` / `Tokens` 등). Entity 금지 (r11).
-- JavaDoc 에는 **구현 내부 힌트** 까지 포함해도 돼요. 하지만 파라미터로 Entity 를 노출하지 않아요.
-- throws 절의 Exception 도 `-api` 모듈의 `exception/` 패키지에 정의 (`AuthException` 등).
+- 파라미터와 반환 타입은 **DTO 만** 씁니다 (`Request`·`Response`·`Tokens` 등). Entity 는 금지 (r11).
+- JavaDoc 에는 구현 내부 힌트까지 포함해도 돼요. 하지만 파라미터로 Entity 를 노출하지 않아요.
+- throws 절의 Exception 도 `-api` 모듈의 `exception/` 패키지에 정의해요 (`AuthException` 등).
 
 ### 장치 2 — Primary / Secondary Adapter 구분
 
 Port 는 두 방향으로 구현됩니다.
 
-**Primary Adapter (Inbound)** — Port 를 **구현하고 비즈니스 로직을 담는** 클래스. Spring 관용에 따라 `*ServiceImpl` 로 명명.
+**Primary Adapter (Inbound)** — Port 를 구현하고 비즈니스 로직을 담는 클래스. Spring 관용에 따라 `*ServiceImpl` 로 명명해요.
 
 ```java
 // core/core-auth-impl/.../AuthServiceImpl.java
@@ -162,10 +163,10 @@ public class AuthServiceImpl implements AuthPort {
 }
 ```
 
-**Secondary Adapter (Outbound)** — **외부 시스템에 연결하는** 구현체. `*Adapter` 로 명명.
+**Secondary Adapter (Outbound)** — 외부 시스템에 연결하는 구현체. `*Adapter` 로 명명해요.
 
 ```java
-// core/core-auth-impl/.../email/ResendEmailAdapter.java
+// core/core-email-impl/.../ResendEmailAdapter.java
 public class ResendEmailAdapter implements EmailPort {
     private final HttpClient httpClient;
 
@@ -261,15 +262,15 @@ references class <com.factory.core.user.impl.entity.User>
 
 **테스트 구조 명확** — 각 앱 모듈의 테스트는 `AuthPort` 를 Mock 으로 주입해서 테스트할 수 있어요.
 
-**JPA / Spring 의존성의 격리** — `-api` 는 순수 Java 예요. 미래 추출 시 `-api` 자체가 어느 플랫폼에든 가져갈 수 있어요.
+**JPA·Spring 의존성의 격리** — `-api` 는 순수 Java 예요. 미래 추출 시 `-api` 자체가 어느 플랫폼에든 가져갈 수 있어요.
 
 ### 부정적 결과
 
-**모듈 수 2배** — 10개 도메인 × 2 = 20 core 모듈이에요. IDE 프로젝트 트리가 길어져요. 완화: 관습으로 짝 구조가 명확해서 탐색은 쉬워요.
+**모듈 수 2배** — 12개 도메인 × 2 = 24 core 모듈이에요. IDE 프로젝트 트리가 길어져요. 완화: 관습으로 짝 구조가 명확해서 탐색은 쉬워요.
 
 **DTO ↔ Entity 변환 비용** — Port 가 Entity 반환을 금지하므로 `-impl` 내부에서 Entity 를 DTO 로 변환해야 해요. 완화: ADR-016 (DTO Mapper 금지, Entity 메서드 패턴) 이 이 비용을 최소화해요.
 
-**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **17 메서드** 예요 (email 가입 / 이메일·Apple·Google·Kakao·Naver 로그인 / refresh / 탈퇴 / password reset 3개 (요청·확인·변경) / email verify 2개 (검증·재발송) / 2FA TOTP 4개 (setup·verify·disable·login)). 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 돼요. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 **책임 기반 분할** 을 고려해요. 현재 17 메서드는 관리 가능한 수준이에요.
+**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **18 메서드** 예요. email 가입과 다섯 가지 로그인 (이메일·Apple·Google·Kakao·Naver), refresh·탈퇴, password reset 3개 (요청·확인·변경), email verify 2개 (검증·재발송), 2FA TOTP 4개 (setup·verify·disable·login), 휴대폰 점유인증 1개를 한데 담고 있어요. 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 돼요. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 책임 기반 분할을 고려해요. 현재 18 메서드는 관리 가능한 수준이에요.
 
 ### 감당 가능성 판단
 
@@ -279,11 +280,11 @@ references class <com.factory.core.user.impl.entity.User>
 
 **`core-auth-impl/controller/AuthController` 의 런타임 등록 해제** ([`ADR-001`](./adr-001-modular-monolith.md) 과 연결).
 
-이 분리 구조에서는 Controller 조차 **Port 의 사용자** 입니다. Controller 는 Port 를 주입받아 호출할 뿐 Port 를 구현하지 않습니다. 그래서 Controller 가 `-impl` 에 있는 것 자체는 괜찮은데, 문제는 **Controller 를 런타임에 어디서 등록할 것인가** 입니다.
+이 분리 구조에서는 Controller 조차 **Port 의 사용자** 입니다. Controller 는 Port 를 주입받아 호출할 뿐 Port 를 구현하지 않습니다. 그래서 Controller 가 `-impl` 에 있는 것 자체는 괜찮은데, 문제는 Controller 를 런타임에 어디서 등록할 것인가입니다.
 
 **대안 — `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 로 등록** 하면 공용 `/api/core/auth/*` 경로가 됩니다. 그런데 이 방식은 "모든 앱이 같은 Controller 공유 → 어느 앱 요청인지 런타임 구분 필요 → ThreadLocal + AbstractRoutingDataSource" 라는 복잡도를 부릅니다.
 
-**채택** — `AuthController` 는 `-impl` 에 **스캐폴딩 소스** 로만 존재하고, 런타임에 등록하지 않아요. 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 Port 를 주입받아 사용해요.
+**채택** — `AuthController` 는 `-impl` 에 스캐폴딩 소스로만 존재하고, 런타임에 등록하지 않아요. 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 Port 를 주입받아 사용해요.
 
 **교훈**: `-api` / `-impl` 분리는 **모듈 내부 책임 경계** 도 재조정하게 만듭니다. "무엇이 Port 구현체인가", "무엇이 Port 사용자인가" 구분이 명확해질수록 런타임 구조도 단순해져요.
 
@@ -297,20 +298,20 @@ references class <com.factory.core.user.impl.entity.User>
 ## Code References
 
 **Port 인터페이스** (모두 `-api` 모듈):
-- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 17 메서드, JavaDoc 풍부.
+- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 18 메서드, JavaDoc 풍부.
 - [`UserPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/UserPort.java)
 - [`PushPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-push-api/src/main/java/com/factory/core/push/api/PushPort.java)
-- [`EmailPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/EmailPort.java) — 간결. Secondary Adapter 의 대상.
+- [`EmailPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-email-api/src/main/java/com/factory/core/email/api/EmailPort.java) — 간결. Secondary Adapter 의 대상.
 
 **Primary Adapter** (`-impl` 모듈):
 - [`AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java)
 
 **Secondary Adapter** (`-impl` 모듈):
-- [`ResendEmailAdapter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/email/ResendEmailAdapter.java)
+- [`ResendEmailAdapter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-email-impl/src/main/java/com/factory/core/email/impl/ResendEmailAdapter.java)
 
 **Build 의존성 증거**:
-- [`core/core-auth-api/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/build.gradle) — JPA / Spring 의존이 없어요.
-- [`core/core-auth-impl/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/build.gradle) — JPA / Spring 전체에 의존해요.
+- [`core/core-auth-api/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/build.gradle) — JPA·Spring 의존이 없어요.
+- [`core/core-auth-impl/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/build.gradle) — JPA·Spring 전체에 의존해요.
 
 **ArchUnit 규칙**:
 - [`ArchitectureRules.java`](https://github.com/storkspear/template-spring/blob/main/common/common-testing/src/main/java/com/factory/common/testing/architecture/ArchitectureRules.java) — r6, r9, r10, r11, r13, r14, r15, r17, r21.

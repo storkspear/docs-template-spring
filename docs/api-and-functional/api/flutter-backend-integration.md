@@ -1,53 +1,60 @@
 # Flutter ↔ Backend Integration
 
-> **유형**: How-to · **독자**: Level 1~2 · **읽는 시간**: ~10분
+> **유형**: How-to · **독자**: Level 2 · **읽는 시간**: ~10분
 
-**설계 근거**: [`ADR-013 (앱별 인증 엔드포인트)`](../../philosophy/adr-013-per-app-auth-endpoints.md) · [`ADR-006 (HS256 JWT)`](../../philosophy/adr-006-hs256-jwt.md)
+**설계 근거**: [`ADR-013 · 앱별 인증 엔드포인트`](../../philosophy/adr-013-per-app-auth-endpoints.md) · [`ADR-006 · HS256 JWT`](../../philosophy/adr-006-hs256-jwt.md)
 
-이 문서는 Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할 **백엔드 관점의 계약** 을 설명해요. 엔드포인트 경로, 인증 방식, 토큰 갱신 규약, appSlug 매칭 규칙 등이 포함됩니다.
+이 문서는 Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할 백엔드 관점의 계약을 정리합니다. 엔드포인트 경로, 인증 방식, 토큰 갱신 규약, appSlug 매칭 규칙이 핵심이에요.
 
-응답 포맷의 세부 구조 (`{data, error}`) 는 [`API Response Format`](./api-response.md), 에러 코드 체계는 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리하니까 중복되지 않게 **Flutter 입장에서 특별히 알아야 할 것** 만 정리해요.
+응답 래퍼의 세부 구조는 [`API Response Format`](./api-response.md) 이, 에러 코드 체계는 [`Exception Handling Convention`](../../convention/exception-handling.md) 이 정본입니다. 본 문서는 그 둘과 중복되지 않게 Flutter 입장에서 특별히 알아야 할 것만 다뤄요.
 
 ---
 
 ## 개요
 
-Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할 **백엔드 관점의 계약** 이에요. URL 규칙 · 인증 엔드포인트 · Bearer 토큰 · 401 처리 · appSlug 검증이 핵심입니다.
+한 백엔드가 여러 앱을 동시에 서비스하므로, Flutter 클라이언트가 알아야 할 다섯 가지가 있어요.
+
+- URL 에 appSlug 가 박혀 앱별로 분리됩니다.
+- 인증 엔드포인트는 앱별로 노출됩니다.
+- 보호된 경로는 Bearer 토큰을 요구합니다.
+- 401 은 `error.code` 로 세분화해 분기합니다.
+- URL 의 appSlug 는 토큰의 appSlug 와 일치해야 합니다.
+
+각 항목을 아래에서 차례로 풀어요.
 
 ---
 
 ## 기본 URL 규칙
 
-### 앱별 스코프 (대부분의 엔드포인트)
+### 앱별 스코프 — 대부분의 엔드포인트
 
 ```
 /api/apps/{appSlug}/{resource}
 ```
 
-- `{appSlug}` 는 해당 앱의 slug 입니다 (예: `sumtally`, `gymlog`). **소문자/숫자/밑줄** 조합이에요.
-- `{resource}` 는 도메인입니다 (예: `auth`, `devices`, `expenses`).
+`{appSlug}` 는 해당 앱의 슬러그예요. `sumtally`, `gymlog` 처럼 소문자와 숫자, 하이픈으로 이뤄집니다. `{resource}` 는 도메인이고요. `auth`, `devices` 같은 값이 들어가요.
 
-모든 인증, 디바이스, 도메인 엔드포인트는 이 규칙을 따릅니다. 한 백엔드가 여러 앱을 서비스하니까 path 에 slug 가 박혀 있어야 앱별로 분리됩니다.
+모든 인증·디바이스·도메인 엔드포인트가 이 규칙을 따릅니다. 한 백엔드가 여러 앱을 서비스하니까, path 에 슬러그가 박혀 있어야 앱별로 데이터가 분리돼요. 이 경로 상수는 `common-web` 모듈의 `ApiEndpoints.APP_BASE` 에 정의되어 있습니다.
 
-### 전역 스코프 (인프라/유저 프로필)
+### 전역 스코프 — 인프라와 유저 프로필
 
-```
-/health         # 인증 불필요
-/version        # 인증 불필요
-/actuator/**    # prod 에서는 별도 포트로 분리
-/v3/api-docs/** # Swagger
-/swagger-ui/**  # Swagger UI
+슬러그가 붙지 않는 경로도 있어요.
 
-/api/core/users/me  # 현재 유저 프로필 (JWT 필요) — 앱 slug 불포함
-```
+| 경로 | 인증 | 용도 |
+|---|---|---|
+| `/health` | 불필요 | 헬스 체크 |
+| `/version` | 불필요 | 버전 정보 |
+| `/actuator/**` | 불필요 | 운영 지표 (prod 에서는 별도 포트로 분리) |
+| `/v3/api-docs/**` · `/swagger-ui/**` | 불필요 | Swagger 문서·UI |
+| `/api/core/users/me` | 필요 | 현재 유저 프로필 |
 
-`UserController` 는 `/api/core/users/me` 라는 전역 경로를 사용합니다. JWT 에 담긴 `userId` 로 조회하니까 path slug 가 필요하지 않아요.
+`/api/core/users/me` 는 JWT 에 담긴 `userId` 로 유저를 조회하므로 path 슬러그가 필요하지 않아요. 이 경로 상수는 `ApiEndpoints.User` 에 있습니다.
 
 ---
 
 ## 인증 엔드포인트
 
-아래 경로들은 `ApiEndpoints.Auth` 상수의 단일 정본입니다 (`common-web/src/main/java/.../ApiEndpoints.java`). Flutter 쪽 경로 상수도 이와 1:1 로 맞추는 것을 권장해요.
+아래 경로는 `ApiEndpoints.Auth` 상수의 단일 정본입니다. 위치는 `common-web/src/main/java/.../ApiEndpoints.java` 예요. Flutter 쪽 경로 상수도 이와 1:1 로 맞추기를 권장해요.
 
 | Method | Path | 인증 | 설명 |
 |---|---|---|---|
@@ -58,6 +65,8 @@ Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할
 | POST | `/api/apps/{appSlug}/auth/kakao` | 불필요 | Kakao 로그인 (`accessToken`) |
 | POST | `/api/apps/{appSlug}/auth/naver` | 불필요 | Naver 로그인 (`accessToken`) |
 | POST | `/api/apps/{appSlug}/auth/refresh` | 불필요 | 토큰 갱신 |
+| POST | `/api/apps/{appSlug}/auth/2fa/login` | 불필요 | 2FA 코드로 정식 토큰 발급 |
+| POST | `/api/apps/{appSlug}/auth/phone/**` | 불필요 | 휴대폰 점유인증 (옵트인 기능) |
 | POST | `/api/apps/{appSlug}/auth/withdraw` | 필요 | 회원 탈퇴 (204) |
 | POST | `/api/apps/{appSlug}/auth/verify-email` | 불필요 | 이메일 인증 (204) |
 | POST | `/api/apps/{appSlug}/auth/resend-verification` | 필요 | 인증 메일 재발송 (204) |
@@ -65,32 +74,34 @@ Flutter 앱이 `template-spring` 기반 백엔드와 통신할 때 알아야 할
 | POST | `/api/apps/{appSlug}/auth/password-reset/confirm` | 불필요 | 토큰으로 재설정 (204) |
 | PATCH | `/api/apps/{appSlug}/auth/password` | 필요 | 비밀번호 변경 (204) |
 
-**인증 불필요** 경로는 `SecurityConfig` 의 `ApiEndpoints.Auth.PUBLIC_PATTERNS` 에 등록되어 JWT 없이 호출이 가능합니다.
+인증 불필요 경로는 `SecurityConfig` 가 `ApiEndpoints.Auth.PUBLIC_PATTERNS` 를 읽어 등록하므로 JWT 없이 호출됩니다. `2fa/login` 과 `phone/**` 은 로그인 전 단계라 함께 public 으로 열려 있어요. 2FA 의 setup·verify·disable 은 이미 로그인한 유저만 호출하므로 access token 이 필요합니다.
 
 ### 템플릿 상태에서의 노출 여부
 
-`AuthController` (`core-auth-impl`) 의 주석에 명시되어 있듯, 이 컨트롤러는 **런타임에 직접 등록되지 않습니다**. `new-app.sh` 가 앱 모듈을 생성할 때 앱별 복제본 (`apps/app-<slug>/auth/<Slug>AuthController.java`) 을 만들고, path 의 `{appSlug}` 를 실제 slug 로 치환해요.
+`core-auth-impl` 의 `AuthController` 는 런타임에 직접 등록되지 않아요. 이 클래스는 `new-app.sh` 가 앱 모듈을 만들 때 쓰는 스캐폴딩 레퍼런스입니다. 스크립트가 앱별 복제본 `apps/app-<slug>/auth/<Slug>AuthController.java` 를 생성하면서, path 의 `{appSlug}` 를 실제 슬러그로 치환해요.
 
-즉 **템플릿 상태(앱 0개)에서는 인증 엔드포인트가 전혀 노출되지 않고**, 존재하지 않는 slug 호출은 404 가 됩니다.
+즉 템플릿 상태에서는 인증 엔드포인트가 전혀 노출되지 않습니다. 앱이 0개라 등록할 컨트롤러가 없기 때문이에요. 존재하지 않는 슬러그로 호출하면 404 가 됩니다.
 
 ---
 
 ## 요청/응답 DTO 구조
 
-DTO 는 모두 `core-auth-api/src/main/java/.../dto/` 에 있는 Java record 입니다. Flutter 쪽에서는 필드명과 타입만 맞춰서 동일한 구조로 매핑하면 돼요.
+DTO 는 모두 `core-auth-api/src/main/java/.../dto/` 에 있는 Java record 입니다. Flutter 쪽에서는 필드명과 타입만 맞춰 동일한 구조로 매핑하면 돼요.
 
-> **응답 래퍼 (`{data, error}` 구조)** 는 [`API Response`](./api-response.md) 가 canonical. 본 문서는 *DTO 필드명 / 타입* 만 다뤄요. *상호배타성 / null 필드 생략 / pagination 형식* 같은 응답 래퍼 규칙은 `API Response` 에서 확인하세요.
+응답 래퍼 자체의 규칙은 [`API Response`](./api-response.md) 가 정본이에요. 상호배타성·null 필드 생략·pagination 형식은 그쪽에서 확인하세요. 본 문서는 DTO 필드명과 타입만 다룹니다.
 
 ### SignUpRequest
 
 ```java
 public record SignUpRequest(
     @Email @NotBlank String email,
-    @NotBlank @Size(min = 8, max = 72) String password,
+    @NotBlank @ValidPassword String password,
     @NotBlank @Size(max = 30) String displayName,
     @NotBlank String appSlug
 ) {}
 ```
+
+`password` 는 `@Size` 가 아니라 커스텀 `@ValidPassword` 정책을 따릅니다. 기본값은 최소 10자에 영문 대/소문자와 숫자 조합, 그리고 흔한 비밀번호 차단이에요. 정확한 조건은 운영자가 `app.password.*` 설정으로 조정할 수 있으니, Flutter 의 클라이언트 측 검증은 백엔드 422 응답을 정답으로 두고 느슨하게 잡는 편이 안전해요.
 
 요청 예시:
 
@@ -100,13 +111,13 @@ Content-Type: application/json
 
 {
   "email": "user@example.com",
-  "password": "password123",
+  "password": "Password1234",
   "displayName": "홍길동",
   "appSlug": "sumtally"
 }
 ```
 
-`appSlug` 는 **body 에도 넣고 path 에도 있는데** 이는 중복이 아니에요. Path 는 라우팅 대상이고, body 의 `appSlug` 는 서비스 레이어가 토큰 발급 시 포함할 값으로 사용합니다. 두 값은 일치해야 해요.
+`appSlug` 가 body 에도 있고 path 에도 있는데 중복이 아니에요. Path 는 라우팅 대상이고, body 의 `appSlug` 는 서비스 레이어가 토큰 발급 시 담을 값입니다. 두 값은 일치해야 해요.
 
 ### SignInRequest
 
@@ -120,12 +131,14 @@ public record SignInRequest(
 
 ### AuthResponse
 
-로그인/가입 성공 시 반환되는 복합 응답이에요.
+로그인·가입 성공 시 반환되는 복합 응답이에요. record 는 네 개의 필드를 갖지만, 평소엔 `user` 와 `tokens` 만 채워집니다. 나머지 두 필드는 특정 상황에서만 등장해요.
 
 ```java
 public record AuthResponse(
-    UserSummary user,
-    AuthTokens tokens
+    @JsonInclude(NON_NULL) UserSummary user,
+    @JsonInclude(NON_NULL) AuthTokens tokens,
+    @JsonInclude(NON_NULL) String devVerificationToken,
+    @JsonInclude(NON_NULL) String twoFactorToken
 ) {}
 
 public record UserSummary(
@@ -140,6 +153,14 @@ public record AuthTokens(
     String refreshToken
 ) {}
 ```
+
+`@JsonInclude(NON_NULL)` 라서 값이 없는 필드는 JSON 에서 빠져요. 각 필드의 의미는 이래요.
+
+| 필드 | 언제 채워지나 | Flutter 처리 |
+|---|---|---|
+| `user` · `tokens` | 정상 로그인/가입 | 토큰 저장 후 진입 |
+| `twoFactorToken` | 2FA 활성 유저의 1단계 통과 | `user`·`tokens` 가 비어 있음. 이 토큰으로 `/auth/2fa/login` 호출 |
+| `devVerificationToken` | dev·local 에서 메일 fallback 활성 시 | 로컬 테스트용. 운영에서는 절대 안 나옴 |
 
 응답 예시 (201 Created):
 
@@ -161,9 +182,11 @@ public record AuthTokens(
 }
 ```
 
+2FA 가 켜진 유저라면 같은 200 응답이지만 `user` 와 `tokens` 가 빠지고 `twoFactorToken` 만 옵니다. Flutter 는 이 경우 토큰을 저장하지 말고 2단계 코드 입력 화면으로 이동해야 해요.
+
 ### AppleSignInRequest
 
-첫 로그인과 이후 로그인의 payload 가 달라요. Apple 이 **첫 로그인 시에만** 일부 필드를 제공하니까, Flutter 는 첫 응답을 로컬에 저장하고 있다가 서버에 그대로 전달해야 합니다.
+첫 로그인과 이후 로그인의 payload 가 달라요. Apple 은 첫 로그인에서만 일부 필드를 제공하므로, Flutter 는 첫 응답을 로컬에 저장해 뒀다가 서버에 그대로 전달해야 합니다.
 
 ```java
 public record AppleSignInRequest(
@@ -186,6 +209,8 @@ public record GoogleSignInRequest(
 ) {}
 ```
 
+Kakao·Naver 도 같은 모양이에요. 각각 `KakaoSignInRequest` 와 `NaverSignInRequest` 가 `accessToken` 과 `appSlug` 를 받습니다. provider 별로 어떤 토큰을 보내야 하는지는 [`ADR-017`](../../philosophy/adr-017-oauth-integration.md) 에 정리돼 있어요.
+
 ### RefreshRequest
 
 ```java
@@ -195,7 +220,7 @@ public record RefreshRequest(
 ) {}
 ```
 
-`/auth/refresh` 응답은 `AuthTokens` 만 (유저 정보 없이) 반환합니다.
+`/auth/refresh` 응답은 유저 정보 없이 `AuthTokens` 만 반환합니다.
 
 ```json
 {
@@ -207,7 +232,7 @@ public record RefreshRequest(
 }
 ```
 
-**Refresh 는 회전 (rotation) 이 일어납니다.** 요청에 쓴 refresh token 은 즉시 무효화되고 새 refresh token 이 발급됩니다. Flutter 는 반드시 응답의 새 값으로 교체해야 해요. 옛 값을 재사용하면 탈취 감지가 발동해서 해당 family 전체가 revoke 됩니다.
+Refresh 는 회전(rotation)이 일어납니다. 요청에 쓴 refresh token 은 즉시 무효화되고 새 refresh token 이 발급돼요. Flutter 는 반드시 응답의 새 값으로 교체해야 합니다. 옛 값을 재사용하면 탈취 감지가 발동해 해당 토큰 family 전체가 revoke 돼요.
 
 ### 기타 DTO
 
@@ -221,13 +246,13 @@ public record PasswordResetRequest(@Email @NotBlank String email) {}
 // 비밀번호 재설정 확인 (토큰 + 새 비밀번호)
 public record PasswordResetConfirmRequest(
     @NotBlank String token,
-    @NotBlank @Size(min = 8, max = 72) String newPassword
+    @NotBlank @ValidPassword String newPassword
 ) {}
 
 // 로그인 상태에서 비밀번호 변경
 public record ChangePasswordRequest(
     @NotBlank String currentPassword,
-    @NotBlank @Size(min = 8, max = 72) String newPassword
+    @NotBlank @ValidPassword String newPassword
 ) {}
 
 // 탈퇴 (사유는 optional)
@@ -236,30 +261,46 @@ public record WithdrawRequest(
 ) {}
 ```
 
+새 비밀번호 필드도 가입과 같은 `@ValidPassword` 정책을 따릅니다.
+
 ---
 
 ## Bearer 토큰 인증
 
-인증이 필요한 엔드포인트는 `Authorization` 헤더에 Bearer 토큰을 포함해야 합니다.
+인증이 필요한 엔드포인트는 `Authorization` 헤더에 Bearer 토큰을 담아야 합니다.
 
 ```http
 GET /api/apps/sumtally/users/me
 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 ```
 
-JWT access token 의 claim 구조는 다음과 같아요 (`JwtService.issueAccessToken` 참조).
+Bearer 접두사는 RFC 6750 에 따라 대소문자를 가리지 않아요. `JwtAuthFilter` 가 헤더를 추출해 검증하고, 성공하면 `AuthenticatedUser` 를 SecurityContext 에 주입합니다.
+
+JWT access token 의 claim 구조는 다음과 같아요. 발급은 `JwtService.issueAccessToken` 이 담당합니다.
 
 ```json
 {
-  "sub": "123",               // userId
+  "sub": "123",
   "email": "user@example.com",
-  "appSlug": "sumtally",      // 발급 당시 앱 slug
+  "appSlug": "sumtally",
   "role": "user",
-  "iss": "app-factory-dev",   // JWT_ISSUER
+  "iss": "app-factory-dev",
   "iat": 1234567890,
-  "exp": 1234568790           // access TTL 15분
+  "exp": 1234568790
 }
 ```
+
+각 claim 의 의미는 이래요.
+
+| claim | 값 | 비고 |
+|---|---|---|
+| `sub` | userId | 문자열로 직렬화됨 |
+| `appSlug` | 발급 당시 앱 슬러그 | URL path 와 대조 (아래 참조) |
+| `role` | 기본 `user` | 신규 가입 유저의 기본 역할 |
+| `iss` | 환경별 발급자 | `JWT_ISSUER` 환경변수. local=`app-factory-local`, dev=`app-factory-dev`, prod=`app-factory` |
+| `iat` · `exp` | 발급·만료 시각 | access TTL 만큼 차이 |
+
+토큰 수명은 환경 설정으로 조정됩니다.
 
 - **Access token TTL** — 기본 `PT15M` (15분). `app.jwt.access-token-ttl` 로 변경 가능합니다.
 - **Refresh token TTL** — 기본 `P30D` (30일). `app.jwt.refresh-token-ttl` 로 변경 가능합니다.
@@ -270,42 +311,48 @@ JWT access token 의 claim 구조는 다음과 같아요 (`JwtService.issueAcces
 
 ## 401 응답 처리 — Flutter 쪽 분기 규약
 
-401 Unauthorized 는 하나의 상태 코드 아래 여러 의미가 있으니까, Flutter 는 **HTTP 상태가 아니라 `error.code` 값으로 분기** 해야 해요.
+401 Unauthorized 는 하나의 상태 코드 아래 여러 의미를 담아요. Flutter 는 HTTP 상태가 아니라 `error.code` 값으로 분기해야 합니다.
 
 | error.code | 의미 | Flutter 권장 동작 |
 |---|---|---|
-| `CMN_004` | 토큰 없음 (보호된 경로에 인증 미포함) | 로그인 화면으로 이동 |
-| `CMN_007` | Access token 만료 | **자동으로 `/auth/refresh` 호출 → 성공 시 원 요청 재시도** |
-| `CMN_008` | Access token 무효 (위변조 등) | 강제 로그아웃 + 로그인 화면 |
+| `CMN_004` | 토큰 없음 (보호 경로에 인증 미포함) | 로그인 화면으로 이동 |
+| `CMN_007` | Access token 만료 | 자동으로 `/auth/refresh` 호출 후 성공 시 원 요청 재시도 |
+| `CMN_008` | Access token 무효 (위변조 등) | 강제 로그아웃 후 로그인 화면 |
 | `ATH_001` | 이메일/비밀번호 불일치 | 입력 오류 메시지 표시 |
-| `ATH_002` | Refresh/verify/reset 토큰 만료 | 재로그인 유도 |
-| `ATH_003` | Refresh/verify/reset 토큰 무효 | 재로그인 유도 |
-| `ATH_004` | Apple/Google 검증 실패 | 소셜 로그인 재시도 |
+| `ATH_002` | Refresh·verify·reset 토큰 만료 | 재로그인 유도 |
+| `ATH_003` | Refresh·verify·reset 토큰 무효 | 재로그인 유도 |
+| `ATH_004` | 소셜 로그인 검증 실패 | 소셜 로그인 재시도 |
 | `ATH_005` | 이메일 미인증 | 인증 안내 화면 |
+| `ATH_010` | 2FA 필요 | `twoFactorToken` 으로 2단계 코드 화면 이동 |
 
 ### 추천 흐름
 
 ```
 요청 전송
-  ├─ 200 → 정상 처리
-  ├─ 401 + CMN_007 (access 만료)
-  │    └─ /auth/refresh 호출
-  │         ├─ 200 → 새 토큰 저장 → 원 요청 재시도
-  │         └─ 401 + ATH_002 또는 ATH_003 → 강제 로그아웃
-  ├─ 401 + CMN_008 → 강제 로그아웃
-  ├─ 403 + CMN_005 → appSlug 불일치 또는 권한 없음 (아래 참조)
-  └─ 기타 → 일반 에러 처리
+   │
+   ├─ 200 → 정상 처리
+   │
+   ├─ 401 + CMN_007 (access 만료)
+   │    └─ /auth/refresh 호출
+   │         ├─ 200 → 새 토큰 저장 → 원 요청 재시도
+   │         └─ 401 + ATH_002 / ATH_003 → 강제 로그아웃
+   │
+   ├─ 401 + CMN_008 → 강제 로그아웃
+   │
+   ├─ 403 + CMN_005 → appSlug 불일치 (아래 참조)
+   │
+   └─ 기타 → 일반 에러 처리
 ```
 
-**주의** — `/auth/refresh` 자체가 401 을 반환하면 (`ATH_002`/`ATH_003`) 더 시도하지 말고 즉시 로그아웃 상태로 전환해야 합니다. 그렇지 않으면 무한 루프가 발생해요.
+`/auth/refresh` 자체가 401 을 반환하면 (`ATH_002` 또는 `ATH_003`) 더 시도하지 말고 즉시 로그아웃 상태로 전환하세요. 그렇지 않으면 무한 루프가 발생해요.
 
 ---
 
 ## appSlug 검증 규칙
 
-`/api/apps/{appSlug}/...` 경로에 요청할 때, **URL 의 appSlug 는 JWT 의 `appSlug` claim 과 일치해야** 합니다.
+`/api/apps/{appSlug}/...` 경로에 요청할 때, URL 의 appSlug 는 JWT 의 `appSlug` claim 과 일치해야 합니다.
 
-이 검증은 `common-security/src/main/java/.../AppSlugVerificationFilter.java` 가 수행합니다. 불일치 시 403 Forbidden 을 반환해요.
+이 검증은 `common-security/src/main/java/.../AppSlugVerificationFilter.java` 가 수행해요. 불일치 시 403 Forbidden 을 반환합니다.
 
 ```json
 {
@@ -319,22 +366,22 @@ JWT access token 의 claim 구조는 다음과 같아요 (`JwtService.issueAcces
 
 ### Flutter 입장에서 기억할 점
 
-- 한 앱에서 발급된 토큰으로 다른 앱의 엔드포인트를 호출할 수 없어요.
-- 멀티 앱 동시 로그인이 필요하면 앱별로 토큰을 별도 관리해야 합니다 (이 템플릿은 기본적으로 한 앱 = 한 토큰 전제).
-- `CMN_005` 를 받았을 때 재시도해도 무의미해요. 현재 활성 토큰을 파기하고 해당 앱으로 재로그인하는 흐름을 권장합니다.
+한 앱에서 발급된 토큰으로는 다른 앱의 엔드포인트를 호출할 수 없어요. 이 템플릿은 한 앱이 한 토큰을 갖는 모델을 전제하므로, 멀티 앱 동시 로그인이 필요하면 앱별로 토큰을 따로 관리해야 합니다.
+
+`CMN_005` 를 받았을 때 재시도는 무의미해요. 현재 활성 토큰을 파기하고 해당 앱으로 재로그인하는 흐름을 권장합니다.
 
 ---
 
 ## HTTP 상태 코드 + 에러 코드 매핑
 
-Flutter 가 자주 받게 될 응답 조합만 요약합니다.
+Flutter 가 자주 받게 될 조합만 추렸어요.
 
 | 상황 | HTTP | error.code |
 |---|---|---|
 | 가입 성공 | 201 | — |
 | 로그인 성공 / 토큰 갱신 성공 | 200 | — |
-| 탈퇴/인증/재설정 성공 (body 없음) | 204 | — |
-| 이메일 형식 오류 | 422 | `CMN_001` |
+| 탈퇴·인증·재설정 성공 (body 없음) | 204 | — |
+| 입력값 검증 실패 (이메일 형식·비밀번호 정책 등) | 422 | `CMN_001` |
 | 비밀번호 불일치 | 401 | `ATH_001` |
 | 이메일 중복 가입 | 409 | `USR_002` |
 | Access token 만료 | 401 | `CMN_007` |
@@ -344,25 +391,26 @@ Flutter 가 자주 받게 될 응답 조합만 요약합니다.
 | 유저 미발견 | 404 | `USR_001` |
 | Refresh token 만료 | 401 | `ATH_002` |
 | Refresh token 무효 | 401 | `ATH_003` |
-| Apple/Google 검증 실패 | 401 | `ATH_004` |
+| 소셜 로그인 검증 실패 | 401 | `ATH_004` |
 | 이메일 인증 필요 | 401 | `ATH_005` |
+| 2FA 필요 | 401 | `ATH_010` |
 | 이메일 발송 실패 | 502 | `EMAIL_001` |
 | Rate limit 초과 | 429 | `CMN_429` (Retry-After 헤더 포함) |
 
-전체 매핑과 이유는 [`API Response Format`](./api-response.md) 및 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리합니다.
+전체 매핑과 근거는 [`API Response Format`](./api-response.md) 과 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리합니다.
 
 ---
 
 ## 디바이스 등록 엔드포인트
 
-푸시 알림을 받기 위해 로그인 후 디바이스를 등록해야 해요.
+푸시 알림을 받으려면 로그인 후 디바이스를 등록해야 해요.
 
 | Method | Path | 인증 | 설명 |
 |---|---|---|---|
 | POST | `/api/apps/{appSlug}/devices` | 필요 | 디바이스 등록/업데이트 |
 | DELETE | `/api/apps/{appSlug}/devices/{id}` | 필요 | 디바이스 해제 (204) |
 
-경로 상수는 `ApiEndpoints.Device` 입니다 (`common-web/.../ApiEndpoints.java`).
+경로 상수는 `ApiEndpoints.Device` 입니다. 위치는 `common-web/.../ApiEndpoints.java` 예요.
 
 ### 등록 요청 DTO
 
@@ -403,29 +451,31 @@ Content-Type: application/json
 }
 ```
 
-**같은 유저 + 같은 appSlug + 같은 platform 조합은 유니크 제약 (`uk_devices_user_app_platform`)** 으로 관리됩니다. 동일 조합으로 다시 등록하면 pushToken 을 업데이트해요 (실제 upsert 는 `DevicePort.register` 가 처리).
+같은 유저와 같은 appSlug, 같은 platform 조합으로 다시 등록하면 새 row 를 만들지 않고 pushToken 을 갱신해요. 이 upsert 는 `DeviceServiceImpl.register` 가 처리합니다. 먼저 `(userId, appSlug, platform)` 으로 기존 디바이스를 찾고, 있으면 토큰만 업데이트하고 없으면 새로 만드는 방식이에요.
 
-로그아웃/탈퇴 시 해당 디바이스를 `DELETE` 로 삭제하는 것이 권장돼요. 그렇지 않으면 이 디바이스로 계속 푸시가 전달됩니다.
+로그아웃이나 탈퇴 시에는 해당 디바이스를 `DELETE` 로 정리하기를 권장해요. 그렇지 않으면 이 디바이스로 계속 푸시가 전달됩니다.
 
 ---
 
 ## 트러블슈팅
 
-### 401 Unauthorized 계속 반환
+### 401 Unauthorized 가 계속 반환돼요
 
-- **원인 1** — Access Token 만료. Refresh Token 으로 갱신이 필요합니다 ([`ADR-006`](../../philosophy/adr-006-hs256-jwt.md)).
-- **원인 2** — JWT 의 `appSlug` 와 URL path 의 `{appSlug}` 불일치. `AppSlugVerificationFilter` 가 403 을 반환합니다 ([`ADR-012`](../../philosophy/adr-012-per-app-user-model.md)).
+- **원인 1** — Access token 만료. Refresh token 으로 갱신이 필요해요 ([`ADR-006`](../../philosophy/adr-006-hs256-jwt.md)).
+- **원인 2** — JWT 의 `appSlug` 와 URL path 의 `{appSlug}` 가 불일치. 이 경우 `AppSlugVerificationFilter` 가 403 을 반환해요 ([`ADR-012`](../../philosophy/adr-012-per-app-user-model.md)).
 - **확인** — 토큰 payload 의 `appSlug` claim 과 호출한 URL path 를 비교하세요.
 
-### 이메일 가입이 200 인데 로그인 안 됨
+### 이메일 가입은 됐는데 로그인이 안 돼요
 
-- **원인** — `email_verified: false` 상태예요. 이메일 인증 링크 클릭이 필요합니다.
-- **확인** — DB 의 `users.email_verified` 값 또는 signup 응답의 `user.emailVerified` 를 확인하세요.
+- **원인** — `emailVerified` 가 `false` 인 상태예요. 이메일 인증 링크를 클릭해야 합니다.
+- **확인** — DB 의 `users.email_verified` 값이나 signup 응답의 `user.emailVerified` 를 확인하세요.
 
-### 소셜 로그인 identity token 거부됨
+### 소셜 로그인 identity token 이 거부돼요
 
-- **원인** — Apple/Google Console 의 Client ID 와 서버 `APP_CREDENTIALS_<SLUG>_*` 불일치예요.
+- **원인** — Apple/Google Console 의 Client ID 와 서버의 `APP_CREDENTIALS_<SLUG>_*` 값이 어긋났어요.
 - **조치** — [`소셜 로그인 설정 가이드`](../../start/social-auth-setup.md) §4 에서 credential 을 재발급하세요.
+
+---
 
 ## 다음 단계
 

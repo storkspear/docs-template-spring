@@ -115,20 +115,23 @@ export default {
             'perf', 'test', 'chore', 'build', 'ci'
         ]],
         'scope-enum': [1, 'always', [
-            'auth', 'user', 'device', 'push', 'billing',
+            'auth', 'user', 'device', 'push', 'billing', 'sms', 'phone-auth',
             'common', 'bootstrap', 'spec', 'docs',
-            'core', 'apps', 'tools', 'ops', 'infra', 'env'
+            'core', 'apps', 'tools',
+            'ops', 'infra', 'env', 'deploy'
         ]],
         'subject-case': [2, 'never', ['upper-case', 'pascal-case']],
         'subject-empty': [2, 'never'],
+        'subject-full-stop': [2, 'never', '.'],
         'subject-max-length': [2, 'always', 72],
         'body-leading-blank': [2, 'always'],
+        'footer-leading-blank': [2, 'always'],
     }
 };
 ```
 
-- **10개 type** — feat, fix 는 버전 영향 (minor/patch), 나머지는 문서/내부
-- **15개 scope** — 경고 레벨 (2=error, 1=warning). 새 모듈 추가 시 warning 발생하면 리스트 업데이트
+- **10개 type** — feat, fix 는 버전 영향 (minor/patch), 나머지는 문서·내부
+- **19개 scope** — 경고 레벨 (2=error, 1=warning). 새 모듈 추가 시 warning 발생하면 리스트 업데이트
 - **72자 제한** — git log 의 한 줄 표시 가독성
 
 ### husky commit-msg 훅
@@ -145,7 +148,7 @@ npx --no -- commitlint --edit "$1"
 
 두 가지 역할:
 
-1. **AI coauthor 차단** — Claude/GPT 같은 LLM coauthor 트레일러를 로컬 레벨에서 거부 (정책 판단: 책임 소재 명확화 + 외부 검토 시 신뢰)
+1. **AI coauthor 차단** — Claude·GPT 같은 LLM coauthor 트레일러를 로컬 레벨에서 거부 (정책 판단: 책임 소재 명확화 + 외부 검토 시 신뢰)
 2. **commitlint 실행** — 포맷 검증 실패 시 커밋 거부
 
 로컬 차단 + CI 재검증의 **이중 방어**.
@@ -196,14 +199,14 @@ Breaking change 는 직접 도입하지 않고 아래 경로로:
 
 **필수 4가지 요소**:
 
-1. **Java `@Deprecated` 어노테이션**:
+1. Java `@Deprecated` 어노테이션:
    ```java
    @Deprecated(since = "v0.3.0", forRemoval = true)
    public void oldMethod() { ... }
    ```
-2. **Javadoc `@deprecated` 태그** — 대체 방안 명시
-3. **CHANGELOG `### Deprecated` 섹션** — 이번 릴리스에서 deprecate 된 것
-4. **`docs/features/migration.md`** — 복잡한 이행이 필요한 경우
+2. Javadoc `@deprecated` 태그 — 대체 방안 명시
+3. CHANGELOG `### Deprecated` 섹션 — 이번 릴리스에서 deprecate 된 것
+4. `docs/features/migration.md` — 복잡한 이행이 필요한 경우
 
 **ArchUnit r20 이 기계 강제**:
 ```java
@@ -382,7 +385,7 @@ r20 이 빌드 실패로 강제하므로:
 ## Code References
 
 **commitlint / 커밋 검증**:
-- [`commitlint.config.mjs`](https://github.com/storkspear/template-spring/blob/main/commitlint.config.mjs) — 10 type + 15 scope + 72자 제한
+- [`commitlint.config.mjs`](https://github.com/storkspear/template-spring/blob/main/commitlint.config.mjs) — 10 type + 19 scope + 72자 제한
 - [`.husky/commit-msg`](https://github.com/storkspear/template-spring/blob/main/.husky/commit-msg) — AI coauthor 차단 + commitlint 실행
 - [`package.json`](https://github.com/storkspear/template-spring/blob/main/package.json) — commitlint 19 · husky 9 · commitizen 4.3
 

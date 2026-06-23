@@ -1,120 +1,158 @@
 # 운영 런북 (Runbook)
 
-> **유형**: Runbook · **독자**: Level 2~3 · **읽는 시간**: ~10분
+> **유형**: Runbook · **독자**: Level 2 · **읽는 시간**: ~10분
 
-평시 배포·롤백·장애 대응 절차예요. 파생 레포 최초 onboarding 은 [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) 에서 다룹니다.
+평시 배포와 롤백, 장애 대응 절차를 한곳에 모은 문서예요. 긴급 상황에서 빠르게 찾을 수 있도록 증상에서 명령으로 가는 최단 경로를 우선했어요. 파생 레포의 최초 onboarding 은 [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) 에서 따로 다뤄요.
 
-> **설계 배경**: [`ADR-007 (솔로 친화적 운영)`](../../philosophy/adr-007-solo-friendly-operations.md) — 운영 단위 1, 관리형 서비스 선호, 회색 지대 없는 CI. 운영 구성 상세: [`인프라 (Infrastructure)`](./infrastructure.md). 배포 결정 근거: [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md).
->
-> **독자 대상**: Level 2~3. 장애 상황에서 빠르게 찾을 수 있도록 최단 경로 · 명령어 중심으로 기술.
+> **설계 배경**: [`ADR-007 · 솔로 친화적 운영`](../../philosophy/adr-007-solo-friendly-operations.md) — 운영 단위 1, 관리형 서비스 선호, 회색 지대 없는 CI. 운영 구성 상세는 [`인프라 (Infrastructure)`](./infrastructure.md), 배포 결정 근거는 [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) 을 참고하세요.
+
+이 문서의 명령은 파생 레포 기준이에요. `<repo>` 자리에 본인 레포의 alias 를 넣어 그대로 복사해 쓰면 됩니다.
+
+---
+
+## 상황 매트릭스
+
+증상을 먼저 찾고 해당 섹션으로 점프하세요. 진단 명령은 모두 복사해 바로 실행할 수 있어요.
+
+| 증상 | 1차 의심 | 대응 섹션 |
+|---|---|---|
+| 외부 HTTPS 가 522 / 530 | Cloudflare Tunnel 장애 | [장애 첫 3가지 체크](#장애-첫-3가지-체크) |
+| 외부 HTTPS 가 502 / 503 | Spring 컨테이너 다운 | [장애 첫 3가지 체크](#장애-첫-3가지-체크) · [로그 확인](#로그-확인) |
+| 직전 배포가 앱을 깨뜨림 | 롤백 필요 | [롤백](#롤백) |
+| 배포가 health 타임아웃으로 실패 | Flyway 락 경쟁 | [블루-그린 배포와 Flyway 원칙](#블루-그린-배포와-flyway-원칙) |
+| Mac mini 재부팅 후 서비스 안 뜸 | 자동 복구 미동작 | [Mac mini 재부팅 후 복구](#mac-mini-재부팅-후-복구) |
+| 메모리 부족 / 컨테이너 OOM | 리소스 고갈 | [장애 첫 3가지 체크](#장애-첫-3가지-체크) |
+| Grafana OTP 메일 안 옴 | CF Access 우회 필요 | [SSH 접근과 긴급 조치](#ssh-접근과-긴급-조치) |
+| 도그푸딩 종료 / 환경 초기화 | 정리 명령 선택 | [운영 환경 정리](#운영-환경-정리--clear-와-force-clear) |
 
 ---
 
 ## 평시 배포
 
-**자동 흐름** — `main` 브랜치에 push 하면 CI 가 성공한 뒤 `deploy` workflow 가 `workflow_run` 으로 자동 트리거됩니다.
+평소 배포는 손댈 게 없어요. `main` 에 push 하면 CI 가 통과한 뒤 deploy workflow 가 `workflow_run` 으로 자동 트리거됩니다. 흐름은 다음과 같아요.
 
-흐름은 다음과 같아요.
-
-1. CI (`./gradlew build`) 가 성공하면 bootstrap jar 를 GHA artifact 로 업로드합니다.
-2. deploy gate 에서 CI 성공 + `DEPLOY_ENABLED=true` 를 통과해야 다음 단계로 넘어갑니다.
-3. deploy job 이 artifact 를 다운로드하고 `Dockerfile.runtime` 으로 docker build/push (`ghcr.io/.../...:<sha>`) 한 뒤 `kamal deploy --skip-push --version=<sha>` 를 실행합니다.
-4. 옛 GHCR 이미지를 cleanup 합니다 (최신 2개만 유지 — storage 한도 관리).
-
-CI 가 실패하면 deploy 가 시작되지 않아요 (gate 가 차단). Test fail 코드는 절대 main 에서 배포되지 않습니다.
-
-**수동 재배포** (GHA UI):
-- Repo → Actions → deploy workflow → "Run workflow" → `version` 에 commit SHA 를 입력합니다 (비우면 현재 HEAD 가 적용돼요).
-- 해당 SHA 의 이미지가 GHCR 에 있어야 동작합니다. 최신 2개만 유지하니까 그 이상 옛 SHA 면 GHCR 에 없어서 로컬 수동 경로를 사용해야 해요.
-
-**수동 배포** (로컬, GHA 우회 / hotfix):
-
-```bash
-<your-backend> prod deploy              # 권장 — 자동으로 origin/main SHA 기준
-<your-backend> prod deploy --version <sha>  # 특정 SHA 재배포 (rollback 등)
+```
+main push
+   ↓
+CI (./gradlew build) 성공
+   ↓
+deploy gate (CI 성공 + DEPLOY_ENABLED=true)
+   ↓
+Dockerfile.runtime 으로 docker build/push (ghcr.io/<owner>/<repo>:<sha>)
+   ↓
+kamal deploy --skip-push --version=<sha>  (이미지 swap, kamal 은 빌드 안 함)
+   ↓
+옛 GHCR 이미지 cleanup (최신 2개만 유지)
 ```
 
-내부 동작 (`tools/deploy.sh` Step 0) 은 다음 순서로 진행됩니다.
+CI 가 실패하면 deploy 가 시작되지 않아요. gate 가 차단하기 때문에 테스트가 깨진 코드는 절대 운영에 반영되지 않습니다. GHCR 이미지를 최신 2개만 유지하는 건 스토리지 한도 관리를 위해서예요. 직전 1개가 항상 남으므로 한 단계 롤백은 언제나 가능합니다.
 
-1. `git fetch origin main` 으로 최신 SHA 를 가져와 `ORIGIN_SHA` 변수에 담습니다.
-2. `--version` 이 명시되지 않은 경우 `VERSION=$ORIGIN_SHA` 로 자동 설정됩니다.
-3. `kamal deploy --version=$VERSION` 이 호출되어, kamal 이 `Dockerfile` (multi-stage) 로 그 SHA 의 코드를 git clone + reset --hard 한 뒤 빌드합니다.
+### 수동 재배포 (GitHub Actions)
 
-이 흐름의 핵심은 **로컬 working tree 와 HEAD 가 빌드에 영향을 주지 않는다는 점** 입니다. commit·push 는 사용자의 책임이며 deploy 는 항상 origin 코드를 기준으로 동작합니다. 로컬에 미커밋 변경이 있어도 빌드 결과는 동일하고 (정보성 warning 만 출력됩니다), GHA 경로의 `Dockerfile.runtime` 과는 빌드 dockerfile 부터 별개의 흐름입니다.
+특정 SHA 를 다시 배포하고 싶을 때 GitHub UI 에서 직접 돌릴 수 있어요. Actions 탭에서 deploy workflow 를 열고 "Run workflow" 를 누른 뒤 `version` 칸에 commit SHA 를 입력합니다. 비우면 현재 HEAD 가 적용돼요.
 
-배포 중 실시간 로그는 `<your-backend> prod logs` 또는 `kamal app logs -f` 로 확인할 수 있습니다.
+해당 SHA 의 이미지가 GHCR 에 있어야 동작합니다. 최신 2개만 유지하므로 그보다 옛 SHA 면 이미지가 없어요. 이 경우엔 GHA 가 jar 부터 다시 빌드해 이미지를 새로 만든 뒤 배포하므로 8분 이상 걸립니다.
+
+### 수동 배포 (로컬)
+
+GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직접 배포합니다.
+
+```bash
+<repo> prod deploy                  # 권장 — origin/main 의 최신 SHA 기준
+<repo> prod deploy --version <sha>  # 특정 SHA 재배포 (롤백 등)
+```
+
+내부 동작은 `tools/deploy.sh` 의 Step 0 가 처리해요. `git fetch origin main` 으로 원격 최신 SHA 를 `ORIGIN_SHA` 에 담고, `--version` 이 없으면 이 값을 배포 버전으로 자동 설정합니다. 이후 `kamal deploy --version=<sha>` 가 호출되면 kamal 이 `Dockerfile` 의 multi-stage 빌드로 그 SHA 의 코드를 clone 한 뒤 빌드합니다.
+
+이 흐름의 핵심은 로컬 working tree 와 HEAD 가 빌드에 영향을 주지 않는다는 점이에요. 배포는 항상 origin 코드를 기준으로 동작하고, commit 과 push 는 운영자의 책임입니다. 로컬에 미커밋 변경이 있어도 빌드 결과는 동일하고 정보성 경고만 출력돼요. GHA 경로가 `Dockerfile.runtime` 으로 빌드하는 것과 달리 로컬 경로는 `Dockerfile` 로 빌드하므로, 두 경로는 빌드 dockerfile 부터 별개입니다.
+
+배포 중 실시간 로그는 다음으로 확인합니다.
+
+```bash
+<repo> prod logs        # kamal app logs -f 래퍼
+```
 
 ---
 
 ## 롤백
 
+상황에 따라 세 가지 방법이 있어요. 빠른 순서대로 옵션 A → B → C 입니다.
+
 ### 옵션 A — kamal rollback (직전 배포로)
+
+가장 빠른 경로예요. 직전 버전 이미지가 GHCR 에 살아있으면 즉시 전환됩니다. 최신 2개 유지 정책 덕분에 직전 1개는 항상 가능해요.
+
 ```bash
-kamal app details                  # 최근 배포 목록 확인
-kamal rollback <previous-version>  # 이전 version (SHA) 으로
+<repo> prod status        # 최근 배포 목록 확인 (kamal app details)
+<repo> prod rollback <previous-sha>
 ```
-GHCR 의 이미지가 살아있어야 함 (최신 2개 유지 정책 → 직전 1개는 항상 가능).
 
 ### 옵션 B — GHA workflow_dispatch (특정 SHA 재배포)
-- Repo → Actions → deploy → "Run workflow" → `version` 에 commit SHA.
-- 해당 SHA 의 이미지가 GHCR 에 없으면 GHA 가 jar 재빌드 → 이미지 새로 만들어 push 후 배포 (8분+).
+
+여러 단계 이전으로 돌아가야 할 때 사용해요. Actions 탭의 deploy workflow 에서 "Run workflow" 를 누르고 `version` 칸에 되돌릴 commit SHA 를 입력합니다. 해당 SHA 이미지가 GHCR 에 없으면 GHA 가 jar 부터 다시 빌드해 이미지를 만들고 배포하므로 8분 이상 걸려요.
 
 ### 옵션 C — revert PR (코드 자체를 되돌림)
-- 깨진 PR 을 revert → main 에 머지 → 자동 CI/CD 사이클 (~10분).
-- 가장 안전하지만 가장 느림.
+
+가장 안전하지만 가장 느린 방법이에요. 깨뜨린 PR 을 revert 해서 `main` 에 머지하면 평시 배포 사이클이 자동으로 돌아 약 10분 뒤 반영됩니다. 코드 히스토리에 되돌림이 남아 추적이 깔끔하다는 장점이 있어요.
 
 ---
 
-## 블루/그린 배포 + Flyway migration 원칙
+## 블루-그린 배포와 Flyway 원칙
 
-### 일반 원칙
+### 동시 마이그레이션이 안전한 이유
 
-Spring 기동 시 Flyway 가 **advisory lock** 을 잡기 때문에, Blue 와 Green 이 동시에 migrate 를 시도해도 스키마가 손상되지 않습니다. 뒤에 온 쪽이 락 경쟁에서 지면 blocked 상태가 되어 health check 타임아웃이 나고, 해당 컨테이너만 실패합니다 (서비스 전체는 Blue 로 계속 서빙해요).
+Spring 기동 시 Flyway 가 advisory lock 을 잡기 때문에, Blue 와 Green 이 동시에 migrate 를 시도해도 스키마가 손상되지 않습니다. 뒤에 온 쪽이 락 경쟁에서 지면 blocked 상태가 되어 health check 타임아웃이 나고, 그 컨테이너만 실패해요. 서비스 전체는 Blue 로 계속 서빙됩니다.
 
-이 상황이 발생했을 때 재시도하면 대부분 해결돼요. 첫 쪽이 migrate 를 완료한 다음에 두 번째 시도가 진행되기 때문입니다.
+이 상황이 발생하면 대부분 재시도로 풀려요. 첫 쪽이 migrate 를 끝낸 뒤에 두 번째 시도가 진행되기 때문입니다.
 
 ### Expand/Contract 규율 (파괴적 DDL 금지)
 
-한 배포에 들어가는 Flyway migration 은 **뒤로 호환** 되어야 합니다.
+한 배포에 들어가는 Flyway migration 은 뒤로 호환되어야 합니다. 허용과 금지를 정리하면 다음과 같아요.
 
-- ✅ 컬럼 추가 (NULL 허용)
-- ✅ 인덱스 추가
-- ✅ 새 테이블 생성
-- ❌ 컬럼 삭제 / 이름 변경
-- ❌ NOT NULL 로 변경 (기존 데이터에 NULL 있을 때)
-- ❌ 데이터 타입 변경
+| 허용 | 금지 |
+|---|---|
+| 컬럼 추가 (NULL 허용) | 컬럼 삭제 또는 이름 변경 |
+| 인덱스 추가 | NOT NULL 로 변경 (기존 데이터에 NULL 있을 때) |
+| 새 테이블 생성 | 데이터 타입 변경 |
 
-파괴적 DDL 이 필요할 땐 **2단계 배포** 로 진행해요.
+파괴적 DDL 이 필요하면 두 번의 배포로 나눠요. 첫 배포에서 코드와 신규 컬럼 추가 migration 을 함께 올린 뒤, 모든 요청이 신규 필드를 쓰는지 확인합니다. 그다음 배포에서 구 컬럼 삭제 migration 을 적용해요.
 
-1. 코드 + 신규 컬럼 추가 migration (뒤로 호환) → 배포 → 모든 요청이 신규 필드를 사용하는지 확인합니다.
-2. 다음 배포에서 구 컬럼 삭제 migration 을 적용합니다.
+### 수동 out-of-band 마이그레이션
 
-### 수동 out-of-band migration (DB 변경만 먼저 돌리기)
-
-Green 기동 전에 미리 migrate 만 끝내고 싶을 때 다음 명령을 사용합니다.
+Green 기동 전에 migrate 만 미리 끝내고 싶을 때는 컨테이너를 `migrate-only` 모드로 한 번 돌립니다. 파괴적 DDL 을 포함한 배포에서 락 경쟁을 피하는 데 유용해요.
 
 ```bash
-ssh storkspear@<tailscale-ip>
+ssh <deploy-ssh-user>@<tailscale-ip>
 docker pull ghcr.io/<owner>/<repo>:<tag>
 docker run --rm --env-file /path/to/prod.env ghcr.io/<owner>/<repo>:<tag> migrate-only
 ```
 
-`migrate-only` 모드는 `docker-entrypoint.sh` 가 처리합니다. Flyway 만 실행한 뒤 exit 0 으로 종료됩니다.
+`migrate-only` 모드는 `docker-entrypoint.sh` 가 처리해요. web 서버 없이 Flyway 만 실행한 뒤 exit 0 으로 종료됩니다.
 
 ---
 
 ## 로그 확인
 
-### 1차 진단 (컨테이너 직접)
+### 1차 진단 — 컨테이너 직접
+
+가장 빠른 1차 진단은 컨테이너 로그를 직접 보는 거예요.
+
 ```bash
-kamal app logs -f --lines 500
-# 또는 원격에서 직접:
-ssh storkspear@<tailscale-ip> 'docker ps --filter "name=<파생레포>-web"'
-ssh storkspear@<tailscale-ip> 'docker logs <container-id> -f'
+<repo> prod logs                     # kamal app logs -f 래퍼 (권장)
+kamal app logs -f --lines 500        # kamal 직접 호출
 ```
 
-### Grafana / Loki
-`https://log.<도메인>` → Explore → Data source: Loki → 쿼리:
+원격에서 컨테이너를 직접 들여다봐야 할 때는 SSH 로 붙어 `docker logs` 를 씁니다.
+
+```bash
+ssh <deploy-ssh-user>@<tailscale-ip> 'docker ps --filter "name=<repo>-web"'
+ssh <deploy-ssh-user>@<tailscale-ip> 'docker logs <container-id> -f'
+```
+
+### Grafana 와 Loki
+
+장기 로그나 trace 추적은 Grafana 의 Explore 에서 Loki 를 쿼리해요. `https://log.<도메인>` 으로 접속한 뒤 데이터 소스를 Loki 로 선택합니다.
+
 ```
 {app="<slug>"} |= "ERROR"
 {app="<slug>"} | json | level="ERROR" | traceId != ""
@@ -122,119 +160,143 @@ ssh storkspear@<tailscale-ip> 'docker logs <container-id> -f'
 
 ---
 
-## SSH 접근 / 긴급 조치
+## SSH 접근과 긴급 조치
+
+Mac mini 에는 Tailscale IP 로만 접근해요. 공인 IP 는 노출하지 않습니다.
 
 ```bash
-ssh storkspear@<tailscale-ip>        # Tailscale IP 로 접근 (public IP 노출 없음)
+ssh <deploy-ssh-user>@<tailscale-ip>
 ```
 
-**Grafana OTP 이메일 안 옴**:
-Tailscale 로 Mac mini 에 붙은 뒤 `http://localhost:3000` 직접 접속 (LAN 내부라 CF Access 우회).
+**Grafana OTP 이메일이 안 올 때** — Tailscale 로 Mac mini 에 붙은 뒤 `http://localhost:3000` 으로 직접 접속하세요. LAN 내부라 Cloudflare Access 를 우회합니다.
 
-**kamal-proxy 가 죽었을 때**:
+**kamal-proxy 가 죽었을 때** — 컨테이너를 다시 start 하면 대부분 복구돼요. 그래도 안 되면 proxy 를 reboot 합니다.
+
 ```bash
-ssh storkspear@<tailscale-ip>
+ssh <deploy-ssh-user>@<tailscale-ip>
 docker ps -a --filter name=kamal-proxy
 docker start kamal-proxy
-# 심하면: kamal proxy reboot
+# 그래도 안 살면:
+kamal proxy reboot
 ```
 
 ---
 
 ## 장애 첫 3가지 체크
 
-장애 감지 시 순서:
+장애를 감지하면 다음 세 가지를 순서대로 확인해요. 바깥에서 안으로 좁혀 들어가는 순서입니다.
 
-1. **외부 HTTPS 엔드포인트 상태**
-   ```bash
-   curl -sSfv https://server.<도메인>/actuator/health/liveness 2>&1 | head -30
-   ```
-   - 200 OK → 앱은 살아 있고, 특정 엔드포인트 문제일 수 있어요
-   - 522/530 → Cloudflare Tunnel 장애 (cloudflared 프로세스 확인)
-   - 502/503 → kamal-proxy 는 살아있으나 백엔드 Spring 컨테이너 문제
-   - 이상 없으면 사용자 측 문제일 수도 (Cloudflare 대시보드 → Analytics 확인)
+**1. 외부 HTTPS 엔드포인트 상태**
 
-2. **Mac mini 메모리 / 디스크 / CPU**
-   ```bash
-   ssh storkspear@<tailscale-ip> 'vm_stat | head -20; top -l 1 -n 10 -o mem; df -h /'
-   ```
-   - free memory < 500MB → 컨테이너 일부 OOM 킬 의심. `docker logs` 로 확인
-   - disk < 5GB → `docker system prune` 또는 Prometheus retention 축소
+```bash
+curl -sSfv https://server.<도메인>/actuator/health/liveness 2>&1 | head -30
+```
 
-3. **관측성 스택 상태**
-   ```bash
-   ssh storkspear@<tailscale-ip> 'docker compose -f /path/to/<파생레포>/infra/docker-compose.observability.yml ps'
-   ```
-   - 모두 running 이어야 해요. 내려가 있으면 `up -d` 로 재기동해요.
+- 200 OK — 앱은 살아 있어요. 특정 엔드포인트만의 문제일 수 있습니다.
+- 522 / 530 — Cloudflare Tunnel 장애예요. Mac mini 의 cloudflared 프로세스를 확인합니다.
+- 502 / 503 — kamal-proxy 는 살아있으나 백엔드 Spring 컨테이너가 문제예요.
+- 모두 정상인데 사용자만 안 된다면 사용자 측 문제일 수 있어요. Cloudflare 대시보드의 Analytics 를 확인합니다.
+
+**2. Mac mini 리소스 — 메모리, 디스크, CPU**
+
+```bash
+ssh <deploy-ssh-user>@<tailscale-ip> 'vm_stat | head -20; top -l 1 -n 10 -o mem; df -h /'
+```
+
+- free memory 가 500MB 미만이면 컨테이너 일부가 OOM 으로 killed 됐을 수 있어요. `docker logs` 로 확인합니다.
+- 디스크 여유가 5GB 미만이면 `docker system prune` 으로 정리하거나 Prometheus retention 을 줄여요.
+
+**3. 관측성 스택 상태**
+
+```bash
+ssh <deploy-ssh-user>@<tailscale-ip> 'docker compose -f /path/to/<repo>/infra/docker-compose.observability.yml ps'
+```
+
+모든 컨테이너가 running 이어야 해요. 내려가 있으면 `up -d` 로 다시 띄웁니다.
 
 ---
 
-## Mac mini 재부팅 후 자동 복구 확인
+## Mac mini 재부팅 후 복구
 
-- **cloudflared**: launchd `KeepAlive=true` → 자동 기동.
-- **관측성 컨테이너**: `restart: unless-stopped` → 자동 기동.
-- **Kamal Spring 컨테이너**: `restart: unless-stopped` (Kamal 기본) → 자동 기동.
+재부팅 후에는 대부분 자동으로 복구돼요. 각 컴포넌트의 복구 메커니즘은 다음과 같습니다.
 
-수동 재기동:
+| 컴포넌트 | 자동 복구 방식 |
+|---|---|
+| cloudflared | launchd `KeepAlive=true` 로 자동 기동 |
+| 관측성 컨테이너 | `restart: unless-stopped` 로 자동 기동 |
+| Kamal Spring 컨테이너 | `restart: unless-stopped` (Kamal 기본) 로 자동 기동 |
+
+자동 복구가 동작하지 않으면 다음으로 수동 재기동합니다.
+
 ```bash
-launchctl kickstart -k gui/$(id -u)/site.<파생레포>.cloudflared
+launchctl kickstart -k gui/$(id -u)/site.<repo>.cloudflared
 docker compose -f <repo>/infra/docker-compose.observability.yml up -d
-kamal app boot                # 마지막 배포 버전으로 다시 기동
+<repo> prod start        # 마지막 배포 image 로 재기동 (kamal app boot — 빌드 없음)
 ```
+
+`prod start` 는 `prod deploy` 와 달라요. deploy 는 현재 코드를 새로 빌드하므로 미검증 코드가 들어갈 위험이 있지만, start 는 마지막으로 검증된 image 를 그대로 다시 띄우므로 빠르고 안전한 복구 경로예요.
 
 ---
 
-## 운영 환경 정리 — clear / force-clear
+## 운영 환경 정리 — clear 와 force-clear
 
-도그푸딩이 끝났거나 운영 환경을 처음부터 다시 구성해야 할 때 사용합니다. 두 명령은 *삭제 범위* 가 다르므로 상황에 맞게 선택해야 합니다.
+도그푸딩이 끝났거나 운영 환경을 처음부터 다시 구성해야 할 때 사용해요. 두 명령은 삭제 범위가 다르므로 상황에 맞게 골라야 합니다.
 
-`prod clear` 는 *인프라만* 정리합니다. Cloudflare 의 DNS 레코드와 Tunnel ingress 를 제거하고, Mac mini 에서 `kamal app remove` 로 컨테이너를 내립니다. 데이터 (DB schema 와 Object Storage bucket) 와 관측성 데이터는 보존됩니다.
-
-```bash
-<your-backend> prod clear              # 'YES' 명시 confirm 후 진행
-```
-
-`prod force-clear` 는 *clear 의 모든 동작에 더해* 데이터와 관측성까지 영구 삭제합니다. 슬러그를 지정하면 해당 앱의 schema 와 bucket 만, 슬러그를 생략하면 모든 앱과 core 까지 모두 삭제됩니다.
+`prod clear` 는 인프라만 정리합니다. Cloudflare 의 DNS 레코드와 Tunnel ingress 를 제거하고, Mac mini 에서 `kamal app remove` 로 컨테이너를 내려요. DB schema 와 Object Storage bucket 같은 데이터, 그리고 관측성 데이터는 보존됩니다.
 
 ```bash
-<your-backend> prod force-clear myapp   # 해당 앱만 (myapp schema + myapp-* bucket)
-<your-backend> prod force-clear         # 모든 앱 + core 전부 삭제
+<repo> prod clear        # 'YES' 명시 confirm 후 진행
 ```
 
-`force-clear` 는 5 단계의 confirm 을 차례로 거치며, 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 됩니다. 단계는 DB 데이터 / Storage 데이터 / 관측성 데이터 / 백업 의향 / 최종 확인 순서입니다. 백업 의향 단계에서 'y' 를 선택하면 manual 백업 명령을 출력하고 종료하며, 자동 백업은 현재 개발 중이어서 manual 절차만 안내됩니다.
+`prod force-clear` 는 clear 의 모든 동작에 더해 데이터와 관측성까지 영구 삭제합니다. 슬러그를 지정하면 그 앱의 schema 와 bucket 만, 슬러그를 생략하면 모든 앱과 core 까지 전부 삭제돼요.
 
-> **코드 정리 vs 데이터 정리는 별개입니다.** `force-clear <slug>` 는 *데이터/인프라* (schema·bucket·컨테이너) 만 영구 삭제하고, **코드 모듈** (`apps/app-<slug>/` + `settings.gradle` + `bootstrap/build.gradle` 의존) 은 그대로 둡니다 (데이터만 초기화하고 재배포하려는 경우용). 앱을 *완전히 은퇴* 시켜 코드까지 제거하려면 `local`/`dev` 환경에서 `remove app <slug>` (`tools/new-app/remove-app.sh`, `new app` 의 역방향) 을 추가로 실행합니다. `remove app` 은 prod 를 미지원하므로 (실데이터 + 공유 소스 보호), prod 배포 앱의 표준 은퇴 순서는 **① 데이터 백업 → ② `prod force-clear <slug>` (데이터) → ③ undeploy 확인 → ④ `local`/`dev remove app <slug>` (코드)** 입니다. 자세히는 [`cli-guide.md §9`](../../start/cli-guide.md) 와 [`app-scaffolding.md §10`](../../start/app-scaffolding.md) 을 참조하세요.
+```bash
+<repo> prod force-clear myapp   # 해당 앱만 (myapp schema + myapp-* bucket)
+<repo> prod force-clear         # 모든 앱 + core 전부 삭제
+```
 
-### 왜 `clear` 는 관측성 (로그·메트릭) 을 보존하는가
+`force-clear` 는 5단계 confirm 을 차례로 거치고, 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 됩니다. 단계 순서는 DB 데이터, Storage 데이터, 관측성 데이터, 백업 의향, 최종 확인이에요. 백업 의향 단계에서 'y' 를 선택하면 manual 백업 명령을 출력하고 종료합니다. 자동 백업은 아직 개발 중이라 manual 절차만 안내돼요.
 
-관측성 스택 (Grafana 대시보드, Loki 로그 스트림, Prometheus 메트릭) 은 *모든 슬러그가 공유하는 단일 인스턴스* 입니다. 슬러그 하나만 정리하려는 운영자가 관측성을 함께 지우면 다른 슬러그의 모니터링 히스토리까지 잃게 되므로, `clear` 는 의도적으로 관측성을 건드리지 않습니다. 데이터도 같은 이유로 보존합니다 — DB 의 `core` schema 와 Object Storage 의 공통 bucket 은 여러 슬러그가 함께 사용하기 때문입니다.
+> **코드 정리와 데이터 정리는 별개예요.** `force-clear <slug>` 는 데이터와 인프라 (schema · bucket · 컨테이너) 만 영구 삭제하고, 코드 모듈은 그대로 둡니다. 데이터만 초기화한 뒤 재배포하려는 경우를 위한 동작이에요. 앱을 완전히 은퇴시켜 코드까지 제거하려면 `local` 또는 `dev` 환경에서 `remove app <slug>` 를 추가로 실행합니다. 이 명령은 `new app` 의 역방향이고 `tools/new-app/remove-app.sh` 가 처리해요. `remove app` 은 실데이터와 공유 소스를 보호하기 위해 prod 를 지원하지 않으므로, prod 배포 앱의 표준 은퇴 순서는 다음과 같아요.
+>
+> 1. 데이터 백업
+> 2. `<repo> prod force-clear <slug>` 로 데이터 삭제
+> 3. undeploy 확인
+> 4. `<repo> local remove app <slug>` 또는 `<repo> dev remove app <slug>` 로 코드 제거
+>
+> 자세한 내용은 [`cli-guide.md §9`](../../start/cli-guide.md) 와 [`app-scaffolding.md §10`](../../start/app-scaffolding.md) 을 참조하세요.
 
-`force-clear` 는 *모든 슬러그를 한꺼번에 정리할 때* (예: 도그푸딩 환경 전체 초기화) 를 위해 관측성까지 삭제 옵션을 제공합니다. 슬러그를 지정하지 않은 경우 (`prod force-clear` 단독 호출) 가 그 시나리오에 해당합니다.
+### 왜 clear 는 관측성을 보존하는가
 
-> **⚠ 슬러그 지정 시의 현재 한계** — `prod force-clear <slug>` 로 *특정 슬러그만* 정리하려는 경우라도 `[3/5]` 관측성 단계가 *동일한 confirm prompt* 를 띄웁니다. 'y' 를 입력하면 다른 슬러그의 관측성 히스토리까지 모두 삭제되므로, 슬러그 지정 시에는 `[3/5]` 단계에서 *반드시 'n' 입력* 으로 건너뛰어야 합니다. 슬러그별 분리 정리 (해당 슬러그의 dashboard / log stream 만 제거) 는 backlog 에 등록되어 있으며 후속 사이클에 보강될 예정입니다.
+관측성 스택은 Grafana 대시보드, Loki 로그 스트림, Prometheus 메트릭으로 이뤄져 있고, 모든 슬러그가 공유하는 단일 인스턴스예요. 슬러그 하나만 정리하려는 운영자가 관측성까지 지우면 다른 슬러그의 모니터링 히스토리도 함께 잃게 됩니다. 그래서 `clear` 는 의도적으로 관측성을 건드리지 않아요. 데이터도 같은 이유로 보존합니다. DB 의 `core` schema 와 Object Storage 의 공통 bucket 을 여러 슬러그가 함께 쓰기 때문이에요.
 
-운영자 본인의 정적 페이지 (`homepage-nginx`) 와 다른 도메인의 DNS 레코드, bluebirds NAS 등 다른 머신은 어느 쪽 명령으로도 영향받지 않습니다. 자세한 동작은 `tools/cleanup-server.sh` 와 `tools/force-clear-server.sh` 의 첫 30 줄 주석에서 확인할 수 있습니다.
+`force-clear` 는 모든 슬러그를 한꺼번에 정리할 때를 위해 관측성까지 삭제하는 옵션을 제공해요. 슬러그를 지정하지 않은 `prod force-clear` 단독 호출이 그 시나리오에 해당합니다.
+
+> **⚠ 슬러그 지정 시의 현재 한계** — `prod force-clear <slug>` 로 특정 슬러그만 정리하려는 경우에도 `[3/5]` 관측성 단계가 동일한 confirm prompt 를 띄워요. 여기서 'y' 를 입력하면 다른 슬러그의 관측성 히스토리까지 모두 삭제됩니다. 슬러그를 지정했다면 `[3/5]` 단계에서 반드시 'n' 으로 건너뛰어야 해요. 슬러그별 분리 정리는 backlog 에 등록돼 있고 후속 사이클에 보강될 예정입니다.
+
+운영자 본인의 정적 페이지 (`homepage-nginx`) 와 다른 도메인의 DNS 레코드, bluebirds NAS 같은 다른 머신은 어느 명령으로도 영향받지 않아요. 자세한 동작은 `tools/cleanup-server.sh` 와 `tools/force-clear-server.sh` 의 첫 30줄 주석에서 확인할 수 있습니다.
 
 ---
 
 ## 백업 — 현재 수동
 
-운영 데이터의 백업은 현재 자동화되어 있지 않습니다. `prod force-clear` 의 4 단계 (백업 의향) 에서 'y' 를 선택하면 다음과 같은 manual 백업 명령을 출력하고 종료합니다. 운영자가 직접 실행한 뒤 force-clear 를 다시 시도하는 흐름입니다.
+운영 데이터의 백업은 아직 자동화돼 있지 않아요. `prod force-clear` 의 백업 의향 단계에서 'y' 를 선택하면 아래와 같은 manual 백업 명령을 출력하고 종료합니다. 운영자가 직접 실행한 뒤 force-clear 를 다시 시도하는 흐름이에요.
 
 ### DB 백업 (모든 schema)
 
+`.env.prod` 의 DB 접속 정보를 환경변수로 export 한 뒤 `pg_dump` 로 받습니다.
+
 ```bash
-# .env.prod 의 DB_URL/USER/PASSWORD 를 환경변수로 export 한 뒤
 PGPASSWORD="$DB_PASSWORD" pg_dump \
     "postgresql://$DB_USER@${DB_HOST}:${DB_PORT}/postgres" \
     > backup-$(date +%s).sql
 ```
 
-특정 슬러그 schema 만 받으려면 `--schema=<slug>` 옵션을 추가하면 됩니다.
+특정 슬러그 schema 만 받으려면 `--schema=<slug>` 옵션을 더해요.
 
 ### Storage 백업 (모든 bucket)
 
-MinIO 의 `mc` (MinIO Client) 도구를 docker 로 호출합니다. `.env.prod` 의 endpoint / access key / secret key 를 alias 에 등록한 뒤 mirror 로 로컬에 복사합니다.
+MinIO 의 `mc` 도구를 docker 로 호출합니다. `.env.prod` 의 endpoint 와 access key, secret key 를 alias 에 등록한 뒤 mirror 로 로컬에 복사해요.
 
 ```bash
 docker run --rm --network host \
@@ -243,45 +305,52 @@ docker run --rm --network host \
     minio/mc mirror --remove bb /backup
 ```
 
-bucket 단위로 받으려면 `bb` 대신 `bb/<bucket-name>` 을 지정하면 됩니다.
+bucket 단위로 받으려면 `bb` 대신 `bb/<bucket-name>` 을 지정해요.
 
 ### 자동화 계획
 
-`<your-backend> prod db-backup [slug]` 와 `<your-backend> prod storage-backup [slug]` 두 명령은 backlog 에 등록되어 있으며 별도 사이클에 추가될 예정입니다. 자동화가 도입되면 일관된 백업 위치 (예: `~/backups/<repo>/<timestamp>/`) 와 tar.gz 압축, retention 정책 (예: 최근 7 회 유지) 이 함께 적용됩니다. 그전까지는 위 manual 절차를 사용하시면 됩니다.
+`<repo> prod db-backup [slug]` 와 `<repo> prod storage-backup [slug]` 두 명령은 backlog 에 등록돼 있고 별도 사이클에 추가될 예정이에요. 자동화가 도입되면 일관된 백업 위치와 tar.gz 압축, retention 정책이 함께 적용됩니다. 그전까지는 위 manual 절차를 사용하세요.
 
 ---
 
-## 인시던트 회고 템플릿
+## 에스컬레이션과 인시던트 회고
 
-장애 해결 후:
+이 런북으로 해결되지 않는 장애라면 범위를 넓혀 봐요. 인프라 구성 전체는 [`인프라 (Infrastructure)`](./infrastructure.md), 리스크 시나리오와 엣지 케이스는 [`Edge Cases & Risk Analysis`](../../reference/edge-cases.md) 에서 확인할 수 있어요. 외부 서비스 (Cloudflare, Supabase, GHCR) 자체 장애라면 각 서비스의 status 페이지를 함께 확인합니다.
+
+장애를 해결한 뒤에는 아래 항목으로 짧게 회고해요.
+
 1. 무엇이 깨졌는가 (증상)
 2. 근본 원인
 3. 임시 조치
 4. 영구 조치 (아직 안 한 것 포함)
-5. 재발 방지 체크 / 테스트 / 모니터링 개선
+5. 재발 방지 — 체크, 테스트, 모니터링 개선
 6. 이 런북에 추가할 내용
 
-`docs/reference/edge-cases.md` 와 `docs/planned/backlog.md` 에 해당 항목 반영 또는 추가.
+회고 결과는 [`Edge Cases`](../../reference/edge-cases.md) 와 [`Backlog`](../../planned/backlog.md) 에 반영하거나 새 항목으로 추가합니다.
 
 ---
 
 ## 관련 문서
 
-### 배포 / 운영
-- [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) — 파생 레포 onboarding (최초 1회)
-- [`CI / CD 전체 플로우 — commit 부터 운영 반영까지`](./ci-cd-flow.md) — commit → 운영 반영 전체 흐름
+### 배포와 운영
+
+- [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) — 파생 레포 최초 onboarding
+- [`CI / CD 전체 플로우`](./ci-cd-flow.md) — commit 부터 운영 반영까지의 전체 흐름
 - [`인프라 (Infrastructure)`](./infrastructure.md) — 전체 구성도
 - [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) — 인프라 결정 카드 (I-01~I-09)
 
-### 관측성 / 보안
+### 관측성과 보안
+
 - [`운영 모니터링 셋업 가이드`](../setup/monitoring-setup.md) — 관측성 스택 기동
 - [`Observability 규약`](../../api-and-functional/functional/observability.md) — 관측성 규약
-- [`키 교체 절차 (Key Rotation)`](../setup/key-rotation.md) — 보안 키 로테이션 절차
+- [`키 교체 절차 (Key Rotation)`](../setup/key-rotation.md) — 보안 키 로테이션
 
-### 장애 / 회고
-- [`Edge Cases & Risk Analysis`](../../reference/edge-cases.md) — 리스크 시나리오 · 엣지 케이스 목록
+### 장애와 회고
+
+- [`Edge Cases & Risk Analysis`](../../reference/edge-cases.md) — 리스크 시나리오와 엣지 케이스
 - [`Backlog`](../../planned/backlog.md) — 미완료 항목 (인시던트 회고 추가 대상)
 
 ### 설계 배경
+
 - [`ADR-007 · 솔로 친화적 운영`](../../philosophy/adr-007-solo-friendly-operations.md) — 솔로 운영 원칙
 - [`ADR-001 · 모듈러 모놀리스 (Modular Monolith)`](../../philosophy/adr-001-modular-monolith.md) — 단일 JVM 운영 단위

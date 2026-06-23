@@ -6,11 +6,11 @@
 
 ## 결론부터
 
-한 `core-*-impl` 모듈 안은 **전통적 Spring Boot 레이어드 아키텍처** (controller → service → repository → entity) 를 따릅니다. 차이점은 **모듈의 바깥 경계** 예요 — 외부(앱 모듈) 로 노출되는 것은 오직 `-api` 의 Port 인터페이스뿐, `-impl` 의 내부 클래스는 절대 노출 안 됩니다. 즉 **안쪽은 익숙한 레이어, 바깥은 엄격한 포트** 의 구조입니다. 우리에게 익숙한 Spring Boot 관용 (`@Service`, `@Repository`, `@Component`) 을 그대로 쓰면서 경계만 강하게 긋는 타협안이에요.
+한 `core-*-impl` 모듈 안은 **전통적 Spring Boot 레이어드 아키텍처** (controller → service → repository → entity) 를 따릅니다. 차이점은 모듈의 바깥 경계예요 — 외부 앱 모듈로 노출되는 것은 오직 `-api` 의 Port 인터페이스뿐, `-impl` 의 내부 클래스는 절대 노출 안 됩니다. 즉 **안쪽은 익숙한 레이어, 바깥은 엄격한 포트** 의 구조입니다. 우리에게 익숙한 Spring Boot 관용 (`@Service`, `@Repository`, `@Component`) 을 그대로 쓰면서 경계만 강하게 긋는 타협안이에요.
 
 ## 왜 이런 고민이 시작됐나?
 
-[`ADR-001`](./adr-001-modular-monolith.md) 이 "전체 레포를 어떤 모듈로 나눌지" 를 정했고, [`ADR-003`](./adr-003-api-impl-split.md) 이 "core 도메인을 `-api` / `-impl` 로 어떻게 쪼갤지" 를 정했어요. 그러면 이제 다음 질문이 남습니다.
+[`ADR-001`](./adr-001-modular-monolith.md) 이 "전체 레포를 어떤 모듈로 나눌지" 를 정했고, [`ADR-003`](./adr-003-api-impl-split.md) 이 "core 도메인을 `-api` · `-impl` 로 어떻게 쪼갤지" 를 정했어요. 그러면 이제 다음 질문이 남습니다.
 
 > **한 `core-*-impl` 모듈 안쪽의 코드를 어떤 구조로 배치할 것인가?**
 
@@ -22,7 +22,7 @@
 | 기능 탐색 위치 불일치 | 매번 다른 곳을 뒤져 탐색 비용 누적 |
 | 리팩토링 시 클래스 위치 결정 부담 | "어디로 옮길지" 고민이 매번 반복 |
 
-Spring Boot 생태계에는 **이미 널리 쓰이는 관용** 이 있어요 — 컨트롤러 / 서비스 / 리포지토리 / 엔티티의 4 층 구조입니다. 이걸 그대로 쓰느냐, 아니면 DDD 같은 더 복잡한 패턴으로 가느냐가 첫 번째 선택이에요.
+Spring Boot 생태계에는 **이미 널리 쓰이는 관용** 이 있어요 — 컨트롤러·서비스·리포지토리·엔티티의 4 층 구조입니다. 이걸 그대로 쓰느냐, 아니면 DDD 같은 더 복잡한 패턴으로 가느냐가 첫 번째 선택이에요.
 
 또 하나 중요한 물음이 따라옵니다 — **Port 인터페이스 (`-api` 의)** 와 **내부 레이어** 가 어떻게 연결되는가? Port 가 단순히 *파일이 다른 모듈에 있다* 수준의 구분인지, 아니면 *구조적 역할이 다른* 영역인지를 명시해야 해요.
 
@@ -51,7 +51,7 @@ Spring Boot 생태계에는 **이미 널리 쓰이는 관용** 이 있어요 —
 
 ### Option 3 — 전통적 Spring Boot 레이어드 아키텍처 ★ (채택)
 
-controller / service / repository / entity 의 4층 구조. Spring Boot 공식 가이드에도 나오는 가장 일반적 Best Practice.
+controller·service·repository·entity 의 4층 구조. Spring Boot 공식 가이드에도 나오는 가장 일반적 Best Practice.
 
 - **장점**:
   - **친숙함** — Spring Boot 개발자라면 누구나 한 번쯤 본 구조라 새 팀원이 바로 파악할 수 있어요.
@@ -216,16 +216,16 @@ ADR-004 의 22규칙 중 **5개가 이 결정과 연관** 됩니다.
 
 ### `AuthController` 를 `core-auth-impl` 에서 "스캐폴딩 소스" 로 격하
 
-**대안 분석** — `core-auth-impl/controller/AuthController` 를 **런타임 Spring bean** 으로 등록하는 구조 (`AuthAutoConfiguration` 의 `@Import(AuthController.class)`) 의 문제: 경로 `/api/core/auth/*` 를 모든 앱이 공유합니다.
+**대안 분석** — `core-auth-impl/controller/AuthController` 를 런타임 Spring bean 으로 등록하는 구조를 먼저 검토했어요. `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 로 끌어오는 방식이에요. 이 구조의 문제는 경로 `/api/core/auth/*` 를 모든 앱이 공유한다는 점입니다.
 
-문제는 "어느 앱의 인증 요청인지" 를 런타임에 구분해야 했다는 점. 멀티테넌트 라우팅 (`AbstractRoutingDataSource` + `ThreadLocal`) 이 필요했는데, 이게 `@Async` / Virtual Thread 환경에서 컨텍스트 소실 문제를 일으켰습니다.
+문제는 "어느 앱의 인증 요청인지" 를 런타임에 구분해야 했다는 점. 멀티테넌트 라우팅 (`AbstractRoutingDataSource` + `ThreadLocal`) 이 필요했는데, 이게 `@Async` · Virtual Thread 환경에서 컨텍스트 소실 문제를 일으켰습니다.
 
 **채택** — 다음 구조로 변경:
 - `AuthAutoConfiguration.class` 에서 `@Import(AuthController.class)` 제거
 - `AuthController.java` 는 파일은 남지만 **런타임 bean 으로 등록 안 됨** — `new-app.sh` 가 참조할 스캐폴딩 소스로만 존재
 - 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 경로는 `/api/apps/<slug>/auth/*` — [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 에서 상세
 
-**교훈**: 레이어 구조는 "파일이 어디에 있는가" 뿐만 아니라 **"런타임에 무엇이 bean 으로 활성화되는가"** 까지 포함합니다. `core-*-impl` 의 `controller/` 는 이제 관습적으로 "템플릿 소스 영역" 이 되었고, 실제 bean 등록은 `apps/app-<slug>/auth/` 에서만 일어나요. 이 구분이 명시적으로 유지되지 않으면 "같은 파일이 어떨 땐 런타임, 어떨 땐 참조용" 이 되어 혼란.
+**교훈**: 레이어 구조는 "파일이 어디에 있는가" 뿐만 아니라 "런타임에 무엇이 bean 으로 활성화되는가" 까지 포함합니다. `core-*-impl` 의 `controller/` 는 이제 관습적으로 "템플릿 소스 영역" 이 되었고, 실제 bean 등록은 `apps/app-<slug>/auth/` 에서만 일어나요. 이 구분이 명시적으로 유지되지 않으면 "같은 파일이 어떨 땐 런타임, 어떨 땐 참조용" 이 되어 혼란.
 
 ### "Adapter vs ServiceImpl" 네이밍의 의도
 
@@ -235,12 +235,12 @@ Hexagonal 원문은 "Primary Adapter" 이지만, Spring 관용은 `*ServiceImpl`
 - **`*ServiceImpl`**: Port 구현 + 비즈니스 로직 (Primary Adapter)
 - **`*Adapter`**: 외부 시스템 연결 구현 (Secondary Adapter)
 
-이 구분이 ArchUnit 으로 강제되진 않지만 (둘 다 `@Service` / `@Component` 로 등록) 관행상 네이밍을 분리하면 **역할이 이름으로 드러남**. "ResendEmailServiceImpl" 이라고 하면 비즈니스 로직이 있는 것 같지만 실제는 HTTP 호출만 하는 얇은 어댑터라서 잘못된 신호. `ResendEmailAdapter` 가 맞음.
+이 구분이 ArchUnit 으로 강제되진 않지만 (둘 다 `@Service` · `@Component` 로 등록) 관행상 네이밍을 분리하면 **역할이 이름으로 드러남**. "ResendEmailServiceImpl" 이라고 하면 비즈니스 로직이 있는 것 같지만 실제는 HTTP 호출만 하는 얇은 어댑터라서 잘못된 신호. `ResendEmailAdapter` 가 맞음.
 
 ## 관련 사례 (Prior Art)
 
 - **[Spring Boot Reference — Code Organization](https://docs.spring.io/spring-boot/docs/current/reference/html/using.html#using.structuring-your-code)** — Spring 공식 문서의 권장 구조. 이 ADR 이 거의 그대로 따름.
-- **[Hexagonal Architecture (Alistair Cockburn)](https://alistair.cockburn.us/hexagonal-architecture/)** — Port / Primary Adapter / Secondary Adapter 용어 원형. 우리는 Spring 관용과 타협해서 용어 일부만 적용.
+- **[Hexagonal Architecture (Alistair Cockburn)](https://alistair.cockburn.us/hexagonal-architecture/)** — Port·Primary Adapter·Secondary Adapter 용어 원형. 우리는 Spring 관용과 타협해서 용어 일부만 적용.
 - **[Clean Architecture (Robert Martin)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)** — Dependency Rule (의존 방향은 항상 안쪽으로) 의 출처.
 - **Java DDD 생태계** (Vlad Mihalcea, Vernon 의 Implementing DDD 등) — Aggregate 분리의 이론적 토대. 우리는 현재 스케일에서 채택하지 않지만 미래 옵션으로 보관.
 
