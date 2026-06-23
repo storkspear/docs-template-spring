@@ -8,15 +8,15 @@
 
 ## 결론부터
 
-비밀번호 단독 인증은 *비밀번호 유출* 이라는 단일 실패점을 갖습니다. 사용자 입장에서 *얼마나 강한 비밀번호를 설정했는지* 와 무관하게, *다른 사이트에서 같은 비밀번호를 재사용한 흔적이 leak DB 에 등록* 되는 순간 그 계정은 *credential stuffing* 공격의 표적이 돼요. 결제를 처리하는 SaaS 환경에서는 *비밀번호 leak* 이 곧 *무단 결제 / 환불 사기 / 사용자 자산 탈취* 로 이어질 수 있어 *추가 인증 요소* 가 사실상 필수입니다.
+비밀번호 단독 인증은 *비밀번호 유출* 이라는 단일 실패점을 갖습니다. 사용자 입장에서 *얼마나 강한 비밀번호를 설정했는지* 와 무관하게, *다른 사이트에서 같은 비밀번호를 재사용한 흔적이 leak DB 에 등록* 되는 순간 그 계정은 *credential stuffing* 공격의 표적이 돼요. 결제를 처리하는 SaaS 환경에서는 *비밀번호 leak* 이 곧 *무단 결제·환불 사기·사용자 자산 탈취* 로 이어질 수 있어 *추가 인증 요소* 가 사실상 필수입니다.
 
-본 ADR 은 *RFC 6238 TOTP* (Time-based One-Time Password) 를 두 번째 인증 요소로 도입합니다. TOTP 는 *Google Authenticator*, *Authy*, *1Password* 같은 표준 앱이 *30 초마다 6 자리 코드를 자동 생성* 하는 방식이에요. 사용자가 비밀번호를 입력해 1 차 인증을 통과하면, 시스템은 *2FA 활성 여부* 를 보고 *임시 토큰 (type="2fa_pending", 5 분 TTL)* 만 발급합니다. 이 임시 토큰으로는 *일반 endpoint 를 호출할 수 없고*, 오직 `/auth/2fa/login` endpoint 에서 *TOTP 6 자리 코드 또는 백업 코드* 를 함께 제출해야 정식 access / refresh token 이 발급돼요.
+본 ADR 은 *RFC 6238 TOTP* (Time-based One-Time Password) 를 두 번째 인증 요소로 도입합니다. TOTP 는 Google Authenticator, Authy, 1Password 같은 표준 앱이 *30 초마다 6 자리 코드를 자동 생성* 하는 방식이에요. 사용자가 비밀번호를 입력해 1 차 인증을 통과하면, 시스템은 *2FA 활성 여부* 를 보고 *임시 토큰 (type="2fa_pending", 5 분 TTL)* 만 발급합니다. 이 임시 토큰으로는 *일반 endpoint 를 호출할 수 없고*, 오직 `/auth/2fa/login` endpoint 에서 *TOTP 6 자리 코드 또는 백업 코드* 를 함께 제출해야 정식 access·refresh token 이 발급돼요.
 
 이 흐름의 핵심 가치는 *기존 인증 흐름을 깨지 않으면서* 2FA 가 자연스럽게 추가된다는 점이에요. 2FA 가 비활성인 사용자는 *기존 signin 응답 그대로* 정식 token 을 받고, 활성 사용자만 *추가 단계* 를 거칩니다. 운영자가 *전체 사용자에게 2FA 강제* 를 원하면 별도 정책으로 토글할 수 있고, 사용자 자기 설정에서 *언제든 OPT-IN 으로 활성화* 할 수 있어요.
 
-백업 코드는 *TOTP 앱을 잃어버린 경우* 의 fallback 입니다. 사용자가 디바이스 분실 / OS 재설치 / 시계 어긋남 등으로 TOTP 코드를 받을 수 없을 때 *8 자리 alphanumeric 코드 8 개 중 하나* 를 입력해 우회할 수 있어요. 백업 코드는 *raw 값을 한 번만 사용자에게 표시하고 DB 에는 BCrypt 해시만 저장* 해, 사용자가 안전하게 보관 (1Password / 종이) 하면 DB 유출 시에도 백업 코드의 raw 값은 알려지지 않습니다.
+백업 코드는 *TOTP 앱을 잃어버린 경우* 의 fallback 입니다. 사용자가 디바이스 분실·OS 재설치·시계 어긋남 등으로 TOTP 코드를 받을 수 없을 때 *8 자리 alphanumeric 코드 8 개 중 하나* 를 입력해 우회할 수 있어요. 백업 코드는 *raw 값을 한 번만 사용자에게 표시하고 DB 에는 BCrypt 해시만 저장* 해, 사용자가 1Password 나 종이에 안전하게 보관하면 DB 유출 시에도 백업 코드의 raw 값은 알려지지 않습니다.
 
-이 ADR 의 범위는 RFC 6238 TOTP 알고리즘의 구체 파라미터 (HMAC-SHA1, 30 초 window, 6 자리, ±1 window clock skew), Base32 secret 인코딩의 표준 호환, 백업 코드의 BCrypt 해시 저장 패턴, 임시 토큰 (`type="2fa_pending"`) 의 JWT claim 설계, 2FA disable 시의 보안 강화 (현재 비밀번호 + TOTP 둘 다 검증), 그리고 DB schema 확장까지입니다.
+이 ADR 의 범위는 RFC 6238 TOTP 알고리즘의 구체 파라미터 (HMAC-SHA1, 30 초 window, 6 자리, ±1 window clock skew), Base32 secret 인코딩의 표준 호환, 백업 코드의 BCrypt 해시 저장 패턴, 임시 토큰 `type="2fa_pending"` 의 JWT claim 설계, 2FA disable 시의 보안 강화, 그리고 DB schema 확장까지입니다. disable 강화는 현재 비밀번호와 TOTP 를 둘 다 검증하는 방식이에요.
 
 ---
 
@@ -28,15 +28,15 @@
 
 표준 해결책은 *2FA (2-Factor Authentication)* 예요. *알고 있는 것 (비밀번호)* 외에 *가지고 있는 것 (디바이스의 TOTP 앱)* 을 함께 검증해, 한쪽이 유출돼도 다른 한쪽이 방어선으로 작동합니다. 2FA 의 구현 방식에는 여러 갈래가 있어요.
 
-**SMS 기반 2FA** 는 사용자가 가장 익숙한 형태지만 *SIM swap 공격* 에 취약하고, *발송 비용 (SMS 한 건당 ~50원)* 이 누적되어 *수만 사용자 환경에서 부담* 이 큽니다. *통신 환경* 에 의존하는 점도 약점이에요 — 해외 출장 중이거나 통신 장애 시점에 사용자가 자기 계정에 접근하지 못합니다.
+**SMS 기반 2FA** 는 사용자가 가장 익숙한 형태지만 *SIM swap 공격* 에 취약하고, 발송 비용이 누적되어 *수만 사용자 환경에서 부담* 이 큽니다. SMS 는 한 건당 약 50원이에요. *통신 환경* 에 의존하는 점도 약점이에요 — 해외 출장 중이거나 통신 장애 시점에 사용자가 자기 계정에 접근하지 못합니다.
 
 **이메일 기반 2FA** 는 SMS 보다 비용이 낮지만 *이메일 자체가 비밀번호와 같이 유출되는* 가능성이 높아 *진짜 두 번째 요소* 의 가치가 약해요. 사용자가 같은 디바이스에서 이메일을 확인하므로 *디바이스 탈취* 시점에는 두 요소가 모두 무력화됩니다.
 
-**TOTP (Time-based OTP)** 는 *RFC 6238 표준* 으로 *외부 의존 0* 이에요. 사용자의 디바이스에 설치된 TOTP 앱이 *서버와 공유한 secret* 으로 *30 초마다 6 자리 코드를 로컬에서 계산* 합니다. 서버가 SMS / 이메일을 발송할 필요가 없고, *Google Authenticator*, *Authy*, *1Password* 같은 표준 앱이 모든 OS 에서 동작해 사용자 학습 곡선도 낮아요. 백엔드 구현은 *RFC 6238 알고리즘 (HMAC-SHA1 + counter)* 만으로 끝나서 *추가 인프라가 0* 입니다.
+**TOTP (Time-based OTP)** 는 *RFC 6238 표준* 으로 *외부 의존 0* 이에요. 사용자의 디바이스에 설치된 TOTP 앱이 *서버와 공유한 secret* 으로 *30 초마다 6 자리 코드를 로컬에서 계산* 합니다. 서버가 SMS 나 이메일을 발송할 필요가 없고, Google Authenticator, Authy, 1Password 같은 표준 앱이 모든 OS 에서 동작해 사용자 학습 곡선도 낮아요. 백엔드 구현은 *RFC 6238 알고리즘 (HMAC-SHA1 + counter)* 만으로 끝나서 *추가 인프라가 0* 입니다.
 
 이 결정이 답해야 할 물음은 이거예요.
 
-> **결제 SaaS 환경에서 비밀번호 단독 인증의 단일 실패점을 어떤 추가 요소로 메우면, 외부 의존 / 발송 비용 없이 사용자 학습 곡선도 낮게 유지할 수 있는가?**
+> **결제 SaaS 환경에서 비밀번호 단독 인증의 단일 실패점을 어떤 추가 요소로 메우면, 외부 의존과 발송 비용 없이 사용자 학습 곡선도 낮게 유지할 수 있는가?**
 
 ---
 
@@ -92,7 +92,7 @@
 
 ### Backup code 사용
 
-- TOTP 앱을 볼 수 없을 때 (디바이스 분실 / 시계 어긋남) backup code 를 입력해요
+- TOTP 앱을 볼 수 없을 때, 즉 디바이스 분실이나 시계 어긋남 상황에서 backup code 를 입력해요
 - 8자리 alphanumeric (예: "ABCD1234")
 - 1회용 — 사용 시 DB 의 hash 가 제거돼요. 8개를 다 쓰면 disable 후 setup 을 재진행해요.
 
@@ -153,7 +153,7 @@ T = 1111111109 (window=37037036) → expected: "081804"
 
 **왜 BCrypt?** 비밀번호와 동일한 password-equivalent 자산이라서요. salt + slow hash 로 brute-force 를 차단합니다.
 
-**왜 raw 1회 표시?** 사용자가 안전한 곳 (1Password / 종이 etc) 에 보관하는 책임을 져요. UX 가 단순해져요.
+**왜 raw 1회 표시?** 사용자가 안전한 곳 (1Password·종이 등) 에 보관하는 책임을 져요. UX 가 단순해져요.
 
 ---
 
@@ -163,8 +163,8 @@ T = 1111111109 (window=37037036) → expected: "081804"
 - generateSecret — Base32 형식, unique
 - generateOtpAuthUrl — 표준 형식
 - computeCode — RFC 6238 test vectors 통과
-- verify — 현재/이전/다음 window 허용, ±2 window 거부
-- verify — 잘못된 길이 / null / 랜덤 코드 거부
+- verify — 현재·이전·다음 window 허용, ±2 window 거부
+- verify — 잘못된 길이·null·랜덤 코드 거부
 
 **TwoFactorService 의 통합 테스트는 다음 사이클**. 현재는 단위 테스트만. 실 e2e 는 Flutter 앱 + sandbox 환경에서.
 
@@ -188,9 +188,9 @@ POST /api/apps/<slug>/auth/2fa/login              (공개)
 ### 옵션 A — SMS OTP
 
 - 장: 사용자 익숙 (한국 일반)
-- ❌ 외부 SMS 서비스 비용 (NHN SENS / 알리고)
+- ❌ 외부 SMS 서비스 비용 (NHN SENS·알리고)
 - ❌ SIM swap 공격 위험 (NIST 권장 X)
-- ❌ 발송 실패 / 지연 — UX 저하
+- ❌ 발송 실패·지연 — UX 저하
 
 ### 옵션 B — TOTP (Google Authenticator) ★ 채택
 
@@ -202,7 +202,7 @@ POST /api/apps/<slug>/auth/2fa/login              (공개)
 ### 옵션 C — WebAuthn / Passkey
 
 - 가장 강력 (생체 인증, phishing 차단)
-- ❌ 모바일 / 데스크톱 cross-platform 복잡
+- ❌ 모바일·데스크톱 cross-platform 복잡
 - ❌ 사용자 디바이스 분실 시 lockout 위험 (backup mechanism 별도)
 - 향후 사이클 (template baseline 외)
 
@@ -217,7 +217,7 @@ POST /api/apps/<slug>/auth/2fa/login              (공개)
 
 ## 안 다루는 범위 (다음 사이클)
 
-- **WebAuthn / Passkey** — 더 강한 인증. 모바일 디바이스 자체로
+- **WebAuthn·Passkey** — 더 강한 인증. 모바일 디바이스 자체로
 - **2FA 강제 모드** — admin 권한자는 2FA 의무화
 - **Trusted device** — "이 디바이스 30일 기억" 옵션
 - **2FA 활성화 알림** — email 통지 (security event)

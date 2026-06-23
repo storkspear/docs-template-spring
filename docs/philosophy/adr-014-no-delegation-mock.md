@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-테스트는 **외부에서 관측 가능한 행위** 만 검증합니다. "A 가 B.foo() 를 호출하는가?" 같은 **내부 위임 경로** 는 mock 으로 검증하지 않습니다. 예를 들어 `AuthController.signUp()` 이 내부적으로 `EmailAuthService.signUp()` 을 호출하는지 `verify(emailAuthService).signUp(...)` 로 체크하는 걸 금지해요. 대신 `AuthPort` 의 실제 행위 (유저가 DB 에 저장되고, 검증 이메일이 발송되고, JWT 가 반환되는지) 를 검증. Mock 은 **외부 시스템 격리** (FCM, Resend) 와 **비결정 의존성 고정** (Clock, TokenGenerator) 에만 허용. 규모는 430 테스트 중 ~30 건으로 제한됨.
+테스트는 **외부에서 관측 가능한 행위** 만 검증합니다. "A 가 B.foo() 를 호출하는가?" 같은 **내부 위임 경로** 는 mock 으로 검증하지 않습니다. 예를 들어 `AuthController.signUp()` 이 내부적으로 `EmailAuthService.signUp()` 을 호출하는지 `verify(emailAuthService).signUp(...)` 로 체크하는 걸 금지해요. 대신 `AuthPort` 의 실제 행위 (유저가 DB 에 저장되고, 검증 이메일이 발송되고, JWT 가 반환되는지) 를 검증. Mock 은 외부 시스템 격리 (FCM, Resend) 와 비결정 의존성 고정 (Clock, TokenGenerator) 에만 허용. 규모는 430 테스트 중 ~30 건으로 제한됨.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -15,7 +15,7 @@
 1. **회귀 방지** — 현재 동작이 깨졌을 때 바로 알려줘요
 2. **리팩토링 안전망** — 내부 구조를 바꿔도 외부 행위가 유지되면 통과
 
-그런데 Java / Spring 생태계에는 **Mockito 기반 delegation 검증** 이 매우 흔합니다:
+그런데 Java·Spring 생태계에는 Mockito 기반 delegation 검증이 매우 흔합니다:
 
 ```java
 @Test
@@ -46,7 +46,7 @@ void signUp_delegatesToEmailAuthService() {
 
 ### Option 1 — Mockito delegation 검증 허용 (업계 관행)
 
-Controller / Service 단위 테스트에서 `verify()` 로 호출 여부 검증. Spring + Mockito 조합의 표준 패턴.
+Controller·Service 단위 테스트에서 `verify()` 로 호출 여부 검증. Spring + Mockito 조합의 표준 패턴.
 
 ```java
 @Test
@@ -228,7 +228,7 @@ Contract (Port) 가 절반에 가까움. delegation mock 테스트 = 0.
 
 ### 긍정적 결과
 
-**리팩토링이 자유로움** — `AuthServiceImpl` 내부에서 `EmailAuthService` 를 인라인화하거나 메서드 이름을 바꿔도 테스트는 그대로 통과. 내부 구조 개선이 **테스트 수정 비용 없이** 진행 가능.
+**리팩토링이 자유로움** — `AuthServiceImpl` 내부에서 `EmailAuthService` 를 인라인화하거나 메서드 이름을 바꿔도 테스트는 그대로 통과. 내부 구조 개선이 테스트 수정 비용 없이 진행 가능.
 
 **테스트가 "계약 문서" 역할** — Port 계약 테스트는 "이 Port 가 어떻게 동작하는가" 를 외부 관점에서 기술. Javadoc 보다 신뢰 가능한 스펙.
 

@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-`UserMapper`, `ExpenseMapper` 같은 **별도 매핑 클래스를 두지 않습니다**. 대신 엔티티가 자기 DTO 변환 방법을 **직접 메서드로** 제공해요 — `user.toSummary()`, `user.toProfile()`. "엔티티가 자기 표현을 가장 잘 안다" 는 OOP 원칙 그대로. 많은 Spring Boot 프로젝트가 당연하게 쓰는 MapStruct / ModelMapper / 수동 Mapper 계층 — 이게 **없는** 게 우리 선택입니다.
+`UserMapper`, `ExpenseMapper` 같은 **별도 매핑 클래스를 두지 않습니다**. 대신 엔티티가 자기 DTO 변환 방법을 직접 메서드로 제공해요 — `user.toSummary()`, `user.toProfile()`. "엔티티가 자기 표현을 가장 잘 안다" 는 OOP 원칙 그대로. 많은 Spring Boot 프로젝트가 당연하게 쓰는 MapStruct·ModelMapper·수동 Mapper 계층 — 이게 없는 게 우리 선택입니다.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -32,7 +32,7 @@ public AuthResponse signUpWithEmail(SignUpRequest req) {
 2. Service 안에서 인라인 변환 (`new UserSummary(user.getId(), ...)`)
 3. Entity 에 메서드 (`user.toSummary()`)
 
-Spring Boot 생태계에서는 **(1) Mapper 클래스** 가 가장 흔합니다. MapStruct 는 거의 산업 표준이에요. 하지만 우리는 이를 **채택하지 않았습니다** — 왜 그런지가 이 결정의 핵심.
+Spring Boot 생태계에서는 **(1) Mapper 클래스** 가 가장 흔합니다. MapStruct 는 거의 산업 표준이에요. 하지만 우리는 이를 채택하지 않았습니다 — 왜 그런지가 이 결정의 핵심.
 
 또 하나의 물음: **"Mapper 금지" 를 사람 관행으로만 유지할 것인가, 기계 강제로 할 것인가?**
 
@@ -60,12 +60,12 @@ public AuthResponse signUp(...) {
 ```
 
 - **장점**:
-  - 산업 표준. 많은 예제 / 문서 / Stack Overflow 답변 존재.
+  - 산업 표준. 많은 예제·문서·Stack Overflow 답변 존재.
   - 복잡한 매핑 (중첩 객체, 이름 변환, `@Mapping` 어노테이션) 을 어노테이션으로 선언적 표현.
   - 컴파일 타임에 구현체가 생성되어 런타임 overhead 가 없어요.
 - **단점**:
   - **의존 추가** — `mapstruct`, `mapstruct-processor` 라이브러리.
-  - **annotation processor 설정 필요** — Gradle 에 `annotationProcessor` / `testAnnotationProcessor` 구성.
+  - **annotation processor 설정 필요** — Gradle 에 `annotationProcessor`·`testAnnotationProcessor` 구성.
   - **IDE 호환성 이슈 가끔** — annotation processor 가 IDE 마다 다르게 동작. 코드 자동완성 깨짐 사례.
   - **Mapper 인터페이스 수가 엔티티 수와 함께 증가** — 도메인 5개면 5개 Mapper 유지.
   - **매핑 대부분이 1:1 필드 복사** — 우리 프로젝트에서 실제 매핑은 대부분 단순해요. MapStruct 의 "복잡 매핑 선언" 이점이 실현되지 않아요.
@@ -90,7 +90,7 @@ UserSummary summary = mapper.map(user, UserSummary.class);
 
 ### Option 3 — 수동 Mapper 클래스
 
-어노테이션 / 리플렉션 없이 순수 Java 로 Mapper 클래스 직접 작성.
+어노테이션·리플렉션 없이 순수 Java 로 Mapper 클래스 직접 작성.
 
 ```java
 public class UserMapper {
@@ -147,7 +147,7 @@ UserSummary summary = user.toSummary();  // 간결, 자연스러움
 - **장점**:
   - **호출 사이트 간결** — `user.toSummary()`.
   - **OOP 원칙 부합** — "객체가 자기 표현 방법을 안다".
-  - **의존 0** — MapStruct / ModelMapper 라이브러리 불필요.
+  - **의존 0** — MapStruct·ModelMapper 라이브러리 불필요.
   - **컴파일 타임 검증** — 필드명 오타면 즉시 컴파일 에러.
   - **`impl → api` 방향 참조만 발생** — `core-user-impl` 의 User 가 `core-user-api` 의 `UserSummary` 참조. ArchUnit 규칙 r6 부합.
 - **단점**:
@@ -252,7 +252,7 @@ public record UserSummary(Long id, String email, String name, boolean verified) 
 }
 ```
 
-기준: **"단순 생성자 호출" 을 대체할 뿐인 static 팩토리** 는 금지. "정규화 / 검증 / 변환 로직이 담긴" static 팩토리만 허용.
+기준: **"단순 생성자 호출" 을 대체할 뿐인 static 팩토리** 는 금지. "정규화·검증·변환 로직이 담긴" static 팩토리만 허용.
 
 이 구분이 모호해서 팀 토론 여지가 있지만, 현재까지는 `toSummary()` 패턴만으로 95% 케이스 해결.
 
@@ -322,7 +322,7 @@ UserSummary s = user.toSummary();
 
 **호출 사이트 간결** — `user.toSummary()` 가 `UserMapper.toSummary(user)` 보다 짧고 자연스러움. 메서드 체이닝 (`user.toSummary().name()`) 도 가능.
 
-**의존 없음** — MapStruct / ModelMapper 라이브러리가 불필요해요. `build.gradle` 의존 리스트가 깔끔하게 유지됩니다.
+**의존 없음** — MapStruct·ModelMapper 라이브러리가 불필요해요. `build.gradle` 의존 리스트가 깔끔하게 유지됩니다.
 
 **컴파일 타임 검증** — 필드명 오타나 타입 불일치가 즉시 컴파일 에러로 잡혀요. 런타임에 놀랄 일이 없어요.
 
@@ -374,17 +374,17 @@ Entity 메서드 전환의 효과:
 - 코드 라인 수 절감 (Mapper 클래스 + 호출 사이트 모두 간결화)
 - 새 DTO 추가 시 Entity 의 `to<Dto>()` 추가만으로 끝
 
-**교훈**: "관행" 은 출발점일 뿐 정답이 아니에요. **우리 스케일에 맞는지** 주기적으로 검증해야 해요. 특히 솔로 인디에서는 **레이어 수가 적을수록** 유지보수 부담이 작아져요.
+**교훈**: "관행" 은 출발점일 뿐 정답이 아니에요. 우리 스케일에 맞는지 주기적으로 검증해야 해요. 특히 솔로 인디에서는 레이어 수가 적을수록 유지보수 부담이 작아져요.
 
 ### 외부 라이브러리 이름 충돌 (r22 설계 과정)
 
-ArchUnit r22 초기 설계는 `*Mapper` 를 **무조건** 금지했어요. 문제: `org.springframework.web.servlet.HandlerMapping` 같은 Spring 내부 클래스도 `Mapping` / `Mapper` 로 끝나는 경우가 있고, MapStruct 를 다른 프로젝트에서 쓸 때는 `@Mapper` 인터페이스도 허용해야 해요.
+ArchUnit r22 초기 설계는 `*Mapper` 를 무조건 금지했어요. 문제: `org.springframework.web.servlet.HandlerMapping` 같은 Spring 내부 클래스도 `Mapping`·`Mapper` 로 끝나는 경우가 있고, MapStruct 를 다른 프로젝트에서 쓸 때는 `@Mapper` 인터페이스도 허용해야 해요.
 
 최종 규칙:
 - `resideInAPackage("com.factory..")` → 우리 패키지만 검사 (Spring 등 외부는 제외)
 - `areNotInterfaces()` → 인터페이스는 허용 (MapStruct `@Mapper interface` 대비, 비록 지금 안 쓰지만 미래 옵션)
 
-**교훈**: ArchUnit 규칙 설계 시 **외부 라이브러리 네이밍과의 충돌** 을 고려해야 해요. `noClasses()` 규칙이 너무 광범위하면 false positive 가 발생합니다.
+**교훈**: ArchUnit 규칙 설계 시 외부 라이브러리 네이밍과의 충돌을 고려해야 해요. `noClasses()` 규칙이 너무 광범위하면 false positive 가 발생합니다.
 
 ## 관련 사례 (Prior Art)
 

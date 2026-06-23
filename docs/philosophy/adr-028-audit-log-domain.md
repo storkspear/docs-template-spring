@@ -8,33 +8,33 @@
 
 ## 결론부터
 
-운영자가 *환불 처리, 사용자 role 변경, 강제 데이터 삭제* 같은 *시스템 상태를 직접 조작* 하는 액션을 수행할 때, *누가 언제 무엇을 했는지* 가 영속 기록으로 남아야 해요. 운영 디버깅 (*어제 18시에 user 100 의 plan 이 왜 바뀌었지?*), 컴플라이언스 (*PCI-DSS / ISO 27001 의 admin 액션 audit 의무*), 보안 사고 forensic (*침해 시 어떤 액션이 이뤄졌는지*) — 어느 면에서 봐도 이 추적성은 운영의 필수 요소입니다.
+운영자가 환불 처리, 사용자 role 변경, 강제 데이터 삭제 같이 *시스템 상태를 직접 조작* 하는 액션을 수행할 때, *누가 언제 무엇을 했는지* 가 영속 기록으로 남아야 해요. 운영 디버깅 (어제 18시에 user 100 의 plan 이 왜 바뀌었지?), 컴플라이언스 (PCI-DSS·ISO 27001 의 admin 액션 audit 의무), 보안 사고 forensic (침해 시 어떤 액션이 이뤄졌는지) — 어느 면에서 봐도 이 추적성은 운영의 필수 요소입니다.
 
-본 ADR 은 audit log 를 *별도 도메인 (`core-audit-api` + `core-audit-impl`)* 으로 두고, *Spring AOP 로 자동 기록* 하는 구조를 정의합니다. 핵심 메커니즘은 `@Audited` meta annotation 이에요. 운영자 endpoint 메서드에 `@Audited("billing.refund")` 한 줄을 붙이면, `AuditAspect` 가 `@Around` 로 그 메서드를 가로채서 *호출 직후 actor / action / timestamp / 결과* 를 `audit_logs` 테이블에 자동 기록합니다. 컨트롤러 코드 안에 *audit 호출 boilerplate* 가 들어가지 않아 *비즈 로직과 audit 책임이 깔끔히 분리* 돼요.
+본 ADR 은 audit log 를 별도 도메인 (`core-audit-api` + `core-audit-impl`) 으로 두고, Spring AOP 로 자동 기록하는 구조를 정의합니다. 핵심 메커니즘은 `@Audited` meta annotation 이에요. 운영자 endpoint 메서드에 `@Audited("billing.refund")` 한 줄을 붙이면, `AuditAspect` 가 `@Around` 로 그 메서드를 가로채서 호출 직후 actor·action·timestamp·결과를 `audit_logs` 테이블에 자동 기록합니다. 컨트롤러 코드 안에 audit 호출 boilerplate 가 들어가지 않아 *비즈 로직과 audit 책임이 깔끔히 분리* 돼요.
 
-audit 기록은 `Propagation.REQUIRES_NEW` 로 *별도 트랜잭션* 에서 일어납니다. 이 격리가 중요한 이유는 두 가지예요. 첫째, 비즈 로직이 *실패해서 rollback* 되어도 *audit 기록은 보존* 됩니다 — *환불 시도 자체가 실패한 사실* 도 기록으로 남아야 forensic 이 의미가 있어요. 둘째, audit 기록 자체가 *실패해도 비즈 로직을 막지 않습니다* — `AuditAspect` 가 throw 를 catch 하고 log 만 남기는 형태라, *audit DB 가 일시 장애* 라도 운영 액션이 차단되지 않아요.
+audit 기록은 `Propagation.REQUIRES_NEW` 로 별도 트랜잭션에서 일어납니다. 이 격리가 중요한 이유는 두 가지예요. 첫째, 비즈 로직이 실패해서 rollback 되어도 *audit 기록은 보존* 됩니다 — 환불 시도 자체가 실패한 사실도 기록으로 남아야 forensic 이 의미가 있어요. 둘째, audit 기록 자체가 *실패해도 비즈 로직을 막지 않습니다* — `AuditAspect` 가 throw 를 catch 하고 log 만 남기는 형태라, audit DB 가 일시 장애라도 운영 액션이 차단되지 않아요.
 
-이 ADR 의 범위는 모듈 분리의 사유, `audit_logs` 테이블 설계 (슬러그별 schema 위치 + 컬럼 정의), `@Audited` 어노테이션의 의미와 `@AdminOnly` 와의 관계, AuditAspect 의 트랜잭션 / 실패 격리 정책, 그리고 AuditPort 추상화로 *향후 외부 SaaS / S3 구현 교체* 가능성까지입니다.
+이 ADR 의 범위는 모듈 분리의 사유, `audit_logs` 테이블 설계 (슬러그별 schema 위치 + 컬럼 정의), `@Audited` 어노테이션의 의미와 `@AdminOnly` 와의 관계, AuditAspect 의 트랜잭션·실패 격리 정책, 그리고 AuditPort 추상화로 향후 외부 SaaS·S3 구현을 교체할 가능성까지입니다.
 
 ---
 
 ## 왜 이런 결정이 필요했나?
 
-[`ADR-027`](./adr-027-admin-role-authorization.md) 이 *@AdminOnly* 로 권한 검증을 정립했지만, 권한 검증은 *액션의 차단* 만 보장할 뿐 *액션의 추적* 은 별개의 영역이에요. *권한이 있는 운영자가 정당하게 환불을 처리한* 경우와 *권한이 있는 운영자가 부적절하게 환불을 처리한* 경우는 모두 권한 검증을 통과하지만, 후자를 사후에 감지할 수단이 없으면 *내부자 위협* 에 대한 방어선이 비어 있는 상태가 됩니다.
+[`ADR-027`](./adr-027-admin-role-authorization.md) 이 `@AdminOnly` 로 권한 검증을 정립했지만, 권한 검증은 *액션의 차단* 만 보장할 뿐 액션의 추적은 별개의 영역이에요. 권한이 있는 운영자가 정당하게 환불을 처리한 경우와 부적절하게 환불을 처리한 경우는 모두 권한 검증을 통과하지만, 후자를 사후에 감지할 수단이 없으면 *내부자 위협* 에 대한 방어선이 비어 있는 상태가 됩니다.
 
-audit 추적이 없을 때 운영에서 마주치는 시나리오를 보면 그 부담이 명확해요. *환불 처리* 가 이뤄진 사실 자체는 `payment_records.refunded_at IS NOT NULL` 같은 SQL 쿼리로 알 수 있지만, *누가 그 환불을 처리했는지* 는 DB 에 남아 있지 않습니다. CS 문의로 *제 환불을 누가 처리했는지 알려주세요* 같은 질문이 들어와도 *application log 의 분 단위 timestamp* 를 매칭해서 추정할 수 있을 뿐 정확한 actor 를 확정할 수단이 없어요.
+audit 추적이 없을 때 운영에서 마주치는 시나리오를 보면 그 부담이 명확해요. 환불 처리가 이뤄진 사실 자체는 `payment_records.refunded_at IS NOT NULL` 같은 SQL 쿼리로 알 수 있지만, *누가 그 환불을 처리했는지* 는 DB 에 남아 있지 않습니다. CS 문의로 "제 환불을 누가 처리했는지 알려주세요" 같은 질문이 들어와도 application log 의 분 단위 timestamp 를 매칭해서 추정할 수 있을 뿐 정확한 actor 를 확정할 수단이 없어요.
 
-운영 디버깅도 같은 부담을 가져옵니다. *user 100 의 plan 이 어느 시점에 왜 변경됐는지* 같은 질문이 들어왔을 때, 데이터의 *현재 상태* 만 보고는 그 변화의 *원인 액션* 을 추적할 수 없어요. logback 의 application log 가 *부분적으로* 정보를 가지지만, *로그 회전 (rotation)* 으로 며칠 전 로그가 사라지거나 *로그 검색이 grep 기반* 이라 정확한 actor 와 입력값을 매칭하기 어렵습니다.
+운영 디버깅도 같은 부담을 가져옵니다. user 100 의 plan 이 어느 시점에 왜 변경됐는지 같은 질문이 들어왔을 때, 데이터의 현재 상태만 보고는 그 변화의 *원인 액션* 을 추적할 수 없어요. logback 의 application log 가 부분적으로 정보를 가지지만, 로그 회전 (rotation) 으로 며칠 전 로그가 사라지거나 로그 검색이 grep 기반이라 정확한 actor 와 입력값을 매칭하기 어렵습니다.
 
-컴플라이언스 측면도 무시할 수 없어요. 결제 처리 시스템은 *PCI-DSS* 의 audit 의무를 따라야 하고, 사용자 데이터를 다루는 시스템은 *ISO 27001* 의 admin 액션 추적을 권장받아요. 이런 표준은 *어떤 액션이 언제 누구에 의해 이뤄졌는지* 를 *영속적으로 검색 가능* 한 형태로 보존할 것을 요구합니다. application log 만으로는 이 요구를 만족시키기 어려워요.
+컴플라이언스 측면도 무시할 수 없어요. 결제 처리 시스템은 PCI-DSS 의 audit 의무를 따라야 하고, 사용자 데이터를 다루는 시스템은 ISO 27001 의 admin 액션 추적을 권장받아요. 이런 표준은 어떤 액션이 언제 누구에 의해 이뤄졌는지를 *영속적으로 검색 가능* 한 형태로 보존할 것을 요구합니다. application log 만으로는 이 요구를 만족시키기 어려워요.
 
-해결책의 핵심은 *audit 기록을 비즈 로직에서 분리* 하는 것이에요. 컨트롤러 메서드 안에 *audit 호출 코드를 직접 작성* 하는 형태는 *boilerplate 가 누적* 되고 *한 곳에서 잊으면 그 액션은 영원히 추적 불가* 해집니다. AOP 로 가로채는 형태는 *어노테이션 한 줄로 모든 메서드에 균등 적용* 되고, *audit 책임이 단일 위치 (AuditAspect)* 에 모여 유지보수도 쉬워요.
+해결책의 핵심은 *audit 기록을 비즈 로직에서 분리* 하는 것이에요. 컨트롤러 메서드 안에 audit 호출 코드를 직접 작성하는 형태는 boilerplate 가 누적되고 한 곳에서 잊으면 그 액션은 영원히 추적 불가해집니다. AOP 로 가로채는 형태는 어노테이션 한 줄로 모든 메서드에 균등 적용되고, audit 책임이 단일 위치 (AuditAspect) 에 모여 유지보수도 쉬워요.
 
-또 하나의 결정 축은 *audit 기록의 트랜잭션 분리* 예요. 비즈 트랜잭션과 같은 트랜잭션에서 audit 를 기록하면 *비즈 로직 rollback 시 audit 도 같이 사라져* 가장 중요한 사고 (실패 시도) 를 놓치게 됩니다. *별도 트랜잭션* 으로 분리하면 *모든 액션 시도가 결과와 무관하게 보존* 되어 forensic 의 정직성이 유지돼요.
+또 하나의 결정 축은 *audit 기록의 트랜잭션 분리* 예요. 비즈 트랜잭션과 같은 트랜잭션에서 audit 를 기록하면 비즈 로직 rollback 시 audit 도 같이 사라져 가장 중요한 사고 (실패 시도) 를 놓치게 됩니다. 별도 트랜잭션으로 분리하면 모든 액션 시도가 결과와 무관하게 보존되어 forensic 의 정직성이 유지돼요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
-> **운영 액션의 추적성을 *boilerplate 0* 으로 어떻게 자동화하고, 비즈 로직 / audit 의 트랜잭션 격리는 어떤 형태로 잡아야 사고와 컴플라이언스 요구를 동시에 만족시킬 수 있는가?**
+> **운영 액션의 추적성을 boilerplate 0 으로 어떻게 자동화하고, 비즈 로직과 audit 의 트랜잭션 격리는 어떤 형태로 잡아야 사고와 컴플라이언스 요구를 동시에 만족시킬 수 있는가?**
 
 ---
 
@@ -111,7 +111,7 @@ public void record(AuditEvent event) {
 - audit 에 result=FAILURE + details (exception 클래스명 + 메시지 truncate 500자)
 - 예외는 그대로 re-throw — 정상 흐름 유지
 
-→ 컴플라이언스 audit 시 "권한 거부된 admin 시도" 추적 가능 (예: 비밀번호 정책 fail / role 부족 / validation error).
+→ 컴플라이언스 audit 시 "권한 거부된 admin 시도" 추적 가능 (예: 비밀번호 정책 fail·role 부족·validation error).
 
 ---
 
@@ -182,7 +182,7 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id)
 ### 옵션 A — application log (logback) 에 기록
 
 - `log.info("admin action — actor={} action={}")` 직접 호출
-- ❌ 검색 어려움 (Loki / Elastic 셋업 필요), 회전 시 손실
+- ❌ 검색 어려움 (Loki·Elastic 셋업 필요), 회전 시 손실
 - ❌ actor 캡처 boilerplate 매번 반복
 - ❌ FAILURE 케이스 추적 어려움 (try-catch 필요)
 
@@ -229,5 +229,5 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id)
 - **Audit endpoint 노출** — `GET /api/admin/audit-logs?action=billing.&since=...` 같은 운영자 조회 endpoint. 비즈니스별 admin UI 결정 후 추가해요.
 - **세부 변경 추적** — JPA `@PreUpdate` 로 entity 변경 전후를 캡처해요 (예: User.role 변경 시 old/new 값). `details` JSONB 활용은 가능하지만 별도 사이클로 다뤄요.
 - **Audit log 보존 정책** — 영구 보관 vs 90일 후 archive. PCI-DSS 는 1년을 권장해요. 별도 cron 으로 archive table 로 이동시켜요.
-- **암호화** — actor_email / details 의 민감 정보 암호화. 필요 시 별도 사이클로 다뤄요.
-- **외부 SIEM 통합** — Splunk / Datadog 으로 로그를 stream 해요. 운영 규모가 커지면 추가합니다.
+- **암호화** — actor_email·details 의 민감 정보 암호화. 필요 시 별도 사이클로 다뤄요.
+- **외부 SIEM 통합** — Splunk·Datadog 으로 로그를 stream 해요. 운영 규모가 커지면 추가합니다.

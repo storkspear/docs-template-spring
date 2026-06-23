@@ -4,9 +4,9 @@
 
 **설계 근거**: [`ADR-038 (SMS + 휴대폰 점유인증)`](../../philosophy/adr-038-sms-phone-auth.md) · [`ADR-003 (-api / -impl 분리)`](../../philosophy/adr-003-api-impl-split.md) · [`ADR-013 (앱별 인증 엔드포인트)`](../../philosophy/adr-013-per-app-auth-endpoints.md) · [`ADR-024 (core-email 도메인 추출 — mock/real 어댑터 패턴)`](../../philosophy/adr-024-email-domain-extraction.md) · [`ADR-037 (core schema 폐기 — per-app 데이터)`](../../philosophy/adr-037-core-schema-deprecation.md)
 
-이 문서는 **휴대폰 점유인증(SMS OTP)** 아키텍처와 그 기반이 되는 **SMS 발송** 추상화를 정리합니다.
+이 문서는 **휴대폰 점유인증(SMS OTP)** 아키텍처와 그 기반이 되는 SMS 발송 추상화를 정리합니다.
 
-템플릿은 문자 발송을 **Port/Adapter 패턴**으로 추상화합니다. 점유인증 도메인 코드(`OtpService`) 는 발신사 SDK 를 직접 알지 못하고 `core-sms-api` 의 `SmsPort` 인터페이스만 의존합니다. 덕분에 테스트에서는 mock 으로, 개발에서는 콘솔 캡처(`LoggingSmsAdapter`) 로, 운영에서는 CoolSMS(SOLAPI) 실발송(`CoolSmsAdapter`) 으로 바꿔 끼울 수 있습니다 — `core-email` 의 `EmailPort` 와 완전히 동일한 토글 패턴입니다 (ADR-024).
+템플릿은 문자 발송을 **Port/Adapter 패턴**으로 추상화합니다. 점유인증 도메인 코드(`OtpService`) 는 발신사 SDK 를 직접 알지 못하고 `core-sms-api` 의 `SmsPort` 인터페이스만 의존합니다 (Port·Adapter 패턴은 [`용어집`](../../reference/glossary.md#아키텍처-용어) 참조). 덕분에 테스트에서는 mock 으로, 개발에서는 콘솔 캡처(`LoggingSmsAdapter`) 로, 운영에서는 CoolSMS(SOLAPI) 실발송(`CoolSmsAdapter`) 으로 바꿔 끼울 수 있습니다 — `core-email` 의 `EmailPort` 와 완전히 동일한 토글 패턴입니다 (ADR-024).
 
 ---
 
@@ -16,8 +16,8 @@
 
 본 기능은 두 개의 core 모듈쌍으로 구성됩니다.
 
-- **`core-sms-*`** — 도메인 횡단 **문자 발송** 추상화. 점유인증 OTP 뿐 아니라 운영 알림 등 모든 SMS 의 단일 진입점.
-- **`core-phone-auth-*`** — **점유인증** 도메인. OTP 발송/검증 수명 관리 + 검증 후 토큰 발급 오케스트레이션.
+- **`core-sms-*`** — 도메인 횡단 문자 발송 추상화. 점유인증 OTP 뿐 아니라 운영 알림 등 모든 SMS 의 단일 진입점.
+- **`core-phone-auth-*`** — 점유인증 도메인. OTP 발송/검증 수명 관리 + 검증 후 토큰 발급 오케스트레이션.
 
 식별(번호 → 유저) 자체는 두 모듈이 직접 하지 않고 `core-auth` 의 `AuthPort.issueForVerifiedPhone` 에 위임합니다 — 소셜 로그인과 동일한 `social_identities(provider='phone')` 경로를 재사용합니다.
 
@@ -50,7 +50,7 @@
 | `core/core-phone-auth-api` | `PhoneAuthPort` 인터페이스, `PhoneAuthError` (PHA_001~PHA_006) |
 | `core/core-phone-auth-impl` | `PhoneAuthAdapter`, `OtpService`, `OtpCodes`, `PhoneOtpCode` 엔티티, `PhoneOtpCodeRepository`, `PhoneAuthAutoConfiguration` |
 
-SMS 발송과 점유인증 책임은 의도적으로 분리되어 있습니다. SMS 도메인은 **"문자를 어떻게 전달하는가"** 만 알고, 점유인증 도메인은 **"OTP 의 수명을 어떻게 관리하는가"** 만 압니다. `core-device` / `core-push` 가 분리된 것과 같은 철학입니다 ([`Push Notifications`](./push-notifications.md) 참조).
+SMS 발송과 점유인증 책임은 의도적으로 분리되어 있습니다. SMS 도메인은 **"문자를 어떻게 전달하는가"** 만 알고, 점유인증 도메인은 **"OTP 의 수명을 어떻게 관리하는가"** 만 압니다. `core-device` 와 `core-push` 가 분리된 것과 같은 철학입니다 ([`Push Notifications`](./push-notifications.md) 참조).
 
 ---
 
@@ -103,7 +103,7 @@ SOLAPI 는 국내형 번호(`01012345678`) 를 요구하므로, E.164(`+8210…`
   Text: [랜목톡] 인증번호 [042193] 보이스피싱주의, 타인 노출금지
 ```
 
-> `LoggingEmailAdapter` 가 `local` 전용인 것과 달리, SMS fallback 은 **`dev` 프로필에서도 활성화**됩니다. 실 발신사 발급 전 dev 서버 도그푸딩을 위해서이며, dev 서버는 Cloudflare Access 로 게이팅되어 OTP 콘솔 노출이 안전합니다. **운영(prod) 에는 등록되지 않습니다** (`@Profile("!prod")`).
+> `LoggingEmailAdapter` 가 `local` 전용인 것과 달리, SMS fallback 은 `dev` 프로필에서도 활성화됩니다. 실 발신사 발급 전 dev 서버 도그푸딩을 위해서이며, dev 서버는 Cloudflare Access 로 게이팅되어 OTP 콘솔 노출이 안전합니다. **운영(prod) 에는 등록되지 않습니다** (`@Profile("!prod")`).
 
 ### 자동 구성 (graceful + 운영 안전망)
 
@@ -256,7 +256,7 @@ public void verify(String phoneE164, String code) {
         .orElseThrow(() -> new PhoneAuthException(OTP_NOT_FOUND));
 
     if (otp.isExpired())                      throw new PhoneAuthException(OTP_EXPIRED);
-    if (otp.getAttempts() >= MAX_ATTEMPTS)    throw new PhoneAuthException(OTP_TOO_MANY_ATTEMPTS);
+    if (otp.getAttempts() >= MAX_VERIFY_ATTEMPTS) throw new PhoneAuthException(OTP_TOO_MANY_ATTEMPTS);
     if (!otp.matches(OtpCodes.sha256Hex(code))) {
         otp.incrementAttempts();              // 시도 카운트 증가
         throw new PhoneAuthException(OTP_INVALID_CODE);
@@ -265,7 +265,7 @@ public void verify(String phoneE164, String code) {
 }
 ```
 
-> **`@Transactional(noRollbackFor = PhoneAuthException.class)`** — 코드 불일치 시 `incrementAttempts()` 직후 예외를 던지는데, 기본 동작(RuntimeException → 롤백) 은 attempts 증가를 사라지게 해 brute-force 가드를 무력화합니다. `noRollbackFor` 로 증가분을 커밋시킵니다.
+> `@Transactional(noRollbackFor = PhoneAuthException.class)` — 코드 불일치 시 `incrementAttempts()` 직후 예외를 던지는데, 기본 동작(RuntimeException → 롤백) 은 attempts 증가를 사라지게 해 brute-force 가드를 무력화합니다. `noRollbackFor` 로 증가분을 커밋시킵니다.
 
 ### TTL / rate-limit 기본값
 
@@ -281,7 +281,7 @@ public void verify(String phoneE164, String code) {
 
 ## 데이터 — per-app `phone_otp_codes` (V015)
 
-점유인증 데이터는 **per-app** 입니다. 코어 schema 는 없습니다 ([`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)). `PhoneOtpCode` 엔티티는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어, 라우팅 EntityManagerFactory 가 **현재 요청 slug 의 schema** 로 OTP row 를 읽고 씁니다 (`SlugContext` 기반). `PhoneAuthAutoConfiguration` 도 `core-auth` 와 동일하게 라우팅 EMF/txManager(`@Primary`) 에 바인딩됩니다.
+점유인증 데이터는 **per-app** 입니다. 코어 schema 는 없습니다 ([`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)). `PhoneOtpCode` 엔티티는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어, 라우팅 EntityManagerFactory 가 현재 요청 slug 의 schema 로 OTP row 를 읽고 씁니다 (`SlugContext` 기반). `PhoneAuthAutoConfiguration` 도 `core-auth` 와 동일하게 라우팅 EMF/txManager(`@Primary`) 에 바인딩됩니다.
 
 ```java
 // common-persistence/AbstractAppDataSourceConfig.java
@@ -370,7 +370,7 @@ app:
 - SMS 발송은 `SmsPort` 한 메서드(`send(toE164, text)`) 의 최소 인터페이스로 추상화됩니다 — `core-email` 의 `EmailPort` 와 같은 패턴.
 - 운영은 `CoolSmsAdapter`(SOLAPI HMAC-SHA256 실발송), 개발은 `LoggingSmsAdapter`(콘솔 OTP 캡처) 로 키 유무에 따라 자동 토글됩니다.
 - 점유인증은 `PhoneAuthPort.requestOtp` / `verify` 두 메서드. 각 앱이 BRAND·appSlug 를 주입한 **얇은 컨트롤러**로 노출합니다 (ADR-013).
-- raw 6자리 코드는 **문자에만**, DB 에는 **SHA-256 해시만** 저장합니다. TTL 5분 + 검증 5회 + 발송 rate-limit 의 3중 방어.
+- raw 6자리 코드는 **문자에만 들어가고 DB 에는 SHA-256 해시만 저장**합니다. TTL 5분 + 검증 5회 + 발송 rate-limit 의 3중 방어.
 - 검증 성공 후 `AuthPort.issueForVerifiedPhone` 이 `social_identities(provider='phone')` 로 유저를 find-or-create 하고 토큰을 발급합니다.
 - OTP 데이터는 **per-app** `phone_otp_codes`(V015) — 코어 schema 없이 라우팅 EMF 로 현재 slug schema 에 저장됩니다 (ADR-037).
 

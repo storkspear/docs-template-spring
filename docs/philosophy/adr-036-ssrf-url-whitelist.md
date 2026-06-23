@@ -8,11 +8,11 @@
 
 ## 결론부터
 
-SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL 로 요청을 보내게 만드는* 취약점이에요. 클라우드 환경에서는 *내부 메타데이터 endpoint* (예: AWS `169.254.169.254`) 접근으로 *credential 탈취* 가 가능하고, 내부 사설망에서는 *DB / 관리 API* 우회 접근이 가능해요. *공개되면 안 될 IP / 도메인* 으로의 요청을 막는 것이 방어의 핵심이에요.
+SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL 로 요청을 보내게 만드는* 취약점이에요. 클라우드 환경에서는 *내부 메타데이터 endpoint* (예: AWS `169.254.169.254`) 접근으로 *credential 탈취* 가 가능하고, 내부 사설망에서는 *DB·관리 API* 우회 접근이 가능해요. *공개되면 안 될 IP·도메인* 으로의 요청을 막는 것이 방어의 핵심이에요.
 
 본 프로젝트의 모든 외부 HTTP 호출은 *고정 URL (hardcode)* 또는 *운영자가 통제하는 환경변수* 로만 결정돼요. 사용자가 입력한 값으로 URL 이 만들어지거나 redirect 가 자동 따라가는 지점이 *코드 어디에도 없어요*. 즉 SSRF 의 일반적 공격 벡터가 *설계상 불가능* 합니다.
 
-이 정책의 핵심은 *명문화* 와 *향후 확장 가이드* 예요. 현재 13 곳의 외부 호출 (Apple JWKS / Google tokeninfo / Google JWKS (IAP webhook) / Kakao API 2 / Naver API / Resend / Apple App Store Server API / Google Play Developer API / Google OAuth / PortOne / MinIO / FCM) 모두 정책 부합 상태이지만, 새 외부 호출을 추가하는 개발자가 *별생각 없이 사용자 입력으로 URL 을 만드는 케이스* 를 사전에 차단해야 해요. ADR 에 정책을 박아두면 *코드 review / ArchUnit / 향후 본인의 future-self* 에게 같은 message 를 일관되게 전달할 수 있어요.
+이 정책의 핵심은 *명문화* 와 *향후 확장 가이드* 예요. 현재 14 곳의 외부 호출 (Apple JWKS·Google tokeninfo·Google JWKS(IAP webhook)·Kakao API 2종·Naver API·Resend·Apple App Store Server API·Google Play Developer API·Google OAuth·PortOne·MinIO·FCM·CoolSMS) 모두 정책 부합 상태이지만, 새 외부 호출을 추가하는 개발자가 *별생각 없이 사용자 입력으로 URL 을 만드는 케이스* 를 사전에 차단해야 해요. ADR 에 정책을 박아두면 코드 review·ArchUnit·향후 본인의 future-self 에게 같은 message 를 일관되게 전달할 수 있어요.
 
 ---
 
@@ -20,9 +20,9 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 
 웹 백엔드의 외부 호출은 보통 *third-party API 통합* (소셜 로그인 검증, 결제 webhook, 푸시 발송, 이메일 발송, 스토리지 등) 에서 발생해요. 이런 호출은 종종 *동적 URL* 형태로 구현되는데, *사용자 입력* 이 URL 의 일부에 들어가면 SSRF 가 가능해져요.
 
-전형적 SSRF 공격 사례를 보면 위험이 명확해요. *URL preview / image proxy* 같은 기능에서 사용자가 `http://169.254.169.254/latest/meta-data/iam/security-credentials/<role>` 같은 URL 을 입력하면, AWS EC2 의 IMDSv1 엔드포인트가 응답해서 *해당 인스턴스의 IAM credential* 이 공격자에게 노출됩니다. *RDS endpoint / Redis / Elasticsearch* 같은 내부 서비스도 같은 방식으로 우회 접근될 수 있어요.
+전형적 SSRF 공격 사례를 보면 위험이 명확해요. *URL preview·image proxy* 같은 기능에서 사용자가 `http://169.254.169.254/latest/meta-data/iam/security-credentials/<role>` 같은 URL 을 입력하면, AWS EC2 의 IMDSv1 엔드포인트가 응답해서 *해당 인스턴스의 IAM credential* 이 공격자에게 노출됩니다. *RDS endpoint·Redis·Elasticsearch* 같은 내부 서비스도 같은 방식으로 우회 접근될 수 있어요.
 
-본 프로젝트는 *다행히* 이런 동적 URL 처리를 하지 않습니다. 외부 호출은 모두 *고정된 third-party endpoint* (Apple, Google, Kakao 등) 로 향하고, 사용자가 보내는 *token / id* 는 query parameter 또는 body 에만 들어가지 *호스트네임이나 path* 를 결정하지 않아요.
+본 프로젝트는 *다행히* 이런 동적 URL 처리를 하지 않습니다. 외부 호출은 모두 *고정된 third-party endpoint* (Apple, Google, Kakao 등) 로 향하고, 사용자가 보내는 *token·id* 는 query parameter 또는 body 에만 들어가지 *호스트네임이나 path* 를 결정하지 않아요.
 
 그러나 *현재 안전하다는 것* 과 *앞으로도 안전하다는 것* 은 다른 이야기예요. 새 기능 추가 시 *예: 사용자가 자기 프로필에 외부 이미지 URL 을 등록하면 서버가 다운로드해서 캐싱* 같은 기능이 추가되면 SSRF 가 즉시 가능해져요. 이런 시나리오를 사전에 차단하려면 *"외부 URL 은 hardcode 또는 환경변수만"* 이라는 정책이 코드 baseline 으로 박혀있어야 해요.
 
@@ -77,8 +77,9 @@ InterruptedException 처리도 표준 패턴 따름 — `Thread.currentThread().
 | 11 | PortOne 결제 API | `PortOneApiClient` (`properties.apiUrl()` + path) | env (`app.payment.portone.api-url`) | connect 5s, req 10s |
 | 12 | MinIO 스토리지 | (MinIO SDK 내부) | `APP_STORAGE_MINIO_ENDPOINT` (env) | SDK default |
 | 13 | FCM 푸시 | (Firebase Admin SDK 내부) | SDK 내부 관리 | SDK default |
+| 14 | CoolSMS(SOLAPI) 문자 | `CoolSmsAdapter.apiUrl()` (`CoolSmsProperties.apiUrl`) | env (`app.sms.coolsms.api-url`) | connect 5s, read 10s |
 
-> connect timeout 은 `iapHttpClient` Bean (`IapAutoConfiguration`) / `paymentHttpClient` Bean (`PaymentAutoConfiguration`) 에서 일괄 5s. 개별 어댑터는 request timeout 만 명시.
+> connect timeout 은 `iapHttpClient` Bean (`IapAutoConfiguration`) 과 `paymentHttpClient` Bean (`PaymentAutoConfiguration`) 에서 일괄 5s. 개별 어댑터는 request timeout 만 명시.
 
 > 식별자 (상수명) 로 인벤토리화 — line number 는 코드 편집 빈번하므로 자동 outdated 위험. 정확한 위치는 `grep -rn '<상수명>' core/` 로 즉시 파악 가능.
 

@@ -2,400 +2,410 @@
 
 > **유형**: How-to · **독자**: Level 1 · **읽는 시간**: ~1~2시간 (실제 셋업 포함)
 
-> **편의를 위해 `<repo-name>` 심볼릭 링크를 등록했습니다.**
->
-> 본 문서의 `<repo-name> <verb>` 표기는 `./factory install` 후 등록된
-> `~/.local/bin/<repo-name>` symlink 를 의미해요. `<repo-name>` 자리에는
-> *파생 레포의 이름* (예: `sumtally`, `gymlog`) 이 들어가요.
->
-> symlink 미등록 시 `bash ./factory <verb>` 또는 직접 `bash tools/<low-level>.sh`
-> 호출도 동등해요.
+이 문서는 GitHub Template 을 "Use this template" 으로 복제한 직후부터 **내 노트북에서 Spring 앱이 살아 움직이는 순간** 까지, 첫 사용자를 옆에서 한 단계씩 안내하는 가이드예요. 처음 보는 도구가 나오면 설치하는 법까지 같이 짚고, 왜 이 단계가 필요한지를 먼저 설명한 뒤 명령을 보여줘요.
 
-GitHub Template 을 "Use this template" 으로 복제한 직후부터 **로컬에서 Spring 앱 첫 기동** 까지의 가이드예요.
+전체 흐름은 시간 순으로 이렇게 흘러가요.
 
-## 대상 + 선행 지식
-
-- **대상**: 이 템플릿으로 새 프로젝트를 시작하는 Java 백엔드 개발자 (본인 미래의 자신 포함)
-- **선행 지식**:
-  - Java / Spring Boot 기초 (JPA, DI, application.yml)
-  - Git 기본
-  - Docker 개념 (container, compose)
-  - 터미널 (macOS / Linux)
-
----
-
-## 1. 사전 설치 체크리스트
-
-아래 도구가 **모두 이미 설치되어 있으면 Section 3~4 로 바로 건너뛰세요**. 처음 설치라면 각 항목에 15~20분씩 더 소요돼요.
-
-| 도구 | 버전 | 설치 (macOS) | 설치 (Linux) |
-|---|---|---|---|
-| **JDK** | 21 (Temurin 권장) | `brew install --cask temurin@21` | [adoptium.net](https://adoptium.net/) tarball |
-| **Docker Desktop** | 최신 | [docker.com](https://www.docker.com/products/docker-desktop/) | `apt install docker.io` |
-| **mc** (MinIO Client) | 최신 | `brew install minio/stable/mc` | [min.io/docs/minio/linux/reference/minio-mc.html](https://min.io/docs/minio/linux/reference/minio-mc.html) |
-| **Node.js** | 18+ | `brew install node` | `nvm install 20` |
-| **gh** (GitHub CLI, 선택) | 최신 | `brew install gh` | [cli.github.com](https://cli.github.com/) |
-
-### 검증
-```bash
-java --version     # 21.x.x 이상
-docker --version   # 20.x 이상
-mc --version       # RELEASE.2024.xx.xx 이상
-node --version     # v18 이상
+```
+도구 설치 (§1)  →  레포 만들기 + 첫 기동 (§2)  →  첫 앱 모듈 추가 (§3)
+                                                        ↓
+        부가 — 환경 변수 (§4) · 공동 작업자 (§5) · 흔한 에러 (§6) · 미구현 기능 (§7)
 ```
 
+처음이라면 §1 → §2 → §3 만 차례로 따라가면 "첫 앱이 뜨는" 데까지 도달해요. §4 이후는 필요해질 때 돌아와 읽어도 괜찮아요.
+
+## 누구를 위한 문서인가
+
+이 템플릿으로 새 프로젝트를 시작하는 Java 백엔드 개발자를 위한 문서예요. 6개월 뒤 이 레포를 다시 켜는 미래의 나 자신도 포함이고요.
+
+### 선행 지식
+
+아래는 "있으면 막힘 없이 따라갈 수 있는" 배경 지식이에요. 모르는 게 있어도 겁먹지 마세요. 각 항목에 학습 링크를 달아 뒀고, 처음 보는 용어는 [용어 사전](../reference/glossary.md) 에서 바로 찾아볼 수 있어요.
+
+**꼭 필요해요 (없으면 중간에 막혀요)**
+
+- **터미널 기본** — `cd`, 명령 실행, 환경 변수 정도. 이 가이드는 macOS / Linux 기준이에요 ([Windows 는 §1 의 안내](#1-도구-설치) 참고).
+- **Git 기본** — clone / commit / push. 익숙하지 않다면 [git 공식 핸드북](https://git-scm.com/book/ko/v2) 의 1~2장이면 충분해요.
+- **Java + Spring Boot 감각** — `@Service` / `@Controller` / `application.yml` 이 무엇인지 정도. 처음이라면 [Spring 공식 "Building an Application with Spring Boot" 가이드](https://spring.io/guides/gs/spring-boot) 를 한 번 따라 해 보면 그림이 잡혀요. 용어는 [`Spring Boot`](../reference/glossary.md#프레임워크--빌드) · [`DI`](../reference/glossary.md#프레임워크--빌드) 항목을 참고하세요.
+
+**있으면 더 편해요 (없어도 진행은 돼요)**
+
+- **Docker 개념** — [`container`](../reference/glossary.md#운영--인프라) 와 [`Docker Compose`](../reference/glossary.md#운영--인프라) 가 무엇인지. [Docker 공식 "Get started"](https://docs.docker.com/get-started/) 의 첫 페이지면 감이 잡혀요. 이 템플릿은 Postgres / MinIO 를 docker 로 자동 기동하므로, 직접 명령을 칠 일은 거의 없어요.
+- **JPA / Flyway 감각** — [`JPA`](../reference/glossary.md#데이터베이스) 는 객체와 DB 테이블 매핑, [`Flyway`](../reference/glossary.md#데이터베이스) 는 `V001__init.sql` 같은 SQL 파일을 순서대로 한 번씩 실행하는 마이그레이션 도구예요. 첫 기동에는 몰라도 되고, 앱 도메인을 만들 때 다시 만나요.
+
 ---
 
-## 2. 파생 레포 생성
+## 1. 도구 설치
 
-### 2.1 GitHub 에서 복제
-1. 템플릿 레포 페이지 → **Use this template** → Create new repository
-2. 이름 설정 (예: `myapp-backend`)
+먼저 노트북에 필요한 도구를 갖춰요. 이미 다 설치돼 있다면 [§2 레포 만들기](#2-레포-만들기--첫-기동) 로 바로 넘어가도 돼요.
 
-### 2.2 로컬 clone
+> **이 팩토리는 macOS 기준이에요** (brew · bash · Kamal 전제). Linux 도 대부분 동작하고, 각 도구마다 Linux 설치 경로를 함께 적어 뒀어요. **Windows 는 직접 지원하지 않아요** — WSL2(Windows Subsystem for Linux) 안에서 Linux 환경으로 진행하는 걸 권장해요.
+
+### 한 번에 진단하기 — `./factory doctor`
+
+도구를 하나씩 확인하기 전에, 레포를 clone 한 뒤라면 진단 명령 하나로 무엇이 빠졌는지 한눈에 볼 수 있어요.
+
+```bash
+./factory doctor
+#  → OS 를 감지하고 도구별로 ✓(설치됨) / ✗(미설치) 를 표시해요.
+#    빠진 도구는 OS 에 맞는 설치 명령까지 같이 안내해요 (설치는 직접).
+```
+
+`doctor` 는 아무것도 설치하거나 바꾸지 않는 안전한 진단 명령이라, 셋업 전에 먼저 한 번 돌려 보는 걸 권장해요. 아래 표는 그 진단이 확인하는 도구들을 도구별로 정리한 거예요 — **각 도구의 설치와 검증을 한 흐름으로** 묶었어요.
+
+### 로컬 개발에 꼭 필요한 도구
+
+| 도구 | 역할 | 설치 (macOS) | 설치 (Linux) |
+|---|---|---|---|
+| **JDK 21~25** | Java 빌드/실행 ([`Temurin`](https://adoptium.net/) 권장) | `brew install --cask temurin@21` | [adoptium.net](https://adoptium.net/) tarball |
+| **Docker** | Postgres/MinIO 컨테이너 기동 | [OrbStack](https://orbstack.dev/) 또는 [Docker Desktop](https://www.docker.com/products/docker-desktop/) | `apt install docker.io` |
+| **Node.js 18+** | 커밋 규약 도구(husky) 구동 | `brew install node` | `nvm install 20` |
+| **git** | 버전 관리 | `brew install git` | `apt install git` |
+| **psql** | `new app` 의 schema/role 생성 | `brew install libpq` | `apt install postgresql-client` |
+| **jq** | 셋업 스크립트의 JSON 처리 | `brew install jq` | `apt install jq` |
+
+설치한 뒤 아래로 각 도구를 검증해요.
+
+```bash
+java --version     # 21 ~ 25 사이여야 해요
+docker info        # daemon 이 떠 있으면 정보가 출력돼요 (Docker Desktop/OrbStack 실행 필요)
+node --version     # v18 이상
+git --version
+psql --version
+jq --version
+```
+
+> **Java 버전 주의** — JDK 는 **21 부터 25 까지만** 지원해요. JDK 26 이상은 Gradle 이 아직 그 class file 형식(major 70)을 읽지 못해 빌드가 실패해요. 시스템 java 가 범위를 벗어나도, `factory init` 은 `brew` 의 `openjdk@21` 을 자동으로 찾아 `JAVA_HOME` 을 잡아 주니 너무 걱정하지 않아도 돼요.
+
+### 운영/배포에 필요한 도구
+
+| 도구 | 역할 | 설치 (macOS) | 설치 (Linux) |
+|---|---|---|---|
+| **gh** (GitHub CLI) | repo 셋업 + Secrets 등록 | `brew install gh` | [cli.github.com](https://cli.github.com/) |
+| **mc** (MinIO Client) | 외부 MinIO 운영 (선택) | `brew install minio/stable/mc` | [min.io docs](https://min.io/docs/minio/linux/reference/minio-mc.html) |
+
+```bash
+gh --version && gh auth status   # 설치 + 로그인 확인 (gh auth login 으로 로그인)
+```
+
+- **gh 는 로컬만이면 없어도 되지만, 운영/배포엔 필수예요.** [§2.3](#23-factory-install--명령어-등록) 의 `./factory install` 이 GitHub 에 `develop` 브랜치와 보호 규칙을 만들 때, 그리고 운영 셋업(`prod init`)이 GitHub Secrets 를 push 할 때 `gh` 가 필요해요. 셋업 스크립트가 `gh auth status` 로 로그인 상태까지 확인하니 미리 `gh auth login` 을 해 두면 매끄러워요.
+- **mc 는 선택이에요.** 로컬 개발은 docker 로 띄우는 MinIO 를 root 자격으로 바로 쓰므로 CLI 가 필요 없어요. 본인 NAS 나 외부 S3 호환 스토리지를 직접 운영할 때만 챙기면 돼요.
+
+> **푸시 알림(FCM)을 쓸 때만** `firebase` / `gcloud` 가 추가로 필요해요. 첫 기동에는 무관하니 지금은 건너뛰어도 돼요. `factory doctor` 가 이 둘도 "선택" 으로 함께 점검해 줘요.
+
+---
+
+## 2. 레포 만들기 + 첫 기동
+
+이 절은 **첫 작업자의 최초 셋업** 흐름이에요. 템플릿에서 내 레포를 만들고, clone 해서, 명령 하나로 로컬 환경을 띄우고, 첫 앱까지 올리는 happy path 를 한 번에 따라가요.
+
+> 두 번째 노트북이나 합류하는 동료가 *이미 셋업된* 레포를 새로 clone 하는 경우라면, 여기 말고 [§5 공동 작업자](#5-공동-작업자-두-번째-노트북) 로 가세요. 그쪽이 더 짧아요.
+
+### 2.1 GitHub 에서 내 레포 만들기
+
+1. 템플릿 레포 페이지에서 **Use this template → Create new repository** 를 눌러요.
+2. 레포 이름을 정해요 (예: `myapp-backend`). 이게 [파생 레포](../reference/glossary.md#이-레포-고유-용어) 가 돼요.
+
+### 2.2 로컬로 clone
+
 ```bash
 git clone git@github.com:<your-org>/myapp-backend.git
 cd myapp-backend
 ```
 
-### 2.3 `npm install` — **bootstrap 이 자동 실행**
+### 2.3 `./factory install` — 명령어 등록
 
-이 프로젝트는 Java Gradle 기반이지만 **커밋 메시지 규약 도구 (husky / commitlint / commitizen)** 를 npm 으로 관리해요.
-
-`./tools/init-local.sh` 실행 시 (또는 `./factory <cmd>` 의 어떤 명령이든 첫 진입 시) 내부적으로 `npm install` 을 자동 수행하므로 **별도로 수동 실행할 필요가 없어요**. 대신 **Node 18+ 가 필수** 예요. bootstrap 이 Node 를 찾지 못하면 즉시 fail 해요.
-
-> **백업 안전망**: `./gradlew` 를 직접 호출 (factory CLI 우회) 시에는 build 시점에 husky 미활성 warning 이 출력돼요. 그래도 활성화하려면 `npm install` 1회 수동.
-
-자동 수행되는 것:
-- `node_modules/` 디렉토리 생성 (약 50 MB, `.gitignore` 포함)
-- `.husky/` 의 git hook 활성화 (`prepare` 스크립트)
-- `git commit` 마다 `.husky/commit-msg` 가 **Conventional Commits 형식 + Claude 트레일러 차단** 검증
-- `npx cz` 로 대화형 커밋 메시지 작성 가능
-
-**재실행 시에도 안전**: bootstrap 은 `node_modules` + `.husky/_` 가 이미 있으면 skip 하므로 여러 번 돌려도 비용이 거의 0 이에요.
-
-### 2.4 두 번째 노트북 / 공동 작업자 (이미 셋업된 레포를 clone)
-
-레포가 이미 한 번 셋업된 뒤(첫 작업자가 rename + 첫 앱 + `.env.prod` 완료), **다른 노트북이나 두 번째 개발자**가 합류하는 흐름은 자동으로 처리돼요. 각 머신에서 한 번씩만:
+clone 직후 가장 먼저 할 일은 `factory` 를 설치하는 거예요. `factory` 는 셋업 · 기동 · 테스트 · 배포 · 정리를 한곳에서 호출하는 명령 dispatcher 인데, 매번 `bash ./factory ...` 로 부르긴 번거로워요.
 
 ```bash
-git clone git@github.com:<org>/<repo>.git
-cd <repo>
-./factory install        # symlink 등록 (머신마다 1회)
-<repo> init              # collaborator mode 자동 감지
+./factory install
+#  → ~/.local/bin/<레포-이름> 에 symlink(짧은 호출용 바로가기) 를 등록해요.
+#    이후로는 어디서든 '<레포-이름> <명령>' 한 번으로 factory 를 부를 수 있어요.
+#  → gh 가 로그인돼 있으면 GitHub 에 develop 브랜치 + 보호 규칙도 함께 만들어 줘요.
 ```
 
-`<repo> init`(= `tools/init-local.sh`)은 **collaborator mode 를 자동 감지**해요 — `settings.gradle` rename 완료 + `PROJECT_README_TEMPLATE.md` 부재 + `.env.prod` 부재이면 트리거. 이때:
+여기서 **왜 symlink 일까요?** 이 템플릿은 한 사람이 여러 앱을 빠르게 찍어내는 "공장형" 모델이라, `<레포> <env> <verb>` 형태의 자동화 명령을 수시로 부르게 돼요. 긴 경로 대신 짧은 이름으로 부를 수 있게 symlink 라는 바로가기를 하나 등록하는 거예요. 등록 후엔 이 문서에서 `<repo>` 라고 쓴 자리에 *내 레포 이름*(예: `myapp-backend`, 또는 설치 때 정한 짧은 별칭)이 들어가요.
 
-- **skip**: Step 2(rename) / Step 3(README 교체) — 첫 작업자가 이미 처리.
-- **실행**: `.env` 생성(`.env.example` → `.env`) + 로컬 docker(postgres/minio/wiremock) 기동 + verify-local + factory symlink.
+설치하면 어디서든 `<repo> init`, `<repo> test` 같은 명령을 쓸 수 있어요. `~/.local/bin` 이 `PATH` 에 없다는 경고가 뜨면, 안내대로 `~/.zshenv` 에 `export PATH="$HOME/.local/bin:$PATH"` 한 줄을 추가하세요. 명령 전체 매트릭스와 별칭 변경법은 [`CLI 가이드`](./cli-guide.md) 에 정리돼 있어요.
 
-핵심 — **두 번째 노트북은 외부 DB(Supabase 등) 자격이 전혀 필요 없어요.** 로컬 docker postgres 만 쓰고, 앱 schema 는 `<repo> new <slug>` 가 결정적 Flyway(V001~V014)로 동일하게 재생성해요. `.env` 는 `.gitignore` 라 머신마다 **각자 생성**(커밋 안 됨) — 자격 충돌이 없어요.
+> symlink 를 등록하지 않아도 `bash ./factory <verb>` 또는 `bash tools/<스크립트>.sh` 직접 호출로 동등하게 동작해요.
 
-> `.env.prod` 는 커밋되지 않으므로(secret 보호) 두 번째 노트북엔 없어요. 로컬 개발엔 불필요하고, 운영 변경(`prod init` / Secrets 갱신)은 **첫 작업자(운영자) 한 명**이 담당하는 걸 권장해요. 두 번째 개발자가 `prod init` 을 돌리면 운영 secret 을 덮어쓸 수 있어 막혀 있어요(안전장치).
+### 2.4 `<repo> init` — 로컬 환경 셋업
 
----
-
-## 3. 환경 변수 설정
-
-### 3.1 `.env` 생성
-```bash
-cp .env.example .env
-```
-
-### 3.2 **최소 필수** 편집 (로컬 local 기준)
-
-**local 프로파일은 사실상 `cp .env.example .env` 만으로 충분해요.**
-`application-local.yml` 이 JWT_SECRET 등 필수 값의 fallback 을 내장하고 있어 `.env` 가 비어있어도 기동돼요.
-
-**prod 기동 또는 본인만의 비밀키를 쓰고 싶을 때** 아래 값들을 덮어쓰세요.
+이제 명령 하나로 로컬 개발 환경을 통째로 셋업해요. 운영값은 전혀 요구하지 않으니, 첫 사용자가 부담 없이 돌릴 수 있어요.
 
 ```bash
-# JWT 서명 비밀키 — 아래 생성 명령으로 만든 64자 문자열을 여기에 붙여넣기 (prod 필수)
-JWT_SECRET=<put-generated-value-here>
+<repo> init
+#  자동으로 처리되는 것:
+#   · prereqs 검증 (JDK 21~25 / Docker / Node 18+ / gh)
+#   · .env 자동 생성 (.env.example → .env) — 직접 복사할 필요 없어요
+#   · 프로젝트 이름 rename (template-spring → 내 레포 이름)
+#   · docker 로 Postgres + MinIO 기동
+#   · verify-local 자동 검증
+#   · ~/.local/bin/<repo> symlink 재확인
 ```
 
-**JWT_SECRET 생성 명령**:
-```bash
-openssl rand -hex 32
-```
-출력된 64자 hex 문자열을 복사해서 `JWT_SECRET=` 뒤에 붙여넣어요.
+여기서 한 가지 알아 둘 게 있어요. **갓 만든 레포는 앱 모듈이 0개라, 이 시점엔 Spring 이 아직 부팅되지 않아요.** 빈 상태로 뜨는 걸 막는 안전장치(ADR-037)예요. Postgres 와 MinIO 는 떠 있고, [§3 에서 첫 앱을 추가](#3-첫-앱-모듈-추가) 하면 그때 Spring 이 부팅돼요. `init` 이 끝나면 화면에도 "다음 단계 — 첫 앱을 추가하세요" 안내가 떠요.
 
-⚠️ `.env` 파일은 shell substitution 을 **해석하지 않아요**. `JWT_SECRET=$(openssl rand -hex 32)` 를 그대로 넣으면 리터럴 문자열 17자로 저장되어 `JwtProperties` 의 32자 검증에 실패해요.
+> **시간 예상** — 도구가 모두 깔려 있으면 **10~15분**, 프레쉬 맥북에서 처음 설치하는 거라면 **25~30분** 정도 걸려요. Gradle 첫 빌드가 모든 모듈의 의존성을 내려받기 때문인데(5~12분), 두 번째부터는 캐시를 써서 훨씬 빨라요.
 
-### 3.3 선택 — 오브젝트 스토리지 (MinIO)
+> **관측성 스택은 로컬에 없어요** — Loki/Grafana/Prometheus 는 운영 전용이에요. 로컬에서는 로그를 콘솔 출력으로, 메트릭을 `/actuator/prometheus` 로 충분히 볼 수 있어 메모리 부담만 큰 스택을 띄우지 않아요. 운영 대시보드가 필요하면 [`운영 모니터링 셋업 가이드`](../production/setup/monitoring-setup.md) 를 참고하세요.
 
-**로컬 docker MinIO** 를 쓸 경우 다음과 같이 설정해요.
-```bash
-APP_STORAGE_MINIO_ENDPOINT=http://localhost:9000
-APP_STORAGE_MINIO_ACCESS_KEY=minioadmin
-APP_STORAGE_MINIO_SECRET_KEY=minioadmin
-APP_STORAGE_MINIO_REGION=us-east-1
-APP_STORAGE_MINIO_BUCKETS_0=dev-shared
-```
+직접 단계를 손으로 확인하고 싶다면 [§2.6 수동 기동](#26-수동으로-한-단계씩-기동하고-싶다면) 을 참고하세요. 보통은 `<repo> init` 하나로 충분해요.
 
-**template 관리자의 NAS MinIO 는 LAN 전용** 이라 파생 레포 개발자는 쓸 수 없어요. 본인 NAS / S3 호환 서비스 / 로컬 docker 중에서 선택하세요.
+> **로컬은 한 번, 운영은 두 번이에요.** 이 "한 번으로 끝" 은 로컬 기준이에요. 운영(`prod init`)은 1회차에 `.env.prod` 를 만들어 두고 "REQUIRED 값을 채우세요" 하며 멈췄다가, 값을 채운 뒤 같은 명령을 한 번 더 돌려 GitHub Secrets 까지 push 하는 2회차 흐름이에요. 그래서 운영은 `.env.prod` 를 한 번 채워 넣는 단계가 끼어요. 운영 셋업은 배포 단계에서 따로 다뤄요 ([도그푸딩 셋업 가이드](./dogfood-setup.md)).
 
-endpoint 미설정 시 `InMemoryStorageAdapter` 로 fallback 돼요 (업로드는 메모리에만 저장되고, 재시작하면 소실돼요).
+### 2.5 첫 앱을 올리고 검증
 
-**Bucket 자동 생성 (수동 `mc mb` 불필요)** — `APP_STORAGE_MINIO_BUCKETS_*` 리스트에 이름만 넣으면 Spring 부팅 시 `BucketProvisioner` 가 자동 생성하고 retention 도 적용해요. Idempotent 라서 재기동해도 중복 생성 에러가 없어요. 여러 개를 추가하려면 다음과 같이 인덱스를 늘려요.
-```bash
-APP_STORAGE_MINIO_BUCKETS_0=dev-shared
-APP_STORAGE_MINIO_BUCKETS_1=sumtally-receipts   # 운영 앱별 분리 시
-APP_STORAGE_MINIO_BUCKETS_2=rny-avatars
-```
-
----
-
-## 4. 첫 기동
-
-### 4.1 시간 예상
-
-| 조건 | 예상 시간 |
-|---|---|
-| Prereqs 모두 설치됨 (JDK/Docker/mc/Node) | **10~15분** |
-| Cold install (프레쉬 맥북, 처음 설치) | **25~30분** (Gradle 의존성 5~12분 + Docker 이미지 pull 1~2분 포함) |
-
-Gradle 첫 빌드는 모든 모듈의 의존성을 다운로드해요. 두 번째부터는 캐시를 사용해요.
-
-### 4.2 빠른 경로 — `./factory init` (권장)
-
-> **TL;DR — 한 줄이 아래 §4.3 의 수동 단계를 모두 자동화해요 (관측성 제외 — §4.4 참고).**
-> **로컬 → 운영 단계적 셋업** 이라 첫 사용자가 운영값까지 한 번에 채울 부담이 없어요.
+`init` 다음은 [§3 첫 앱 모듈 추가](#3-첫-앱-모듈-추가) 예요. 앱을 하나 추가하면 Spring 이 부팅되고, 아래로 헬스 체크가 통과하면 onboarding 의 첫 목표를 달성한 거예요.
 
 ```bash
-# ── 로컬 셋업 (운영값 미요구) ────────────────────────────
-./factory init <owner>/<repo>           # = ./factory local init
-#  → .env 생성 + docker(postgres + minio) 기동
-#    + verify-local 자동 호출 + ~/.local/bin/<repo> symlink 등록
-#  ⚠ app 모듈 0개(갓 만든 레포)면 Spring 은 아직 미기동 (ADR-037 — slug 없이 부팅 불가).
-#    아래 'new app' 으로 첫 앱을 추가하면 Spring 이 부팅돼요.
-#  이후 어디서든:    <repo> new <slug> → <repo> test / <repo> start
-
-# ── 운영 셋업 (.env.prod REQUIRED 채운 후) ─────────────
-<repo> prod init
-#  → CLOUDFLARE_API_TOKEN 으로 ZONE_ID/ACCOUNT_ID/TUNNEL_ID 자동 추출
-#    + DNS CNAME + Tunnel ingress 자동 등록
-#    + GitHub Secrets / Variables push + verify-server 자동 호출
-
-# ── 한 번에 모두 (local + prod 동시) ──────────────────
-<repo> all init
-#  → 위 둘 한 번에 (= tools/init-local.sh && tools/init-prod.sh 순차 호출과 동등)
+<repo> new myapp    # 첫 앱 모듈 생성 (자세히는 §3)
+<repo> test         # 로컬 e2e 재검증 — spring UP 확인
+curl http://localhost:8081/actuator/health
+# → {"status":"UP",...}  ← 이게 보이면 성공이에요!
 ```
 
-자동 수행:
-- **prereqs 검증** (JDK 21~25 / Docker / Node 18+ / gh CLI) — 누락 시 설치 명령을 안내해요
-  - JDK 부재 시 brew openjdk@21 자동 탐지 + JAVA_HOME 자동 export 까지 처리해요
-- **`.env` / `.env.prod` 자동 생성** + `JWT_SECRET` / `DB_PASSWORD` 자동 발급
-- **`BASE_DOMAIN` + `SUBDOMAIN` 으로 `PUBLIC_HOSTNAME` / `APP_DOMAIN` 자동 조립**
-- **`CLOUDFLARE_API_TOKEN` 1개로 모든 ID + DNS + Tunnel 자동** (prod init)
-- **GitHub Secrets / Variables 자동 push** (transient 에러 시 3회 재시도, prod init)
-- **docker compose up** + Postgres ready 대기 (local init)
-- **Spring 컨테이너 기동** (app 모듈 1개 이상일 때만 — ADR-037, app 0개면 skip) — `infra/docker-spring-local-entrypoint.sh` 가 `.env` 의 host 를 컨테이너 네트워크에 맞게 자동 변환해요
-- **`verify-server.sh` (운영) / `verify-local.sh` (로컬) 자동 호출**
+### 2.6 수동으로 한 단계씩 기동하고 싶다면
 
-완료 후엔 다음과 같이 사용할 수 있어요. **신규 레포(app 0개)는 `new app` 으로 첫 앱을 추가해야 Spring 이 부팅돼요 (ADR-037).**
-
-```bash
-<repo> new gymlog   # ① 첫 앱 모듈 (schema + V001~V007 + admin user 시드) — Spring 부팅 가능해짐
-<repo> test         # ② 로컬 e2e 재검증 (spring UP 확인)
-<repo> prod deploy  # ③ kamal blue/green 배포 (.env.prod 채워진 상태에서)
-```
-
-📖 명령어 전체 매트릭스는 [`docs/start/cli-guide.md`](./cli-guide.md) 에 정리돼 있어요.
-
-아래 §4.3 (수동 최소 기동) 은 **wrapper 안 쓰고 단계를 직접 확인하고 싶을 때** 참고해요.
-
----
-
-### 4.3 최소 기동 (DB 만) — 수동
+`<repo> init` 이 내부에서 무슨 일을 하는지 직접 확인하고 싶을 때를 위한 참고용이에요. 평소엔 필요 없어요.
 
 ```bash
 # 1. Postgres 컨테이너 기동
 docker compose -f infra/docker-compose.local.yml up -d postgres
 
-# 2. Postgres 준비 확인 (optional, 컨테이너명은 settings.gradle 의 rootProject.name 기반)
-docker exec "$(grep -E '^rootProject.name' settings.gradle | sed -E "s/.*=[[:space:]]*'([^']+)'.*/\1/")-postgres-dev" pg_isready -U postgres
-# 또는 더 간단히: bash tools/verify-local.sh   # Postgres + MinIO + (옵션) WireMock + bootRun 한 번에 검증
-
-# 3. .env 를 shell 환경변수로 로드 (Spring Boot 는 .env 를 자동으로 읽지 않아요)
+# 2. .env 를 shell 환경변수로 로드
+#    Spring Boot 는 .env 파일을 자동으로 읽지 않아요 (이게 빠지면 §6.1 에러의 원인).
 set -a; source .env; set +a
 
-# 4. Spring Boot 기동 (첫 실행은 Gradle 의존성 다운로드로 수 분 소요)
-#    ⚠ app 모듈이 0개면 ADR-037 fail-secure 로 부팅 실패 — 먼저 `<repo> new <slug>` 로 앱 추가
+# 3. Spring Boot 기동
+#    ⚠ 앱 모듈이 0개면 부팅이 실패해요 (ADR-037). 먼저 `<repo> new <slug>` 로 앱을 추가하세요.
 ./gradlew :bootstrap:bootRun
 
-# 5. 다른 터미널에서 헬스 체크
+# 4. 다른 터미널에서 헬스 체크
 curl http://localhost:8081/actuator/health
-# → {"status":"UP",...}
 ```
 
-⚠️ **Step 3 필수** — Spring Boot 는 `.env` 파일을 직접 읽지 않아요. 건너뛰면 `SPRING_PROFILES_ACTIVE=local` 가 적용되지 않아 `app.jwt.secret must be at least 32 characters` 에러와 함께 기동에 실패해요. 한 줄로 끝내고 싶다면 다음과 같이 해요.
-```bash
-SPRING_PROFILES_ACTIVE=local ./gradlew :bootstrap:bootRun
-```
-또는
-```bash
-./gradlew :bootstrap:bootRun --args='--spring.profiles.active=dev'
-```
+성공하면 콘솔에 이런 줄들이 보여요.
 
-성공 지표는 다음과 같아요.
 ```
-MinIO client configured: endpoint=http://...      (MinIO 설정했을 경우)
 Tomcat started on port 8081 (http)
 Started FactoryApplication in 4.xxx seconds
 ```
 
-### 4.4 관측성은 로컬 local 에서 제외돼요
-
-관측성 스택(Loki/Grafana/Prometheus/Alertmanager)은 운영 전용으로 범위가 조정됐어요. 로컬에서 대시보드/쿼리 동작 확인이 필요하면 Mac mini 운영 환경의 `log.<domain>` 에서 확인하세요. 자세한 기동 방법은 [`운영 모니터링 셋업 가이드`](../production/setup/monitoring-setup.md) (Mac mini 기준) 를 참고하세요.
-
-로컬 local 에 관측성 스택이 필요 없는 이유 — 메모리·docker 리소스 부담 대비 실제 활용 빈도가 낮아요. 로그는 `./gradlew :bootstrap:bootRun` 콘솔 출력으로, 메트릭은 `/actuator/prometheus` HTTP 엔드포인트로 충분해요.
-
-> **`new app` 으로 첫 앱을 추가한 뒤 `curl /actuator/health` 로 `UP` 응답을 받았으면 onboarding 성공이에요** (app 0개면 ADR-037 fail-secure 로 Spring 이 부팅되지 않아요 — §5 의 `new-app.sh` 를 먼저 실행하세요). 아래 §5 이후는 실제 앱 개발을 시작할 때 읽어도 돼요.
-
-### 4.5 운영 DB provider 선택 (prod 배포 시점에만 결정)
-
-**로컬 local 는 Supabase 가 필요 없어요** — 위 §4.3 의 `docker compose ... postgres` 로 자급자족이 돼요. 아래는 **운영 배포 (Mac mini Kamal) 시점에 결정**할 내용이에요.
-
-`tools/new-app/new-app.sh <slug> --provision-db` 는 어떤 provider 여도 동일한 표준 `psql` 을 호출해요. 결정해야 할 것은 **`DB_PSQL_URL`** (admin role, schema/role 생성 용) 한 줄과 **`DB_URL` / `DB_USER` / `DB_PASSWORD`** (앱 런타임 credential) 예요.
-
-| Provider | 특징 | connection string 형태 (ADR-037 이후 `<slug>` 사용) |
-|---|---|---|
-| **Supabase** ⭐ (template 관리자 default) | 관리형, Free tier 충분, Seoul region 지연 최소, Supavisor pooler 제공 | `jdbc:postgresql://aws-1-<region>.pooler.supabase.com:6543/postgres?currentSchema=<slug>&pgbouncer=true` |
-| **AWS RDS** | 엔터프라이즈 안정성, VPC 통합 | `jdbc:postgresql://<rds-endpoint>.rds.amazonaws.com:5432/<db>?currentSchema=<slug>` |
-| **Fly.io Postgres** | 앱 근접 배포, 글로벌 edge | `jdbc:postgresql://<app>.flycast:5432/<db>?currentSchema=<slug>` |
-| **자체 호스트 Postgres** | 완전 통제, 비용 0 | `jdbc:postgresql://<host>:5432/<db>?currentSchema=<slug>` |
-
-준비 체크리스트 (운영 provider 사용 시):
-- [ ] 인스턴스/프로젝트 생성
-- [ ] admin credential 확보 (운영용 `DB_PSQL_URL` — `.env` 에 저장 금지, shell export 로만 사용)
-- [ ] 앱용 `DB_URL` / `DB_USER` / `DB_PASSWORD` 확보 — `.env` 에 저장
-- [ ] `new-app.sh --provision-db` 실행 **직전에** shell 에서 `export DB_PSQL_URL='postgresql://postgres:<pw>@<host>:5432/postgres'` (운영 DB 에 provision 할 때만. 로컬 docker 는 `.env.example` 의 기본값으로 자동 처리)
-
-**Supabase 사용 시 주의**: Supavisor pooler (`:6543`) 를 쓰면 Spring Boot blue/green 배포 오버랩 구간의 connection 폭증이 안전해져요. Free tier 의 direct (`:5432`) connection 한도가 낮아서 production 부하엔 pooler 가 필수예요.
-
-**AWS RDS / Fly.io / 자체 호스트 주의**: instance 의 `max_connections` 설정과 HikariCP pool size (`spring.datasource.hikari.maximum-pool-size`) 합이 맞는지 확인하세요. 앱 모듈이 많아지면 total = N개 × pool × blue/green(2) 로 빠르게 증가해요.
-
 ---
 
-## 5. 앱 모듈 추가 (`new-app.sh`)
+## 3. 첫 앱 모듈 추가
 
-새 앱 추가는 **2 단계** — **1단계(코드) 자동**, **2단계(환경)도 대부분 자동** 이에요.
+[파생 레포](../reference/glossary.md#이-레포-고유-용어) 는 처음엔 비즈니스 로직 없이 뼈대만 가지고 있어요. 실제로 쓰려면 [앱 모듈](../reference/glossary.md#이-레포-고유-용어) 을 하나 추가해야 해요. 이 한 번의 명령으로 코드 골격과 DB schema 가 같이 만들어지고, 비로소 Spring 이 부팅돼요.
 
 ```bash
-./tools/new-app/new-app.sh gymlog
+<repo> new gymlog
+# 또는 직접: ./tools/new-app/new-app.sh gymlog
 ```
 
-### 1단계 — 코드 scaffolding (자동)
+이 명령은 두 가지 일을 해요 — **코드 골격 만들기** 와 **환경 채우기**. 둘 다 거의 자동이에요.
 
-- `apps/app-gymlog/` 모듈 생성 (build.gradle, HealthController, AuthController 예시)
-- `apps/app-gymlog/src/main/java/com/factory/apps/gymlog/config/GymlogDataSourceConfig.java` 자동 생성 (multi-DataSource wiring, Item 10b)
-- Flyway 마이그레이션 디렉토리 + V001~V006 기본 파일
-- AutoConfiguration 등록
-- `settings.gradle` 에 `:apps:app-gymlog` include 추가
-- `bootstrap/build.gradle` 에 의존성 추가
-- 모듈 README 생성 (`template-v` 버전 기반)
+### 3.1 코드 골격 (자동)
 
-### 2단계 — 환경 setup (대부분 자동)
+- `apps/app-gymlog/` 모듈 생성 (build.gradle, HealthController, AuthController 예시 포함)
+- `GymlogDataSourceConfig.java` 자동 생성 — 앱 전용 DataSource 를 격리해서 연결해요
+- Flyway 마이그레이션 디렉토리 + 인증·결제 공통 테이블 SQL 파일들 (아래 표)
+- AutoConfiguration 등록 + `settings.gradle` / `bootstrap/build.gradle` 에 의존성 추가
+- 모듈 README 생성
 
-`./tools/new-app/new-app.sh gymlog` 가 자동 수행해요.
-- ✅ `.env` 에 `GYMLOG_DB_URL/USER/PASSWORD` placeholder 추가
-- ✅ `.env` 에 `APP_STORAGE_MINIO_BUCKETS_<N>=gymlog-uploads` 추가 (BucketProvisioner 가 Spring 기동 시 실제 생성)
-- ✅ `.env` 에 `APP_CREDENTIALS_GYMLOG_*` placeholder 추가
+`new app` 이 깔아 주는 공통 마이그레이션은 V001~V015 로, 모든 앱이 똑같이 받는 인증·결제 기반이에요.
 
-Opt-in 자동 수행 (`--provision-db` 플래그 사용 시):
-- ✅ Postgres 에 `gymlog` schema + role 생성
+| 버전 | 내용 | 비고 |
+|---|---|---|
+| **V001 ~ V006** | 인증 기반 (users · social_identities · refresh_tokens · email/password 토큰 · devices) | 모든 앱 공통 |
+| **V007** | admin user 시드 (`V007__seed_admin_user.sql`) | 첫 관리자 계정 1명 |
+| **V008 ~ V012** | 결제·구독·감사 (plans · subscriptions · webhook_events · renewal_attempts · audit_logs) | |
+| **V013 ~ V014** | 2FA(TOTP) 컬럼 · 사용자 알림 채널 toggle | |
+| **V015** | phone_otp_codes (휴대폰 점유인증) | **옵트인** — 점유인증을 안 쓰면 이 파일은 삭제 가능 |
 
-> **`DB_PSQL_URL` 이 뭔가요?** schema 와 role 을 **생성할 관리자 권한** connection string 이에요.
-> 앱 전용 `GYMLOG_DB_URL` (앱 role `gymlog_app` 로 접속) 과는 다른 개념 — 수퍼유저/관리자 credential 이 필요해요.
->
-> - **로컬 local** (docker-compose postgres): **별도 설정 불필요** — `.env.example` 에 `DB_PSQL_URL=postgresql://postgres:dev@localhost:5433/postgres` 기본값이 있고, `new-app.sh` 가 `.env` 에서 자동 로드해요. 로컬 docker 환경은 결정적이라 사용자 조작이 없어요.
-> - **운영** (Supabase 등): 관리자 credential 을 **shell 에서 export** 해야 해요 (`.env` 에 저장 금지). `new-app.sh` 는 shell 환경변수를 `.env` 값보다 우선 사용하므로 일시 덮어써요.
+본인 도메인 테이블은 **V016 부터** 직접 작성하면 돼요. V001~V015 가 이미 차 있고 V007 은 도메인이 아니라 관리자 시드라, 그다음 빈 번호가 V016 이에요.
+
+### 3.2 환경 채우기 (대부분 자동)
+
+`new app` 이 `.env` 에 다음을 자동으로 추가해요.
+
+- `GYMLOG_DB_URL` / `GYMLOG_DB_USER` / `GYMLOG_DB_PASSWORD` placeholder
+- `APP_STORAGE_MINIO_BUCKETS_<N>=gymlog-uploads` (Spring 기동 시 `BucketProvisioner` 가 실제 버킷 생성)
+- `APP_CREDENTIALS_GYMLOG_*` 소셜 로그인 placeholder
+
+DB schema 와 role 까지 만들고 싶으면 `--provision-db` 플래그를 붙여요.
+
+```bash
+# 로컬 docker postgres — 별도 설정 없이 바로 동작 (.env.example 의 기본 DB_PSQL_URL 사용)
+<repo> new gymlog --provision-db
+```
+
+> **`DB_PSQL_URL` 이 뭔가요?** schema 와 role 을 *생성할 관리자 권한* connection string 이에요. 앱이 실제로 쓰는 `GYMLOG_DB_URL`(앱 전용 role 로 접속)과는 별개로, 더 높은 권한이 필요해요. **로컬 docker 는 손댈 게 없어요** — `.env.example` 에 기본값이 있어 자동으로 처리돼요. **운영 DB(Supabase 등)** 에 provision 할 때만, `.env` 에 저장하지 말고 명령 직전에 shell 에서 export 하세요.
 >
 > ```bash
-> # 로컬 docker — export 불필요
-> ./tools/new-app/new-app.sh gymlog --provision-db
->
-> # 운영 (Supabase 등) — shell export 필수
 > export DB_PSQL_URL='postgresql://postgres:<pw>@<host>:5432/postgres'
-> ./tools/new-app/new-app.sh gymlog --provision-db
+> <repo> new gymlog --provision-db
 > ```
->
-> `--provision-db` 없이 수동 실행도 가능해요: `psql "$DB_PSQL_URL" -v ON_ERROR_STOP=1 -f infra/scripts/init-app-schema.sql`
 
-여전히 수동으로 채워야 해요.
-- DB_URL 의 `<host>` 실제 값으로 교체
-- GOOGLE_CLIENT_IDS / APPLE_BUNDLE_ID 실제 값 발급 ([`docs/social-auth-setup.md`](./social-auth-setup.md))
-- 도메인 테이블 작성 (V007+, 비즈니스 로직)
+운영으로 넘어갈 때 직접 채워야 하는 것도 있어요.
 
-### 5.1 N번째 앱 추가 — 첫 앱과 **완전 동일한 명령**
+- `GYMLOG_DB_URL` 의 `<host>` 를 실제 운영 DB 주소로 교체
+- 소셜 로그인 자격(Google / Apple) 발급 → [`소셜 로그인 설정 가이드`](./social-auth-setup.md)
+- 도메인 테이블 작성 (V016 부터)
 
-`new-app.sh` 는 멱등 설계라서 첫 앱이든 10번째 앱이든 동일한 명령으로 호출해요.
+### 3.3 앱이 떠야 코드가 반영돼요
+
+이미 떠 있는 Spring 프로세스는 새로 추가한 모듈을 자동으로 감지하지 못해요. `new app` 뒤에는 재기동이 필요해요.
 
 ```bash
-./tools/new-app/new-app.sh foodlog --provision-db
+<repo> restart      # spring 컨테이너만 재빌드 + 재기동 (다른 컨테이너는 유지)
+<repo> test         # spring UP 재확인
 ```
 
-기존 앱(`gymlog`)에 **영향 없이** 자동 처리되는 것:
+### 3.4 두 번째, 세 번째 앱 — 명령은 똑같아요
+
+`new app` 은 멱등(여러 번 호출해도 안전)하게 설계돼서, 첫 앱이든 열 번째 앱이든 같은 명령으로 추가해요.
+
+```bash
+<repo> new foodlog --provision-db
+```
+
+기존 앱(`gymlog`)에 **영향 없이** 자동 처리돼요.
 
 | 항목 | 자동 동작 |
 |---|---|
-| `apps/app-foodlog/` | 신규 디렉토리 (기존 `apps/app-gymlog/` 무관) |
-| `.env` 의 `FOODLOG_DB_*`, `APP_CREDENTIALS_FOODLOG_*` | placeholder append — 키 중복 시 skip |
-| `APP_STORAGE_MINIO_BUCKETS_<N>=foodlog-uploads` | 인덱스 **자동 증가** (`_0=gymlog-uploads` 다음 `_1=foodlog-uploads`) |
-| `settings.gradle`, `bootstrap/build.gradle` | 중복 체크 후 append |
-| Postgres `foodlog` schema + `foodlog_app` role | `--provision-db` 플래그 시 생성 |
-| `FoodlogDataSourceConfig.java` | bean 이름이 slug prefix 로 격리 → `gymlog` bean 과 충돌 없음 |
+| `apps/app-foodlog/` | 신규 디렉토리 (기존 앱과 무관) |
+| `.env` 의 `FOODLOG_DB_*` / `APP_CREDENTIALS_FOODLOG_*` | placeholder append (키 중복 시 skip) |
+| `APP_STORAGE_MINIO_BUCKETS_<N>=foodlog-uploads` | 인덱스 자동 증가 |
+| `settings.gradle` / `bootstrap/build.gradle` | 중복 체크 후 append |
+| Postgres `foodlog` schema + `foodlog_app` role | `--provision-db` 시 생성 |
+| `FoodlogDataSourceConfig.java` | bean 이름이 slug prefix 로 격리 → 충돌 없음 |
 
-격리 보장:
-- **ArchUnit r2** (`APPS_MUST_NOT_DEPEND_ON_EACH_OTHER`) — `foodlog` 에서 실수로 `gymlog` 패키지 import 시 CI 가 차단해요
-- **Flyway 히스토리** — schema 별 독립 (`db/migration/foodlog/`)
-- **HikariCP 풀** — `foodlog-pool` 로 분리
+앱 사이의 격리는 빌드 시점에 강제돼요. `foodlog` 에서 실수로 `gymlog` 패키지를 import 하면 [`ArchUnit`](../reference/glossary.md#라이브러리--sdk) 규칙(r2)이 CI 에서 차단하고, Flyway 히스토리와 [`HikariCP`](../reference/glossary.md#데이터베이스) 풀도 앱별로 따로 관리돼요.
 
-**주의**: 이미 떠있는 Spring 프로세스는 신규 모듈을 감지하지 못해요. 스크립트 실행 후 재기동해야 해요.
+### 3.5 앱 모듈 제거
 
-### 5.2 앱 모듈 제거 (`remove-app.sh`)
-
-앱을 잘못 만들었거나 은퇴시킬 때는 `new-app.sh` 의 **역방향** 인 `remove-app.sh` 를 써요. `new-app.sh` 가 추가한 것 (코드 모듈 + `.env`/`.env.dev` 슬러그 라인 + `local`/`dev` DB schema·role) 을 전부 되돌려요.
+잘못 만들었거나 은퇴시킬 앱은 `new app` 의 역방향인 `remove app` 으로 되돌려요. 한 번의 명령으로 코드와 `.env` 슬러그 라인, DB schema, Firebase 까지 정리해요.
 
 ```bash
-bash tools/new-app/remove-app.sh foodlog          # 1회 confirm ('y')
-# factory: <repo> remove app foodlog   /   단축 <repo> remove foodlog
+<repo> remove gymlog      # 1회 confirm ('y')
 ```
 
-`prod` 는 **차단** 돼요 — 실데이터 + 공유 소스 보호 (코드 먼저 지우면 prod 재배포 불가). prod 에 배포된 앱은 ① 백업 → ② `prod force-clear <slug>` (데이터) → ③ undeploy → ④ `local`/`dev remove app <slug>` (코드) 순서로 은퇴시켜요. 데이터는 `force-clear`, 코드는 `remove app` 으로 구분돼요. 자세히는 [`app-scaffolding.md §10`](./app-scaffolding.md) 과 [`cli-guide.md §9`](./cli-guide.md) 를 참조하세요.
+정리 범위는 환경마다 달라요.
+
+| 대상 | 정리되는 것 |
+|---|---|
+| 코드 (환경 무관) | `apps/app-gymlog/` · `settings.gradle` include · `bootstrap/build.gradle` 의존성 |
+| local | `.env` 의 슬러그 라인 · 로컬 docker postgres(5433)의 `gymlog` schema 와 `gymlog_app` role |
+| dev | `.env.dev` 의 슬러그 라인 · dev DB 의 schema·role · Firebase **dev** 프로젝트 |
+| prod | 아무것도 건드리지 않아요 — `.env.prod` 라인도, 운영 DB 도, Firebase prod 도 그대로 |
+
+코드는 레포에 하나뿐이라 환경과 무관하게 지워지고, local 과 dev 는 한 번에 함께 정리돼요. 두 환경 모두 Flyway 로 언제든 똑같이 재생성되고 실데이터가 없어서, 같이 비워도 안전하거든요.
+
+**Firebase 는 dev 만 자동, prod 는 수동이에요.** dev 프로젝트(`<org>-gymlog-dev`)는 `gcloud` 가 설치돼 있으면 confirm 을 한 번 받고 삭제해요. 곧바로 영영 사라지는 게 아니라 30일간 복구할 수 있는 soft-delete 라 되돌릴 여지도 있어요. 반면 prod 프로젝트는 자동으로 지우지 않고 Console 링크만 안내해요. 실제 사용자 기기의 푸시 토큰이 그 프로젝트에 묶여 있어서, 한 번 지우면 알림이 끊기기 때문이에요.
+
+**운영(`prod`)은 명령 자체가 막혀 있어요.** `<repo> prod remove` 를 부르면 실행을 거부해요.
+
+```
+❌ prod 앱 제거(remove app)는 미지원 — 실데이터 + 공유 소스 보호.
+```
+
+두 가지를 지키려는 안전장치예요.
+
+- **실데이터** — 운영 DB 에는 진짜 사용자 데이터가 있어요. `remove` 의 `DROP SCHEMA ... CASCADE` 를 운영에 그대로 적용하면 되돌릴 수 없어요.
+- **재배포 가능성** — 코드 모듈을 먼저 지우면 그 코드로 다시 빌드·롤백·재배포하는 길이 막혀요. 운영 중인 앱은 코드를 "삭제" 하는 게 아니라 "내려놓는(undeploy)" 게 안전해요.
+
+그래서 운영 앱은 데이터 정리와 코드 제거를 나눠 단계적으로 은퇴시켜요.
+
+1. 데이터 백업
+2. `<repo> prod force-clear gymlog` — 운영 데이터·인프라(schema · 버킷 · 컨테이너) 정리
+3. undeploy 확인
+4. `<repo> remove gymlog` — 그제서야 코드 모듈 제거 (local·dev 에서)
+
+데이터는 `force-clear` 가, 코드는 `remove app` 이 맡는 이 분리가 핵심이에요. 더 자세히는 [`CLI 가이드 §9`](./cli-guide.md) 와 [`App Scaffolding`](./app-scaffolding.md) 을 참고하세요.
 
 ---
 
-## 6. 흔한 에러 5개
+## 4. 환경 변수 (.env) 자세히
 
-### 6.1 `YAML DuplicateKeyException` — application.yml 파싱 실패
+[§2.4](#24-repo-init--로컬-환경-셋업) 에서 봤듯 `<repo> init` 이 `.env.example` 을 복사해 `.env` 를 **자동으로 만들어 줘요**. 직접 `cp` 할 필요가 없어요. 이 절은 그 `.env` 를 손봐야 할 때를 위한 참고예요.
 
-증상은 다음과 같아요.
-```
-org.yaml.snakeyaml.constructor.DuplicateKeyException: 
-  found duplicate key app in application-xxx.yml
-```
+**로컬 개발은 사실 `.env` 를 거의 건드릴 필요가 없어요.** `application-local.yml` 이 `JWT_SECRET` 등 필수 값의 fallback 을 내장하고 있어, `.env` 가 기본값 그대로여도 기동돼요. 각 변수의 의미는 `.env` 파일 자체의 주석에 잘 정리돼 있으니, 여기서는 운영이나 커스텀 시 알아 둘 핵심만 짚을게요.
 
-원인 — YAML 에 같은 레벨의 키가 중복으로 선언됐어요.
+### 4.1 JWT 서명 비밀키 (운영 시)
 
-해결 방법:
+운영을 띄우거나 본인만의 비밀키를 쓰고 싶을 때 `JWT_SECRET` 을 채워요. 아래 명령으로 만든 64자 hex 문자열을 그대로 붙여넣으면 돼요.
+
 ```bash
-grep -nE "^<key>:" bootstrap/src/main/resources/application-*.yml
-# 같은 키가 2번 이상 나오는 파일을 찾아서 병합
+openssl rand -hex 32   # 64자 hex 출력
 ```
 
-### 6.2 DB 연결 실패 — Connection refused `localhost:5433`
+출력값을 복사해 `.env` 에 `JWT_SECRET=<붙여넣기>` 형태로 저장하세요. (흔히 빠지는 함정은 [§6.6](#66-jwt_secret-가-32자-미만이라고-나와요) 에 모아 뒀어요.)
 
-증상:
+### 4.2 오브젝트 스토리지 (MinIO)
+
+로컬 docker MinIO 는 `.env.example` 의 기본값으로 바로 동작해요. 핵심만 정리하면 이래요.
+
+- `APP_STORAGE_MINIO_ENDPOINT` 를 비우면 `InMemoryStorageAdapter` 로 fallback 해요. 업로드가 메모리에만 저장되고 재시작하면 사라지는 동작이라, 빠른 실험에는 충분해요.
+- 버킷은 `mc mb` 같은 수동 명령이 필요 없어요. `APP_STORAGE_MINIO_BUCKETS_*` 에 이름만 적어 두면 Spring 부팅 시 `BucketProvisioner` 가 자동으로 만들고, 멱등이라 재기동해도 중복 에러가 없어요.
+- 템플릿 관리자의 NAS MinIO 는 LAN 전용이라 파생 레포에서는 못 써요. 본인 NAS / S3 호환 서비스 / 로컬 docker 중에서 고르세요.
+
+### 4.3 운영 DB provider 는 배포 시점에만 고르면 돼요
+
+**로컬은 Supabase 가 필요 없어요** — docker postgres 로 자급자족돼요. 아래는 운영 배포 때 결정할 내용이에요. `new app --provision-db` 는 어떤 provider 든 표준 `psql` 을 호출하므로, 결정할 건 관리자용 `DB_PSQL_URL` 한 줄과 앱 런타임용 `DB_URL` / `DB_USER` / `DB_PASSWORD` 예요.
+
+| Provider | 특징 |
+|---|---|
+| **Supabase** (관리자 default) | 관리형, Free tier 충분, Seoul region, Supavisor pooler 제공 |
+| **AWS RDS** | 엔터프라이즈 안정성, VPC 통합 |
+| **Fly.io Postgres** | 앱 근접 배포, 글로벌 edge |
+| **자체 호스트 Postgres** | 완전 통제, 비용 0 |
+
+Supabase 를 쓴다면 운영 부하에서는 pooler(`:6543`)가 사실상 필수예요. blue/green 배포가 겹치는 구간의 connection 폭증을 안전하게 흡수하고, Free tier 의 direct(`:5432`) 연결 한도가 낮기 때문이에요. RDS / Fly.io / 자체 호스트라면 인스턴스의 `max_connections` 와 [`HikariCP`](../reference/glossary.md#데이터베이스) pool size 합이 맞는지 확인하세요. 앱이 늘면 `앱 수 × pool × blue/green(2)` 로 빠르게 증가해요.
+
+---
+
+## 5. 공동 작업자 (두 번째 노트북)
+
+첫 작업자가 [§2](#2-레포-만들기--첫-기동) 를 끝낸 뒤에는(rename + 첫 앱 + `.env.prod` 완료), 다른 노트북이나 합류하는 동료는 훨씬 짧게 시작할 수 있어요. fresh clone 후 아래 두 줄이면 끝이에요.
+
+```bash
+git clone git@github.com:<org>/<repo>.git
+cd <repo>
+./factory install        # symlink 등록 (머신마다 1회)
+<repo> init              # 이미 셋업된 레포로 자동 감지 (rename/README skip)
 ```
-org.postgresql.util.PSQLException: Connection to localhost:5433 refused
+
+`<repo> init` 은 settings.gradle rename 이 끝났고 `PROJECT_README_TEMPLATE.md` 가 없으면 — 즉 **이미 셋업된 레포면** — rename 과 README 교체(첫 작업자가 이미 한 일)를 자동으로 건너뛰고, `.env` 생성 + 로컬 docker 기동 + 검증 + symlink 만 진행해요. 이 판단은 레포에 커밋된 상태(rename·README)만 보고, `.env.prod` 같은 머신마다 다른 파일은 보지 않아요. 그래서 운영을 아직 안 띄운 솔로 작업자나 두 번째 노트북이나 똑같이 매끄럽게 동작해요.
+
+핵심은 **두 번째 노트북은 외부 DB 자격이 전혀 필요 없다** 는 점이에요. 로컬 docker postgres 만 쓰고, 앱 schema 는 `<repo> new <slug>` 가 결정적 Flyway 마이그레이션(V001~V015)으로 동일하게 재생성해요. `.env` 는 `.gitignore` 라 머신마다 각자 생성되니 자격 충돌도 없어요.
+
+> `.env.prod` 는 커밋되지 않으므로(secret 보호) 두 번째 노트북엔 없어요. 로컬 개발엔 불필요하고, 운영 변경(`prod init` / Secrets 갱신)은 **첫 작업자(운영자) 한 명** 이 맡는 걸 권장해요. 만약 두 번째 개발자가 `prod init` 을 돌려도, `.env.prod` 가 없는 머신에서는 운영 secret 을 GitHub 에 push 하는 단계가 자동으로 건너뛰어져 운영자의 secret 을 덮어쓰지 않아요. 바로 이 `.env.prod` 유무가 운영 secret push 의 안전장치예요(로컬 셋업 모드 판별과는 별개).
+
+---
+
+## 6. 흔한 에러
+
+### 6.1 기동 시 프로파일이 안 잡혀요
+
+증상 — `app.jwt.secret must be at least 32 characters` 에러와 함께, 직전 로그에 `No active profile set, falling back to ... "default"` 가 보여요.
+
+원인 — Spring Boot 는 `.env` 를 **자동으로 읽지 않아요**. `.env` 의 `SPRING_PROFILES_ACTIVE=local` 가 전달되지 않아 `application-local.yml` 이 로드되지 않은 거예요.
+
+해결 — bootRun 전에 `.env` 를 shell 에 export 하세요. (`<repo> init` / `<repo> start` 로 띄우면 이 과정이 자동이에요.)
+
+```bash
+set -a; source .env; set +a
+./gradlew :bootstrap:bootRun
+# 또는 한 줄로:
+SPRING_PROFILES_ACTIVE=local ./gradlew :bootstrap:bootRun
 ```
+
+### 6.2 DB 연결 실패 — `Connection refused localhost:5433`
 
 원인 — Postgres 컨테이너가 안 떠 있어요.
 
-해결:
 ```bash
 docker ps | grep postgres
 # 없으면:
@@ -404,114 +414,78 @@ docker compose -f infra/docker-compose.local.yml up -d postgres
 
 ### 6.3 Docker daemon not running
 
-증상 (OS 별 경로가 다름):
-```
-Cannot connect to the Docker daemon at unix:///var/run/docker.sock              # Linux
-Cannot connect to the Docker daemon at unix:///Users/<you>/.docker/run/docker.sock  # macOS
-```
+증상 — `Cannot connect to the Docker daemon ...` (OS 별 소켓 경로가 달라요).
 
-해결:
-- **macOS**: Docker Desktop 앱 실행 (`open -a Docker` 로도 가능해요)
+해결 — Docker 를 먼저 실행하세요.
+
+- **macOS**: Docker Desktop(또는 OrbStack) 앱 실행 (`open -a Docker` 로도 가능)
 - **Linux**: `sudo systemctl start docker`
 - daemon 준비 대기: `until docker info >/dev/null 2>&1; do sleep 2; done`
 
-### 6.4 MinIO 접속 불가 (template 관리자의 NAS 시도 시)
+### 6.4 MinIO 접속 불가
 
-증상:
-- `Connection refused` 또는 timeout
+원인 — `.env` 의 `APP_STORAGE_MINIO_ENDPOINT` 가 템플릿 관리자의 LAN 주소(예: `192.168.x.x`)라 본인 네트워크에서 닿지 않아요.
 
-원인 — `.env` 의 `APP_STORAGE_MINIO_ENDPOINT` 가 template 관리자의 LAN 주소 (예: `192.168.45.x`) 라서 파생 레포 개발자 네트워크에서 접근이 안 돼요.
+해결 — 셋 중 하나를 고르세요.
 
-해결 3가지 중 선택하세요.
-1. **로컬 docker MinIO** 사용:
-   ```bash
-   docker compose -f infra/docker-compose.local.yml up -d minio
-   # .env: APP_STORAGE_MINIO_ENDPOINT=http://localhost:9000
-   ```
+1. **로컬 docker MinIO** 사용 — `docker compose -f infra/docker-compose.local.yml up -d minio` 후 `APP_STORAGE_MINIO_ENDPOINT=http://localhost:9000`
 2. **본인 NAS / 클라우드 S3** 엔드포인트로 교체
-3. **InMemoryStorageAdapter fallback**: `APP_STORAGE_MINIO_ENDPOINT` 라인 주석 처리 → 메모리 기반 fake 동작
+3. **InMemory fallback** — `APP_STORAGE_MINIO_ENDPOINT` 라인을 주석 처리 (메모리 기반 fake 동작)
 
 ### 6.5 Flyway checksum mismatch
 
-증상:
-```
-Validate failed: Migration checksum mismatch for migration version V00x
-```
+증상 — `Migration checksum mismatch for migration version V00x`.
 
-원인 — 마이그레이션 파일이 적용 후 수정됐어요 (해시 변경).
+원인 — 이미 적용된 마이그레이션 파일이 나중에 수정돼 해시가 바뀌었어요.
 
-해결 (**로컬 local 만**):
+해결 (**로컬에서만**) — DB 를 초기화하고 다시 기동해요. 운영에서는 절대 이 방법을 쓰면 안 되고, `flyway repair` 또는 새 마이그레이션 번호로 해결하세요.
+
 ```bash
-# 1. DB 초기화
 docker compose -f infra/docker-compose.local.yml down -v
 docker compose -f infra/docker-compose.local.yml up -d postgres
-
-# 2. 다시 기동 — Spring 이 모든 마이그레이션을 재실행해요
 ./gradlew :bootstrap:bootRun
 ```
 
-운영에선 절대 이 방법을 쓰면 안 돼요. `flyway repair` 또는 신규 마이그레이션 (`Vnnn`) 으로 해결하세요.
+### 6.6 `JWT_SECRET` 가 32자 미만이라고 나와요
 
-### 6.6 JwtProperties 에러 — 기동 시 "app.jwt.secret must be at least 32 characters"
+증상 — `app.jwt.secret must be at least 32 characters (256 bits) for HS256`.
 
-증상:
-```
-Failed to bind properties under 'app.jwt' to com.factory.common.security.jwt.JwtProperties:
-  Reason: app.jwt.secret must be at least 32 characters (256 bits) for HS256
-```
-직전 로그에 `No active profile set, falling back to 1 default profile: "default"` 가 있으면 **원인 A** 예요.
+가장 흔한 함정 — `.env` 는 shell 치환을 **하지 않아요**. `JWT_SECRET=$(openssl rand -hex 32)` 를 그대로 적으면 이 문자열이 리터럴(17자)로 저장돼 검증에 실패해요.
 
-**원인 A (가장 흔함)**: `.env` 의 `SPRING_PROFILES_ACTIVE=local` 가 Spring 에 전달되지 않아 `application-local.yml` 이 로드되지 않아요. Spring Boot 는 `.env` 를 **자동으로 읽지 않아요**.
+해결 — 명령을 먼저 실행해 출력값을 받은 뒤, 그 값을 붙여넣으세요.
 
-해결 — bootRun 전에 env 를 shell 에 export 하세요.
 ```bash
-set -a; source .env; set +a
-./gradlew :bootstrap:bootRun
-```
-또는 한 줄로:
-```bash
-SPRING_PROFILES_ACTIVE=local ./gradlew :bootstrap:bootRun
+openssl rand -hex 32   # 64자 출력 → 이 값을 복사
+# .env 에:  JWT_SECRET=<복사한 64자>
 ```
 
-**원인 B**: `.env` 의 `JWT_SECRET` 값이 실제로 32자 미만이에요. 자주 발생하는 케이스 두 가지:
-- `JWT_SECRET=$(openssl rand -hex 32)` 을 그대로 복사해서 리터럴 17자로 저장돼요 (`.env` 는 shell substitution 을 안 해요)
-- 임의로 짧은 문자열 입력
+(직전 로그에 `falling back to "default"` 가 보였다면 값이 아니라 프로파일 문제예요 — [§6.1](#61-기동-시-프로파일이-안-잡혀요) 을 보세요.)
 
-해결:
-```bash
-openssl rand -hex 32   # 64자 출력
-```
-출력된 값을 `.env` 에 `JWT_SECRET=<값>` 형태로 직접 붙여넣어요.
+### 6.7 `bootRun` 종료가 느려요 (Ctrl+C 후 ~30초)
 
-### 6.7 `./gradlew bootRun` 중지 후 Ctrl+C 반응 느림
+원인 — `application.yml` 의 `server.shutdown: graceful` 설정 때문이에요. 진행 중인 요청을 안전하게 마무리하려고 대기하는 정상 동작이에요.
 
-증상 — Ctrl+C 눌러도 최대 30초 대기 후 종료돼요.
-
-원인 — `application.yml` 에 `server.shutdown: graceful` 설정이 있어요. 진행 중인 요청을 안전하게 마무리하려고 대기하는 동작이에요.
-
-해결:
-- 급하면 Ctrl+C 두 번 (SIGINT 2회) 또는 `kill -9 <pid>`
-- 정상 흐름에서는 기다리면 돼요 (요청이 없으면 즉시 종료돼요)
+해결 — 급하면 Ctrl+C 두 번 또는 `kill -9 <pid>`. 처리 중인 요청이 없으면 즉시 종료돼요.
 
 ---
 
-## 7. 현재 미구현 / Stub 상태인 기능
+## 7. 아직 미구현 / Stub 상태인 기능
 
-이 표는 *진짜 미구현 / stub fallback* 만 정리해요. 운영 배포 / 앱 프로비저닝은 *이미 구현* 되어 있어서 표에서 제거됐어요.
+이 표는 *진짜 미구현 또는 stub fallback* 만 정리해요. 운영 배포와 앱 프로비저닝은 이미 완전히 구현돼 있어요.
 
 | 영역 | 상태 | 동작 |
 |---|---|---|
-| **이메일/비밀번호 가입/로그인** | ✅ 완전 동작 | - |
-| **Apple / Google 소셜 로그인** | ✅ 완전 동작 (credential 설정 시) | `.env` 에 `APP_CREDENTIALS_<SLUG>_*` 필요 |
-| **JWT 발급/회전** | ✅ 완전 동작 | - |
-| **Kamal 배포 파이프라인** | ✅ 완전 동작 | `factory prod deploy` / `factory prod init` / `factory prod force-clear` 등 (`docs/start/cli-guide.md`) |
-| **앱 프로비저닝 (`new-app.sh`)** | ✅ 완전 동작 | `factory new <slug>` 또는 `--provision-db` 플래그 — schema + role 자동 생성 |
-| **앱 제거 (`remove-app.sh`)** | ✅ 완전 동작 / prod 미지원 | `factory remove app <slug>` — `new app` 역방향 (코드 + local/dev schema·role). prod 는 실데이터 보호로 차단 |
-| **이메일 발송** (Resend) | dev: optional / prod: 필수 | 키 없으면 `LoggingEmailAdapter` fallback (콘솔 로그 + dev 응답에 raw token 노출). prod 는 strict — 키 누락 시 부팅 실패. 자세히: [`email-verification.md`](../api-and-functional/functional/email-verification.md) |
-| **오브젝트 스토리지** | ⚠️ endpoint 필요 | 미설정 시 `InMemoryStorageAdapter` fallback |
-| **결제 (PortOne PG)** | ⚠️ key 필요 | 미설정 시 `StubPaymentAdapter` 가 graceful 503 응답 (`PAY_008 CONFIG_MISSING`) |
-| **인앱 결제 (IAP)** | ⚠️ key 필요 | 미설정 시 `StubIapAdapter` 가 graceful 503 응답 |
-| **Push Notification** | 🚧 NoOp | `NoOpPushAdapter` 가 로그만 남겨요. FCM 설정 시 `FcmPushAdapter` 활성 |
+| 이메일/비밀번호 가입·로그인 | ✅ 완전 동작 | — |
+| Apple / Google 소셜 로그인 | ✅ 완전 동작 (credential 설정 시) | `.env` 에 `APP_CREDENTIALS_<SLUG>_*` 필요 |
+| JWT 발급/회전 | ✅ 완전 동작 | — |
+| Kamal 배포 파이프라인 | ✅ 완전 동작 | `prod deploy` / `prod init` 등 ([`CLI 가이드`](./cli-guide.md)) |
+| 앱 프로비저닝 (`new app`) | ✅ 완전 동작 | `--provision-db` 로 schema + role 자동 생성 |
+| 앱 제거 (`remove app`) | ✅ 완전 동작 (prod 미지원) | `new app` 역방향 |
+| 이메일 발송 (Resend) | dev 선택 / prod 필수 | 키 없으면 `LoggingEmailAdapter` 로 콘솔 출력. prod 는 키 누락 시 부팅 실패. [`email-verification.md`](../api-and-functional/functional/email-verification.md) |
+| 오브젝트 스토리지 | ⚠️ endpoint 필요 | 미설정 시 `InMemoryStorageAdapter` fallback |
+| 결제 (PortOne PG) | ⚠️ key 필요 | 미설정 시 `StubPaymentAdapter` 가 graceful 503 (`PAY_008`) |
+| 인앱 결제 (IAP) | ⚠️ key 필요 | 미설정 시 `StubIapAdapter` 가 graceful 503 |
+| 푸시 알림 | 🚧 NoOp | `NoOpPushAdapter` 가 로그만 남겨요. FCM 설정 시 `FcmPushAdapter` 활성 |
 
 ---
 
@@ -520,40 +494,41 @@ openssl rand -hex 32   # 64자 출력
 | 목적 | 문서 |
 |---|---|
 | 코드 아키텍처 (포트/어댑터, 모듈 의존) | [`Architecture Reference`](../structure/architecture.md) |
+| 명령어 전체 매트릭스 | [`CLI 가이드`](./cli-guide.md) |
 | 인프라 구성 (DB/스토리지/관측성 전체 상태) | [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) |
 | 설계 철학 (38개 ADR) | [`Repository Philosophy — 책 안내`](../philosophy/README.md) |
-| 문서 작성 규칙 | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) |
-| 인프라 결정 근거 (Supabase/NAS/맥미니 등) | [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) |
-| 코딩 규약 (naming, DTO, exception 등) | [`../convention/`](../convention/) |
+| 코딩 규약 (naming, DTO, exception 등) | [`코딩 규약`](../convention/README.md) |
 | 테스트 전략 (4층 구조) | [`Testing Strategy`](../production/test/testing-strategy.md) |
+| 인프라 결정 근거 (Supabase/NAS/맥미니 등) | [`인프라 결정 기록`](../production/deploy/decisions-infra.md) |
 | 미완료 / 향후 작업 목록 | [`Backlog`](../planned/backlog.md) |
 | 장애 시나리오 분석 | [`Edge Cases & Risk Analysis`](../reference/edge-cases.md) |
 | 도그푸딩 시간 순 walkthrough | [`도그푸딩 walkthrough`](./dogfood-walkthrough.md) |
+| 문서 작성 규칙 (저자용) | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) |
 
 ---
 
 ## 도움 요청 체크리스트
 
-문제가 생기면 이슈 만들기 전 이 체크리스트를 확인하세요.
+문제가 생기면 이슈를 만들기 전에 이 항목들을 먼저 확인하세요.
 
-- [ ] Section 1 의 도구 버전이 맞는가? (`java --version` 등)
-- [ ] `.env` 파일이 존재하고 `JWT_SECRET` 이 32자 이상인가?
-- [ ] `docker ps` 로 postgres 컨테이너가 `Up` 상태인가?
-- [ ] Section 6 의 흔한 에러 5개에 해당하는가?
-- [ ] `./gradlew clean build` 가 성공하는가?
+- [ ] [§1](#1-도구-설치) 의 도구 버전이 맞나요? (`./factory doctor` 한 번이면 한눈에 확인돼요)
+- [ ] `.env` 가 존재하고 `JWT_SECRET` 이 32자 이상인가요?
+- [ ] `docker ps` 로 postgres 컨테이너가 `Up` 상태인가요?
+- [ ] [§6 흔한 에러](#6-흔한-에러) 에 해당하나요?
+- [ ] `./gradlew clean build` 가 성공하나요?
 
-그래도 해결이 안 되면 로그 전체 + `.env` (비밀번호는 가려서) + `docker ps` 출력을 첨부해서 이슈를 제기하세요.
+그래도 안 풀리면 로그 전체 + `.env`(비밀번호는 가려서) + `docker ps` 출력을 첨부해 이슈를 올리세요.
 
 ---
 
 ## 📖 책 목차 — Journey 2~3단계
 
-[`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **2단계 (어떻게 써? 로컬 local)** 와 **3단계 (클론 후 뭐부터? 첫 앱 모듈 추가)** 예요.
+이 문서는 [`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **2단계 (어떻게 써? 로컬 개발)** 와 **3단계 (클론 후 뭐부터? 첫 앱 모듈 추가)** 에 해당해요.
 
 | 방향 | 문서 | 한 줄 |
 |---|---|---|
-| ← 이전 | [`Architecture Reference`](../structure/architecture.md) | 1단계 — 모듈 구조 한 눈 |
+| ← 이전 | [`Architecture Reference`](../structure/architecture.md) | 1단계 — 모듈 구조 한눈에 |
 | → 다음 | [`소셜 로그인 설정 가이드`](./social-auth-setup.md) | 4단계 — 외부 자격 증명 발급 (Google/Apple) |
 
-**막혔을 때**: §6 흔한 에러 / [`도그푸딩 함정`](./dogfood-pitfalls.md) / [`FAQ`](./dogfood-faq.md) / [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
-**왜 이렇게?**: [`Repository Philosophy — 책 안내`](../philosophy/README.md) (38개 ADR · 테마 1~8) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) (I-01~I-13)
+**막혔을 때**: [§6 흔한 에러](#6-흔한-에러) · [`도그푸딩 함정`](./dogfood-pitfalls.md) · [`FAQ`](./dogfood-faq.md) · [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
+**왜 이렇게?**: [`Repository Philosophy`](../philosophy/README.md) (38개 ADR) · [`인프라 결정 기록`](../production/deploy/decisions-infra.md)
