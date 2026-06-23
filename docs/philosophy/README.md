@@ -117,8 +117,9 @@
 | "Lite 모드의 사용자 UI 노출은?" | [`ADR-035: Lite mode 사용자 인터페이스`](./adr-035-lite-mode-user-interface.md) |
 | "공개 webhook 등 외부 호출의 SSRF 방어는?" | [`ADR-036: SSRF URL whitelist 정책`](./adr-036-ssrf-url-whitelist.md) |
 | "core schema 가 *legacy* 잔재라면?" | [`ADR-037: core schema + coreDataSource Bean 폐기`](./adr-037-core-schema-deprecation.md) |
+| "SMS 발송과 휴대폰 점유인증은 어떻게 도입하지?" | [`ADR-038: SMS 발송 (core-sms) + 휴대폰 점유인증 (core-phone-auth)`](./adr-038-sms-phone-auth.md) |
 
-> **36 개 ADR 작성 완료** (ADR-001 ~ ADR-036). 테마별로 그룹화되어 있고 각 카드는 독립적으로 읽을 수 있습니다.
+> **38 개 ADR 작성 완료** (ADR-001 ~ ADR-038). 테마별로 그룹화되어 있고 각 카드는 독립적으로 읽을 수 있습니다.
 
 ### ADR 카드의 읽는 법
 
@@ -361,6 +362,8 @@ ADR-036 (SSRF URL whitelist 정책)
 - [`ADR-034 · Feature Toggle Lite mode`](./adr-034-feature-toggle-lite-mode.md)
 - [`ADR-035 · Lite mode 사용자 인터페이스`](./adr-035-lite-mode-user-interface.md)
 - [`ADR-036 · SSRF URL whitelist 정책`](./adr-036-ssrf-url-whitelist.md)
+- [`ADR-037 · core schema + coreDataSource Bean 폐기`](./adr-037-core-schema-deprecation.md)
+- [`ADR-038 · SMS 발송 (core-sms) + 휴대폰 점유인증 (core-phone-auth)`](./adr-038-sms-phone-auth.md)
 
 **테마 8 의 결론**: 운영 안전성과 유연성을 동시에 확보하는 운영 정책 + 외부 호출 보안 baseline. Flyway 는 dev/test 에서는 자동 migrate, prod 는 validate 만 하고 운영자가 명시적으로 적용 (ADR-033 — `tools/migrate-prod.sh`). Lite 모드는 8 개 도메인 (payment / iap / email / 2fa / audit / push / billing-notification / password-policy) 을 `.env.prod` 의 환경변수로 opt-out 가능 (ADR-034). 사용자 UI 차원의 노출은 ADR-035 에서 별도 정리. 외부 HTTP 호출 (Apple / Google / Kakao / Naver / Resend / MinIO / FCM) 은 모두 hardcode 또는 운영자 통제 환경변수로만 결정해 SSRF 가 설계상 불가능 (ADR-036). *솔로 인디 운영자가 자기 앱의 복잡도에 맞게 도메인을 골라 켜되, 외부 호출 보안 baseline 은 일관 유지하는* 흐름.
 

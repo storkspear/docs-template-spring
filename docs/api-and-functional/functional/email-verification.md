@@ -549,5 +549,6 @@ EMAIL_DELIVERY_FAILED(503, "EMAIL_001", "이메일 발송에 실패했습니다"
 ## 다음 단계
 
 - 푸시 알림 통합: [`Push Notifications`](./push-notifications.md)
+- 휴대폰 점유인증 / SMS: [`Phone Auth (점유인증) & SMS`](./phone-auth-and-sms.md) — `EmailPort` 와 동일한 mock/real 어댑터 패턴
 - JWT 인증 흐름: [`JWT Authentication`](../../structure/jwt-authentication.md)
 - Rate limit 설정: [`Rate Limit 규약`](./rate-limiting.md)

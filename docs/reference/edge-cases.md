@@ -428,7 +428,7 @@
 
 ## 관련 문서
 
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 36 개 ADR 인덱스 (설계 결정의 이유)
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 38 개 ADR 인덱스 (설계 결정의 이유)
 - [`Architecture Reference`](../structure/architecture.md) — 시스템 구조
 - [`API Response Format`](../api-and-functional/api/api-response.md) — API 응답 포맷
 - [`Design Principles`](../convention/design-principles.md) — 설계 원칙
