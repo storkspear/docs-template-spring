@@ -355,6 +355,17 @@ Opt-in 자동 수행 (`--provision-db` 플래그 사용 시):
 
 **주의**: 이미 떠있는 Spring 프로세스는 신규 모듈을 감지하지 못해요. 스크립트 실행 후 재기동해야 해요.
 
+### 5.2 앱 모듈 제거 (`remove-app.sh`)
+
+앱을 잘못 만들었거나 은퇴시킬 때는 `new-app.sh` 의 **역방향** 인 `remove-app.sh` 를 써요. `new-app.sh` 가 추가한 것 (코드 모듈 + `.env`/`.env.dev` 슬러그 라인 + `local`/`dev` DB schema·role) 을 전부 되돌려요.
+
+```bash
+bash tools/new-app/remove-app.sh foodlog          # 1회 confirm ('y')
+# factory: <repo> remove app foodlog   /   단축 <repo> remove foodlog
+```
+
+`prod` 는 **차단** 돼요 — 실데이터 + 공유 소스 보호 (코드 먼저 지우면 prod 재배포 불가). prod 에 배포된 앱은 ① 백업 → ② `prod force-clear <slug>` (데이터) → ③ undeploy → ④ `local`/`dev remove app <slug>` (코드) 순서로 은퇴시켜요. 데이터는 `force-clear`, 코드는 `remove app` 으로 구분돼요. 자세히는 [`app-scaffolding.md §10`](./app-scaffolding.md) 과 [`cli-guide.md §9`](./cli-guide.md) 를 참조하세요.
+
 ---
 
 ## 6. 흔한 에러 5개
@@ -495,6 +506,7 @@ openssl rand -hex 32   # 64자 출력
 | **JWT 발급/회전** | ✅ 완전 동작 | - |
 | **Kamal 배포 파이프라인** | ✅ 완전 동작 | `factory prod deploy` / `factory prod init` / `factory prod force-clear` 등 (`docs/start/cli-guide.md`) |
 | **앱 프로비저닝 (`new-app.sh`)** | ✅ 완전 동작 | `factory new <slug>` 또는 `--provision-db` 플래그 — schema + role 자동 생성 |
+| **앱 제거 (`remove-app.sh`)** | ✅ 완전 동작 / prod 미지원 | `factory remove app <slug>` — `new app` 역방향 (코드 + local/dev schema·role). prod 는 실데이터 보호로 차단 |
 | **이메일 발송** (Resend) | dev: optional / prod: 필수 | 키 없으면 `LoggingEmailAdapter` fallback (콘솔 로그 + dev 응답에 raw token 노출). prod 는 strict — 키 누락 시 부팅 실패. 자세히: [`email-verification.md`](../api-and-functional/functional/email-verification.md) |
 | **오브젝트 스토리지** | ⚠️ endpoint 필요 | 미설정 시 `InMemoryStorageAdapter` fallback |
 | **결제 (PortOne PG)** | ⚠️ key 필요 | 미설정 시 `StubPaymentAdapter` 가 graceful 503 응답 (`PAY_008 CONFIG_MISSING`) |
@@ -509,7 +521,7 @@ openssl rand -hex 32   # 64자 출력
 |---|---|
 | 코드 아키텍처 (포트/어댑터, 모듈 의존) | [`Architecture Reference`](../structure/architecture.md) |
 | 인프라 구성 (DB/스토리지/관측성 전체 상태) | [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) |
-| 설계 철학 (36개 ADR) | [`Repository Philosophy — 책 안내`](../philosophy/README.md) |
+| 설계 철학 (38개 ADR) | [`Repository Philosophy — 책 안내`](../philosophy/README.md) |
 | 문서 작성 규칙 | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) |
 | 인프라 결정 근거 (Supabase/NAS/맥미니 등) | [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) |
 | 코딩 규약 (naming, DTO, exception 등) | [`../convention/`](../convention/) |
@@ -544,4 +556,4 @@ openssl rand -hex 32   # 64자 출력
 | → 다음 | [`소셜 로그인 설정 가이드`](./social-auth-setup.md) | 4단계 — 외부 자격 증명 발급 (Google/Apple) |
 
 **막혔을 때**: §6 흔한 에러 / [`도그푸딩 함정`](./dogfood-pitfalls.md) / [`FAQ`](./dogfood-faq.md) / [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
-**왜 이렇게?**: [`Repository Philosophy — 책 안내`](../philosophy/README.md) (36개 ADR · 테마 1~8) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) (I-01~I-13)
+**왜 이렇게?**: [`Repository Philosophy — 책 안내`](../philosophy/README.md) (38개 ADR · 테마 1~8) / [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md) (I-01~I-13)

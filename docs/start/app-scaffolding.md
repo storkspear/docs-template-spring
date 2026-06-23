@@ -587,6 +587,52 @@ slug 자체는 하이픈을 허용하지만 Postgres schema/role 이름에는 `S
 
 ---
 
+## 10. 앱 모듈 제거 (`remove-app.sh`)
+
+앞의 §1~§9 가 앱을 **추가**하는 흐름이라면, `tools/new-app/remove-app.sh` 는 그 **정확한 역방향** 이에요. `new-app.sh` 가 만든 것을 전부 되돌려서 앱을 코드 레벨까지 완전히 은퇴시켜요.
+
+```bash
+bash tools/new-app/remove-app.sh <slug>          # 1회 confirm ('y' 입력)
+bash tools/new-app/remove-app.sh <slug> --yes    # confirm 생략 (자동화)
+# factory: <repo> remove app <slug>   /   단축 <repo> remove <slug>
+```
+
+### 10.1 제거 대상 — `new-app.sh` 가 추가한 것의 역
+
+| 대상 | 동작 |
+|---|---|
+| **코드 모듈** | `apps/app-<slug>/` 디렉토리 `rm -rf` + `settings.gradle` 의 `include ':apps:app-<slug>'` 줄 + `bootstrap/build.gradle` 의 `implementation project(':apps:app-<slug>')` 줄 제거 |
+| **`.env` / `.env.dev`** | `<SLUG_UPPER>_DB_*` / `APP_CREDENTIALS_<SLUG_UPPER>_*` / `<slug>-` bucket 라인 + `# ─── app-<slug> ───` 헤더 제거 (`.env.prod` 라인은 **보존**) |
+| **DB schema·role** | `local`(5433) + `dev`(`.env.dev` 의 DB_URL) 의 `<slugPackage>` schema + `<slugPackage>_app` role 을 `DROP SCHEMA ... CASCADE` + `DROP ROLE` |
+
+`new-app.sh` 가 건드린 곳 (Gradle 모듈 · `.env` 변수 · Postgres schema/role) 과 정확히 같은 지점을 역순으로 정리하므로, 추가 → 제거를 반복해도 잔존물이 남지 않아요.
+
+### 10.2 prod 는 차단 — 실데이터 + 공유 소스 보호
+
+`remove-app.sh` 는 **prod DB schema 를 절대 건드리지 않아요** (`.env.prod` 라인도 보존). factory 레벨에서도 `prod remove app` / `all remove app` 은 에러로 차단돼요. 운영 DB 의 실데이터와 공유 소스를 보호하고, 코드 모듈을 먼저 지워서 prod 재배포가 막히는 사고를 방지하기 위해서예요.
+
+실행 시점에 `.env.prod` 의 DB 에 해당 slug schema 가 살아있으면 (= prod 에 배포된 채면) "코드를 지우면 prod 재배포 불가" 경고를 출력해요 (read-only 검사 — prod 는 읽기만 하고 변경하지 않아요).
+
+prod 에 배포된 앱을 완전히 내릴 때는 다음 순서예요.
+
+```
+① 데이터 백업 (pg_dump --schema=<slug> + MinIO mirror)
+② <repo> prod force-clear <slug>   (prod 데이터/인프라 영구 삭제)
+③ undeploy 확인
+④ <repo> local remove app <slug> + <repo> dev remove app <slug>   (코드 + local/dev schema 제거)
+```
+
+### 10.3 `force-clear` 와의 구분
+
+| 명령 | 다루는 것 | 코드 모듈 | 용도 |
+|---|---|---|---|
+| `force-clear <slug>` | 배포된 *데이터/인프라* (schema·bucket·컨테이너) | **유지** | 재배포 가능 — 데이터만 초기화 |
+| `remove app <slug>` | *코드 모듈* + `.env` 라인 + local/dev schema·role | **제거** | 앱 완전 은퇴 (`new app` 의 역) |
+
+MinIO 버킷·운영 컨테이너 정리는 `force-clear` 가 담당하고, `remove-app.sh` 는 코드 모듈과 DB schema/role 만 다뤄요. 둘을 조합하면 한 앱을 데이터·인프라부터 코드까지 완전히 폐기할 수 있어요 ([cli-guide.md §9](./cli-guide.md) 의 prod 앱 은퇴 절차 참조).
+
+---
+
 ## 다음 단계
 
 새 앱 모듈이 준비되었다면 다음으로 진행하세요.

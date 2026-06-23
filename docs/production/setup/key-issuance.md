@@ -31,6 +31,7 @@
 |  | `SSH_PRIVATE_KEY` | 로컬 `ssh-keygen` + 운영 서버 등록 | 항상 |
 | **선택 — 기능별** | `APP_STORAGE_MINIO_*` | MinIO 콘솔 / `mc admin user add` | `feature=storage` |
 |  | `RESEND_*` | https://resend.com | `feature=email` |
+|  | `COOLSMS_*` | https://solapi.com | `feature=sms` / `feature=phone-auth` |
 |  | `APP_CREDENTIALS_<SLUG>_*` | Google / Apple / Kakao / Naver 콘솔 | `feature=social-auth` |
 |  | `TS_OAUTH_*` | https://login.tailscale.com | `DEPLOY_ENABLED=true` 시 |
 |  | `LOKI_URL` | Loki 호스트 (자체 / Grafana Cloud) | `feature=logging` |
@@ -446,6 +447,31 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub-push@my-project.iam
 
 **검증**. 실제 Android 빌드에서 인앱 구매를 수행하고 백엔드의 `/iap/google/verify` 엔드포인트가 200 응답을 내며, RTDN webhook 으로 갱신·환불 알림이 정상 처리되는지 확인합니다.
 
+### 4.10 CoolSMS / SOLAPI 문자 발송 (`feature=sms` / `feature=phone-auth`)
+
+**발급 목적**. 휴대폰 점유인증(SMS OTP) 발송·운영 알림 문자를 위한 SOLAPI(CoolSMS) 자격입니다. 비워두면 `LoggingSmsAdapter` 로 fallback 되어 OTP 가 콘솔 로그로만 출력됩니다. **점유인증으로 가입/로그인을 받는 서비스라면 운영에서 반드시 채워야 합니다** — 그렇지 않으면 사용자가 인증번호를 받지 못합니다 (운영은 발신사 미설정 시 OTP 발송 시점에 `PHA_006 OTP_SMS_UNAVAILABLE` 로 차단됩니다). 점유인증 도메인 동작 상세는 [`Phone Auth (점유인증) & SMS`](../../api-and-functional/functional/phone-auth-and-sms.md) 를 참조하세요.
+
+**발급 절차**.
+1. https://solapi.com 에 가입한 뒤 콘솔에 로그인합니다 (SOLAPI 가 CoolSMS 를 운영하는 통합 콘솔입니다).
+2. *API Key 관리* 메뉴에서 *API Key 생성* 으로 `apiKey` (예: `NCS...`) 와 `apiSecret` 한 쌍을 발급합니다. `apiSecret` 은 발급 시 한 번만 표시되므로 즉시 복사합니다.
+3. *발신번호 관리* 메뉴에서 문자를 보낼 **발신번호를 등록**합니다. 통신사 정책상 사전 등록되지 않은 번호로는 발송이 불가합니다.
+   - 본인 명의 휴대폰/유선번호는 *본인인증* (ARS/문자) 으로 즉시 등록됩니다.
+   - 사업자/법인 번호는 통신서비스 가입증명원 등 *서류 제출* 후 검수를 거칩니다 (보통 영업일 기준 1~2일).
+4. 등록 완료된 발신번호를 국내형(`01012345678`) 으로 기록합니다 — 어댑터가 E.164(`+8210…`) 수신번호를 국내형으로 자동 변환하지만, 발신번호(`COOLSMS_FROM`) 는 등록한 형식 그대로 채웁니다.
+
+**`.env.prod` 채울 위치**:
+```bash
+COOLSMS_API_KEY=<발급한 API Key>
+COOLSMS_API_SECRET=<발급한 API Secret>
+COOLSMS_FROM=01012345678          # SOLAPI 에 사전등록한 발신번호 (국내형)
+# COOLSMS_API_URL 은 비워둠 — 미설정 시 운영 SOLAPI 엔드포인트로 자동 보정.
+#                  (dev/local 도그푸딩은 WireMock 으로 override 해 실 발송/과금 없이 검증)
+```
+
+`COOLSMS_API_KEY` 와 `COOLSMS_API_SECRET` 이 **둘 다** 채워져야 `CoolSmsAdapter`(실발송) 가 등록됩니다. 하나라도 비면 `core-email` 과 동일하게 fallback 어댑터로 내려갑니다. dev 단계에서는 일부러 비워둬도 무방하며, 이때 OTP 는 콘솔 로그(`[DEV-SMS]`) 로 확인합니다.
+
+**검증**. 운영 부팅 로그에 `CoolSmsAdapter registered — SMS will be delivered via SOLAPI(CoolSMS) API.` 가 보이고, 점유인증 `request` 호출 후 실제 휴대폰으로 인증번호 문자가 도착하는지 확인합니다. dev 에서는 `LoggingSmsAdapter` 의 `[DEV-SMS]` WARN 로그에 OTP 가 캡처됩니다.
+
 ---
 
 ## 5. 발급 후 — 4-Stage 동기화
@@ -521,4 +547,5 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub-push@my-project.iam
 - [`키 교체 절차 (Key Rotation)`](./key-rotation.md) — 노출 시 폐기·재발급
 - [`스토리지 셋업 가이드`](./storage-setup.md) — MinIO 호스팅 자체 셋업 (키 발급 외)
 - [`운영 모니터링 셋업 가이드`](./monitoring-setup.md) — Loki / Grafana / Prometheus / Alertmanager
+- [`Phone Auth (점유인증) & SMS`](../../api-and-functional/functional/phone-auth-and-sms.md) — CoolSMS 키로 동작하는 SMS OTP 점유인증 도메인
 - [`인프라 결정 기록 (Decisions — Infrastructure)`](../deploy/decisions-infra.md) — 각 자격을 선택한 근거

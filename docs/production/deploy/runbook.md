@@ -203,6 +203,8 @@ kamal app boot                # 마지막 배포 버전으로 다시 기동
 
 `force-clear` 는 5 단계의 confirm 을 차례로 거치며, 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 됩니다. 단계는 DB 데이터 / Storage 데이터 / 관측성 데이터 / 백업 의향 / 최종 확인 순서입니다. 백업 의향 단계에서 'y' 를 선택하면 manual 백업 명령을 출력하고 종료하며, 자동 백업은 현재 개발 중이어서 manual 절차만 안내됩니다.
 
+> **코드 정리 vs 데이터 정리는 별개입니다.** `force-clear <slug>` 는 *데이터/인프라* (schema·bucket·컨테이너) 만 영구 삭제하고, **코드 모듈** (`apps/app-<slug>/` + `settings.gradle` + `bootstrap/build.gradle` 의존) 은 그대로 둡니다 (데이터만 초기화하고 재배포하려는 경우용). 앱을 *완전히 은퇴* 시켜 코드까지 제거하려면 `local`/`dev` 환경에서 `remove app <slug>` (`tools/new-app/remove-app.sh`, `new app` 의 역방향) 을 추가로 실행합니다. `remove app` 은 prod 를 미지원하므로 (실데이터 + 공유 소스 보호), prod 배포 앱의 표준 은퇴 순서는 **① 데이터 백업 → ② `prod force-clear <slug>` (데이터) → ③ undeploy 확인 → ④ `local`/`dev remove app <slug>` (코드)** 입니다. 자세히는 [`cli-guide.md §9`](../../start/cli-guide.md) 와 [`app-scaffolding.md §10`](../../start/app-scaffolding.md) 을 참조하세요.
+
 ### 왜 `clear` 는 관측성 (로그·메트릭) 을 보존하는가
 
 관측성 스택 (Grafana 대시보드, Loki 로그 스트림, Prometheus 메트릭) 은 *모든 슬러그가 공유하는 단일 인스턴스* 입니다. 슬러그 하나만 정리하려는 운영자가 관측성을 함께 지우면 다른 슬러그의 모니터링 히스토리까지 잃게 되므로, `clear` 는 의도적으로 관측성을 건드리지 않습니다. 데이터도 같은 이유로 보존합니다 — DB 의 `core` schema 와 Object Storage 의 공통 bucket 은 여러 슬러그가 함께 사용하기 때문입니다.

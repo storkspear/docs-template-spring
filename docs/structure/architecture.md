@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~30분
 
-이 문서는 `template-spring` 의 **실제 구조** 를 설명해요. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 36 개 ADR 에 기록되어 있습니다.
+이 문서는 `template-spring` 의 **실제 구조** 를 설명해요. **무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지** 가 목적이에요. 각 결정의 **이유** (왜 이렇게 설계했는지) 는 [`philosophy/`](../philosophy/README.md) 디렉토리의 38 개 ADR 에 기록되어 있습니다.
 
 > **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내해요. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 를 먼저 참고하세요.
 
@@ -23,7 +23,7 @@
 | 종류 | 위치 | 역할 | 상태 |
 |---|---|---|---|
 | `common/*` | `common/common-*/` | 뼈대 유틸리티 (웹/보안/로깅/영속성/스토리지/테스트) | 상태 없음 |
-| `core/*` | `core/core-*-api/` + `core/core-*-impl/` | 공유 플랫폼 기능 (인증/이메일/유저/디바이스/푸시/billing/iap/payment/스토리지/감사) | 상태 있음, -api / -impl 쌍 |
+| `core/*` | `core/core-*-api/` + `core/core-*-impl/` | 공유 플랫폼 기능 (인증/이메일/SMS 발송/휴대폰 점유인증/유저/디바이스/푸시/billing/iap/payment/스토리지/감사) | 상태 있음, -api / -impl 쌍 |
 | `apps/*` | `apps/app-<slug>/` | 앱별 도메인 로직 | 템플릿엔 비어 있어요. 파생 레포에서 `new-app.sh` 로 추가해요 |
 | `bootstrap` | `bootstrap/` | Spring Boot 엔트리 포인트 | 모든 core-impl + common 을 조립 |
 
@@ -43,7 +43,7 @@
 
 ### core-* 와 apps/* 의 역할 분리
 
-**`core-*`** — 모든 앱이 공유하는 **플랫폼 로직 라이브러리** 예요. 인증 (2FA TOTP 포함), 이메일 발송 (Resend, [`ADR-024`](../philosophy/adr-024-email-domain-extraction.md)), 유저 관리, 디바이스 등록, 푸시 (FCM), billing (구독/플랜 정책), iap (Apple/Google 채널 + webhook bearer 검증), payment (PG=포트원 채널), 스토리지 (MinIO/R2), 감사 로그 (AOP, [`ADR-028`](../philosophy/adr-028-audit-log-domain.md)) 가 들어 있습니다. 템플릿에 포함되고, 파생 레포 생성 시 그대로 상속됩니다.
+**`core-*`** — 모든 앱이 공유하는 **플랫폼 로직 라이브러리** 예요. 인증 (2FA TOTP 포함), 이메일 발송 (Resend, [`ADR-024`](../philosophy/adr-024-email-domain-extraction.md)), SMS 발송 (CoolSMS/SOLAPI), 휴대폰 점유인증 (SMS OTP, [`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md) 의 앱별 인증 패턴 + [`ADR-037`](../philosophy/adr-037-core-schema-deprecation.md) 의 per-app 데이터), 유저 관리, 디바이스 등록, 푸시 (FCM), billing (구독/플랜 정책), iap (Apple/Google 채널 + webhook bearer 검증), payment (PG=포트원 채널), 스토리지 (MinIO/R2), 감사 로그 (AOP, [`ADR-028`](../philosophy/adr-028-audit-log-domain.md)) 가 들어 있습니다. 템플릿에 포함되고, 파생 레포 생성 시 그대로 상속됩니다.
 
 **`apps/app-<slug>`** — 각 앱의 **고유 도메인 로직 + 해당 앱의 인증/유저 Controller** 예요. 파생 레포에서만 작성되고, 템플릿에는 빈 디렉토리만 존재해요 ([`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md)).
 
@@ -171,9 +171,9 @@ template-spring/
 │   │   ├── setup/                     # secret-chain-4stage, key-issuance, key-rotation, mac-mini-setup, monitoring-setup, storage-setup, storage-bucket-isolation
 │   │   ├── operations/                # feature-toggle 등 운영자 가이드
 │   │   └── test/                      # contract-testing, testing-strategy
-│   ├── philosophy/                    # L3 — 36 개 ADR
+│   ├── philosophy/                    # L3 — 38 개 ADR
 │   │   ├── README.md                  # ADR 인덱스 + 테마별 그룹
-│   │   └── adr-001 ~ adr-036.md       # Architecture Decision Records
+│   │   └── adr-001 ~ adr-038.md       # Architecture Decision Records
 │   ├── planned/                       # backlog (미완료 / 향후 작업)
 │   └── reference/                     # 참조 사전
 │       ├── glossary.md
@@ -316,6 +316,29 @@ template-spring/
 │   │       ├── FcmProperties.java
 │   │       ├── PushService.java                   # Device 조회 → FCM 전송 조율
 │   │       └── PushAutoConfiguration.java
+│   │
+│   ├── core-sms-api/                  # SMS 발송 포트 (도메인 횡단 — OTP/알림 단일 진입점)
+│   │   └── SmsPort.java + exception/SmsError (SMS_001~SMS_002)
+│   │
+│   ├── core-sms-impl/                 # SMS 발송 구현 (CoolSMS/SOLAPI)
+│   │   └── src/main/java/com/factory/core/sms/impl/
+│   │       ├── CoolSmsAdapter.java                # SmsPort 구현 (SOLAPI HMAC-SHA256 실발송, 국내형 번호 변환)
+│   │       ├── LoggingSmsAdapter.java             # dev/dev-server fallback (콘솔 OTP 캡처 + dev 응답 노출)
+│   │       ├── CoolSmsProperties.java             # COOLSMS_API_KEY / COOLSMS_API_SECRET / COOLSMS_FROM / api-url
+│   │       └── SmsAutoConfiguration.java          # key 유무로 real/fallback 토글 (email 과 동일 패턴)
+│   │
+│   ├── core-phone-auth-api/           # 휴대폰 점유인증 포트
+│   │   └── PhoneAuthPort.java + exception/PhoneAuthError (PHA_001~PHA_006)
+│   │
+│   ├── core-phone-auth-impl/          # 휴대폰 점유인증 구현 (SMS OTP, ADR-013 + ADR-037)
+│   │   └── src/main/java/com/factory/core/phoneauth/impl/
+│   │       ├── PhoneAuthAdapter.java              # PhoneAuthPort 구현 (OtpService + AuthPort.issueForVerifiedPhone 조율)
+│   │       ├── service/
+│   │       │   ├── OtpService.java                # 발송 rate-limit + 검증 brute-force 가드 (TTL 5분, SHA-256 해시 저장)
+│   │       │   └── OtpCodes.java                  # SecureRandom 6자리 코드 + sha256Hex
+│   │       ├── entity/PhoneOtpCode.java           # phone_otp_codes (per-app schema 로 라우팅, 코어 schema 없음)
+│   │       ├── repository/PhoneOtpCodeRepository.java
+│   │       └── PhoneAuthAutoConfiguration.java    # 라우팅 EMF/txManager(@Primary) 바인딩
 │   │
 │   ├── core-storage-api/              # 스토리지 포트
 │   │   └── StoragePort.java + dto/ + model/ + exception/
@@ -897,7 +920,7 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 
 ## 관련 문서
 
 ### 핵심 레퍼런스
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 36 개 ADR 설계 결정의 근거
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 38 개 ADR 설계 결정의 근거
 - [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) — 문서 작성 규칙
 - [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 개발 환경 셋업
 
@@ -921,4 +944,5 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 
 - [`../convention/`](../convention/) — 네이밍, DTO factory, 예외 처리, git-workflow 등
 - [`Push Notifications`](../api-and-functional/functional/push-notifications.md) — FCM 디바이스 등록 + PushPort
 - [`Email Verification & Delivery`](../api-and-functional/functional/email-verification.md) — Resend 이메일 인증 + 비밀번호 재설정
+- [`Phone Auth (점유인증) & SMS`](../api-and-functional/functional/phone-auth-and-sms.md) — CoolSMS(SOLAPI) SMS 발송 + 휴대폰 OTP 점유인증
 - [`오브젝트 스토리지 규약`](../api-and-functional/functional/storage.md) — 파일 스토리지 컨벤션
