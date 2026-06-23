@@ -2,22 +2,24 @@
 
 > **유형**: Tutorial · **독자**: Level 0 · **읽는 시간**: ~5분
 
-[`이게 뭐야?`](./what-is-this.md) 를 읽고 "조금 더 봐볼까" 싶을 때 읽는 문서예요. 코드를 돌려보지 않고도 **"이 레포의 정체를 대충 알겠다"** 는 상태에 도달하는 게 목적. 5 분 안에 다음 4 가지 그림이 머릿속에 잡힙니다.
+[`이게 뭐야?`](./what-is-this.md) 를 읽고 "조금 더 봐볼까" 싶어졌다면 잘 오셨어요. 이 문서는 코드를 직접 돌려보지 않고도 "이 레포의 정체를 대충 알겠다" 는 상태에 닿는 게 목적이에요. 빠르게 한 바퀴 둘러보는 투어라, 5 분이면 다음 네 가지 그림이 머릿속에 잡혀요.
 
-1. **모듈 4 종류** 가 어떻게 생겼나
-2. **앱 하나를 추가** 한다는 게 무슨 뜻인가
-3. **DB 가 분리** 되어 있다는 건 어떤 모양인가
-4. **배포되면 무엇이 1 개 · 무엇이 N 개** 인가
+1. 모듈이 어떻게 생겼나
+2. 앱 하나를 추가한다는 게 무슨 뜻인가
+3. 앱마다 데이터가 분리된다는 건 어떤 모양인가
+4. 배포하면 무엇이 하나로, 무엇이 여러 개로 존재하나
 
-## 1. 모듈 4 종류
+본격적으로 손을 움직이는 건 [`Onboarding`](../start/onboarding.md) 에서 다뤄요. 여기서는 눈으로만 따라오면 돼요.
 
-이 레포는 Gradle 멀티모듈이에요. 모듈의 종류는 네 가지:
+## 1. 모듈은 어떻게 생겼나
+
+이 레포는 [Gradle](../reference/glossary.md#프레임워크--빌드) [멀티모듈](../reference/glossary.md#프레임워크--빌드) 이에요. 안쪽이 여러 모듈로 나뉘어 있고, 종류는 크게 네 가지예요.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  bootstrap/                                                  │
-│   └─ 모든 것을 조립해 단일 JAR 만드는 곳                    │
-│     (한 JVM = 한 bootstrap = 한 프로세스)                   │
+│  bootstrap/                                                    │
+│   └─ 모든 것을 조립해 단일 JAR 을 만드는 곳                    │
+│      한 JVM = 한 bootstrap = 한 프로세스                       │
 └──────┬───────────────────────────────────────────────────────┘
        │
        ├── common/              ← 상태 없는 유틸리티
@@ -28,126 +30,135 @@
        │   └── common-testing        → 테스트 기반
        │
        ├── core/               ← 상태 있는 공통 기능 (라이브러리 역할)
-       │   ├── core-user-{api,impl}      → 유저 관리
-       │   ├── core-auth-{api,impl}      → 인증 (signup/signin/refresh)
-       │   ├── core-device-{api,impl}    → 디바이스 등록 (푸시)
-       │   ├── core-push-{api,impl}      → FCM 푸시 전송
-       │   ├── core-storage-{api,impl}   → 파일 업로드/다운로드
-       │   ├── core-billing-{api,impl}   → 구독/플랜 정책 (ADR-019/020)
-       │   ├── core-iap-{api,impl}       → Apple/Google IAP 채널 (stub, 다음 사이클)
-       │   └── core-payment-{api,impl}   → PG 채널 (포트원 어댑터)
+       │   ├── core-user        → 유저 관리
+       │   ├── core-auth        → 인증 (가입·로그인·토큰 갱신)
+       │   ├── core-device      → 디바이스 등록
+       │   ├── core-push        → FCM 푸시 전송
+       │   ├── core-storage     → 파일 업로드·다운로드
+       │   ├── core-email       → 이메일 발송 (Resend)
+       │   ├── core-sms         → SMS 발송
+       │   ├── core-phone-auth  → 휴대폰 점유인증 (SMS OTP)
+       │   ├── core-audit       → 감사 로그
+       │   ├── core-billing     → 구독·플랜 정책
+       │   ├── core-iap         → Apple·Google 인앱 결제 채널
+       │   └── core-payment     → PG 채널 (포트원 어댑터)
        │
-       └── apps/               ← 앱별 도메인 (템플릿에는 비어있음)
-           ├── app-sumtally       → 가계부 앱 (예시)
-           ├── app-rny            → 자산 트래커 앱 (예시)
-           └── app-<slug>         → 새 앱은 여기에 자동 생성
+       └── apps/               ← 앱별 도메인 (템플릿에는 비어 있음)
+           └── app-<slug>       → 새 앱은 여기에 자동 생성
 ```
 
-**핵심**: `common/` 은 "재료", `core/` 는 "조립된 부품", `apps/` 는 "각 앱의 실제 제품", `bootstrap/` 은 "이것들을 다 담아 배송하는 상자".
+각 모듈의 역할은 한 줄로 이렇게 정리돼요.
 
-각 `core-*` 가 왜 **`-api` 와 `-impl` 두 개** 로 쪼개져 있는지는 [`ADR-003`](../philosophy/adr-003-api-impl-split.md) 이 답해요 — 한 줄로 말하면 **"나중에 뽑을 수 있게 하기 위한 경계"**.
+- `common/` 은 재료예요. 어디서든 쓰는 상태 없는 도구 모음이에요.
+- `core/` 는 조립된 부품이에요. 인증이나 결제처럼 앱이 공통으로 쓰는 기능을 라이브러리로 담아요.
+- `apps/` 는 각 앱의 실제 제품이에요. 가계부면 가계부, 운동 기록이면 운동 기록의 도메인 코드가 들어가요.
+- `bootstrap/` 은 이것들을 다 담아 배송하는 상자예요. 전부 조립해 단일 [fat JAR](../reference/glossary.md#프레임워크--빌드) 하나로 빌드돼요.
+
+`core/` 의 모듈은 모두 `-api` 와 `-impl` 두 짝으로 쪼개져 있어요. 예를 들어 `core-auth` 는 인터페이스만 담은 `core-auth-api` 와 실제 구현을 담은 `core-auth-impl` 로 나뉘어요. 왜 이렇게 나누는지는 [`ADR-003 · -api / -impl 분리`](../philosophy/adr-003-api-impl-split.md) 가 답해요. 한 줄로 말하면 나중에 한 기능을 따로 떼어낼 수 있게 미리 그어둔 경계예요.
 
 ## 2. 앱 하나를 추가한다는 것
 
-"새 앱 시작합시다" 가 뭘 의미하는가:
+"새 앱 시작합시다" 가 실제로 뭘 의미하는지 봐요. 명령은 단 한 줄이에요.
 
 ```bash
-./tools/new-app/new-app.sh gymlog --provision-db
+<repo> new gymlog
+# 또는 직접: ./tools/new-app/new-app.sh gymlog
 ```
 
-이 한 줄이 **자동으로** 만드는 것:
+이 한 줄이 자동으로 만드는 것은 이렇게 생겼어요.
 
 ```
-apps/app-gymlog/                             ← 새 앱 모듈 디렉토리
+apps/app-gymlog/                             ← 새 앱 모듈 디렉터리
 ├── build.gradle                             ← Gradle 설정
-├── src/main/java/.../app/gymlog/
+├── src/main/java/com/factory/apps/gymlog/
 │   ├── GymlogAppAutoConfiguration.java      ← Spring Boot 자동 설정
-│   ├── config/GymlogDataSourceConfig.java   ← DB 연결 (gymlog schema 전용)
-│   └── auth/GymlogAuthController.java       ← /api/apps/gymlog/auth/* 경로 11 개
+│   ├── config/GymlogDataSourceConfig.java   ← 앱 전용 DB 연결
+│   └── controller/GymlogAuthController.java ← /api/apps/gymlog/auth/* 인증 엔드포인트
 └── src/main/resources/db/migration/gymlog/
-    ├── V001__init_users.sql                 ← gymlog 유저 테이블
-    ├── V002__init_social_identities.sql
-    ├── V003__init_refresh_tokens.sql
-    ├── V004__init_email_verification_tokens.sql
-    ├── V005__init_password_reset_tokens.sql
-    └── V006__init_devices.sql               ← 푸시 디바이스
+    ├── V001__init_users.sql                 ← 유저·인증 기반 테이블
+    ├── ...                                  ← V002 ~ V006
+    ├── V007__seed_admin_user.sql            ← admin 유저 시드
+    ├── V008__init_plans.sql                 ← 구독·결제 테이블
+    ├── ...                                  ← V009 ~ V014
+    └── V015__init_phone_otp_codes.sql       ← 휴대폰 점유인증 (선택)
 ```
 
-**그리고 PostgreSQL 에**:
-- `gymlog` schema 자동 생성
-- `gymlog_app` DB role 자동 생성 (다른 앱 schema 접근 불가)
+[Flyway](../reference/glossary.md#데이터베이스) 마이그레이션이 꽤 많아 보이지만, 대부분 모든 앱이 똑같이 쓰는 인증·결제 기반이에요. 본인 도메인 테이블은 V016 부터 직접 작성하면 돼요. 자세한 구성은 [`Onboarding §3`](../start/onboarding.md#3-첫-앱-모듈-추가) 에 표로 정리돼 있어요.
 
-**당신이 이제 할 일**:
-- `apps/app-gymlog/` 안에 가계부 앱처럼 **도메인 코드만** 추가 (set, reps, workout 등)
-- 인증은 안 건드려도 됨 (`core-auth-impl` 가 이미 해줌)
+그리고 PostgreSQL 쪽에서도 두 가지가 자동으로 생겨요.
 
-이 "복사-자동화" 덕분에 앱 추가 시간이 **분 단위로 떨어집니다**.
+- `gymlog` [schema](../reference/glossary.md#데이터베이스) 가 새로 만들어져요.
+- `gymlog_app` 이라는 전용 [role](../reference/glossary.md#데이터베이스) 이 만들어져요. 이 role 은 다른 앱 schema 에는 접근하지 못해요.
 
-## 3. DB 가 분리되어 있다는 것
+`GymlogAuthController` 에는 가입·로그인·소셜 로그인·토큰 갱신·비밀번호 재설정·2단계 인증까지 인증 엔드포인트 열다섯 개가 이미 들어 있어요. 직접 손으로 짤 필요가 없어요. 인증은 `core-auth-impl` 이 이미 다 해주니까요.
 
-한 Postgres 인스턴스 안에 [**schema**](../reference/glossary.md#데이터베이스) (논리 경계) 가 앱마다 하나씩:
+그래서 새 앱을 받은 당신이 할 일은 단순해요. `apps/app-gymlog/` 안에 그 앱만의 도메인 코드를 더하면 돼요. 운동 기록 앱이라면 세트·반복·운동 같은 것들이요. 이 "복사 자동화" 덕분에 앱 추가에 걸리는 시간이 분 단위로 떨어져요.
+
+## 3. 앱마다 데이터가 분리된다는 것
+
+한 Postgres 인스턴스 안에서, 앱마다 [schema](../reference/glossary.md#데이터베이스) 하나씩을 논리적 경계로 가져요. 아래는 가계부 앱과 자산 앱, 그리고 방금 만든 `gymlog` 까지 세 앱이 올라간 모습을 그린 거예요.
 
 ```
 postgres (database)
 │
-├── core schema                     ← 템플릿 기준선
-│   └── users, refresh_tokens, ...
-│
-├── sumtally schema                 ← 가계부 앱 전용
-│   ├── users                       ← sumtally 유저 (독립)
+├── sumtally schema                 ← 가계부 앱 전용 (예시)
+│   ├── users                       ← sumtally 유저
 │   ├── refresh_tokens
 │   ├── budget_groups               ← 가계부 도메인
 │   └── expenses
 │
-├── rny schema                      ← 자산 앱 전용
+├── rny schema                      ← 자산 앱 전용 (예시)
 │   ├── users                       ← rny 유저 (sumtally 와 완전 별개)
 │   ├── refresh_tokens
 │   └── asset_groups                ← 자산 도메인
 │
 └── gymlog schema                   ← 방금 만든 앱 전용
     ├── users
-    └── (아직 비어있음)
+    └── (도메인 테이블은 아직 비어 있음)
 ```
 
-**중요한 규칙 3 개**:
+유저·인증 테이블은 공유 저장소 한 곳에 모이지 않아요. 각 앱 schema 안에 똑같은 모양으로 따로 생겨요. `core-*` 의 자바 코드는 라이브러리로서 공유되지만, 데이터가 사는 자리는 앱마다 격리돼요. 이 per-app 격리 결정은 [`ADR-037 · core schema 폐기`](../philosophy/adr-037-core-schema-deprecation.md) 가 기록해요.
 
-1. **같은 이메일** 이 sumtally 와 rny 에 있어도 **서로 다른 유저** ([`ADR-012`](../philosophy/adr-012-per-app-user-model.md))
-2. **DB role** 이 분리되어 있어서 sumtally 코드가 rny schema 에 접근하려 하면 **PostgreSQL 이 거절**
-3. [**HikariCP**](../reference/glossary.md#데이터베이스) **커넥션 풀** 도 앱별로 따로 — 한 앱이 DB 를 과부하시켜도 다른 앱은 무사
+여기서 기억할 규칙은 세 가지예요.
 
-이것이 [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 **5중 방어선** 중 핵심 내용.
+- 같은 이메일이 sumtally 와 rny 양쪽에 있더라도, 둘은 서로 다른 유저예요 ([`ADR-012`](../philosophy/adr-012-per-app-user-model.md)).
+- DB [role](../reference/glossary.md#데이터베이스) 이 분리돼 있어서, sumtally 코드가 rny schema 에 접근하려 하면 PostgreSQL 이 거절합니다.
+- [HikariCP](../reference/glossary.md#데이터베이스) 커넥션 풀도 앱별로 따로예요. 한 앱이 DB 를 과부하시켜도 다른 앱은 멀쩡합니다.
 
-## 4. 배포되면 1 개 vs N 개
+이 격리가 어떻게 여러 겹으로 지켜지는지는 [`ADR-005 · DB schema 격리`](../philosophy/adr-005-db-schema-isolation.md) 가 자세히 다뤄요.
 
-| 배포 후 뭐가 존재하나 | 개수 |
+## 4. 배포하면 하나일까 여러 개일까
+
+배포가 끝나고 나면, 어떤 것은 단 하나로 존재하고 어떤 것은 앱 수만큼 존재해요. 한 프로세스 안에 여러 앱이 공존하는 [모듈러 모놀리스](../reference/glossary.md#아키텍처-용어) 구조라서 그래요.
+
+| 배포 후 존재하는 것 | 개수 |
 |---|---|
-| 서버 (JVM 프로세스) | **1 개** ← 모든 앱이 한 프로세스 안 |
-| JAR 파일 | **1 개** |
-| Docker 이미지 | **1 개** |
-| PostgreSQL 인스턴스 | **1 개** |
-| GitHub Actions workflow | 몇 개 (빌드 · 배포 · 릴리스) |
-|  |  |
-| HTTP 엔드포인트 prefix | **N 개** ← `/api/apps/sumtally/*`, `/api/apps/rny/*`, ... |
-| PostgreSQL schema | **N 개** ← 앱마다 하나 |
-| DataSource bean | **N 개** ← 앱마다 하나 |
-| Flyway 마이그레이션 히스토리 | **N 개** ← schema 마다 독립 |
+| 서버 (JVM 프로세스) | 1 개 — 모든 앱이 한 프로세스 안 |
+| JAR 파일 | 1 개 |
+| Docker 이미지 | 1 개 |
+| PostgreSQL 인스턴스 | 1 개 |
+| HTTP 엔드포인트 prefix | N 개 — `/api/apps/sumtally/*`, `/api/apps/rny/*`, ... |
+| PostgreSQL schema | N 개 — 앱마다 하나 |
+| DataSource bean | N 개 — 앱마다 하나 |
+| Flyway 마이그레이션 히스토리 | N 개 — schema 마다 독립 |
 
-**한 줄**: **"외부에는 앱이 N 개처럼 보이고, 내부 운영은 1 개처럼 운영됩니다."**
+한 줄로 요약하면 이래요. 외부에서 보면 앱이 N 개처럼 보이고, 내부 운영은 한 개처럼 굴러갑니다.
 
 ## 5 분이 지나서
 
-여기까지 읽으면:
-- 이 레포의 **큰 그림** 이 머릿속에 들어와요
-- "아, 이게 'modular monolith' 구나" 라는 납득이 생겨요
-- 개별 ADR 들 (예: "왜 HS256 JWT?") 에 들어갈 준비가 끝나요
+여기까지 따라왔다면 이런 상태가 됐을 거예요.
 
-## 다음
+- 이 레포의 큰 그림이 머릿속에 들어와요.
+- "아, 이게 [모듈러 모놀리스](../reference/glossary.md#아키텍처-용어) 구나" 라는 납득이 생겨요.
+- "왜 HS256 JWT 를 쓰지?" 같은 개별 설계 결정으로 파고들 준비가 끝나요.
+
+## 다음으로
 
 | 다음 행동 | 문서 |
 |---|---|
-| **설계 결정의 이유를 읽고 싶다** | [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 프롤로그 + 테마 1 (ADR-001~004) |
-| **직접 돌려보고 싶다** | [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 환경 셋업 |
-| **구조의 전체 레퍼런스** | [`Architecture Reference`](../structure/architecture.md) — 파일 트리 + 의존 그래프 |
-| **Developer Journey 전체 순서** | [`📚 template-spring — 책 목차 (Developer Journey)`](./README.md) |
+| 설계 결정의 이유를 읽고 싶다 | [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 프롤로그 + 테마 1 (ADR-001~004) |
+| 직접 돌려보고 싶다 | [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 환경 셋업 |
+| 구조의 전체 레퍼런스가 필요하다 | [`Architecture Reference`](../structure/architecture.md) — 파일 트리 + 의존 그래프 |
+| Developer Journey 전체 순서가 궁금하다 | [`📚 template-spring — 책 목차`](./README.md) |
 
-"관심은 있는데 지금은 시간 없음" → 이 2 개 Level 0 문서로 충분. 필요할 때 돌아오세요.
+"관심은 있는데 지금은 시간이 없다" 면, 이 문서와 [`이게 뭐야?`](./what-is-this.md) 두 개로 충분해요. 필요해지면 다시 돌아오세요.

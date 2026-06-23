@@ -4,13 +4,13 @@
 
 이 문서는 모든 REST API 의 요청과 응답 포맷을 정의합니다.
 
-**일관된 포맷의 목적** 은 클라이언트 (Flutter 앱) 가 어느 엔드포인트든 동일한 파싱 로직으로 처리할 수 있게 하는 것이에요. 응답 포맷이 엔드포인트마다 다르면 앱 쪽 네트워크 레이어가 복잡해지고, 에러 처리가 일관되지 않습니다.
+일관된 포맷의 목적은 클라이언트(Flutter 앱)가 어느 엔드포인트든 같은 파싱 로직으로 처리할 수 있게 하는 거예요. 응답 포맷이 엔드포인트마다 다르면 앱 쪽 네트워크 레이어가 복잡해지고 에러 처리도 들쭉날쭉해집니다.
 
 ---
 
 ## 개요
 
-모든 REST API 의 **요청/응답 포맷 표준**. 응답 래퍼 구조 · HTTP 상태 코드 매핑 · 에러 코드 체계 · 필드 명명 규약.
+모든 REST API 의 요청·응답 포맷 표준입니다. 응답 래퍼 구조, HTTP 상태 코드 매핑, 에러 코드 체계, 필드 명명 규약을 한곳에 모아 둡니다.
 
 ---
 
@@ -20,18 +20,18 @@
 
 ```json
 {
-  "data": <actual data or null>,
-  "error": <error object or null>
+  "data": <실제 데이터 또는 null>,
+  "error": <에러 객체 또는 null>
 }
 ```
 
-**성공 시**: `data` 에 실제 데이터, `error` 는 `null`.
+성공 시 `data` 에 실제 데이터가 담기고 `error` 는 `null` 입니다. 실패 시 `data` 는 `null` 이고 `error` 에 에러 객체가 담깁니다.
 
-**실패 시**: `data` 는 `null`, `error` 에 에러 객체.
+성공 응답에서 `data` 와 `error` 는 항상 상호 배타적입니다. 데이터가 있으면서 동시에 에러가 있는 응답은 없습니다.
 
-`data` 와 `error` 는 **항상 상호 배타적** 입니다. 둘 다 값이 있거나 둘 다 `null` 인 응답은 없습니다.
+> **왜 data 와 error 를 분리했나** — 흔한 대안은 단일 객체에 `success` 불리언 플래그를 두는 방식이에요. 그러면 클라이언트가 항상 `success` 를 먼저 확인한 뒤 분기해야 하고, 응답 타입이 하나라서 Dart 의 타입 시스템이 데이터 필드와 에러 필드를 한 객체에서 동시에 다뤄야 합니다. data 와 error 를 상호 배타적으로 분리하면 성공 경로와 에러 경로가 타입 단계에서 갈라지고, 클라이언트는 `error == null` 한 번만 확인하면 됩니다.
 
-> **왜 data/error 를 분리했나?** — **대안 — 단일 객체에 `success: boolean` 플래그** 의 한계: 클라이언트가 *항상* `success` 를 먼저 체크한 후 분기해야 하고, 응답 타입이 단일이라 TypeScript / Dart 의 타입 시스템이 `data` 와 `error` 를 동시에 다뤄야 합니다. `data` 와 `error` 를 *상호 배타적* 으로 분리하면 success path 와 error path 가 *타입 단계에서 격리* 되고, 클라이언트는 `error == null` 한 번만 체크하면 돼요. 양쪽 모두 null 이거나 양쪽 모두 값이 있는 응답이 절대 없으니 안전한 분기예요.
+> **본문 없는 성공은 둘 다 null** — 204 No Content 처럼 돌려줄 데이터가 없는 성공 응답은 `data` 와 `error` 가 모두 `null` 입니다. 코드로는 `ApiResponse.empty()` 가 이 형태를 만들어요. 그래서 "데이터가 있는 성공"과 "에러"는 상호 배타적이지만, 그 둘 어디에도 속하지 않는 "본문 없는 성공"이라는 세 번째 상태가 따로 있습니다.
 
 ### 성공 응답 예시
 
@@ -93,7 +93,7 @@
 
 ## 조회 API 표준 요청 형식
 
-목록 조회 API 는 `SearchRequest` 를 body 로 받습니다 (POST 메서드 사용):
+목록 조회 API 는 `SearchRequest` 를 body 로 받습니다. 메서드는 POST 를 씁니다.
 
 ### 요청 예시
 
@@ -140,21 +140,30 @@ Content-Type: application/json
 
 ### 조건 연산자 규칙
 
+조건 키는 `필드명_연산자` 형태입니다. 연산자를 생략하면 `eq` 로 동작합니다.
+
 | 키 형식 | 의미 | 값 타입 |
 |---|---|---|
-| `field_eq` | 일치 | 단일 값 |
-| `field_gte` / `field_lte` | 이상 / 이하 | 단일 값 (숫자, 날짜) |
-| `field_gt` / `field_lt` | 초과 / 미만 | 단일 값 |
-| `field_like` | 부분 매칭 (대소문자 무시) | 문자열 |
-| `field_isNull` / `field_isNotNull` | null 여부 | `true` |
+| `field_eq` · `field_ne` | 일치 · 불일치 | 단일 값 |
+| `field_gt` · `field_gte` | 초과 · 이상 | 단일 값 (숫자, 날짜) |
+| `field_lt` · `field_lte` | 미만 · 이하 | 단일 값 (숫자, 날짜) |
+| `field_like` | 부분 매칭 | 문자열 |
+| `field_startsWith` · `field_endsWith` | 접두 · 접미 매칭 | 문자열 |
+| `field_in` · `field_notIn` | 포함 · 미포함 | 값 목록 |
+| `field_between` | 범위 | 값 두 개 |
+| `field_isNull` · `field_isNotNull` | null 여부 | `true` |
+| `field_empty` | null 또는 빈 문자열 여부 (문자열 전용) | `true` 또는 `false` |
 
-현재 `QueryDslPredicateBuilder` 가 지원하는 연산자는 위 8가지입니다. 필요한 연산자가 있으면 해당 클래스의 `switch` 문에 case 를 추가하면 됩니다.
+대소문자를 무시하려면 연산자 앞에 `i` 를 붙입니다. `field_ieq`, `field_ilike`, `field_istartsWith` 같은 식이에요.
+
+이 규칙은 `common-persistence` 모듈의 `QueryDslPredicateBuilder` 가 처리합니다. 필요한 연산자가 더 있으면 이 클래스에 연산자를 추가하면 됩니다.
 
 ### 왜 POST 인가
 
-`GET` 은 body 를 가질 수 없는 것은 아니지만, 실무적으로 프록시/CDN 이 GET body 를 무시하거나 캐시 키에 포함하지 않아 문제가 됩니다. 복잡한 검색 조건은 query parameter 로 표현하기 어렵고 길이 제한도 있습니다.
+`GET` 도 body 를 가질 수 있긴 하지만, 실무에서는 프록시나 CDN 이 GET body 를 무시하거나 캐시 키에 반영하지 않아 문제가 됩니다. 복잡한 검색 조건은 query parameter 로 표현하기 어렵고 길이 제한도 있습니다.
 
-따라서 목록 조회 API 는 **`POST /search`** 엔드포인트를 사용합니다:
+그래서 목록 조회 API 는 `POST /search` 엔드포인트를 사용합니다.
+
 - `POST /api/apps/sumtally/expenses/search` — 조건 기반 검색
 - `GET /api/apps/sumtally/expenses/{id}` — 단건 조회 (ID 기반)
 
@@ -162,11 +171,10 @@ Content-Type: application/json
 
 ## Java 구현
 
-### `ApiResponse<T>`
+### ApiResponse
 
 ```java
-package com.factory.common.web.response;
-
+// common-web/response/ApiResponse.java 발췌
 public record ApiResponse<T>(T data, ApiError error) {
 
     public static <T> ApiResponse<T> ok(T data) {
@@ -183,15 +191,17 @@ public record ApiResponse<T>(T data, ApiError error) {
 }
 ```
 
-### `ApiError`
+`ok` 는 성공, `empty` 는 본문 없는 성공(204), `error` 는 실패 응답을 만듭니다.
+
+### ApiError
 
 ```java
+// common-web/response/ApiError.java 발췌
 public record ApiError(String code, String message, Map<String, Object> details) {
 
-    /** defensive deep-copy details to prevent external mutation. */
     public ApiError {
         if (details != null) {
-            details = Map.copyOf(details);
+            details = Map.copyOf(details);   // ← 방어적 복사로 외부 변경 차단
         }
     }
 
@@ -205,7 +215,7 @@ public record ApiError(String code, String message, Map<String, Object> details)
 }
 ```
 
-`code` 는 `String` 입니다. 실제로는 `ErrorInfo.getCode()` 의 반환값(예: `"CMN_007"`, `"ATH_001"`)을 넘깁니다. enum constant 이름(`ACCESS_TOKEN_EXPIRED`)이 아닙니다.
+`code` 는 `String` 입니다. 실제로는 `ErrorInfo.getCode()` 의 반환값(예: `"CMN_007"`, `"ATH_001"`)을 넘깁니다. enum 상수 이름(`ACCESS_TOKEN_EXPIRED`)이 아니에요.
 
 ### 컨트롤러 사용 예시
 
@@ -223,7 +233,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 }
 ```
 
-**컨트롤러는 절대로 `ApiResponse.error(...)` 를 직접 반환하지 않습니다.** 에러는 예외를 던지고, `GlobalExceptionHandler` 가 변환합니다.
+컨트롤러는 `ApiResponse.error(...)` 를 직접 반환하지 않습니다. 에러는 예외로 던지고, `GlobalExceptionHandler` 가 응답으로 변환합니다.
 
 ---
 
@@ -242,13 +252,14 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 - **403 Forbidden** — 인증은 됐으나 권한 없음
 - **404 Not Found** — 리소스 없음
 - **409 Conflict** — 중복 등록, 상태 충돌
-- **422 Unprocessable Entity** — 검증 실패 (입력 형식은 맞으나 내용이 부적절)
-- **429 Too Many Requests** — 레이트 리밋 (Cloudflare 담당이 주)
+- **422 Unprocessable Entity** — 검증 실패 (형식은 맞으나 내용이 부적절)
+- **429 Too Many Requests** — 레이트 리밋
 
 ### 서버 오류
 
 - **500 Internal Server Error** — 일반적인 서버 오류
-- **503 Service Unavailable** — 일시적 서비스 불가 (DB 다운 등)
+- **502 Bad Gateway** — 외부 서비스 호출 실패 (이메일 발송, PG 사 API 등)
+- **503 Service Unavailable** — 일시적 서비스 불가 (DB 다운, 설정 누락 등)
 
 ### 언제 뭘 쓰나
 
@@ -261,9 +272,9 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 | JWT appSlug 와 URL path slug 불일치 | 403 | `CMN_005` |
 | 존재하지 않는 유저 ID 조회 | 404 | `USR_001` |
 | 이미 사용 중인 이메일로 가입 | 409 | `USR_002` |
-| 이메일 형식 오류 | 422 | `CMN_001` |
+| 이메일 형식 오류 (검증 실패) | 422 | `CMN_001` |
 | 비밀번호 불일치 | 401 | `ATH_001` |
-| Apple/Google 로그인 검증 실패 | 401 | `ATH_004` |
+| Apple·Google 로그인 검증 실패 | 401 | `ATH_004` |
 | refresh token 만료 | 401 | `ATH_002` |
 | 이메일 발송 실패 | 502 | `EMAIL_001` |
 
@@ -271,13 +282,13 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ## 에러 코드 & 예외 처리
 
-ErrorCode enum, 예외 계층 구조, ExceptionHandler 매핑, 새 예외 추가 절차는 **[`exception-handling.md`](../../convention/exception-handling.md)** 에서 관리합니다.
+에러 코드 체계, 예외 계층 구조, ExceptionHandler 매핑, 새 예외 추가 절차는 [`exception-handling.md`](../../convention/exception-handling.md) 에서 관리합니다.
 
-여기서는 핵심 원칙만 요약합니다:
+여기서는 핵심 원칙만 요약합니다.
 
-- `ErrorCode` enum 이 모든 에러 코드의 단일 정본
-- 컨트롤러는 `ApiResponse.error(...)` 를 직접 반환하지 않음 — 예외를 던지고 `ExceptionHandler` 가 변환
-- 클라이언트는 HTTP 상태 코드가 아닌 **ErrorCode 값으로 분기** (같은 401 이라도 `CMN_007`(access token 만료) vs `ATH_001`(비밀번호 불일치) 는 다름)
+- 에러 코드는 `ErrorInfo` 인터페이스(`getStatus()`, `getCode()`, `getMessage()`)를 구현하는 enum 들이 정의합니다. 공통 코드는 `CommonError`(`CMN_xxx`), 도메인별 코드는 `AuthError`(`ATH_xxx`), `UserError`(`USR_xxx`), `EmailError`(`EMAIL_xxx`), `PaymentError`(`PAY_xxx`) 처럼 각 도메인 모듈의 enum 이 가집니다.
+- 컨트롤러는 `ApiResponse.error(...)` 를 직접 반환하지 않습니다. 예외를 던지고 `GlobalExceptionHandler` 가 변환합니다.
+- 클라이언트는 HTTP 상태 코드가 아니라 에러 코드 값으로 분기합니다. 같은 401 이라도 `CMN_007`(access token 만료)과 `ATH_001`(비밀번호 불일치)은 의미가 다릅니다.
 
 ---
 
@@ -320,7 +331,7 @@ GET /api/apps/sumtally/expenses/123
 |---|---|---|
 | `page` | 페이지 번호 (0부터 시작) | `page=0` |
 | `size` | 페이지당 항목 수 | `size=20` |
-| `sort` | 정렬 필드, 방향 | `sort=createdAt,desc` |
+| `sort` | 정렬 필드와 방향 | `sort=createdAt,desc` |
 
 ---
 
@@ -328,7 +339,7 @@ GET /api/apps/sumtally/expenses/123
 
 ### JSON
 
-**camelCase** 를 사용합니다.
+camelCase 를 사용합니다.
 
 ```json
 {
@@ -338,19 +349,19 @@ GET /api/apps/sumtally/expenses/123
 }
 ```
 
-### 날짜/시간
+### 날짜·시간
 
-**ISO 8601 UTC** 형식을 사용합니다. `Z` 접미사로 UTC 임을 명시합니다.
+ISO 8601 UTC 형식을 사용합니다. `Z` 접미사로 UTC 임을 명시합니다.
 
 - Good: `"2026-04-14T10:30:00Z"` 또는 `"2026-04-14T10:30:00.123Z"`
 - Bad: `"2026-04-14 10:30:00"` (타임존 없음)
 - Bad: `"2026년 4월 14일"` (로컬라이즈된 문자열)
 
-Java 에서는 `Instant` 또는 `ZonedDateTime` 을 사용하고, Jackson 이 자동으로 ISO 8601 로 직렬화합니다.
+Java 에서는 `Instant` 또는 `ZonedDateTime` 을 쓰고, Jackson 이 자동으로 ISO 8601 로 직렬화합니다.
 
 ### Null 필드
 
-**null 필드는 JSON 응답에 포함시키지 않습니다.** Jackson 설정:
+null 필드는 JSON 응답에 포함하지 않습니다. Jackson 설정으로 강제합니다.
 
 ```yaml
 spring:
@@ -358,9 +369,9 @@ spring:
     default-property-inclusion: non_null
 ```
 
-이유: 네트워크 대역폭 절약 + 클라이언트가 "이 필드가 있는가 없는가" 를 체크하기 쉬움.
+null 필드를 빼면 네트워크 대역폭을 아끼고, 클라이언트가 "이 필드가 있는가 없는가"로 존재 여부를 판단하기 쉬워집니다.
 
-**예외:** 배열/리스트 필드는 비어있으면 빈 배열 `[]` 로 반환합니다 (null 로 생략 금지). 이유: 클라이언트 코드가 null 체크와 빈 배열 체크를 둘 다 할 필요가 없게 합니다.
+배열·리스트 필드는 다릅니다. 비어 있어도 null 로 생략하지 않고 빈 배열 `[]` 로 반환합니다. 클라이언트가 null 체크와 빈 배열 체크를 둘 다 하지 않게 하려는 규약이에요. `non_null` 설정은 빈 컬렉션을 생략하지 않으므로 Jackson 기본 동작으로도 빈 배열이 그대로 나가지만, 응답 객체가 null 컬렉션을 담지 않게 하는 건 각 DTO 의 책임입니다.
 
 ```json
 // Good
@@ -374,7 +385,7 @@ spring:
 
 ## 검증
 
-입력 검증은 `@Valid` + Bean Validation 어노테이션으로 처리합니다.
+입력 검증은 `@Valid` 와 Bean Validation 어노테이션으로 처리합니다.
 
 ```java
 public record SignUpRequest(
@@ -392,7 +403,7 @@ public record SignUpRequest(
 ) { }
 ```
 
-컨트롤러:
+컨트롤러는 파라미터에 `@Valid` 를 붙입니다.
 
 ```java
 @PostMapping("/email/signup")
@@ -401,7 +412,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 }
 ```
 
-검증 실패 시 Spring 이 `MethodArgumentNotValidException` 을 던지고, ExceptionHandler 가 이를 `VALIDATION_ERROR` 응답으로 변환합니다. (상세: [`exception-handling.md`](../../convention/exception-handling.md))
+검증에 실패하면 Spring 이 `MethodArgumentNotValidException` 을 던지고, `GlobalExceptionHandler` 가 이를 `CommonError.VALIDATION_ERROR`(코드 `CMN_001`, HTTP 422) 응답으로 변환합니다. 첫 필드 에러의 필드명과 거부된 값이 `details` 에 담겨요. 상세는 [`exception-handling.md`](../../convention/exception-handling.md) 를 참고하세요.
 
 ---
 
@@ -443,7 +454,8 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
     "code": "CMN_001",
     "message": "올바른 이메일 형식이 아닙니다",
     "details": {
-      "field": "email"
+      "field": "email",
+      "rejected": "not-an-email"
     }
   }
 }
@@ -492,18 +504,18 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ## 요약
 
-- **모든 응답은 `{data, error}` 래퍼** 로 감쌉니다
-- **둘은 상호 배타적** — 동시에 값을 갖지 않습니다
-- **성공은 HTTP 2xx + data**, **실패는 HTTP 4xx/5xx + error**
-- **예외로 에러를 표현** — 컨트롤러는 `ApiResponse.error()` 를 직접 반환하지 않습니다 (상세: [`exception-handling.md`](../../convention/exception-handling.md))
-- **날짜는 ISO 8601 UTC**, **필드명은 camelCase**, **null 은 생략** (빈 배열은 생략 안 함)
+- 모든 응답은 `{data, error}` 래퍼로 감쌉니다.
+- 데이터가 있는 성공과 에러는 상호 배타적이고, 본문 없는 성공(204)은 둘 다 `null` 입니다.
+- 성공은 HTTP 2xx 와 `data`, 실패는 HTTP 4xx·5xx 와 `error` 로 나갑니다.
+- 에러는 예외로 표현합니다. 컨트롤러는 `ApiResponse.error()` 를 직접 반환하지 않습니다 (상세: [`exception-handling.md`](../../convention/exception-handling.md)).
+- 날짜는 ISO 8601 UTC, 필드명은 camelCase, null 은 생략하되 빈 배열은 그대로 둡니다.
 
 ---
 
 ## 관련 문서
 
-- [`Exception Handling Convention`](../../convention/exception-handling.md) — 에러 코드 체계 + 도메인별 예외
-- [`JSON 계약 규약 (JSON Contract)`](./json-contract.md) — JSON 직렬화 정책 + 테스트 4 종
+- [`Exception Handling Convention`](../../convention/exception-handling.md) — 에러 코드 체계와 도메인별 예외
+- [`JSON 계약 규약 (JSON Contract)`](./json-contract.md) — JSON 직렬화 정책과 테스트 4 종
 - [`Flutter ↔ Backend Integration`](./flutter-backend-integration.md) — 클라이언트 연동 규약
 - [`버전 규약 & Deprecation 프로세스`](./versioning.md) — API 버전 관리 전략
-- [`Swagger UI`](./swagger-ui.md) — API 자동 탐색 + slug 별 controller 그룹
+- [`Swagger UI`](./swagger-ui.md) — API 자동 탐색과 slug 별 controller 그룹

@@ -10,7 +10,7 @@ SMS 발송과 휴대폰 점유인증을 *두 개의 독립 코어 도메인* 으
 
 **① SMS 발송 = `core-sms`.** `SmsPort.send(toE164, text)` 한 메서드로 추상화하고, 환경별로 어댑터를 토글합니다 — dev/local 은 `LoggingSmsAdapter` (실 발송 X, OTP 를 `WARN` 로그로 노출 = *dev-capture*), 운영은 `CoolSmsAdapter` (SOLAPI/CoolSMS API, HMAC-SHA256 서명). `core-email` 의 `EmailPort` 멀티 어댑터 패턴 (ADR-024) 을 그대로 따릅니다.
 
-**② 점유인증 = `core-phone-auth`.** `PhoneAuthPort` (requestOtp / verify) 뒤에 `OtpService` (rate-limit · brute-force 가드 · SHA-256 해시 저장) 와 `PhoneOtpCode` 엔티티를 둡니다. *OTP 수명 관리* 만 이 도메인이 책임지고, *번호→유저 식별* 은 `AuthPort.issueForVerifiedPhone` 에 위임합니다. 앱은 Port + `BRAND`·`appSlug` 를 주입하는 *얇은 컨트롤러* 만 추가하면 재사용 끝.
+**② 점유인증 = `core-phone-auth`.** `PhoneAuthPort` (requestOtp · verify) 뒤에 `OtpService` (rate-limit · brute-force 가드 · SHA-256 해시 저장) 와 `PhoneOtpCode` 엔티티를 둡니다. *OTP 수명 관리* 만 이 도메인이 책임지고, *번호→유저 식별* 은 `AuthPort.issueForVerifiedPhone` 에 위임합니다. 앱은 Port + `BRAND`·`appSlug` 를 주입하는 *얇은 컨트롤러* 만 추가하면 재사용 끝.
 
 **③ OTP 데이터는 per-app schema.** ADR-037 에서 *core schema 자체가 사라졌으므로*, OTP 도 코어 schema 가 아니라 *각 app schema* 에 V015 로 생성됩니다. `PhoneOtpCode` 를 `CORE_ENTITY_PACKAGES` 에 등록해 라우팅 EMF 의 scan 대상에 포함시키면, `SchemaRoutingDataSource` 가 현재 요청 slug 의 schema 로 INSERT/SELECT 를 자동 라우팅합니다 (코어 schema 없음).
 
@@ -23,7 +23,7 @@ SMS 발송과 휴대폰 점유인증을 *두 개의 독립 코어 도메인* 으
 여기서 두 개의 서로 다른 관심사가 한 덩어리로 얽히는 게 문제였어요.
 
 - **발송 채널**: 실제 문자를 *어디로 보내는가* (SOLAPI? 다른 발신사? dev 에선 발송 안 함?) — 이건 *email 발송과 똑같은 모양* 의 문제입니다. 발송처 자격증명이 환경마다 다르고, dev 서버 도그푸딩 단계에선 실 발신사 발급 전이라 *콘솔에서 코드를 확인* 할 수 있어야 합니다.
-- **인증 프로토콜**: *6자리 코드를 만들고 · 해시로 저장하고 · TTL/시도 제한을 걸고 · 검증 후 유저를 발급* 하는 흐름 — 이건 발송 채널과 무관한 *상태 머신* 입니다.
+- **인증 프로토콜**: *6자리 코드를 만들고 · 해시로 저장하고 · TTL·시도 제한을 걸고 · 검증 후 유저를 발급* 하는 흐름 — 이건 발송 채널과 무관한 *상태 머신* 입니다.
 
 이 둘을 한 클래스에 합치면 "발신사를 바꾸려는데 OTP 로직까지 건드려야" 하거나 "OTP 정책을 고치려는데 HTTP 글루가 끼어드는" 결합이 생겨요. 결제 도메인을 *정책 (billing) vs 채널 (IAP/PG)* 로 가른 ADR-019 와 정확히 같은 모양의 분리 압력입니다.
 
@@ -136,5 +136,5 @@ public static final String[] CORE_ENTITY_PACKAGES = {
 
 - *`CoolSmsAdapter` 의 비동기/재시도* — 현재 동기 `HttpURLConnection` 발송. 발송 실패 시 즉시 `SMS_DELIVERY_FAILED` 이고 재시도 없음. 발송량 증가 시 큐 + 재시도 정책 별도 cycle 후보.
 - *발신사 멀티화* — `SmsPort` 가 이미 추상화돼 있으므로, 국제 발송 (Twilio 등) 어댑터 추가는 `SmsAutoConfiguration` 토글 1개로 가능. 필요 시점에 추가.
-- *Lite mode 토글* — 점유인증을 ADR-034 의 feature toggle 목록에 편입할지 검토 (현재는 V015 옵트인 / 컨트롤러 미추가로 비활성).
+- *Lite mode 토글* — 점유인증을 ADR-034 의 feature toggle 목록에 편입할지 검토 (현재는 V015 옵트인·컨트롤러 미추가로 비활성).
 - *rate-limit 정책 외부화* — 현재 `OtpService` 의 윈도우/횟수가 상수. 앱별 차등이 필요해지면 property 화.

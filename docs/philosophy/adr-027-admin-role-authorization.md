@@ -8,15 +8,15 @@
 
 ## 결론부터
 
-**이 문서는 *운영자 전용 endpoint 가 누구에게 허용되는지* 를 한 줄짜리 어노테이션으로 표시하고, JWT 의 role claim 으로 그 권한을 자동 검증하는 컨벤션을 정의합니다. *어느 endpoint 가 admin 만 쓸 수 있는지* 가 코드만 봐도 명확해지는 형태가 목표예요.**
+**이 문서는 운영자 전용 endpoint 가 누구에게 허용되는지를 한 줄짜리 어노테이션으로 표시하고, JWT 의 role claim 으로 그 권한을 자동 검증하는 컨벤션을 정의합니다.** 어느 endpoint 가 admin 만 쓸 수 있는지가 코드만 봐도 명확해지는 형태가 목표예요.
 
 서비스가 자라면 *일반 사용자가 접근하면 안 되는 운영자 전용 endpoint* 가 늘어나요. 결제 강제 환불, 구독 강제 취소, 사용자 role 변경, plan 정의 수정 같은 *시스템 상태를 직접 조작* 하는 기능들이에요. 이런 endpoint 가 일반 사용자 토큰으로 접근 가능하면 *권한 escalation* 이 곧바로 일어나므로, *권한 검증을 컨벤션 수준에서 명시적으로 강제* 하는 메커니즘이 필요합니다.
 
 본 ADR 은 운영자 전용 endpoint 를 표시하는 `@AdminOnly` meta annotation 을 도입합니다. 이 어노테이션은 Spring Security 의 `@PreAuthorize("hasRole('ADMIN')")` 을 한 번 감싼 *도메인 의도가 명시적인* 표기예요. 컨트롤러 메서드나 클래스에 `@AdminOnly` 한 줄을 붙이면 *그 endpoint 가 운영자 전용임* 이 코드만 봐도 명확해지고, 일반 사용자 JWT 가 들어오면 Spring Security 가 *403 Forbidden* 으로 자동 차단합니다.
 
-권한 검증 자체는 JWT 의 `role` claim 위에서 작동해요. 사용자가 로그인하면 발급되는 JWT 의 payload 에 `role` 필드가 포함되고 (`"user"` 또는 `"admin"`), `JwtAuthFilter` 가 이 값을 *Spring Security 의 GrantedAuthority* (`ROLE_USER` / `ROLE_ADMIN`) 로 매핑합니다. `@PreAuthorize` 가 그 GrantedAuthority 를 검증하는 흐름이라 [`ADR-006`](./adr-006-hs256-jwt.md) 의 JWT 인프라와 자연스럽게 연결돼요. `AppSlugVerificationFilter` ([`ADR-013`](./adr-013-per-app-auth-endpoints.md)) 와 같은 chain 에서 검증되어 *앱 단위 격리 + role 단위 권한* 의 이중 방어선이 작동합니다.
+권한 검증 자체는 JWT 의 `role` claim 위에서 작동해요. 사용자가 로그인하면 발급되는 JWT 의 payload 에 `role` 필드가 `"user"` 또는 `"admin"` 으로 포함되고, `JwtAuthFilter` 가 이 값을 Spring Security 의 GrantedAuthority (`ROLE_USER`·`ROLE_ADMIN`) 로 매핑합니다. `@PreAuthorize` 가 그 GrantedAuthority 를 검증하는 흐름이라 [`ADR-006`](./adr-006-hs256-jwt.md) 의 JWT 인프라와 자연스럽게 연결돼요. `AppSlugVerificationFilter` ([`ADR-013`](./adr-013-per-app-auth-endpoints.md)) 와 같은 chain 에서 검증되어 앱 단위 격리와 role 단위 권한의 이중 방어선이 작동합니다.
 
-이 ADR 의 범위는 `@AdminOnly` 어노테이션 정의, JWT role claim 의 발급/검증 흐름, Spring Security 의 `@EnableMethodSecurity` 활성화, 권한 부족 시의 응답 처리 (401 vs 403), 그리고 향후 *moderator / billing_ops* 같은 추가 role 도입을 위한 확장 경로까지입니다.
+이 ADR 의 범위는 `@AdminOnly` 어노테이션 정의, JWT role claim 의 발급·검증 흐름, Spring Security 의 `@EnableMethodSecurity` 활성화, 권한 부족 시의 응답 처리 (401 vs 403), 그리고 향후 moderator·billing_ops 같은 추가 role 도입을 위한 확장 경로까지입니다.
 
 ---
 
@@ -24,7 +24,7 @@
 
 권한 검증 패턴이 *명시적 컨벤션* 으로 잡혀 있지 않으면 *각 컨트롤러가 자기 방식으로 권한을 체크* 하게 되어 일관성이 깨져요. 어떤 컨트롤러는 `currentUser.isAdmin()` 헬퍼를 직접 호출하고, 어떤 컨트롤러는 `@PreAuthorize` 를 쓰고, 어떤 컨트롤러는 *권한 체크 자체를 잊어버리는* 형태로 흩어집니다. 흩어진 패턴은 *어느 endpoint 가 정말 운영자 전용인지* 코드만 봐서는 알 수 없게 만들고, *권한 체크 누락* 이라는 보안 사고의 빈 자리가 생기기 쉬워요.
 
-기존 시스템은 JWT 의 `role` claim 발급과 `JwtAuthFilter` 의 GrantedAuthority 매핑까지는 갖춰져 있어요. `User` 엔티티의 `role` 필드 (`"user"` / `"admin"`) 가 로그인 시점에 JWT payload 에 복사되고, `JwtAuthFilter` 가 이 값을 `ROLE_USER` / `ROLE_ADMIN` 같은 Spring Security 표준 형식으로 SecurityContext 에 박습니다. *권한 정보의 흐름* 자체는 정합한데, *그 정보를 endpoint 단에서 활용하는 컨벤션* 이 빠져 있는 상태예요.
+기존 시스템은 JWT 의 `role` claim 발급과 `JwtAuthFilter` 의 GrantedAuthority 매핑까지는 갖춰져 있어요. `User` 엔티티의 `role` 필드 (`"user"` 또는 `"admin"`) 가 로그인 시점에 JWT payload 에 복사되고, `JwtAuthFilter` 가 이 값을 `ROLE_USER`·`ROLE_ADMIN` 같은 Spring Security 표준 형식으로 SecurityContext 에 박습니다. 권한 정보의 흐름 자체는 정합한데, 그 정보를 endpoint 단에서 활용하는 컨벤션이 빠져 있는 상태예요.
 
 이 비대칭을 메우는 길에는 두 갈래가 있어요. 하나는 *컨트롤러가 직접 `currentUser.isAdmin()` 을 호출* 해서 분기하는 형태이고, 다른 하나는 *Spring Security 의 method security* 를 활용해 *어노테이션 한 줄로* 처리하는 형태입니다.
 
@@ -101,17 +101,17 @@ User.role 이 "user" 인 경우:
 
 ## Admin user 셋업
 
-`new-app.sh` 의 `V007__seed_admin_user.sql` 가 자동 admin user 생성:
+`new-app.sh` 의 `V007__seed_admin_user.sql` 가 운영자용 user 1명을 자동 생성:
 
 ```sql
-INSERT INTO users (email, password_hash, ..., role, ...)
-VALUES ('admin@<slug>.local', '<bcrypt>', ..., 'admin', ...);
+INSERT INTO <slug>.users (email, password_hash, email_verified, created_at, updated_at)
+VALUES ('admin@<slug>.local', '<bcrypt>', TRUE, NOW(), NOW());
 ```
 
-**임시 비밀번호 `admin1234`**. 운영에서 첫 로그인 즉시 변경 필수.
+임시 비밀번호는 `admin1234`. 운영에서 첫 로그인 즉시 변경 필수예요.
 
-운영자가 추가 admin 만들고 싶으면:
-- 직접 DB UPDATE: `UPDATE <slug>.users SET role = 'admin' WHERE email = '...';`
+이 시드 INSERT 는 `role` 컬럼을 명시하지 않으므로, `users.role VARCHAR(20) NOT NULL DEFAULT 'user'` 의 기본값에 따라 생성 직후 role 은 `'user'` 입니다. `@AdminOnly` 를 통과하려면 생성 후 role 을 직접 `'admin'` 으로 올려야 해요. 운영자가 admin 권한을 부여하려면:
+- 직접 DB UPDATE: `UPDATE <slug>.users SET role = 'admin' WHERE email = 'admin@<slug>.local';`
 - 또는 향후 admin endpoint 신규: `PATCH /api/admin/users/{id}/role`
 
 ---
@@ -164,7 +164,7 @@ public @interface AdminOrModerator {}
 
 ## 안 다루는 범위 (다음 사이클 후보)
 
-- **Admin endpoint 신규** — 사용자 role 변경 / plan 등록 / subscription 강제 cancel / 운영 통계 조회 같은 추가 기능이에요. 비즈니스별로 다르므로 derived 앱에서 추가하는 걸 권장해요.
+- **Admin endpoint 신규** — 사용자 role 변경·plan 등록·subscription 강제 cancel·운영 통계 조회 같은 추가 기능이에요. 비즈니스별로 다르므로 derived 앱에서 추가하는 걸 권장해요.
 - **Admin 전용 controller convention** — 모든 admin 메소드를 `<Slug>AdminController` 로 분리해요. type level `@AdminOnly` 를 적용하고 ArchUnit 으로 강제할 수 있어요.
 - **2FA / 추가 인증** — admin 액션 시 한 번 더 비밀번호 입력 (sudo 모드)
 - **Audit 로그** — 누가 언제 무엇을 admin 액션 했는지 (별도 table)

@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — *core schema 의 Flyway (coreFlyway Bean)* 폐기, 각 app 의 `<slug>Flyway` 만 남음. dev / test 환경에서는 `Flyway.migrate()` 가 자동으로 적용되고, prod 환경에서는 `Flyway.validate()` 만 호출돼요 (checksum 검증). prod 적용은 운영자가 `tools/migrate-prod.sh` 또는 SSH + psql 로 명시적으로 수행합니다.
+**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — core schema 의 Flyway(coreFlyway Bean) 폐기, 각 app 의 `<slug>Flyway` 만 남음. local / test 환경에서는 `Flyway.migrate()` 가 자동으로 적용되고, dev / prod 환경에서는 `Flyway.validate()` 만 호출돼요(checksum 검증). prod 적용은 운영자가 `tools/migrate-prod.sh` 또는 SSH + psql 로 명시적으로 수행합니다.
 
 ---
 
@@ -10,13 +10,13 @@
 
 DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라 *언제 적용할지* 의 결정이 *코드 deploy 와 분리* 되어야 안전해요. 코드 deploy 시점에 자동으로 새 V스크립트가 적용되는 형태는 *부팅 실패가 곧 트래픽 단절* 로 이어지는 위험을 만들고, *부분 적용 (V14 까지 성공 / V15 실패)* 같은 사고는 *schema 가 inconsistent state 로 남는* 가장 까다로운 운영 부담이 됩니다.
 
-본 ADR 은 환경별로 Flyway 동작을 분리하는 *Hybrid Policy* 를 정의합니다. dev / test 환경에서는 *기존처럼 자동 migrate* — 개발 효율을 유지하기 위해 코드 변경과 함께 schema 도 자동으로 적용돼요. 반면 prod 환경에서는 *`validate-only` 모드* 로 동작합니다 — 부팅 시 *schema_history 의 checksum 정합만 검증* 하고 *실제 V스크립트는 적용하지 않아요*. 운영자가 *deploy 전에 prod DB 에 직접 SQL 적용* 하는 명시적 단계를 거쳐야 새 schema 가 prod 에 반영됩니다.
+본 ADR 은 환경별로 Flyway 동작을 분리하는 *Hybrid Policy* 를 정의합니다. local / test 환경에서는 *기존처럼 자동 migrate* — 개발 효율을 유지하기 위해 코드 변경과 함께 schema 도 자동으로 적용돼요. 반면 dev / prod 환경에서는 *validate-only 모드* 로 동작합니다 — 부팅 시 schema_history 의 checksum 정합만 검증하고 실제 V스크립트는 적용하지 않아요. 운영자가 deploy 전에 해당 DB 에 직접 SQL 을 적용하는 명시적 단계를 거쳐야 새 schema 가 반영됩니다.
 
-이 정책의 핵심 가치는 *deploy 와 schema 변경의 분리* 예요. 코드 deploy 는 *언제든 안전하게 rollback 가능* 한 영역이지만, schema 변경은 *원칙적으로 forward-only* 라 한 번 적용되면 되돌리기 어려운 영역입니다. 이 두 가지를 *같은 시점에 자동으로 묶어버리면* schema 변경의 무게가 코드 deploy 의 가벼움과 충돌해요. 분리하면 운영자가 *schema 변경의 시점을 별도로 결정* 할 수 있고, *DBA 가 변경 사실을 사전에 인지* 하는 워크플로우도 자연스럽게 따라옵니다.
+이 정책의 핵심 가치는 *deploy 와 schema 변경의 분리* 예요. 코드 deploy 는 언제든 안전하게 rollback 가능한 영역이지만, schema 변경은 원칙적으로 forward-only 라 한 번 적용되면 되돌리기 어려운 영역입니다. 이 두 가지를 같은 시점에 자동으로 묶어버리면 schema 변경의 무게가 코드 deploy 의 가벼움과 충돌해요. 분리하면 운영자가 schema 변경의 시점을 별도로 결정할 수 있고, DBA 가 변경 사실을 사전에 인지하는 워크플로우도 자연스럽게 따라옵니다.
 
-운영자의 적용 도구는 *Phase 2~3 의 `tools/migrate-prod.sh`* 자동화로 단계적 정착 예정이고, 현재는 *SSH + psql 수동 적용 + schema_history INSERT* 흐름으로 처리합니다. 적용 절차는 [`Flyway Runbook`](../production/deploy/flyway-runbook.md) 에 별도 정리되어 있어요.
+운영자의 적용 도구는 `tools/migrate-prod.sh` 자동화이고, SSH + psql 수동 적용과 schema_history INSERT 흐름을 함께 처리합니다. 적용 절차는 [`Flyway Runbook`](../production/deploy/flyway-runbook.md) 에 별도 정리되어 있어요.
 
-이 ADR 의 범위는 환경별 분리 정책의 결정 근거, dev / test 자동 migrate 가 유지되는 이유, prod validate-only 가 잡는 위험, advisory lock 의 역할, 부분 적용 / 락 손상 시 복구 흐름, 그리고 *Liquibase / pgschema / Atlas* 같은 대안 도구와의 트레이드오프 비교까지입니다.
+이 ADR 의 범위는 환경별 분리 정책의 결정 근거, local / test 자동 migrate 가 유지되는 이유, dev / prod validate-only 가 잡는 위험, advisory lock 의 역할, 부분 적용과 락 손상 시 복구 흐름, 그리고 Liquibase·pgschema·Atlas 같은 대안 도구와의 트레이드오프 비교까지입니다.
 
 ---
 
@@ -24,7 +24,7 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 
 기본 Flyway 설정 — *모든 환경에서 부팅 시 자동 migrate* — 은 개발 단계에서는 가장 단순하고 자연스러운 형태예요. 코드와 schema 가 *한 commit 에 함께 묶여 deploy* 되어 *환경 동기화* 가 자동으로 이뤄지고, 별도 운영 절차도 필요 없습니다. 작은 팀 / 단일 환경에서는 이 단순함의 가치가 압도적이에요.
 
-문제는 *prod 환경의 위험 모델* 이 dev / test 와 본질적으로 다르다는 점이에요. prod 에서 *부팅 시 schema 변경* 이 일어난다는 것은 다음 네 가지 위험을 동시에 가져옵니다.
+문제는 *운영 환경(dev / prod)의 위험 모델* 이 local / test 와 본질적으로 다르다는 점이에요. 운영 환경에서 *부팅 시 schema 변경* 이 일어난다는 것은 다음 네 가지 위험을 동시에 가져옵니다.
 
 **첫째, 부팅 실패가 트래픽 단절로 이어집니다.** V15 마이그레이션이 *예상치 못한 데이터 (예: 중복 row)* 때문에 적용 실패하면 *Spring Boot 부팅 자체가 실패* 하고, *블루/그린 배포* 환경에서는 *새 인스턴스가 health check 를 통과하지 못해 트래픽이 라우팅되지 않는* 상태가 됩니다. 기존 인스턴스가 *이미 종료된 시점* 이라면 *전체 서비스 다운* 으로 이어질 수 있어요.
 
@@ -34,13 +34,13 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 
 **넷째, schema 변경이 코드 deploy 의 부산물로 발생해서 DBA / 운영자가 변경 사실을 모를 수 있습니다.** 운영 환경에서 *어느 시점에 어떤 schema 변경이 있었는지* 가 *코드 commit log 안에 묻혀* 있으면, 별도 추적 도구 없이는 *변경 history 를 파악* 하기 어려워요. 이는 *PCI-DSS 같은 audit 요구* 와도 충돌합니다.
 
-이 네 가지 위험은 *prod 단계의 운영 환경* 에서만 의미가 있어요. dev / test 환경에서는 *부팅 실패가 트래픽 단절로 이어지지 않고*, *schema 가 inconsistent state 로 남아도 reset / recreate* 가 자유로워서 위험 자체가 거의 없습니다. 따라서 *dev / test 의 자동 migrate 편의* 와 *prod 의 명시적 통제* 를 동시에 잡는 *환경별 분리 정책* 이 정합한 답이에요.
+이 네 가지 위험은 *운영 환경(dev / prod)* 에서만 의미가 있어요. local / test 환경에서는 부팅 실패가 트래픽 단절로 이어지지 않고, schema 가 inconsistent state 로 남아도 reset 과 recreate 가 자유로워서 위험 자체가 거의 없습니다. 따라서 *local / test 의 자동 migrate 편의* 와 *dev / prod 의 명시적 통제* 를 동시에 잡는 *환경별 분리 정책* 이 정합한 답이에요.
 
 대안으로 *Liquibase changelog*, *Atlas / pgroll* 같은 다른 도구들도 검토 가치가 있어요. Liquibase 는 XML/YAML 기반이라 *Flyway 의 SQL 직접성* 과 *Spring Boot 1차 통합* 을 잃습니다. Atlas / pgroll 같은 *gradual migration* 도구는 *zero-downtime schema 변경* 을 지원하지만 *현재 단계에는 over-engineering* 이고 *별도 ADR 로 다룰 주제* 예요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
-> **dev / test 의 자동 migrate 편의를 유지하면서 prod 의 부팅 실패 / 부분 적용 / advisory lock 손상 / 변경 추적성 부재 위험을 동시에 차단하는 마이그레이션 정책은 무엇인가?**
+> **local / test 의 자동 migrate 편의를 유지하면서 dev / prod 의 부팅 실패·부분 적용·advisory lock 손상·변경 추적성 부재 위험을 동시에 차단하는 마이그레이션 정책은 무엇인가?**
 
 ### 옵션 A — 그대로 자동 migrate (현재)
 | 장점 | 단점 |
@@ -52,9 +52,9 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 ### 옵션 B — Hybrid (dev/test = auto, prod = validate-only)
 | 장점 | 단점 |
 |---|---|
-| prod 부팅 시 schema 변경 X — 안전 | 운영자가 deploy 전 prod DB 에 직접 SQL 적용 필요 |
-| DBA / 운영자가 schema 변경을 명시적으로 통제 | 자동화 도구 (`tools/migrate-prod.sh`) 필요 |
-| 부분 적용 위험 0 — 부팅 시 검증만 | dev 에선 그대로 자동이라 코드 동작이 일관됨 |
+| dev / prod 부팅 시 schema 변경 X — 안전 | 운영자가 deploy 전 해당 DB 에 직접 SQL 적용 필요 |
+| DBA / 운영자가 schema 변경을 명시적으로 통제 | 자동화 도구 `tools/migrate-prod.sh` 필요 |
+| 부분 적용 위험 0 — 부팅 시 검증만 | local / test 에선 그대로 자동이라 개발 iteration 이 빠름 |
 | Flyway `validate` 만 호출 → checksum 정합 보장 | |
 
 ### 옵션 C — ORM `hbm2ddl.auto`
@@ -72,13 +72,13 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 
 | 항목 | 값 |
 |---|---|
-| **dev / test profile** | Flyway `migrate()` (자동) — 현재 동작 유지 |
-| **prod profile** | Flyway `validate()` 만 — schema_history 의 checksum 정합 검증, 변경 X |
-| **prod 적용 흐름** | 운영자가 deploy 전 SSH + psql 로 직접 적용 → `tools/migrate-prod.sh` 자동화 |
+| **local / test profile** | Flyway `migrate()` (자동) — 현재 동작 유지 (default `AUTO`) |
+| **dev / prod profile** | Flyway `validate()` 만 — schema_history 의 checksum 정합 검증, 변경 X |
+| **적용 흐름** | 운영자가 deploy 전 SSH + psql 로 직접 적용 → `tools/migrate-prod.sh` 자동화 |
 | **schema_history 등록** | `tools/migrate-prod.sh` 가 SQL 실행 후 자동 `INSERT` |
-| **부팅 실패 정책** | prod validate fail = Spring 부팅 fail → kamal blue/green 이 cutover 안 함 (트래픽 보호) |
-| **switch 메커니즘** | properties `app.flyway.mode = auto | validate-only | disabled` (기본 dev=auto, prod=validate-only) |
-| **Override** | 운영자가 긴급 시 prod 에서도 `auto` 모드 임시 사용 가능 (위험 인지하에) |
+| **부팅 실패 정책** | dev / prod validate fail = Spring 부팅 fail → kamal blue/green 이 cutover 안 함 (트래픽 보호) |
+| **switch 메커니즘** | properties `app.flyway.mode = AUTO | VALIDATE_ONLY | DISABLED` (default `AUTO`, dev/prod=`VALIDATE_ONLY`) |
+| **Override** | 운영자가 긴급 시 `APP_FLYWAY_MODE=AUTO` 로 임시 사용 가능 (위험 인지하에) |
 
 ---
 
@@ -125,20 +125,20 @@ public Flyway gymlogFlywayValidate(DataSource ds) {
 ### 3. profile 별 default
 
 ```yaml
-# application-dev.yml
+# application.yml (default) — local / test 가 상속
 app:
   flyway:
-    mode: auto
+    mode: ${APP_FLYWAY_MODE:AUTO}
 
-# application-test.yml
+# application-dev.yml — default override
 app:
   flyway:
-    mode: auto
+    mode: ${APP_FLYWAY_MODE:VALIDATE_ONLY}
 
 # application-prod.yml
 app:
   flyway:
-    mode: validate-only
+    mode: ${APP_FLYWAY_MODE:VALIDATE_ONLY}
 ```
 
 ---
@@ -174,16 +174,16 @@ app:
 
 ## advisory lock 의 역할
 
-Flyway 의 advisory lock 은 **migrate() 호출 시점의 동시성 방어** 예요 — 여러 인스턴스가 동시에 부팅해도 한 인스턴스만 V스크립트를 적용해요. validate-only 모드에선 lock 을 사용하지 않아요 (read-only).
+Flyway 의 advisory lock 은 **migrate() 호출 시점의 동시성 방어** 예요 — 여러 인스턴스가 동시에 부팅해도 한 인스턴스만 V스크립트를 적용해요. validate-only 모드에선 lock 을 사용하지 않아요(read-only).
 
-prod 에서 validate-only 로 바뀌어도 **로컬 local / test 의 lock 보장은 그대로 유지돼요** — 본 ADR 는 prod 의 자동 migrate 만 제거합니다.
+dev / prod 에서 validate-only 로 바뀌어도 **local / test 의 lock 보장은 그대로 유지돼요** — 본 ADR 는 dev / prod 의 자동 migrate 만 제거합니다.
 
 ---
 
 ## 부분 적용 / 락 손상 시 복구
 
 ### A. dev / test 환경
-자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구 절차 적용 (advisory lock 강제 해제, 실패 entry 제거 후 정정 V스크립트).
+local / test 는 자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구 절차 적용(advisory lock 강제 해제, 실패 entry 제거 후 정정 V스크립트). dev 는 prod 와 동일하게 아래 B 의 흐름을 따릅니다.
 
 ### B. prod 환경
 - validate-only 라 부분 적용 발생 X (Flyway 가 SQL 실행 안 함)
@@ -205,7 +205,7 @@ prod 에서 validate-only 로 바뀌어도 **로컬 local / test 의 lock 보장
 
 ## 운영 영향
 
-- ✅ prod 부팅 시 schema 변경 0 — 부팅 실패는 코드 / 설정 / DB 연결 문제로 한정
+- ✅ dev / prod 부팅 시 schema 변경 0 — 부팅 실패는 코드·설정·DB 연결 문제로 한정
 - ✅ DBA / 운영자가 schema 변경 시점을 명시적으로 통제
 - ⚠️ deploy 전 `tools/migrate-prod.sh` 실행 step 추가 — 운영자 1단계 추가
 - ⚠️ schema_history INSERT 누락 시 다음 deploy 의 validate 실패 → 명확한 에러로 detect

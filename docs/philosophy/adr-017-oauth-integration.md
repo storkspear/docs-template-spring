@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-소셜 로그인은 사용자 마찰을 줄이는 가장 효과적인 수단이에요. *Google 로 시작하기* / *Apple 로 시작하기* / *카카오로 시작하기* 버튼 한 번이 *이메일 입력 + 비밀번호 설정 + 인증 메일 클릭* 의 세 단계를 한 번에 건너뛰어 줍니다. 한국 시장 앱이라면 카카오 / 네이버, 글로벌 앱이라면 Google / Apple — 어느 조합이든 *provider 가 점점 늘어나는* 흐름은 자연스러워요.
+소셜 로그인은 사용자 마찰을 줄이는 가장 효과적인 수단이에요. *Google 로 시작하기* / *Apple 로 시작하기* / *카카오로 시작하기* 버튼 한 번이 *이메일 입력 + 비밀번호 설정 + 인증 메일 클릭* 의 세 단계를 한 번에 건너뛰어 줍니다. 한국 시장 앱이라면 카카오·네이버, 글로벌 앱이라면 Google·Apple — 어느 조합이든 *provider 가 점점 늘어나는* 흐름은 자연스러워요.
 
 이 ADR 은 *Google / Apple / Kakao / Naver 네 provider* 를 통합한 패턴을 기록합니다. 각 provider 마다 검증 방식이 다르고 (Google 은 `id_token` 한 번 호출, Apple 은 JWKS 로 RS256 직접 검증, Kakao 는 access token 두 endpoint 호출, Naver 는 `/v1/nid/me` 단일 호출), 토큰 형태와 audience 필드명도 제각각이에요. 그래서 *공통 추상화* 를 강요하는 대신 *Provider 별 SignInService 클래스를 복제* 하는 패턴을 채택했습니다. 각 클래스는 같은 4 단계 흐름 — 토큰 검증 → `social_identities` 조회 → 신규/기존 분기 → 우리 JWT 발급 — 을 따르되, provider 의 미세 차이는 그 클래스 안에 캡슐화돼요.
 

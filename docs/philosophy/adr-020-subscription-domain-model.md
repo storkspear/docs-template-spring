@@ -28,11 +28,11 @@
 
 ## 왜 이런 결정이 필요했나?
 
-결제 도메인을 *비즈니스 정책 / 채널 어댑터* 로 분리한 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 골격 위에, *실제 비즈 로직 + DB 모델 + 트랜잭션 정책 + webhook 보안* 을 채워야 운영 가능한 시스템이 돼요. 이 채움 과정에서 *네 가지 결정* 이 자연스럽게 떠오릅니다.
+결제 도메인을 *비즈니스 정책·채널 어댑터* 로 분리한 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 골격 위에, *실제 비즈 로직 + DB 모델 + 트랜잭션 정책 + webhook 보안* 을 채워야 운영 가능한 시스템이 돼요. 이 채움 과정에서 *네 가지 결정* 이 자연스럽게 떠오릅니다.
 
 **모델 위치를 어디에 둘 것인가** — `subscriptions.user_id` 가 `users(id)` 를 FK 로 참조해야 하는데, [`ADR-012`](./adr-012-per-app-user-model.md) 의 *앱별 독립 유저 모델* 에서 `users` 테이블은 슬러그별 schema 안에 있어요. 그러면 `subscriptions` 도 같은 schema 에 두어야 *cross-schema FK* 라는 까다로운 영역을 회피할 수 있습니다. core schema 에 통합하면 `appSlug` 컬럼을 추가해 *row-level 격리* 로 우회해야 하는데, 이는 [`ADR-012`](./adr-012-per-app-user-model.md) 가 이미 거부한 패턴이에요.
 
-**Webhook 의 멱등성과 재처리 정책을 어떻게 보장할 것인가** — PG / Apple / Google 의 webhook 은 *네트워크 장애 시 재전송* 되는 것이 정상 동작이에요. 같은 webhook 이 두 번 도착해도 *환불을 두 번 처리하거나 구독을 두 번 만료시키지* 않아야 합니다. 그런데 단순히 *처음 본 것만 처리* 하는 형태로는 부족해요 — 첫 처리가 *중간에 실패* 했을 때 *재시도가 가능* 해야 하니까요.
+**Webhook 의 멱등성과 재처리 정책을 어떻게 보장할 것인가** — PG·Apple·Google 의 webhook 은 *네트워크 장애 시 재전송* 되는 것이 정상 동작이에요. 같은 webhook 이 두 번 도착해도 *환불을 두 번 처리하거나 구독을 두 번 만료시키지* 않아야 합니다. 그런데 단순히 *처음 본 것만 처리* 하는 형태로는 부족해요 — 첫 처리가 *중간에 실패* 했을 때 *재시도가 가능* 해야 하니까요.
 
 **외부 HTTP 호출의 트랜잭션 경계를 어떻게 잡을 것인가** — webhook 처리 안에서 *PG verify* 같은 외부 HTTP 호출이 들어가는데, 이게 DB 트랜잭션 안에 있으면 *외부 응답 대기 동안 DB connection 을 점유* 하는 anti-pattern 이 됩니다. PG 가 응답에 5 초가 걸리면 connection 도 5 초 동안 잡혀 있어, 트래픽이 몰리면 *connection pool 고갈* 이 곧바로 발생해요.
 
@@ -357,7 +357,7 @@ public void onRenewalDue(SubscriptionRenewalDueEvent event) {
 
 ## 결정 8 — IAP (Apple/Google) 영수증 검증 ([D 사이클 추가])
 
-iOS (Apple StoreKit) / Android (Google Play) 인앱 결제 영수증을 검증 후 Subscription 활성화. 흐름은 PG 와 동일하나 channel=IAP, 외부 검증 API 가 platform 별 다름.
+iOS (Apple StoreKit) 와 Android (Google Play) 의 인앱 결제 영수증을 검증 후 Subscription 활성화. 흐름은 PG 와 동일하나 channel=IAP, 외부 검증 API 가 platform 별 다름.
 
 ### Adapter 구조
 
@@ -400,7 +400,7 @@ SubscriptionDto activateFromIap(long userId, String planCode, PurchaseVerificati
 
 ### 슬러그별 bundle_id / package_name (D-multi 사이클)
 
-ADR-005/012/013 의 멀티앱 격리와 정합해요 — bundle_id (Apple) / package_name (Google) 은 슬러그마다 달라요. Global 키 (.p8, service-account JSON) 는 한 dev 계정 안에서 공유해요. Property 분리:
+ADR-005/012/013 의 멀티앱 격리와 정합해요 — bundle_id (Apple) 와 package_name (Google) 은 슬러그마다 달라요. Global 키 (.p8, service-account JSON) 는 한 dev 계정 안에서 공유해요. Property 분리:
 
 - **Global** (`app.iap.*`): API URLs / .p8 / service-account JSON / key-id / issuer-id
 - **Per-slug** (`app.credentials.<slug>.iap-*`): bundle-id / package-name

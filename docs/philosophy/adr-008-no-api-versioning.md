@@ -60,7 +60,7 @@ API 엔드포인트에 `/v1/` 을 붙이지 않습니다. 이유는 단순해요
 
 현재 경로 (`/api/core/*`, `/api/apps/*`) 를 그대로 유지하다가, 필요해지면 Cloudflare (또는 nginx) 에서 `/api/v1/*` → `/api/*` 리다이렉트 규칙을 추가하는 방식이에요. 코드는 한 줄도 바뀌지 않고 인프라 단에서만 처리합니다.
 
-장점은 *현재 URL 이 단순* 하다는 점이에요. 미래 도입 시점이 왔을 때 **한 줄 설정** 으로 해결되고, 도입 시점도 *필요해질 때까지 미룰 수 있어요*. 다만 *Cloudflare / nginx 설정 복잡도* 가 따라오고 (우리 환경은 이미 Cloudflare Tunnel 을 쓰고 있어 추가 부담은 없어요), *URL 재작성 시 클라이언트 로그와 모니터링에서 원본 vs 재작성 이 혼란을 줄 수 있어요*.
+장점은 *현재 URL 이 단순* 하다는 점이에요. 미래 도입 시점이 왔을 때 **한 줄 설정** 으로 해결되고, 도입 시점도 *필요해질 때까지 미룰 수 있어요*. 다만 *Cloudflare 또는 nginx 설정 복잡도* 가 따라오고 (우리 환경은 이미 Cloudflare Tunnel 을 쓰고 있어 추가 부담은 없어요), *URL 재작성 시 클라이언트 로그와 모니터링에서 원본 vs 재작성 이 혼란을 줄 수 있어요*.
 
 이 옵션은 *도입 시점의 선택지 하나* 로 문서화해 두고, 평소에는 Option 3 을 우선해요.
 
@@ -68,7 +68,7 @@ API 엔드포인트에 `/v1/` 을 붙이지 않습니다. 이유는 단순해요
 
 현재 경로 (`/api/core/*`, `/api/apps/*`) 를 그대로 두고, 필요해지면 `ApiEndpoints` 상수 + `@RequestMapping` prefix 를 `api/v1` 으로 한 줄 변경하는 방식이에요. 또는 `common-web` 에 `@RequestMapping(prefix = "/api/v1")` 글로벌 prefix 를 설정할 수도 있어요.
 
-이 옵션의 장점은 네 가지로 정리돼요. **URL 이 현재 깔끔해요** — `/api/apps/sumtally/auth/email/signup` 이 verbose 하지 않게 유지됩니다. **도입 시점 비용이 매우 적어요** — `ApiEndpoints` 의 `public static final String API_BASE = "/api"` 한 줄을 `"/api/v1"` 로 수정하면 끝나요. **미래 옵션이 보존돼요** — 필요해지면 Cloudflare 방식과 병행할 수도 있어요. **YAGNI 원칙을 준수해요** — *미래에 쓸지도 모른다* 는 가정으로 복잡도를 선제 도입하지 않습니다.
+이 옵션의 장점은 네 가지로 정리돼요. URL 이 현재 깔끔해요 — `/api/apps/sumtally/auth/email/signup` 이 verbose 하지 않게 유지됩니다. 도입 시점 비용이 매우 적어요 — `ApiEndpoints` 의 `APP_BASE` 상수 한 줄을 `"/api/v1/apps/{appSlug}"` 로 수정하면 끝나요. 미래 옵션이 보존돼요 — 필요해지면 Cloudflare 방식과 병행할 수도 있어요. YAGNI 원칙을 준수해요 — *미래에 쓸지도 모른다* 는 가정으로 복잡도를 선제 도입하지 않습니다.
 
 단점은 두 가지예요. *업계 표준과 다른 형태* 라 새로 합류하는 개발자가 "왜 v1 없지?" 라고 물을 수 있어요 (본 ADR 이 그 답이에요). 그리고 *진짜 필요해진 시점에 "이미 늦었나?" 라는 의심* 이 생길 수 있는데, 이 의심도 본 ADR 의 *도입 경로 두 가지* 가 미리 답해 둡니다.
 
@@ -122,7 +122,7 @@ public final class ApiEndpoints {
 내부 처리: /api/apps/sumtally/auth/email/signup
 ```
 
-장점: 코드 변경이 0 이에요. 단점: 인프라 단에서 URL 이 변경되므로 로그 / 관측이 복잡해질 수 있어요.
+장점: 코드 변경이 0 이에요. 단점: 인프라 단에서 URL 이 변경되므로 로그와 관측이 복잡해질 수 있어요.
 
 **경로 B** — `ApiEndpoints` prefix 변경 (한 줄):
 
@@ -152,7 +152,7 @@ public static final String CORE_BASE = "/api/v1/core";
 
 ### 긍정적 결과
 
-**URL 이 간결** — `/api/apps/sumtally/auth/email/signup` 대신 `/api/v1/apps/sumtally/auth/email/signup` 를 쓰지 않아요. 로그 / Swagger / 문서의 시각적 노이즈가 줄어들어요.
+**URL 이 간결** — `/api/apps/sumtally/auth/email/signup` 대신 `/api/v1/apps/sumtally/auth/email/signup` 를 쓰지 않아요. 로그·Swagger·문서의 시각적 노이즈가 줄어들어요.
 
 **심리적 부담 감소** — "버전 관리 인프라" (deprecation scheduler, multi-version routing) 를 준비해야 한다는 압력이 없어요. `ApiEndpoints` 상수 관리에 집중할 수 있어요.
 
@@ -184,7 +184,7 @@ API URL 구조는 버전 관리 외에도 **다른 축** 이 있어요:
 
 ### "업계 표준을 왜 안 따르나" 에 답할 준비가 필요해요
 
-API 버전 접두사는 **거의 반사적으로 당연하게** 권장되는 패턴이에요. 신입 개발자 / 외부 리뷰어가 본 레포를 보면 **가장 먼저 지적하는 포인트** 일 수 있어요.
+API 버전 접두사는 **거의 반사적으로 당연하게** 권장되는 패턴이에요. 신입 개발자나 외부 리뷰어가 본 레포를 보면 **가장 먼저 지적하는 포인트** 일 수 있어요.
 
 이때 "필요 없어서요" 로 답하면 신뢰를 잃어요. "모르는 것" 과 "알고 거절한 것" 의 구분이 흐려지기 때문이에요.
 
