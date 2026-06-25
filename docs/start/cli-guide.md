@@ -79,6 +79,12 @@
 | **feature enable** `<n>` | `APP_FEATURES_<N>=true` (`.env` + `.env.prod` 동시 갱신) | — |
 | **feature disable** `<n>` | `APP_FEATURES_<N>=false` | — |
 
+### 푸시 (FCM)
+
+| verb | 동작 | 비고 |
+|---|---|---|
+| **firebase-link** `<slug>` | 앱별 Firebase 프로젝트 create-or-use (`<org>-<slug>-<env>` 규약) + service account 키 발급 → `.env.<env>` 에 **base64** 로 기록해요. `<env>` 에 따라 대상 파일이 달라요 (`local`→`.env`, `dev`→`.env.dev`, `prod`→`.env.prod`). `--check` 는 cloud 접근 없이 project-id·prereq 만 보여주는 dry-run, `--unlink` 는 기록된 자격을 비워요 | `tools/firebase-link.sh` — `firebase` CLI + `gcloud` 필요해요 (없으면 설치 runbook 안내). 푸시를 안 쓰면 생략해도 돼요 — FCM 자격이 없으면 서버가 발송 시 graceful no-op 이에요. SA 는 서버 전용이라 클라(`dev init`)는 받지 않아요 |
+
 ### 마이그레이션 / 정리 (DESTRUCTIVE)
 
 | verb | dev | prod | 비고 |
