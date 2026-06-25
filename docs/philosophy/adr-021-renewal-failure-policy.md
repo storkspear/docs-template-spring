@@ -14,7 +14,7 @@
 
 본 ADR 은 *3 회 백오프 (1h → 6h → 24h) 재시도 + 최종 실패 시 명시적 auto-cancel* 의 갱신 실패 정책을 정의합니다. 백오프 간격은 *카드 한도 초기화 주기 (24h)* 를 cover 하면서 *일시 네트워크 장애* 같은 짧은 회복 시간도 흡수하는 형태로 잡았어요. 3 회 시도가 모두 실패하면 `ABANDONED` 로 분류되어 구독이 `cancel_reason="renewal_failed_after_3"` 으로 명시 취소되고, 사용자에게는 별도 알림 listener ([`ADR-023`](./adr-023-billing-notification-listener.md)) 가 *push + email* 로 통보합니다.
 
-이 정책의 핵심 모델은 `RenewalAttempt` 테이블이에요. *각 갱신 시도의 횟수·시각·결과·error code* 가 영속되어 *운영자가 어떤 사용자의 어느 갱신이 왜 실패했는지* 를 추적할 수 있고, *이력이 누적되면 카드 한도 갱신 시간대·자주 실패하는 PG 채널* 같은 비즈니스 시그널도 분석할 수 있어요. webhook 과 scheduler 가 동시에 같은 구독을 재시도하는 race 는 advisory lock 으로 직렬화하고, attempt_no UNIQUE 제약이 추가 방어선으로 작동합니다.
+이 정책의 핵심 모델은 `RenewalAttempt` 테이블이에요. *각 갱신 시도의 횟수·시각·결과·error code* 가 영속되어 *운영자가 어떤 사용자의 어느 갱신이 왜 실패했는지* 를 추적할 수 있고, *이력이 누적되면 카드 한도 갱신 시간대·자주 실패하는 PG 채널* 같은 비즈니스 시그널도 분석할 수 있어요. webhook 과 scheduler 가 동시에 같은 구독을 재시도하는 race 는 Phase 1 의 직전 attempt 종결상태 (SUCCESS·ABANDONED) 체크로 1차 차단하고, `UNIQUE(subscription_id, attempt_no)` 제약이 두 번째 INSERT 를 `DataIntegrityViolationException` 으로 막아 추가 방어선으로 작동합니다.
 
 이 ADR 의 범위는 백오프 간격 선정 근거, `RenewalAttempt` 테이블 설계와 멱등성 보장, scheduler·webhook 동시성 처리, 3 종 이벤트 (`SubscriptionRenewalSucceededEvent`·`FailedEvent`·`AbandonedEvent`) 의 분리 사유, 그리고 phase 분리 트랜잭션 패턴 ([`ADR-020`](./adr-020-subscription-domain-model.md) 의 webhook 패턴 재사용) 까지입니다.
 
