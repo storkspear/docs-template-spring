@@ -89,8 +89,8 @@ public final class ApiEndpoints {
     }
 
     public static final class User {
-        public static final String BASE = "/api/core/users";
-        // /api/core/users
+        public static final String BASE = APP_BASE + "/users";
+        // /api/apps/{appSlug}/users
     }
 }
 ```
@@ -99,8 +99,8 @@ public final class ApiEndpoints {
 
 | Prefix | 용도 |
 |---|---|
-| `/api/apps/{appSlug}/*` | 앱별 엔드포인트 ([`ADR-013`](./adr-013-per-app-auth-endpoints.md)) |
-| `/api/core/*` | 크로스 앱 공통 엔드포인트 (header, admin 등) |
+| `/api/apps/{appSlug}/*` | 앱별 엔드포인트 — auth · device · user 등 ([`ADR-013`](./adr-013-per-app-auth-endpoints.md)) |
+| `/api/core/*` | 크로스 앱 공통 (admin 등) — 현재 사용 엔드포인트 없음 (예약) |
 
 **`/v1/` 접두사는 사용하지 않아요**. [`ApiEndpoints.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) 에서 grep 으로 검증하면 `/v1/`, `/v2/` 문자열이 0 건이에요.
 

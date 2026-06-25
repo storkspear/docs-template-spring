@@ -141,7 +141,7 @@ curl http://localhost:8081/actuator/health
 이번엔 보호된 엔드포인트를 토큰 없이 호출해서, 인증 필터가 제대로 작동하는지 확인해 봐요.
 
 ```bash
-curl http://localhost:8081/api/core/users/me
+curl http://localhost:8081/api/apps/sumtally/users/me
 ```
 
 토큰을 안 붙였으니 401 과 함께 이런 응답이 와요.
@@ -152,7 +152,7 @@ curl http://localhost:8081/api/core/users/me
 
 이건 정상 동작이에요. 인증 필터가 살아 있어서, [JWT](../reference/glossary.md#인증--보안) 가 없으면 보호된 경로를 막고 401 을 돌려줘요. 응답에서 `data` 필드가 안 보이는 건, 이 레포가 값이 없는 필드를 JSON 에서 아예 빼도록 설정해 둔 덕분이에요. 에러 코드 `CMN_004` 는 "인증이 필요합니다" 를 뜻하는 이 레포 고유의 코드고, 만료된 토큰이나 잘못된 토큰은 각각 `CMN_007`·`CMN_008` 로 더 구체적으로 구분돼요.
 
-> `/api/core/users/me` 는 모든 앱이 공유하는 공통 유저 엔드포인트예요. 앱별 인증 엔드포인트는 `/api/apps/<slug>/auth/...` 형태로 따로 있고, 앱을 추가하기 전에는 그 경로가 등록되지 않아 404 가 나요.
+> `/api/apps/<slug>/users/me` 는 코어 `UserController` 가 제공하는 유저 프로필 엔드포인트로, auth·device 처럼 앱별 경로(`/api/apps/<slug>/`) 아래에 두어 path slug ↔ JWT slug 일치를 강제해요 (`AppSlugVerificationFilter`). 토큰 검증은 그보다 먼저 일어나므로, 토큰 없이 호출하면 슬러그와 무관하게 항상 401 이에요.
 
 ## 10. 로그 수준과 색깔
 

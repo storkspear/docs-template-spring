@@ -192,7 +192,7 @@ public UserProfile updateProfile(long userId, UpdateProfileRequest request) {
 
 세 가지를 눈여겨봐요. 사용자 조회는 직접 `findById` 하지 않고 `findActiveUser()` 헬퍼를 거쳐요 — soft-delete 된 사용자를 걸러 주거든요. 변경은 2단계의 `updateNickname()` 으로, 응답은 4단계의 `toProfile()` 로 만들어요. 그리고 이 메서드는 `@Transactional` 안에서 도니까, 엔티티 필드를 바꾸기만 해도 [`Hibernate`](../reference/glossary.md#데이터베이스) 의 dirty checking 이 트랜잭션이 끝날 때 자동으로 `UPDATE` 를 날려요. `userRepository.save()` 를 따로 부르지 않아요.
 
-이 서비스를 HTTP로 노출하는 컨트롤러는 `UserController` 예요. 엔드포인트는 `GET /api/core/users/me`(조회)와 `PATCH /api/core/users/me`(수정) 두 개고, 응답은 `ApiResponse.ok(...)` 로 감싸 나가요. 컨트롤러는 `UserPort` 만 호출하고 DB에 직접 닿지 않아요 — 이 경계는 [`Architecture Reference`](../structure/architecture.md) 에서 더 다뤄요.
+이 서비스를 HTTP로 노출하는 컨트롤러는 `UserController` 예요. 엔드포인트는 `GET /api/apps/<slug>/users/me`(조회)와 `PATCH /api/apps/<slug>/users/me`(수정) 두 개고, 응답은 `ApiResponse.ok(...)` 로 감싸 나가요. 컨트롤러는 `UserPort` 만 호출하고 DB에 직접 닿지 않아요 — 이 경계는 [`Architecture Reference`](../structure/architecture.md) 에서 더 다뤄요.
 
 ## 6. 테스트 — 두 계약을 고정
 
@@ -270,20 +270,20 @@ Migrating schema "<slug>" to version "16 - add users bio"
 Successfully applied 1 migration to schema "<slug>"
 ```
 
-마지막으로 HTTP로 직접 만져 봐요. 컨트롤러 경로는 `/api/core/users/me` 고, 인증이 필요해요(JWT 토큰).
+마지막으로 HTTP로 직접 만져 봐요. 컨트롤러 경로는 `/api/apps/<slug>/users/me` 고, 인증이 필요해요(JWT 토큰).
 
 ```bash
 # 로그인해서 받은 access token 을 넣어요
 TOKEN="..."
 
 # 프로필 수정 (PATCH — 보낸 필드만 바뀌어요)
-curl -X PATCH http://localhost:8081/api/core/users/me \
+curl -X PATCH http://localhost:8081/api/apps/<slug>/users/me \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"nickname":"새별명"}'
 
 # 프로필 조회
-curl http://localhost:8081/api/core/users/me \
+curl http://localhost:8081/api/apps/<slug>/users/me \
   -H "Authorization: Bearer $TOKEN"
 # → {"data":{"id":1,"nickname":"새별명", ...}, ...}
 ```
