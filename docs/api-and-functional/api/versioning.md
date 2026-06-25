@@ -51,9 +51,9 @@ optional 필드 추가가 안전한 이유는 직렬화 정책에 있어요. 응
 | Prefix | 용도 | 예시 |
 |---|---|---|
 | `/api/apps/{appSlug}/*` | 앱별 엔드포인트 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md)) | `/api/apps/{appSlug}/auth/email/signup` |
-| `/api/core/*` | 크로스 앱 공통 엔드포인트 | `/api/core/users/me` |
+| `/api/core/*` | 크로스 앱 공통 (admin 등) — 현재 사용 엔드포인트 없음 (예약) | — |
 
-`ApiEndpoints.APP_BASE` 가 `/api/apps/{appSlug}` 이고, 앱별 도메인 (auth · device · notification-preferences) 이 그 아래로 붙어요. core 도메인 (user 등) 은 `appSlug` 와 무관해서 `/api/core/*` 를 직접 써요.
+`ApiEndpoints.APP_BASE` 가 `/api/apps/{appSlug}` 이고, 앱별 도메인 (auth · device · notification-preferences · user) 이 전부 그 아래로 붙어요. 유저 프로필(`/api/apps/{appSlug}/users/me`)도 격리·경로 일관성과 path slug ↔ JWT slug 검증을 위해 앱별 경로로 통일했어요. `/api/core/*` 는 현재 사용하는 엔드포인트가 없고, 앱 무관 공통/admin 엔드포인트용으로 예약돼 있어요.
 
 ### 도입은 한 줄 작업으로 열려 있어요
 
