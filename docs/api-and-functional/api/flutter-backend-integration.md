@@ -46,9 +46,9 @@
 | `/version` | 불필요 | 버전 정보 |
 | `/actuator/**` | 불필요 | 운영 지표 (prod 에서는 별도 포트로 분리) |
 | `/v3/api-docs/**` · `/swagger-ui/**` | 불필요 | Swagger 문서·UI |
-| `/api/core/users/me` | 필요 | 현재 유저 프로필 |
+| `/api/apps/{appSlug}/users/me` | 필요 | 현재 유저 프로필 |
 
-`/api/core/users/me` 는 JWT 에 담긴 `userId` 로 유저를 조회하므로 path 슬러그가 필요하지 않아요. 이 경로 상수는 `ApiEndpoints.User` 에 있습니다.
+`/api/apps/{appSlug}/users/me` 는 auth·device 와 동일하게 path 에 슬러그를 두어 경로를 통일했어요. `AppSlugVerificationFilter` 가 path slug ↔ JWT slug 일치를 강제해 cross-app 접근을 막아요. 유저 조회 자체는 JWT 의 `userId` 로 해요. 이 경로 상수는 `ApiEndpoints.User` 에 있습니다.
 
 ---
 
