@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**Status**: Accepted. 모든 외부 HTTP 호출의 URL 은 hardcode 또는 운영자 통제 환경변수로만 결정해요. 사용자 입력으로 URL 이 결정되는 지점은 코드 어디에도 없습니다. 본 ADR 은 이 정책을 명문화하고 새 외부 호출 추가 시 가이드라인을 정의해요.
+**Status**: Accepted. 모든 외부 HTTP 호출의 authority (scheme + host) 는 hardcode 또는 운영자 통제 환경변수로만 결정해요. path 일부엔 검증된 식별자 (transactionId·purchaseToken·impUid 등) 가 들어가지만 authority 가 사용자 입력으로 결정되는 지점은 코드 어디에도 없어 host pivot 이 불가능합니다. 본 ADR 은 이 정책을 명문화하고 새 외부 호출 추가 시 가이드라인을 정의해요.
 
 ---
 
@@ -10,7 +10,7 @@
 
 SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL 로 요청을 보내게 만드는* 취약점이에요. 클라우드 환경에서는 *내부 메타데이터 endpoint* (예: AWS `169.254.169.254`) 접근으로 *credential 탈취* 가 가능하고, 내부 사설망에서는 *DB·관리 API* 우회 접근이 가능해요. *공개되면 안 될 IP·도메인* 으로의 요청을 막는 것이 방어의 핵심이에요.
 
-본 프로젝트의 모든 외부 HTTP 호출은 *고정 URL (hardcode)* 또는 *운영자가 통제하는 환경변수* 로만 결정돼요. 사용자가 입력한 값으로 URL 이 만들어지거나 redirect 가 자동 따라가는 지점이 *코드 어디에도 없어요*. 즉 SSRF 의 일반적 공격 벡터가 *설계상 불가능* 합니다.
+본 프로젝트의 모든 외부 HTTP 호출은 *authority (scheme + host) 가 고정 상수 (hardcode) 또는 운영자가 통제하는 환경변수* 로만 결정돼요. path 일부엔 *검증된 식별자* (예: Apple/Google receiptData 의 transactionId·purchaseToken, PortOne 의 impUid) 가 들어가지만, *host 를 사용자 입력으로 결정하거나* redirect 가 자동 따라가는 지점이 *코드 어디에도 없어요*. authority 가 고정이라 *내부 IP·메타데이터 endpoint 로의 host pivot 이 불가능* 하고, SSRF 의 일반적 공격 벡터가 *설계상 차단* 됩니다.
 
 이 정책의 핵심은 *명문화* 와 *향후 확장 가이드* 예요. 현재 14 곳의 외부 호출 (Apple JWKS·Google tokeninfo·Google JWKS(IAP webhook)·Kakao API 2종·Naver API·Resend·Apple App Store Server API·Google Play Developer API·Google OAuth·PortOne·MinIO·FCM·CoolSMS) 모두 정책 부합 상태이지만, 새 외부 호출을 추가하는 개발자가 *별생각 없이 사용자 입력으로 URL 을 만드는 케이스* 를 사전에 차단해야 해요. ADR 에 정책을 박아두면 코드 review·ArchUnit·향후 본인의 future-self 에게 같은 message 를 일관되게 전달할 수 있어요.
 
@@ -22,7 +22,7 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 
 전형적 SSRF 공격 사례를 보면 위험이 명확해요. *URL preview·image proxy* 같은 기능에서 사용자가 `http://169.254.169.254/latest/meta-data/iam/security-credentials/<role>` 같은 URL 을 입력하면, AWS EC2 의 IMDSv1 엔드포인트가 응답해서 *해당 인스턴스의 IAM credential* 이 공격자에게 노출됩니다. *RDS endpoint·Redis·Elasticsearch* 같은 내부 서비스도 같은 방식으로 우회 접근될 수 있어요.
 
-본 프로젝트는 *다행히* 이런 동적 URL 처리를 하지 않습니다. 외부 호출은 모두 *고정된 third-party endpoint* (Apple, Google, Kakao 등) 로 향하고, 사용자가 보내는 *token·id* 는 query parameter 또는 body 에만 들어가지 *호스트네임이나 path* 를 결정하지 않아요.
+본 프로젝트는 *다행히* 이런 동적 URL 처리를 하지 않습니다. 외부 호출은 모두 *고정된 third-party endpoint* (Apple, Google, Kakao 등) 로 향하고, authority (scheme + host) 는 const/env 로 고정돼요. 사용자가 보내는 *token·id* 가 일부 호출에선 *URL path 세그먼트* 에 들어가긴 하지만 (예: `…/transactions/{transactionId}`, `…/payments/{impUid}`) — 이는 *검증된 식별자* 이고 *host 를 바꾸지 못해* host pivot 실익이 사실상 0 이에요. 나머지 token·id 는 query parameter 또는 body 에만 들어갑니다.
 
 그러나 *현재 안전하다는 것* 과 *앞으로도 안전하다는 것* 은 다른 이야기예요. 새 기능 추가 시 *예: 사용자가 자기 프로필에 외부 이미지 URL 을 등록하면 서버가 다운로드해서 캐싱* 같은 기능이 추가되면 SSRF 가 즉시 가능해져요. 이런 시나리오를 사전에 차단하려면 *"외부 URL 은 hardcode 또는 환경변수만"* 이라는 정책이 코드 baseline 으로 박혀있어야 해요.
 
@@ -38,7 +38,7 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 
 | 항목 | 정책 | 사유 |
 |---|---|---|
-| **URL 결정 방식** | hardcode (소스 상수) 또는 환경변수 (운영자 통제) | 사용자 입력으로 host / path 결정 금지 |
+| **URL 결정 방식** | authority (scheme + host) 는 hardcode (소스 상수) 또는 환경변수 (운영자 통제) | 사용자 입력으로 host 결정 금지. path 엔 검증된 식별자만 허용 |
 | **timeout** | connect ≤ 5s, request ≤ 10s | 응답 안 오는 endpoint 가 서버 스레드 점유하는 것 차단 |
 | **redirect** | 자동 follow 비활성 (Java HttpClient default) | redirect 체인을 통한 우회 차단 |
 | **private IP 차단** | 명시 정책 없음 (추후 도입 검토) | 현 호출 모두 public cloud endpoint 라 현실 위험 낮음 |
@@ -49,7 +49,7 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 
 새 third-party API 통합을 추가할 때 *반드시* 다음 4 가지를 충족해야 해요:
 
-1. **URL 의 host + path 는 hardcode 또는 환경변수**. 사용자 입력은 query parameter / body 에만.
+1. **URL 의 authority (scheme + host) 는 hardcode 또는 환경변수**. 사용자 입력이 host 를 결정하면 안 됨. path 세그먼트에 식별자를 넣어야 한다면 *검증된 값* (예: 우리가 발급/정규화한 transactionId·impUid) 만 사용하고, raw 사용자 입력은 query parameter / body 에만.
 2. **HttpClient 에 connectTimeout = 5s 명시**. `HttpClient.newHttpClient()` 의 기본값에 의존하지 말 것.
 3. **HttpRequest 에 timeout = 10s 명시**. per-request 단위.
 4. **redirect 자동 follow 활성화하지 말 것**. `HttpClient.Builder.followRedirects(NEVER)` 가 default 여서 명시 불필요하지만, 실수로 `ALWAYS` 로 변경 금지.
@@ -83,7 +83,7 @@ InterruptedException 처리도 표준 패턴 따름 — `Thread.currentThread().
 
 > 식별자 (상수명) 로 인벤토리화 — line number 는 코드 편집 빈번하므로 자동 outdated 위험. 정확한 위치는 `grep -rn '<상수명>' core/` 로 즉시 파악 가능.
 
-모두 정책 부합. 사용자 입력으로 URL 결정되는 지점 0건.
+모두 정책 부합. authority (scheme + host) 가 사용자 입력으로 결정되는 지점 0건 — host pivot 불가. (#8·#9·#11 은 검증된 식별자가 path 세그먼트에 들어가지만 host 는 고정 const/env.)
 
 ---
 
