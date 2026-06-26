@@ -223,7 +223,7 @@ ADR-004 의 22규칙 중 **5개가 이 결정과 연관** 됩니다.
 **채택** — 다음 구조로 변경:
 - `AuthAutoConfiguration.class` 에서 `@Import(AuthController.class)` 제거
 - `AuthController.java` 는 파일은 남지만 **런타임 bean 으로 등록 안 됨** — `new-app.sh` 가 참조할 스캐폴딩 소스로만 존재
-- 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 경로는 `/api/apps/<slug>/auth/*` — [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 에서 상세
+- 공유 `AuthController` 가 `/api/apps/{appSlug}/auth/*` 경로로 모든 앱을 처리 — [`ADR-013`](./adr-013-per-app-auth-endpoints.md) (B) 에서 상세
 
 **교훈**: 레이어 구조는 "파일이 어디에 있는가" 뿐만 아니라 "런타임에 무엇이 bean 으로 활성화되는가" 까지 포함합니다. `core-*-impl` 의 `controller/` 는 이제 관습적으로 "템플릿 소스 영역" 이 되었고, 실제 bean 등록은 `apps/app-<slug>/auth/` 에서만 일어나요. 이 구분이 명시적으로 유지되지 않으면 "같은 파일이 어떨 땐 런타임, 어떨 땐 참조용" 이 되어 혼란.
 

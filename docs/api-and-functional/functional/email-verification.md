@@ -466,7 +466,7 @@ public static final Duration DEFAULT_TOKEN_TTL = Duration.ofMinutes(5);
 
 ## 엔드포인트와 요청 DTO
 
-`core/core-auth-impl` 의 `AuthController` 는 런타임에 등록되지 않는 레퍼런스 소스예요. `@AutoConfiguration` 이 이 클래스를 `@Import` 하지 않으므로 빈으로 활성화되지 않습니다. 실제 엔드포인트는 `new-app.sh` 가 각 앱 모듈에 복사한 `<Slug>AuthController` 가 담당해요. 그래서 앱이 0개인 template 상태에서는 인증 엔드포인트가 전혀 노출되지 않고, 앱을 추가하는 순간 그 앱의 경로만 생깁니다. 이 분리의 근거는 ADR-013 에 있어요.
+`core/core-auth-impl` 의 `AuthController` 는 `AuthAutoConfiguration` 이 `@ConditionalOnMissingBean` 으로 등록하는 단일 공유 런타임 빈이에요. path 의 `{appSlug}` 변수로 모든 앱이 이 한 컨트롤러를 공유하고, `new-app.sh` 는 앱별 복제본을 만들지 않아요. 앱을 추가하면 그 슬러그로 곧바로 인증 엔드포인트를 호출할 수 있습니다. 다만 앱이 0개인 template 상태에서는 Spring 부팅 자체가 안 돼요 ([ADR-037](../../philosophy/adr-037-core-schema-deprecation.md)). 이 모델의 근거는 ADR-013 의 `## 갱신` 에 있어요.
 
 관련 엔드포인트는 `ApiEndpoints.Auth` 에 상수로 정의돼 있습니다.
 

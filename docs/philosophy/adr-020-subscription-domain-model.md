@@ -253,7 +253,7 @@ PortOneWebhookVerifierTest: 14/14 PASS (Signature 6 + Timestamp 5 + Combined 3)
 | `core/core-billing-api/{SubscriptionState,PaymentChannel,PaymentRecordStatus}.java` | 상태 enum (api 루트, ArchUnit r18 정합) |
 | `core/core-payment-api/PortOneWebhookVerifier.java` | HMAC + timestamp 검증 (apps/* 도 import 가능하도록 api 모듈에 위치) |
 | `core/core-payment-impl/PaymentAutoConfiguration.java` | PortOneAdapter / Verifier / ProdConfigGuard Bean |
-| `tools/new-app/new-app.sh` heredoc | V008~V010 SQL + `<Slug>PaymentController` 생성 |
+| `tools/new-app/new-app.sh` heredoc | V008~V010 SQL 생성 (PaymentController 는 core 공유 — ADR-013 B) |
 
 ## 결정 5 — Subscription 만료 자동 sweep ([B 사이클 추가])
 

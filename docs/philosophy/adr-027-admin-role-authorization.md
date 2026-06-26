@@ -178,4 +178,4 @@ public @interface AdminOrModerator {}
 - `common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java` — `@EnableMethodSecurity` 추가
 - `common/common-security/src/main/java/com/factory/common/security/AdminOnly.java` — 신규 meta annotation
 - `common/common-security/src/test/java/com/factory/common/security/AdminOnlyTest.java` — 신규 단위 테스트
-- `tools/new-app/new-app.sh` — `<Slug>PaymentController.refund` heredoc 에 `@AdminOnly` 적용
+- `core-billing-impl` 의 공유 `PaymentController.refund` 에 `@AdminOnly` 적용 (ADR-013 B)
