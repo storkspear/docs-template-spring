@@ -179,7 +179,7 @@ POST /api/apps/<slug>/auth/me/2fa/disable         (인증)
 POST /api/apps/<slug>/auth/2fa/login              (공개)
 ```
 
-`new-app.sh` heredoc 의 `<Slug>AuthController` 자동 생성에 포함돼요.
+core 공유 `AuthController` (`AuthAutoConfiguration` 등록) 에 포함돼요 (ADR-013 B).
 
 ---
 

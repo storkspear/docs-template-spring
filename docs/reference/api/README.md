@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: 클라이언트 개발자 (Level 1~2) · **읽는 시간**: ~12분
 
-본 문서는 파생 앱이 자동 생성하는 **REST API 엔드포인트 카탈로그**입니다. 본 template repo 자체엔 reference controller 만 있고 (런타임 미등록), 실제 endpoint 는 `<your-backend> new <slug>` 시 `tools/new-app/new-app.sh` 의 heredoc 으로 각 슬러그에 자동 생성됩니다.
+본 문서는 모든 앱이 공유하는 **코어 REST API 엔드포인트 카탈로그**입니다. auth / user / device / notification-preferences / payment / iap 엔드포인트는 **core 공유 컨트롤러**가 각 AutoConfiguration 으로 등록되어 `/api/apps/{appSlug}/*` 로 제공돼요 — 앱을 추가하면 그 슬러그 경로로 자동 제공됩니다 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) B). 앱 고유 도메인 엔드포인트만 `<your-backend> new <slug>` 시 `tools/new-app/new-app.sh` 가 `<Slug>HealthController` + `<Slug>ApiEndpoints` 로 생성합니다.
 
 ## 공통 사항
 
@@ -131,12 +131,10 @@
 
 ## 7. 명세 동기화
 
-`tools/new-app/new-app.sh` 의 heredoc 이 controller / `<Slug>ApiEndpoints` 를 자동 생성합니다 — 본 doc 의 경로 변경 시 heredoc 도 함께 수정 필요. 구체 코드 위치:
+코어 엔드포인트(auth / user / device / notification / payment / iap)의 경로는 `common-web` 의 `ApiEndpoints` + 각 `core-*-impl` 의 공유 컨트롤러에서 관리돼요 — 경로 변경 시 그쪽을 고칩니다. 앱 고유 경로만 `tools/new-app/new-app.sh` 의 heredoc 이 `<Slug>HealthController` / `<Slug>ApiEndpoints` 로 생성합니다.
 
-- `tools/new-app/new-app.sh:415~478` — `<Slug>ApiEndpoints` 상수 정의
-- `tools/new-app/new-app.sh:561~922` — Controller 메서드 매핑
-
-template repo 의 reference controller (`core/core-auth-impl/.../AuthController.java` 등) 도 같이 sync 되어야 합니다 (런타임 미등록이지만 IDE 가이드 + `<your-backend> new` 가 복사 source).
+- `common/common-web/.../ApiEndpoints.java` — 코어 공유 경로 상수 (`Auth` / `User` / `Device` / `NotificationPreferences` / `Payment` / `Iap`)
+- `core/core-auth-impl/.../AuthController.java`, `core/core-billing-impl/.../controller/{Payment,Iap}Controller.java` 등 — 공유 런타임 빈 (각 AutoConfiguration 이 등록)
 
 ---
 

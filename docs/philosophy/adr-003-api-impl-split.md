@@ -284,7 +284,7 @@ references class <com.factory.core.user.impl.entity.User>
 
 **대안 — `AuthAutoConfiguration` 이 `@Import(AuthController.class)` 로 등록** 하면 공용 `/api/core/auth/*` 경로가 됩니다. 그런데 이 방식은 "모든 앱이 같은 Controller 공유 → 어느 앱 요청인지 런타임 구분 필요 → ThreadLocal + AbstractRoutingDataSource" 라는 복잡도를 부릅니다.
 
-**채택** — `AuthController` 는 `-impl` 에 스캐폴딩 소스로만 존재하고, 런타임에 등록하지 않아요. 각 앱 모듈이 자기 `<Slug>AuthController` 를 가지며 Port 를 주입받아 사용해요.
+**채택** — `AuthController` 는 `-impl` 의 `AuthAutoConfiguration` 이 등록하는 **공유 런타임 빈**이고, `{appSlug}` path 변수로 모든 앱이 한 컨트롤러를 공유하며 Port 를 주입받아 위임해요 (ADR-013 B).
 
 **교훈**: `-api` / `-impl` 분리는 **모듈 내부 책임 경계** 도 재조정하게 만듭니다. "무엇이 Port 구현체인가", "무엇이 Port 사용자인가" 구분이 명확해질수록 런타임 구조도 단순해져요.
 

@@ -140,7 +140,7 @@ IAP 도 같은 흐름:
 - `core/core-payment-api/`, `core/core-payment-impl/` — PG 채널 (`PortOneAdapter`, `PortOneWebhookVerifier`)
 - `core/core-billing-api/BillingPort.java` — 정책 layer 인터페이스 (`activateFromPayment` / `findActiveSubscription` / `cancelSubscription` / `handleWebhook`)
 - `core/core-billing-impl/BillingServiceImpl.java` — 정책 layer 구현 (구독 상태 / 갱신 / 환불 정책)
-- `tools/new-app/new-app.sh` heredoc — `<Slug>PaymentController` + `<Slug>ApiEndpoints.Payment` 자동 생성
+- `core/core-billing-impl/.../controller/{PaymentController,IapController}.java` — 공유 컨트롤러. `BillingAutoConfiguration` 이 `@Bean` 으로 등록 (`app.features.payment` / `app.features.iap` 토글, 둘 다 default true; [`ADR-013`](./adr-013-per-app-auth-endpoints.md) B). 과거엔 `new-app.sh` 가 앱별 생성했으나 공유로 전환.
 
 상세 구독 도메인 모델 (Subscription / Plan / PaymentRecord / WebhookEvent), webhook 보안, 트랜잭션 경계는 [`ADR-020`](./adr-020-subscription-domain-model.md) 에서 다룹니다.
 

@@ -78,9 +78,9 @@
 
 ### 템플릿 상태에서의 노출 여부
 
-`core-auth-impl` 의 `AuthController` 는 런타임에 직접 등록되지 않아요. 이 클래스는 `new-app.sh` 가 앱 모듈을 만들 때 쓰는 스캐폴딩 레퍼런스입니다. 스크립트가 앱별 복제본 `apps/app-<slug>/auth/<Slug>AuthController.java` 를 생성하면서, path 의 `{appSlug}` 를 실제 슬러그로 치환해요.
+`core-auth-impl` 의 `AuthController` 는 `AuthAutoConfiguration` 이 `@ConditionalOnMissingBean` 으로 등록하는 **단일 공유 런타임 빈** 이에요. path 의 `{appSlug}` 변수로 모든 앱을 한 컨트롤러가 처리합니다. `new-app.sh` 는 앱별 복제본을 만들지 않아요.
 
-즉 템플릿 상태에서는 인증 엔드포인트가 전혀 노출되지 않습니다. 앱이 0개라 등록할 컨트롤러가 없기 때문이에요. 존재하지 않는 슬러그로 호출하면 404 가 됩니다.
+즉 앱을 추가하면 그 슬러그로 곧바로 인증 엔드포인트를 호출할 수 있어요. 존재하지 않는 슬러그로 호출하면 404 가 됩니다.
 
 ---
 
