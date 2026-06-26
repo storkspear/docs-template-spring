@@ -46,21 +46,21 @@ optional 필드 추가가 안전한 이유는 직렬화 정책에 있어요. 응
 
 ### 현재 경로 체계
 
-모든 경로는 `common-web` 의 [`ApiEndpoints`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) 상수 한곳에서 관리돼요. 컨트롤러의 `@RequestMapping`, `SecurityConfig` 의 `requestMatchers`, 테스트의 MockMvc 가 전부 이 상수를 참조합니다. 경로 prefix 는 두 가지뿐이에요.
+공유 core 경로(user · device · notification-preferences)와 `SecurityConfig` 패턴은 `common-web` 의 [`ApiEndpoints`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) 상수에서 관리돼요. 앱별 생성 컨트롤러(auth · payment · iap)는 [`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) 격리 원칙상 각 앱의 `<Slug>ApiEndpoints` 가 자기 경로를 따로 들고 있어요. 경로 prefix 는 두 가지뿐이에요.
 
 | Prefix | 용도 | 예시 |
 |---|---|---|
 | `/api/apps/{appSlug}/*` | 앱별 엔드포인트 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md)) | `/api/apps/{appSlug}/auth/email/signup` |
 | `/api/core/*` | 크로스 앱 공통 (admin 등) — 현재 사용 엔드포인트 없음 (예약) | — |
 
-`ApiEndpoints.APP_BASE` 가 `/api/apps/{appSlug}` 이고, 앱별 도메인 (auth · device · notification-preferences · user) 이 전부 그 아래로 붙어요. 유저 프로필(`/api/apps/{appSlug}/users/me`)도 격리·경로 일관성과 path slug ↔ JWT slug 검증을 위해 앱별 경로로 통일했어요. `/api/core/*` 는 현재 사용하는 엔드포인트가 없고, 앱 무관 공통/admin 엔드포인트용으로 예약돼 있어요.
+`ApiEndpoints.APP_BASE` 가 `/api/apps/{appSlug}` 이고, 공유 core 도메인 (user · device · notification-preferences) 이 그 아래로 붙어요. auth · payment · iap 는 각 앱의 `<Slug>ApiEndpoints.BASE` (독립적으로 `/api/apps/<slug>`) 아래에 있어 결과 경로는 같지만 출처가 달라요. 유저 프로필(`/api/apps/{appSlug}/users/me`)도 격리·경로 일관성과 path slug ↔ JWT slug 검증을 위해 앱별 경로로 통일했어요. `/api/core/*` 는 현재 사용하는 엔드포인트가 없고, 앱 무관 공통/admin 엔드포인트용으로 예약돼 있어요.
 
-### 도입은 한 줄 작업으로 열려 있어요
+### 도입 경로 (경로 A 권장)
 
 미래에 공개 API 나 멀티 버전 클라이언트가 생기면 버전 접두사를 도입할 수 있어요. 두 경로가 있어요.
 
-- **`ApiEndpoints` prefix 변경** — `APP_BASE` 를 `/api/v1/apps/{appSlug}` 로 한 줄 수정 (대개 이쪽)
-- **Cloudflare 리버스 프록시 재작성** — `/api/v1/*` → `/api/*` 규칙 추가 (코드 변경 0)
+- **Cloudflare 리버스 프록시 재작성 (권장)** — `/api/v1/*` → `/api/*` 규칙 추가. 코드 0줄로 공유 core·앱별 컨트롤러를 균일하게 덮고, 앱별 격리 원칙도 그대로 유지돼요.
+- **코드 prefix 변경** — `common-web APP_BASE` + 앱마다 `<Slug>ApiEndpoints.BASE` 를 `/api/v1/...` 로 수정 (한 곳이 아니라 공유 core 1곳 + 앱별 N곳). URL 의 v1 을 코드·로그에 드러내고 싶을 때만 골라요.
 
 도입 시점 신호와 멀티 버전 공존 설계는 [`ADR-008`](../../philosophy/adr-008-no-api-versioning.md) 의 *도입 경로 두 가지* 에 기록돼 있어요. 지금은 그 구조를 준비할 필요조차 없어요.
 
