@@ -1,6 +1,6 @@
 # ADR-008 · API 버전 관리는 Phase 0 에서 미도입
 
-**Status**: Accepted. 모든 API 경로에서 `/v1/` 같은 버전 접두사를 쓰지 않아요. 현재 경로는 `/api/core/*`, `/api/apps/{appSlug}/*` 두 가지 prefix 뿐이에요. 미래 도입 경로 (Cloudflare 리버스 프록시 경유 또는 `@RequestMapping` prefix 변경) 는 한 줄 작업으로 열려 있어요.
+**Status**: Accepted. 모든 API 경로에서 `/v1/` 같은 버전 접두사를 쓰지 않아요. 현재 경로는 `/api/core/*`, `/api/apps/{appSlug}/*` 두 가지 prefix 뿐이에요. 미래 도입 경로는 열려 있어요 — **경로 A (Cloudflare 재작성)** 는 코드 0줄로 공유 core·앱별 컨트롤러를 균일하게 덮어서 권장. **경로 B (코드 prefix 변경)** 는 `common-web APP_BASE` 한 곳이 아니라 각 앱의 `<Slug>ApiEndpoints.BASE` 까지 손봐야 해요 (앱별 endpoint 는 ADR-013 격리 원칙상 코어 카탈로그를 참조하지 않기 때문).
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -68,11 +68,11 @@ API 엔드포인트에 `/v1/` 을 붙이지 않습니다. 이유는 단순해요
 
 현재 경로 (`/api/core/*`, `/api/apps/*`) 를 그대로 두고, 필요해지면 `ApiEndpoints` 상수 + `@RequestMapping` prefix 를 `api/v1` 으로 한 줄 변경하는 방식이에요. 또는 `common-web` 에 `@RequestMapping(prefix = "/api/v1")` 글로벌 prefix 를 설정할 수도 있어요.
 
-이 옵션의 장점은 네 가지로 정리돼요. URL 이 현재 깔끔해요 — `/api/apps/sumtally/auth/email/signup` 이 verbose 하지 않게 유지됩니다. 도입 시점 비용이 매우 적어요 — `ApiEndpoints` 의 `APP_BASE` 상수 한 줄을 `"/api/v1/apps/{appSlug}"` 로 수정하면 끝나요. 미래 옵션이 보존돼요 — 필요해지면 Cloudflare 방식과 병행할 수도 있어요. YAGNI 원칙을 준수해요 — *미래에 쓸지도 모른다* 는 가정으로 복잡도를 선제 도입하지 않습니다.
+이 옵션의 장점은 네 가지로 정리돼요. URL 이 현재 깔끔해요 — `/api/apps/sumtally/auth/email/signup` 이 verbose 하지 않게 유지됩니다. 도입 시점 비용이 적어요 — 경로 A(Cloudflare)면 코드 0줄, 경로 B(코드 prefix)면 `APP_BASE` + 앱별 `<Slug>ApiEndpoints.BASE` 만 바꾸면 돼요 (자세한 비교는 아래 `도입 경로 두 가지`). 미래 옵션이 보존돼요 — 필요해지면 Cloudflare 방식과 병행할 수도 있어요. YAGNI 원칙을 준수해요 — *미래에 쓸지도 모른다* 는 가정으로 복잡도를 선제 도입하지 않습니다.
 
 단점은 두 가지예요. *업계 표준과 다른 형태* 라 새로 합류하는 개발자가 "왜 v1 없지?" 라고 물을 수 있어요 (본 ADR 이 그 답이에요). 그리고 *진짜 필요해진 시점에 "이미 늦었나?" 라는 의심* 이 생길 수 있는데, 이 의심도 본 ADR 의 *도입 경로 두 가지* 가 미리 답해 둡니다.
 
-채택 이유는 [`제약 2 (시간이 가장 희소한 자원)`](./README.md#제약-2--시간이-가장-희소한-자원) 와 정합해 *지금 쓸데없는 복잡도를 제거* 하고, 도입 시점 비용이 *한 줄 설정* 으로 저렴하며, [`ADR-007 (솔로 친화적 운영)`](./adr-007-solo-friendly-operations.md) 의 *"지금 필요 없으면 안 한다"* 원칙과 자연스럽게 연결되기 때문이에요.
+채택 이유는 [`제약 2 (시간이 가장 희소한 자원)`](./README.md#제약-2--시간이-가장-희소한-자원) 와 정합해 *지금 쓸데없는 복잡도를 제거* 하고, 도입 시점 비용이 *경로 A 면 코드 0줄* 로 저렴하며, [`ADR-007 (솔로 친화적 운영)`](./adr-007-solo-friendly-operations.md) 의 *"지금 필요 없으면 안 한다"* 원칙과 자연스럽게 연결되기 때문이에요.
 
 ## 결정
 
@@ -124,17 +124,20 @@ public final class ApiEndpoints {
 
 장점: 코드 변경이 0 이에요. 단점: 인프라 단에서 URL 이 변경되므로 로그와 관측이 복잡해질 수 있어요.
 
-**경로 B** — `ApiEndpoints` prefix 변경 (한 줄):
+**경로 B** — 코드 prefix 변경 (한 줄이 아니라 *손댈 곳이 둘*):
 
 ```java
-// ApiEndpoints.java 한 줄 수정
+// (1) common-web/ApiEndpoints.java — 공유 core(user/device/notif) + SecurityConfig 패턴
 public static final String APP_BASE = "/api/v1/apps/{appSlug}";
-public static final String CORE_BASE = "/api/v1/core";
+public static final String APP_BASE_PATTERN = "/api/v1/apps/*";
+
+// (2) 각 앱 <Slug>ApiEndpoints.java — auth/payment/iap 등 앱별 생성 컨트롤러 (앱마다 1곳)
+public static final String BASE = "/api/v1/apps/<slug>";
 ```
 
-장점: URL 이 실제 코드 레벨에서 v1 으로 드러나요. Flutter 클라이언트 `base_url` 도 `/api/v1` 로 명시할 수 있어요. 단점: 배포 시 Flutter 도 같이 업데이트해야 해요.
+장점: URL 이 코드 레벨에서 v1 으로 드러나고 Flutter `base_url` 도 `/api/v1` 로 명시 가능해요. 단점: **앱별 `<Slug>ApiEndpoints.BASE` 가 ADR-013 격리 원칙상 코어 `APP_BASE` 를 참조하지 않으므로**, 공유 core 1곳 + 앱마다 1곳을 모두 고쳐야 해요 (앱이 늘면 그만큼). 배포 시 Flutter 도 같이 올려야 해요.
 
-실제 도입 시점에는 **대개 경로 B** 가 정합이에요 — 클라이언트와 서버를 동시에 배포할 수 있는 우리 상황에서는 인프라 복잡도를 더하지 않아도 돼요.
+실제 도입 시점에는 **대개 경로 A (Cloudflare)** 가 정합이에요 — 코드 0줄로 공유 core·앱별 컨트롤러를 한 번에 균일하게 덮고, 앱별 격리 원칙도 그대로 유지되기 때문이에요. 경로 B 는 "URL 의 v1 을 코드·로그에 그대로 드러내고 싶다" 가 명확한 경우에만 골라요.
 
 ### 전환 기간이 필요해지면 (멀티 버전 공존)
 
@@ -147,6 +150,15 @@ public static final String CORE_BASE = "/api/v1/core";
 ```
 
 이 복잡도는 **진짜 필요해진 시점** 에만 도입해요. 지금은 위 구조를 만들 준비조차 필요하지 않아요.
+
+### 응답 DTO shape 변경 시
+
+위 경로 prefix 가 "URL 버전" 이라면, 이건 별개로 **응답 본문 모양** 이 바뀔 때의 규약이에요:
+
+- **필드 추가** — 하위호환이라 버전이 필요 없어요. Flutter 는 모르는 필드를 무시하니 그냥 추가하세요.
+- **필드 제거 · 의미 변경** — 비호환이에요. 기존 DTO 를 깨지 말고 **새 DTO (`XxxV2`) + 새 엔드포인트** 를 additive 로 더하거나, 전면 교체가 필요하면 경로 A 로 `/api/v2/*` 를 신규 라우트로 띄워요.
+
+즉 DTO 단위 버저닝 스캐폴드는 지금 없어요 (YAGNI) — 비호환 변경이 실제로 생기는 시점에 위 규약으로 additive 하게 처리하면 돼요.
 
 ## 이 선택이 가져온 것
 
