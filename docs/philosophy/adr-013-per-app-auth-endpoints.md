@@ -1,8 +1,22 @@
 # ADR-013 · 앱별 인증 엔드포인트 (core-auth 는 라이브러리 역할)
 
-**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — core schema 의 *auth/refresh_tokens/email_verification_tokens* 가 폐기되어 각 app schema 의 동일 table 만 남음 (per-app 격리 완성). 모든 인증 엔드포인트가 `/api/apps/{appSlug}/auth/*` 형태로 통일돼 있어요. `core-auth-impl/AuthController.java` 는 레퍼런스 소스로만 존재하고 런타임 Bean 으로 등록되지 않습니다. `new-app.sh` 가 앱 스캐폴딩 시 앱별 Controller 를 자동 생성해요.
+**Status**: **Superseded (2026-06)** — 원래 결정(앱별 `<Slug>AuthController` 생성)이 **core 공유 Controller** 로 뒤집혔어요. `AuthController` 는 이제 `AuthAutoConfiguration` 이 `@ConditionalOnMissingBean` 으로 등록하는 단일 공유 런타임 빈이고, `/api/apps/{appSlug}/auth/*` (path 변수) 로 모든 앱을 처리해요 (user/device/notification 과 동일 모델). `new-app.sh` 는 더 이상 앱별 AuthController 를 생성하지 않아요. 경위·이유는 바로 아래 `## 갱신` 참조. (실제 인증 로직은 그대로 `AuthPort`/`AuthServiceImpl` — core-auth 는 여전히 라이브러리.) *이전 Status*: Accepted, updated by [ADR-037](./adr-037-core-schema-deprecation.md).
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
+
+## 갱신 (앱별 Controller → core 공유 Controller)
+
+이 ADR 의 원래 결정(Option 3, 앱별 `<Slug>AuthController` 생성)은 **공유 Controller 로 뒤집혔어요**. 이유는 두 가지예요.
+
+- **드리프트가 실제로 터졌어요.** 인증 컨트롤러 복사본이 셋이었어요 — 레퍼런스 `AuthController` + `new-app.sh` heredoc + 앱별 생성본. 셋이 서로 다른 방향으로 썩어서, 레퍼런스엔 verify-before·2FA TOTP 가 없고 생성본엔 kakao/naver 가 없었어요. verify-before 를 배포할 때 기존 앱마다 수동 패치가 필요했고, 그게 "생성형은 드리프트한다" 는 신호였어요.
+- **원래 Option 2 의 탈락 사유가 사라졌어요.** 아래에서 Option 2(통합 Controller)는 "앱이 자기 DataSource 를 못 쓴다 / ThreadLocal 부활" 로 탈락했는데, 그 라우팅 우려는 `SchemaRoutingDataSource` + `SlugContext` + `AppSlugMdcFilter` ([`ADR-005`](./adr-005-db-schema-isolation.md) · [`ADR-037`](./adr-037-core-schema-deprecation.md)) 로 *전역 해결*됐어요. 그리고 **user/device/notification 은 이미 `{appSlug}` path 변수로 그렇게 동작**하고 있었어요. auth 만 예외였던 거예요.
+
+**새 모델**: `AuthController` 는 `AuthAutoConfiguration` 이 `@ConditionalOnMissingBean` + `@ConditionalOnWebApplication(SERVLET)` 으로 등록하는 **단일 공유 빈**. `@RequestMapping(ApiEndpoints.Auth.BASE)` = `/api/apps/{appSlug}/auth/*` 로 모든 앱을 처리해요. 실제 로직은 그대로 `AuthPort` 에 있어요 (이 부분은 안 바뀜 — core-auth 는 여전히 라이브러리).
+
+- 앱별 커스터마이즈가 필요하면 → 앱 모듈에서 `AuthController` 타입 빈을 정의해 override (이 빈이 물러남) 하거나, 별도 엔드포인트를 additive 로 추가. provider 활성/한도 등은 config 로.
+- `new-app.sh` 는 더 이상 `<Slug>AuthController` / `<Slug>ApiEndpoints.Auth` 를 생성하지 않아요.
+
+> 아래 원문(결론부터 ~ 교훈)은 **역사적 기록** — "원래 왜 앱별로 갔는지" 와 "왜 그 판단이 드리프트로 뒤집혔는지" 를 같이 남겨요. 현재 동작은 이 `## 갱신` 이 진실의 출처예요.
 
 ## 결론부터
 
