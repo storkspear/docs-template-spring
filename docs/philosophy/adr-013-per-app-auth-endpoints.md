@@ -16,6 +16,15 @@
 - 앱별 커스터마이즈가 필요하면 → 앱 모듈에서 `AuthController` 타입 빈을 정의해 override (이 빈이 물러남) 하거나, 별도 엔드포인트를 additive 로 추가. provider 활성/한도 등은 config 로.
 - `new-app.sh` 는 더 이상 `<Slug>AuthController` / `<Slug>ApiEndpoints.Auth` 를 생성하지 않아요.
 
+### 결제·IAP 도 같은 결정으로 (2026-06)
+
+같은 드리프트 논리가 결제/IAP 에도 그대로 적용돼서, `PaymentController` / `IapController` 도 **core 공유 빈**으로 옮겼어요. 단 auth 와 다른 점이 하나 있어요 — **auth 는 모든 앱이 쓰지만 결제/IAP 는 수익화 앱만** 써요. 그래서 toggle 로 켜고 꺼요.
+
+- 둘 다 `core-billing-impl` 의 `BillingAutoConfiguration` 이 `@Bean` 으로 등록해요 (`NotificationPreferenceController` 와 같은 자리 — 셋 다 `{appSlug}` path 만으로 라우팅하는 Port 기반 컨트롤러라 per-app state 가 없어요). `@RequestMapping(ApiEndpoints.Payment.BASE)` = `/api/apps/{appSlug}/payment/*`, `ApiEndpoints.Iap.BASE` = `.../iap/*`.
+- **게이팅**: `@ConditionalOnProperty(app.features.payment | app.features.iap, matchIfMissing=true)` — 각 도메인의 AutoConfiguration(`PaymentAutoConfiguration` / `IapAutoConfiguration`)이 `PaymentPort` / `IapPort` 를 거는 토글과 **같은 키**예요. 그래서 `false` 면 Port 와 컨트롤러가 **함께** 사라져요 (부팅 OK, dangling 의존 없음). default 는 ON 이라 기존 동작은 그대로.
+- **webhook public 경로**: `Payment`/`Iap` 의 webhook(`/payment/webhook`, `/iap/apple/webhook`, `/iap/google/webhook`)은 외부(PG/Apple/Google)가 JWT 없이 호출하므로 `ApiEndpoints.{Payment,Iap}.PUBLIC_PATTERNS` 로 `SecurityConfig` 에 명시했어요. 위변조는 각 webhook 의 HMAC(PortOne) / JWS(Apple) / OIDC(Google) 가 검증해요. (라이브러리화 전 per-app 컨트롤러 시절엔 이 public 패턴이 빠져있어서 webhook 이 401 로 죽는 잠복 버그가 있었는데, 공유로 옮기면서 같이 고쳤어요.)
+- override / additive 규칙은 auth 와 동일 (`@ConditionalOnMissingBean`). `new-app.sh` 는 더 이상 `<Slug>PaymentController` / `<Slug>IapController` / `<Slug>ApiEndpoints.Payment|Iap` 를 생성하지 않아요.
+
 > 아래 원문(결론부터 ~ 교훈)은 **역사적 기록** — "원래 왜 앱별로 갔는지" 와 "왜 그 판단이 드리프트로 뒤집혔는지" 를 같이 남겨요. 현재 동작은 이 `## 갱신` 이 진실의 출처예요.
 
 ## 결론부터
