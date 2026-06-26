@@ -14,7 +14,7 @@
 
 ## 왜 이런 결정이 필요했나?
 
-[`ADR-013`](./adr-013-per-app-auth-endpoints.md) 이 *앱별 controller + 공통 `AuthPort` 위임* 패턴을 정했지만, 이 패턴은 *controller 와 service 사이의 위임* 까지만 책임집니다. service 가 실제로 *어느 schema 에 INSERT 할지* 는 [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 의 범위 밖이에요. 결과적으로 *controller 는 슬러그를 알지만 service 는 슬러그에 무관* 한 비대칭이 생기고, 이 비대칭을 메우지 않으면 [`ADR-005`](./adr-005-db-schema-isolation.md) 의 5중 방어선 중 *DataSource 분리 방어선* 이 사실상 작동하지 않아요.
+[`ADR-013`](./adr-013-per-app-auth-endpoints.md) 이 *공유 controller + 공통 `AuthPort` 위임* 패턴을 정했지만, 이 패턴은 *controller 와 service 사이의 위임* 까지만 책임집니다. service 가 실제로 *어느 schema 에 INSERT 할지* 는 [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 의 범위 밖이에요. 결과적으로 *controller 는 슬러그를 알지만 service 는 슬러그에 무관* 한 비대칭이 생기고, 이 비대칭을 메우지 않으면 [`ADR-005`](./adr-005-db-schema-isolation.md) 의 5중 방어선 중 *DataSource 분리 방어선* 이 사실상 작동하지 않아요.
 
 이 비대칭을 메우는 길에는 두 갈래가 있어요. 하나는 *service 시그니처에 `String appSlug` 파라미터를 모두 추가* 해서 *service 가 슬러그를 명시적으로 받는* 형태이고, 다른 하나는 *connection 자체가 현재 슬러그를 알아서 라우팅* 하는 ThreadLocal 기반 형태입니다.
 

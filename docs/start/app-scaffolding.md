@@ -704,5 +704,5 @@ MinIO 버킷과 운영 컨테이너 정리는 `force-clear` 가 맡고, `remove-
 - [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) — 운영 검증 사이클
 - [`Multitenant Architecture`](../structure/multitenant-architecture.md) — schema 격리 + DataSource 설계 상세
 - [`ADR-005 · Postgres schema 격리`](../philosophy/adr-005-db-schema-isolation.md) — schema 격리 결정 근거
-- [`ADR-013 · 앱별 인증 엔드포인트`](../philosophy/adr-013-per-app-auth-endpoints.md) — 앱별 controller 패턴 결정
+- [`ADR-013 · 앱별 인증 엔드포인트`](../philosophy/adr-013-per-app-auth-endpoints.md) — auth/payment/iap 공유 컨트롤러 패턴 (ADR-013 B)
 - [`ADR-018 · SchemaRoutingDataSource`](../philosophy/adr-018-schema-routing-datasource.md) — `AbstractAppDataSourceConfig` 의 derive 로직

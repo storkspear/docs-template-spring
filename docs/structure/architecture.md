@@ -267,7 +267,7 @@ template-spring/
 │   │       │   │   ├── SocialIdentity.java
 │   │       │   │   └── SocialIdentityId.java      # 복합키
 │   │       │   ├── repository/
-│   │       │   ├── controller/UserController.java # 레퍼런스 소스 (런타임 미등록)
+│   │       │   ├── controller/UserController.java # 공유 런타임 빈 (UserAutoConfiguration 이 등록)
 │   │       │   └── UserAutoConfiguration.java
 │   │       └── resources/db/migration/core/
 │   │           ├── V001__init_users.sql           # 템플릿 기준선 (users + totp + email index)
@@ -303,8 +303,8 @@ template-spring/
 │   │       │   └── TwoFactorBackupCode.java       # backup codes (1회용 hash)
 │   │       ├── repository/
 │   │       ├── controller/
-│   │       │   └── AuthController.java            # 레퍼런스 소스 (런타임 미등록, ADR-013)
-│   │       └── AuthAutoConfiguration.java         # Controller 는 @Import 안 함
+│   │       │   └── AuthController.java            # 공유 런타임 빈 ({appSlug} path 변수, ADR-013)
+│   │       └── AuthAutoConfiguration.java         # AuthController 를 @Bean 으로 등록
 │   │
 │   ├── core-device-api/               # 디바이스 포트 (푸시 토큰 등록)
 │   │   └── DevicePort.java + dto/
@@ -663,7 +663,7 @@ HTTP 404 + JSON 응답
 
 ## 인증 플로우
 
-모든 인증 엔드포인트는 `/api/apps/{appSlug}/auth/*` 경로예요. core-auth-impl 의 `AuthController` 는 **레퍼런스 소스** 로만 존재하고 런타임에는 등록되지 않습니다. 각 앱의 `<Slug>AuthController` 가 `AuthPort` 를 주입받아 위임하는 구조예요 ([`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md)).
+모든 인증 엔드포인트는 `/api/apps/{appSlug}/auth/*` 경로예요. core-auth-impl 의 `AuthController` 는 `AuthAutoConfiguration` 이 `@ConditionalOnMissingBean` 으로 등록하는 **단일 공유 런타임 빈** 으로, `{appSlug}` path 변수로 모든 앱을 처리해요. 이 컨트롤러가 `AuthPort` 를 주입받아 위임하는 구조예요 ([`ADR-013`](../philosophy/adr-013-per-app-auth-endpoints.md) 의 `## 갱신`).
 
 ### 이메일 가입
 
@@ -675,7 +675,7 @@ POST /api/apps/sumtally/auth/email/signup
 [AppSlugVerificationFilter]             # 인증 전 요청이라 JWT 없음 → skip
       │
       ▼
-SumtallyAuthController.signUpWithEmail(request)   (apps/app-sumtally/auth)
+AuthController.signUpWithEmail(request)   (core-auth-impl, 공유 빈)
       │
       ▼
 AuthPort.signUpWithEmail(request)       # (AuthServiceImpl @Transactional)
