@@ -1,8 +1,16 @@
 # ADR-038 · SMS 발송 (core-sms) + 휴대폰 점유인증 (core-phone-auth) 도입
 
-**Status**: Accepted. `core-sms-api/SmsPort` + 멀티 어댑터 (`LoggingSmsAdapter` dev-capture / `CoolSmsAdapter` SOLAPI HMAC), `core-phone-auth-api/PhoneAuthPort` + `OtpService` + `PhoneOtpCode` 로 구현. OTP table 은 *app schema 안* (V015) 에 생성되고, `PhoneOtpCode` 는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어 라우팅 EMF 로 slug schema 에 매핑됩니다. 앱은 `PhoneAuthPort` + 얇은 컨트롤러 (BRAND·appSlug 주입) 로 재사용합니다.
+**Status**: Accepted. `core-sms-api/SmsPort` + 멀티 어댑터 (`LoggingSmsAdapter` dev-capture / `CoolSmsAdapter` SOLAPI HMAC), `core-phone-auth-api/PhoneAuthPort` + `OtpService` + `PhoneOtpCode` 로 구현. OTP table 은 *app schema 안* (V015) 에 생성되고, `PhoneOtpCode` 는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어 라우팅 EMF 로 slug schema 에 매핑됩니다. 컨트롤러는 **core 공유** `PhoneAuthController` (아래 갱신) 라, 앱은 `app.features.phone-auth=true` (default) 면 자동으로 재사용합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
+
+> **갱신 (2026-06, ADR-013 B 정렬)**: 본문 §5 "앱 재사용 = `PhoneAuthPort` + 얇은 `<Slug>PhoneAuthController`" 는
+> **컨트롤러 공유화로 대체**됐어요. 점유인증 컨트롤러도 auth/payment/iap 와 동일하게 **`core-phone-auth-impl` 의 공유
+> `PhoneAuthController`** 한 개로 모든 앱이 씁니다 — `PhoneAuthAutoConfiguration` 이 `@Bean` 으로 등록하고,
+> 클래스 레벨 `@ConditionalOnProperty(app.features.phone-auth)` (default ON) 가 토글이에요. 경로는
+> `/api/apps/{appSlug}/auth/phone/{request,verify}`. SMS brand 이름은 앱별 상수 대신 `app.phone-auth.brands.<slug>`
+> (`PhoneAuthProperties`, 미설정 시 slug) 로 주입합니다. 즉 `new-app.sh` 의 per-app 컨트롤러 heredoc 은 **불필요** —
+> V015 옵션 SQL 만 있으면 점유인증이 바로 떠요. 아래 §5 / "앱별 얇은 컨트롤러" 서술은 *역사적 기록*입니다.
 
 ## 결론부터
 
@@ -95,6 +103,8 @@ public static final String[] CORE_ENTITY_PACKAGES = {
 
 ### 5. 앱 재사용 = `PhoneAuthPort` + 얇은 컨트롤러
 
+> ⚠️ **역사적 기록** — 이 절은 위 "갱신" 으로 대체됐어요. 컨트롤러는 이제 **core 공유** `PhoneAuthController` 라 앱이 추가할 게 없습니다. brand 도 상수 대신 `app.phone-auth.brands.<slug>` config 로 받아요. 아래는 도입 당시 설계 기록입니다.
+
 앱은 `<Slug>PhoneAuthController` 만 추가하면 됩니다 — `PhoneAuthPort` 를 주입받고, 앱 고유의 `BRAND` (SMS 표시명, 예 `"랜목톡"`) 와 `appSlug` 를 인자로 채워 호출하는 *얇은 컨트롤러 + `PhoneOtp*` DTO* 가 전부입니다. ADR-013 의 *"core-auth-impl 은 라이브러리, 컨트롤러는 앱 소유"* 원칙과 동일합니다.
 
 ## 효과
@@ -117,7 +127,7 @@ public static final String[] CORE_ENTITY_PACKAGES = {
 - [`ADR-024 · email 도메인 추출`](./adr-024-email-domain-extraction.md) — `EmailPort` 멀티 어댑터 (real/mock 토글) 패턴. `SmsPort` 가 그대로 차용.
 - [`ADR-018 · SchemaRoutingDataSource`](./adr-018-schema-routing-datasource.md) — `PhoneOtpCode` 의 INSERT/SELECT 를 slug schema 로 라우팅하는 인프라.
 - [`ADR-017 · OAuth 2.0 통합`](./adr-017-oauth-integration.md) — `issueForVerifiedPhone` 이 재사용하는 social find-or-create 경로.
-- [`ADR-013 · 앱별 인증 엔드포인트`](./adr-013-per-app-auth-endpoints.md) — *core 는 라이브러리, 컨트롤러는 앱 소유* 원칙 (얇은 `<Slug>PhoneAuthController`).
+- [`ADR-013 · 앱별 인증 엔드포인트`](./adr-013-per-app-auth-endpoints.md) — 컨트롤러 공유화(방향 B). 점유인증 컨트롤러도 이 결정에 맞춰 core 공유 `PhoneAuthController` 로 전환 (위 갱신).
 
 ## Code References
 
@@ -136,5 +146,5 @@ public static final String[] CORE_ENTITY_PACKAGES = {
 
 - *`CoolSmsAdapter` 의 비동기/재시도* — 현재 동기 `HttpURLConnection` 발송. 발송 실패 시 즉시 `SMS_DELIVERY_FAILED` 이고 재시도 없음. 발송량 증가 시 큐 + 재시도 정책 별도 cycle 후보.
 - *발신사 멀티화* — `SmsPort` 가 이미 추상화돼 있으므로, 국제 발송 (Twilio 등) 어댑터 추가는 `SmsAutoConfiguration` 토글 1개로 가능. 필요 시점에 추가.
-- *Lite mode 토글* — 점유인증을 ADR-034 의 feature toggle 목록에 편입할지 검토 (현재는 V015 옵트인·컨트롤러 미추가로 비활성).
+- ~~*Lite mode 토글* — 점유인증을 ADR-034 toggle 목록에 편입~~ → **완료**. `app.features.phone-auth` (default ON) 가 PhoneAuthAutoConfiguration(+공유 컨트롤러) 전체를 게이팅. off 면 Port·컨트롤러 함께 사라짐.
 - *rate-limit 정책 외부화* — 현재 `OtpService` 의 윈도우/횟수가 상수. 앱별 차등이 필요해지면 property 화.
