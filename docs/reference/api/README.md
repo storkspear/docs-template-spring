@@ -13,7 +13,7 @@
 
 ### Lite 모드 (ADR-034) 영향
 
-- `app.features.<domain>=false` 시 endpoint 자동 사라짐 (404) — payment / iap / push / email / audit / 2fa / billing-notification / password-policy 8 도메인 모두.
+- `app.features.<domain>=false` 시 endpoint 자동 사라짐 (404) — payment / iap / push / email / audit / 2fa / billing-notification / password-policy / phone-auth 9 도메인 모두.
 - 호출 시점에 lazy 의존 부재면 `503 CMN_009 FEATURE_DISABLED` (details 에 feature 이름 포함) — payment / iap / 2fa 만 해당. email 은 silent skip (가입 흐름 보호).
 
 ### Validation 에러 (`CMN_001 VALIDATION_ERROR` — 422)
@@ -45,6 +45,8 @@
 | POST | `/auth/password-reset/request` | X | 비밀번호 재설정 요청 (메일 발송) | ADR-013 |
 | POST | `/auth/password-reset/confirm` | X | 6자리 코드 + 새 비밀번호 적용 (모든 세션 무효화) | ADR-013, ADR-029 |
 | PATCH | `/auth/password` | O | 현재 비밀번호 검증 + 새 비밀번호 적용 | ADR-029 |
+| POST | `/auth/phone/request` | X | 휴대폰 OTP 발송 (SMS) — dev-capture 어댑터면 `devCode` 반환 | ADR-038 |
+| POST | `/auth/phone/verify` | X | OTP 검증 → 번호로 유저 find-or-create + 토큰 발급 | ADR-038 |
 
 ### 2FA (TOTP) — ADR-030
 
@@ -134,7 +136,7 @@
 코어 엔드포인트(auth / user / device / notification / payment / iap)의 경로는 `common-web` 의 `ApiEndpoints` + 각 `core-*-impl` 의 공유 컨트롤러에서 관리돼요 — 경로 변경 시 그쪽을 고칩니다. 앱 고유 경로만 `tools/new-app/new-app.sh` 의 heredoc 이 `<Slug>HealthController` / `<Slug>ApiEndpoints` 로 생성합니다.
 
 - `common/common-web/.../ApiEndpoints.java` — 코어 공유 경로 상수 (`Auth` / `User` / `Device` / `NotificationPreferences` / `Payment` / `Iap`)
-- `core/core-auth-impl/.../AuthController.java`, `core/core-billing-impl/.../controller/{Payment,Iap}Controller.java` 등 — 공유 런타임 빈 (각 AutoConfiguration 이 등록)
+- `core/core-auth-impl/.../AuthController.java`, `core/core-billing-impl/.../controller/{Payment,Iap}Controller.java`, `core/core-phone-auth-impl/.../controller/PhoneAuthController.java` 등 — 공유 런타임 빈 (각 AutoConfiguration 이 등록)
 
 ---
 

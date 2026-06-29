@@ -26,7 +26,7 @@
 ## 아키텍처 개요
 
 ```
-[<Slug>PhoneAuthController]            (apps/app-<slug> — 얇은 per-app 컨트롤러, BRAND·appSlug 주입)
+[PhoneAuthController]                  (core-phone-auth-impl — 공유 컨트롤러, {appSlug} path + brand config)
        │
        ▼
    PhoneAuthPort ──► PhoneAuthAdapter
@@ -171,36 +171,37 @@ public AuthResponse verify(String phoneE164, String code, String appSlug) {
 
 ## 앱에서 사용하는 방법
 
-`core-auth` 와 동일하게 (ADR-013), 점유인증 엔드포인트도 **각 앱이 얇은 컨트롤러로 노출**합니다. core 는 런타임 컨트롤러를 등록하지 않고 `PhoneAuthPort` 만 제공합니다. 경로 화이트리스트는 `common-web` 의 `ApiEndpoints.Auth.PHONE` (`/phone`) 으로 관리되며, request/verify 둘 다 로그인 전이라 `PUBLIC_PATTERNS` 에 등록되어 있습니다.
+`core-auth`·`core-payment`·`core-iap` 와 동일하게 (ADR-013 방향 B), 점유인증 컨트롤러도 **core 가 공유 런타임 빈으로 등록**합니다 — 앱이 별도로 추가할 게 없어요. `core-phone-auth-impl` 의 `PhoneAuthController` 한 개가 `{appSlug}` path 로 모든 앱을 처리하고, `PhoneAuthAutoConfiguration` 이 `@Bean` 으로 올립니다. 클래스 레벨 `@ConditionalOnProperty(app.features.phone-auth, matchIfMissing=true)` (default ON) 가 토글이라, `=false` 면 Port·컨트롤러가 함께 사라집니다. 경로는 `ApiEndpoints.Auth.PHONE_REQUEST`(`/phone/request`) / `PHONE_VERIFY`(`/phone/verify`), 둘 다 로그인 전이라 `PUBLIC_PATTERNS` 의 `/phone/**` 가 커버합니다.
 
 ```java
-// apps/app-<slug>/.../<Slug>PhoneAuthController  (new-app.sh 안내대로 추가)
-// 얇은 컨트롤러: PhoneAuthPort 를 BRAND(브랜드명) / appSlug 로 호출.
+// core/core-phone-auth-impl/.../controller/PhoneAuthController.java  (공유 — 앱 추가 불필요)
 @RestController
-@RequestMapping(ApiEndpoints.Auth.BASE_PATTERN + ApiEndpoints.Auth.PHONE)
-public class RanmoktalkPhoneAuthController {
-
-    private static final String BRAND = "랜목톡";   // SMS 문구 표시명
-    private static final String APP_SLUG = "ranmoktalk";
+@RequestMapping(ApiEndpoints.Auth.BASE)   // /api/apps/{appSlug}/auth
+public class PhoneAuthController {
 
     private final PhoneAuthPort phoneAuthPort;
+    private final PhoneAuthProperties properties;   // app.phone-auth.brands.<slug>
 
-    @PostMapping("/request")
-    public ApiResponse<…> request(@RequestBody @Valid PhoneOtpRequest req) {
-        Optional<String> devCode = phoneAuthPort.requestOtp(req.phoneE164(), BRAND);
-        // devCode 는 LoggingSmsAdapter 활성(dev) 시에만 채워짐 → 응답에 노출
-        return ApiResponse.ok(...);
+    @PostMapping(ApiEndpoints.Auth.PHONE_REQUEST)   // /phone/request
+    public ApiResponse<SendCodeResponse> request(
+            @PathVariable("appSlug") String appSlug, @RequestBody @Valid SendCodeRequest body) {
+        // brand 는 슬러그별 config 로 해소 (미설정 시 slug). devCode 는 dev-capture 어댑터에서만 채워짐.
+        Optional<String> devCode =
+                phoneAuthPort.requestOtp(body.phoneE164(), properties.brandFor(appSlug));
+        return ApiResponse.ok(new SendCodeResponse(devCode.orElse(null)));
     }
 
-    @PostMapping("/verify")
-    public ApiResponse<AuthResponse> verify(@RequestBody @Valid PhoneOtpVerifyRequest req) {
-        return ApiResponse.ok(phoneAuthPort.verify(req.phoneE164(), req.code(), APP_SLUG));
+    @PostMapping(ApiEndpoints.Auth.PHONE_VERIFY)    // /phone/verify
+    public ApiResponse<AuthResponse> verify(
+            @PathVariable("appSlug") String appSlug, @RequestBody @Valid VerifyRequest body) {
+        return ApiResponse.ok(phoneAuthPort.verify(body.phoneE164(), body.code(), appSlug));
     }
 }
 ```
 
-- **BRAND** — SMS 본문에 들어가는 앱 표시명. 문구: `[<BRAND>] 인증번호 [042193] 보이스피싱주의, 타인 노출금지`
-- **appSlug** — `verify` 시 JWT claim 에 들어갈 슬러그. `AuthPort.issueForVerifiedPhone(phoneE164, appSlug)` 으로 전달됩니다.
+- **brand** — SMS 본문 표시명. `app.phone-auth.brands.<slug>` (`PhoneAuthProperties`) 로 슬러그별 지정, 미설정 시 슬러그 자체. 문구: `[<brand>] 인증번호 [042193] 보이스피싱주의, 타인 노출금지`
+- **appSlug** — path variable 에서 직접 받아 `verify` 시 `AuthPort.issueForVerifiedPhone(phoneE164, appSlug)` 으로 전달, JWT claim 슬러그가 됩니다.
+- **앱이 흐름을 바꾸려면** — 자체 `PhoneAuthController` 빈을 정의하면 `@ConditionalOnMissingBean` 으로 공유 빈이 비활성화돼 override 됩니다 (탈출구).
 
 ### AuthPort.issueForVerifiedPhone — 검증된 번호 → 토큰
 
@@ -369,7 +370,7 @@ app:
 
 - SMS 발송은 `SmsPort` 한 메서드(`send(toE164, text)`) 의 최소 인터페이스로 추상화됩니다 — `core-email` 의 `EmailPort` 와 같은 패턴.
 - 운영은 `CoolSmsAdapter`(SOLAPI HMAC-SHA256 실발송), 개발은 `LoggingSmsAdapter`(콘솔 OTP 캡처) 로 키 유무에 따라 자동 토글됩니다.
-- 점유인증은 `PhoneAuthPort.requestOtp` / `verify` 두 메서드. 각 앱이 BRAND·appSlug 를 주입한 **얇은 컨트롤러**로 노출합니다 (ADR-013).
+- 점유인증은 `PhoneAuthPort.requestOtp` / `verify` 두 메서드. **core 공유 `PhoneAuthController`** 가 `{appSlug}` path + `app.phone-auth.brands.<slug>` brand config 로 모든 앱에 노출합니다 — `app.features.phone-auth` 토글 (default ON, ADR-013 방향 B).
 - raw 6자리 코드는 **문자에만 들어가고 DB 에는 SHA-256 해시만 저장**합니다. TTL 5분 + 검증 5회 + 발송 rate-limit 의 3중 방어.
 - 검증 성공 후 `AuthPort.issueForVerifiedPhone` 이 `social_identities(provider='phone')` 로 유저를 find-or-create 하고 토큰을 발급합니다.
 - OTP 데이터는 **per-app** `phone_otp_codes`(V015) — 코어 schema 없이 라우팅 EMF 로 현재 slug schema 에 저장됩니다 (ADR-037).
@@ -385,7 +386,7 @@ app:
 - [`Architecture Reference`](../../structure/architecture.md) — core 모듈 트리 + 의존 그래프
 - [`ADR-038 · SMS 발송 + 휴대폰 점유인증`](../../philosophy/adr-038-sms-phone-auth.md) — 이 기능의 설계 결정 (core-sms + core-phone-auth)
 - [`ADR-003 · core 모듈을 -api / -impl 로 분리`](../../philosophy/adr-003-api-impl-split.md) — `SmsPort` / `PhoneAuthPort` 가 `-api` 모듈에 있는 근거
-- [`ADR-013 · 앱별 인증 엔드포인트`](../../philosophy/adr-013-per-app-auth-endpoints.md) — 얇은 per-app 컨트롤러 패턴
+- [`ADR-013 · 앱별 인증 엔드포인트`](../../philosophy/adr-013-per-app-auth-endpoints.md) — 컨트롤러 공유화(방향 B), 점유인증도 동일 적용
 - [`ADR-037 · core schema 폐기`](../../philosophy/adr-037-core-schema-deprecation.md) — per-app `phone_otp_codes` 데이터 라우팅
 </content>
 </invoke>
