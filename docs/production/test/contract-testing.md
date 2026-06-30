@@ -306,7 +306,7 @@ DECLARE
     t TEXT;
     candidates TEXT[] := ARRAY[
         -- billing 도메인 (FK 의존 순서)
-        'renewal_attempts', 'webhook_events', 'subscriptions', 'payment_records', 'plans',
+        'subscription_renewals', 'payment_webhook_events', 'subscriptions', 'payment_history', 'plans',
         -- auth/user 도메인
         'refresh_tokens', 'email_verification_tokens', 'password_reset_tokens',
         'social_identities', 'devices', 'users'

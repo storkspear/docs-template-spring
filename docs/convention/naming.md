@@ -351,7 +351,7 @@ apps/app-sumtally/src/main/resources/db/migration/sumtally/
     ...
     V007__seed_admin_user.sql               ← admin 시드 (도메인 아님)
     ...
-    V015__init_phone_otp_codes.sql          ← new-app.sh 자동 생성 (마지막 공통)
+    V015__init_phone_verification_codes.sql ← new-app.sh 자동 생성 (마지막 공통)
     V016__init_budget_groups.sql            ← 개발자가 작성 (첫 도메인 테이블)
     V017__init_expenses.sql                 ← 개발자가 작성
 ```

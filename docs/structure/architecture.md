@@ -346,8 +346,8 @@ template-spring/
 │   │       ├── service/
 │   │       │   ├── OtpService.java                # 발송 rate-limit + 검증 brute-force 가드 (TTL 5분, SHA-256 해시 저장)
 │   │       │   └── OtpCodes.java                  # SecureRandom 6자리 코드 + sha256Hex
-│   │       ├── entity/PhoneOtpCode.java           # phone_otp_codes (per-app schema 로 라우팅, 코어 schema 없음)
-│   │       ├── repository/PhoneOtpCodeRepository.java
+│   │       ├── entity/PhoneVerificationCode.java  # phone_verification_codes (per-app schema 로 라우팅, 코어 schema 없음)
+│   │       ├── repository/PhoneVerificationCodeRepository.java
 │   │       └── PhoneAuthAutoConfiguration.java    # 라우팅 EMF/txManager(@Primary) 바인딩
 │   │
 │   ├── core-storage-api/              # 스토리지 포트

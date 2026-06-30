@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: 클라이언트 개발자 (Level 1~2) · **읽는 시간**: ~12분
 
-본 문서는 모든 앱이 공유하는 **코어 REST API 엔드포인트 카탈로그**입니다. auth / user / device / notification-preferences / payment / iap 엔드포인트는 **core 공유 컨트롤러**가 각 AutoConfiguration 으로 등록되어 `/api/apps/{appSlug}/*` 로 제공돼요 — 앱을 추가하면 그 슬러그 경로로 자동 제공됩니다 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) B). 앱 고유 도메인 엔드포인트만 `<your-backend> new <slug>` 시 `tools/new-app/new-app.sh` 가 `<Slug>HealthController` + `<Slug>ApiEndpoints` 로 생성합니다.
+본 문서는 모든 앱이 공유하는 **코어 REST API 엔드포인트 카탈로그**입니다. auth / user / device / notification-settings / payment / iap 엔드포인트는 **core 공유 컨트롤러**가 각 AutoConfiguration 으로 등록되어 `/api/apps/{appSlug}/*` 로 제공돼요 — 앱을 추가하면 그 슬러그 경로로 자동 제공됩니다 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) B). 앱 고유 도메인 엔드포인트만 `<your-backend> new <slug>` 시 `tools/new-app/new-app.sh` 가 `<Slug>HealthController` + `<Slug>ApiEndpoints` 로 생성합니다.
 
 ## 공통 사항
 
@@ -104,12 +104,12 @@
 
 ---
 
-## 5. 알림 선호도 (`/me/notification-preferences/*`) — core-billing (ADR-031)
+## 5. 알림 설정 (`/me/notification-settings/*`) — core-billing (ADR-031)
 
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
-| GET | `/me/notification-preferences` | O | 사용자별 NotificationKind 채널 on/off 조회 (미등록 kind 미포함) |
-| PATCH | `/me/notification-preferences/{kind}` | O | kind 별 push/email 채널 토글 (upsert) |
+| GET | `/me/notification-settings` | O | 사용자별 NotificationKind 채널 on/off 조회 (미등록 kind 미포함) |
+| PATCH | `/me/notification-settings/{kind}` | O | kind 별 push/email 채널 토글 (upsert) |
 
 `NotificationKind` 값: `RENEWAL_SUCCEEDED` / `RENEWAL_FAILED` / `RENEWAL_ABANDONED` / `IAP_REFUND` / `IAP_REVOKE`. listener (SubscriptionNotificationListener) 가 발송 전 본 설정 확인. **default = enabled** — 명시적 off 안 하면 받음.
 
