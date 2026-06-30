@@ -142,7 +142,7 @@
   - mismatch 시 부팅 시 `Migration checksum mismatch` → 운영자가 `schema_history.checksum` UPDATE 후 재 deploy
   - 본 task 처리 결과: `migrate-prod.sh` + `flyway-runbook.md` 의 mismatch 절차 상세 문서화 (2026-05-02)
   - 후속: Flyway library 직접 호출 Java helper — 본 사이클 (2026-05-02) audit 결과: Flyway 의 정확 checksum = internal API (`org.flywaydb.core.internal.resource.LoadableResource`) 사용 — 버전 의존 위험. 운영 절차 (flyway-runbook.md §4-3 의 schema_history.checksum UPDATE) 가 mismatch 시 안전망. nice-to-have 로 별도 사이클 — 운영 환경에서 첫 mismatch 사례 발생 후 priority 재평가
-- [ ] [Feature] ADR-031 controller 실 endpoint 호출 검증 — `/me/notification-preferences` GET/PATCH 의 컴파일/spotless 만 검증됐고 실 부팅 후 200/204 응답 미확인 (2026-05-02)
+- [ ] [Feature] ADR-031 controller 실 endpoint 호출 검증 — `/me/notification-settings` GET/PATCH 의 컴파일/spotless 만 검증됐고 실 부팅 후 200/204 응답 미확인 (2026-05-02)
 - [ ] [Feature] ADR-034 non-leaf 토글 invasive 작업 — payment/iap/email/2fa 를 `ObjectProvider` 변환 + `ApiError.FEATURE_DISABLED` (CMN_009 신규) 추가 → 부팅 fail 없이 토글 가능하게 (2026-05-02)
 - [ ] [DX] `bootstrap/FeatureToggleTest` 의 leaf domain 외 검증 추가 — billing-notification / password-policy 도 disable 시 정상 부팅 + bean 미등록 명시 검증 (2026-05-02)
 - [x] [DX] GlobalExceptionHandler 에 ConversionFailedException + MethodArgumentTypeMismatchException → 422 (CMN_001) 매핑 — details 에 param/rejected/allowed 포함. NotificationPreferenceControllerTest 의 invalid kind 케이스 정확 검증 (완료일: 2026-05-02, commit: 4c2f1a3 예정)

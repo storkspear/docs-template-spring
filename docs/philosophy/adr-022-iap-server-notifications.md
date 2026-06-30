@@ -4,6 +4,8 @@
 
 **Status**: Accepted. Apple V2 와 Google RTDN webhook 을 `IapNotification` 통합 모델로 정규화해요. `BillingPort.handleIapNotification` 단일 진입점이라 정책 layer 가 platform 에 무관합니다.
 
+> **테이블 리네임 (2026-06-30)**: 본 ADR 이 재활용하는 `webhook_events` 는 현재 `payment_webhook_events` (엔티티 `PaymentWebhookEvent`), `payment_records` 는 `payment_history` 로 리네임됐어요. 멱등성 메커니즘 (`(source, external_id)` UNIQUE) 자체는 그대로예요. 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요.
+
 ---
 
 ## 결론부터

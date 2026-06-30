@@ -4,6 +4,8 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
+> **테이블 리네임 (2026-06-30)**: 본 ADR 의 `phone_otp_codes` 테이블은 현재 `phone_verification_codes`, 엔티티 `PhoneOtpCode` 는 `PhoneVerificationCode` 로 리네임됐어요 (email 인증과 `*_verification_*` 컨벤션 통일). 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요.
+
 > **갱신 (2026-06, ADR-013 B 정렬)**: 본문 §5 "앱 재사용 = `PhoneAuthPort` + 얇은 `<Slug>PhoneAuthController`" 는
 > **컨트롤러 공유화로 대체**됐어요. 점유인증 컨트롤러도 auth/payment/iap 와 동일하게 **`core-phone-auth-impl` 의 공유
 > `PhoneAuthController`** 한 개로 모든 앱이 씁니다 — `PhoneAuthAutoConfiguration` 이 `@Bean` 으로 등록하고,
@@ -139,8 +141,8 @@ public static final String[] CORE_ENTITY_PACKAGES = {
 - `core/core-phone-auth-impl/src/main/java/com/factory/core/phoneauth/impl/PhoneAuthAdapter.java` — OtpService + AuthPort 오케스트레이션
 - `core/core-phone-auth-impl/src/main/java/com/factory/core/phoneauth/impl/entity/PhoneOtpCode.java` — SHA-256 해시 저장 엔티티
 - `core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java:235` — `issueForVerifiedPhone` find-or-create
-- `common/common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java:64-74` — `CORE_ENTITY_PACKAGES` 에 `PhoneOtpCode` 등록
-- `tools/new-app/new-app.sh:1314` — `V015__init_phone_otp_codes.sql` (per-app schema OTP table, 옵트인)
+- `common/common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java:64-74` — `CORE_ENTITY_PACKAGES` 에 `PhoneVerificationCode` 등록
+- `tools/new-app/new-app.sh:846` — `V015__init_phone_verification_codes.sql` (per-app schema OTP table, 옵트인)
 
 ## 후속
 

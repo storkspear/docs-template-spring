@@ -138,7 +138,7 @@
 
 **영향** — 개인정보보호 위반과 과태료.
 
-**해결** — Phase 1 에서 `@Scheduled` 스케줄러로 매일 `deleted_at < now() - 30d` 인 유저의 데이터를 hard delete 합니다. 이때 cascade 범위에 주의해야 해요. 유저를 지우면 그 유저의 인증 데이터(refresh_tokens, social_identities, email_verification_tokens, password_reset_tokens, devices)와 결제 데이터(payment_records, subscriptions, webhook_events 등), 그리고 각 앱의 도메인 데이터까지 모두 함께 지워야 합니다. hard delete 전에는 유저가 자기 데이터를 내려받을 수 있는 export 기능을 먼저 제공해야 GDPR 의 이관권 요구를 충족해요.
+**해결** — Phase 1 에서 `@Scheduled` 스케줄러로 매일 `deleted_at < now() - 30d` 인 유저의 데이터를 hard delete 합니다. 이때 cascade 범위에 주의해야 해요. 유저를 지우면 그 유저의 인증 데이터(refresh_tokens, social_identities, email_verification_tokens, password_reset_tokens, devices)와 결제 데이터(payment_history, subscriptions, payment_webhook_events 등), 그리고 각 앱의 도메인 데이터까지 모두 함께 지워야 합니다. hard delete 전에는 유저가 자기 데이터를 내려받을 수 있는 export 기능을 먼저 제공해야 GDPR 의 이관권 요구를 충족해요.
 
 **상태** — 현재 `WithdrawService` 는 soft delete 까지만 수행하고, 30 일 후 hard delete 스케줄러는 코드 안 `// NOTE ... Phase 1` 주석으로만 남아 있어요. Phase 1 필수입니다.
 
