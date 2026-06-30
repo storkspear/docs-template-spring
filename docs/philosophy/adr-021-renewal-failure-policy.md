@@ -4,6 +4,8 @@
 
 **Status**: Accepted. `BillingServiceImpl.renewSubscription` 이 3 회 백오프 (1h → 6h → 24h) 재시도 + ABANDONED 시 auto-cancel + 3 종 이벤트를 발행해요. `renewal_attempts` 테이블에 시도 이력이 영속됩니다.
 
+> **테이블 리네임 (2026-06-30)**: 본 ADR 의 `renewal_attempts` 는 현재 `subscription_renewals` (엔티티 `SubscriptionRenewal`), `payment_records` 는 `payment_history` 로 리네임됐어요. 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요. FK 컬럼 `payment_record_id` 는 이름을 유지한 채 `payment_history(id)` 를 참조합니다.
+
 ---
 
 ## 결론부터
@@ -218,7 +220,7 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 ## 관련 파일
 
 - `core/core-billing-impl/.../BillingServiceImpl.java#renewSubscription` — phase 1/2/3a/3b
-- `core/core-billing-impl/.../entity/RenewalAttempt.java` — entity + factory 메소드
+- `core/core-billing-impl/.../entity/SubscriptionRenewal.java` — entity + factory 메소드 (구 `RenewalAttempt`)
 - `core/core-billing-impl/.../scheduler/SubscriptionRenewalRetryScheduler.java` — cron
 - `core/core-billing-api/.../event/SubscriptionRenewalSucceeded/Failed/AbandonedEvent.java`
-- `tools/new-app/new-app.sh` — `V011__init_renewal_attempts.sql` heredoc
+- `tools/new-app/new-app.sh` — `V011__init_subscription_renewals.sql` heredoc

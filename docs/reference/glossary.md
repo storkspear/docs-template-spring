@@ -117,7 +117,7 @@
 | Cloudflare R2 | Cloudflare 의 S3 호환 오브젝트 스토리지. Egress 비용이 무료인 게 특징이에요 |
 | Webhook | "이벤트가 발생하면 지정한 URL 로 HTTP POST" 하는 콜백 메커니즘. GitHub Actions, Discord 알림 등에 사용해요 |
 | Discord Webhook | Discord 채널에 메시지를 자동 전송하는 URL. 이 레포는 알림 채널로 활용해요 |
-| Idempotency key | 같은 요청을 여러 번 받아도 한 번만 처리하기 위한 식별자. webhook 중복 수신을 막아요. 이 레포는 `webhook_events` 테이블의 `(source, externalId)` 복합 UNIQUE 로 보장해요 |
+| Idempotency key | 같은 요청을 여러 번 받아도 한 번만 처리하기 위한 식별자. webhook 중복 수신을 막아요. 이 레포는 `payment_webhook_events` 테이블의 `(source, externalId)` 복합 UNIQUE 로 보장해요 |
 | Feature toggle / Lite mode | 기능을 켜고 끄는 플래그. `app.features.<X>=true|false` 환경변수로 도메인 단위 활성화를 제어해요. 작은 비즈니스용 Lite mode 를 지원해요 ([`ADR-034`](../philosophy/adr-034-feature-toggle-lite-mode.md)) |
 | SPEL (Spring Expression Language) | Spring 설정에서 쓰는 조건문·표현식 언어. `@ConditionalOnExpression("${a} and ${b}")` 같이 두 flag 를 AND/OR 로 조합해요 |
 

@@ -4,6 +4,8 @@
 
 **Status**: Accepted. `user_notification_preferences` 테이블 + `NotificationKind` enum 으로 사용자별 알림 종류별 push/email 을 토글해요. listener 가 발송 직전 preference 를 조회해 OFF 면 silent skip 으로 처리하고 skipped 메트릭을 증가시킵니다.
 
+> **테이블·경로 리네임 (2026-06-30)**: 본 ADR 의 `user_notification_preferences` 테이블은 현재 `user_notification_settings` (엔티티 `NotificationSetting`), REST 경로 `/me/notification-preferences` 는 `/me/notification-settings`, 컨트롤러 `NotificationPreferenceController` 는 `NotificationSettingController` 로 리네임됐어요. 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md), 경로는 [`API 카탈로그`](../reference/api/README.md) 를 참고하세요.
+
 ---
 
 ## 결론부터

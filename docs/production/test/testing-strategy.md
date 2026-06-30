@@ -351,7 +351,7 @@ DO $$
 DECLARE
     t TEXT;
     candidates TEXT[] := ARRAY[
-        'renewal_attempts', 'webhook_events', 'subscriptions', 'payment_records', 'plans',
+        'subscription_renewals', 'payment_webhook_events', 'subscriptions', 'payment_history', 'plans',
         'refresh_tokens', 'email_verification_tokens', 'password_reset_tokens',
         'social_identities', 'devices', 'users'
     ];
@@ -364,7 +364,7 @@ BEGIN
 END $$;
 ```
 
-candidates 배열은 billing 테이블(`renewal_attempts` · `webhook_events` · `subscriptions` · `payment_records` · `plans`)부터 auth·user 테이블까지 FK 의존 순서로 나열돼 있어요. `TRUNCATE` 는 `@Sql(BEFORE_TEST_METHOD)` 로 매 테스트 메서드 이전에 실행됩니다. 실행 순서에 의존하지 않도록 항상 빈 상태에서 시작해요.
+candidates 배열은 billing 테이블(`subscription_renewals` · `payment_webhook_events` · `subscriptions` · `payment_history` · `plans`)부터 auth·user 테이블까지 FK 의존 순서로 나열돼 있어요. `TRUNCATE` 는 `@Sql(BEFORE_TEST_METHOD)` 로 매 테스트 메서드 이전에 실행됩니다. 실행 순서에 의존하지 않도록 항상 빈 상태에서 시작해요.
 
 ---
 

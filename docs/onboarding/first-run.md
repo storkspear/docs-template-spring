@@ -81,9 +81,9 @@ Successfully applied 15 migrations to schema "sumtally"
 |---|---|---|
 | **V001 ~ V006** | 인증 기반. users · social_identities · refresh_tokens · email/password 토큰 · devices | 모든 앱 공통 |
 | **V007** | admin 유저 1명 시드 | `admin@<slug>.local`, 임시 비밀번호 — 첫 로그인 시 변경 |
-| **V008 ~ V012** | 결제와 구독. plans · subscriptions · webhook_events · renewal_attempts · audit_logs | |
+| **V008 ~ V012** | 결제와 구독. plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs | |
 | **V013 ~ V014** | 2FA([TOTP](../reference/glossary.md#인증--보안)) 컬럼 · 사용자 알림 채널 toggle | |
-| **V015** | phone_otp_codes(휴대폰 점유인증) | 옵트인 — 점유인증을 안 쓰면 이 파일은 삭제 가능 |
+| **V015** | phone_verification_codes(휴대폰 점유인증) | 옵트인 — 점유인증을 안 쓰면 이 파일은 삭제 가능 |
 
 본인 도메인 테이블은 V016 부터 직접 작성하면 돼요.
 

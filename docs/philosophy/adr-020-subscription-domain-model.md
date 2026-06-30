@@ -4,6 +4,8 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
+> **테이블 리네임 (2026-06-30)**: 본 ADR 이 설계한 `payment_records` 는 현재 `payment_history`, `webhook_events` 는 `payment_webhook_events` 로 리네임됐어요 (엔티티도 `PaymentHistory` · `PaymentWebhookEvent`). 아래 본문은 결정 당시 이름을 그대로 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요. FK 컬럼 `payment_record_id` 는 이름을 유지한 채 `payment_history(id)` 를 참조합니다.
+
 ## 결론부터
 
 구독형 SaaS 의 결제 도메인을 코드로 표현하려면 *네 가지 핵심 개념* 이 필요해요. **Plan** 은 *어떤 가격에 어떤 기능을 제공하는가* 의 정의입니다 (`free`, `basic`, `pro` 같은 코드 + 가격 + 기간). **Subscription** 은 *이 사용자가 어떤 plan 을 언제까지 받고 있는가* 의 사용자별 상태예요 (ACTIVE / CANCELLED / EXPIRED). **PaymentRecord** 는 *언제 어떤 채널로 얼마를 결제했는가* 의 거래 이력입니다 (PG impUid 또는 IAP transactionId 로 식별). **WebhookEvent** 는 *외부 시스템 (PG / Apple / Google) 에서 들어온 비동기 알림* 의 멱등성 보장 기록이에요.

@@ -46,14 +46,14 @@ optional 필드 추가가 안전한 이유는 직렬화 정책에 있어요. 응
 
 ### 현재 경로 체계
 
-공유 core 경로(user · device · notification-preferences)와 `SecurityConfig` 패턴은 `common-web` 의 [`ApiEndpoints`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) 상수에서 관리돼요. 앱별 생성 컨트롤러(auth · payment · iap)는 [`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) 격리 원칙상 각 앱의 `<Slug>ApiEndpoints` 가 자기 경로를 따로 들고 있어요. 경로 prefix 는 두 가지뿐이에요.
+공유 core 경로(user · device · notification-settings)와 `SecurityConfig` 패턴은 `common-web` 의 [`ApiEndpoints`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) 상수에서 관리돼요. 앱별 생성 컨트롤러(auth · payment · iap)는 [`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) 격리 원칙상 각 앱의 `<Slug>ApiEndpoints` 가 자기 경로를 따로 들고 있어요. 경로 prefix 는 두 가지뿐이에요.
 
 | Prefix | 용도 | 예시 |
 |---|---|---|
 | `/api/apps/{appSlug}/*` | 앱별 엔드포인트 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md)) | `/api/apps/{appSlug}/auth/email/signup` |
 | `/api/core/*` | 크로스 앱 공통 (admin 등) — 현재 사용 엔드포인트 없음 (예약) | — |
 
-`ApiEndpoints.APP_BASE` 가 `/api/apps/{appSlug}` 이고, 공유 core 도메인 (user · device · notification-preferences) 이 그 아래로 붙어요. auth · payment · iap 는 각 앱의 `<Slug>ApiEndpoints.BASE` (독립적으로 `/api/apps/<slug>`) 아래에 있어 결과 경로는 같지만 출처가 달라요. 유저 프로필(`/api/apps/{appSlug}/users/me`)도 격리·경로 일관성과 path slug ↔ JWT slug 검증을 위해 앱별 경로로 통일했어요. `/api/core/*` 는 현재 사용하는 엔드포인트가 없고, 앱 무관 공통/admin 엔드포인트용으로 예약돼 있어요.
+`ApiEndpoints.APP_BASE` 가 `/api/apps/{appSlug}` 이고, 공유 core 도메인 (user · device · notification-settings) 이 그 아래로 붙어요. auth · payment · iap 는 각 앱의 `<Slug>ApiEndpoints.BASE` (독립적으로 `/api/apps/<slug>`) 아래에 있어 결과 경로는 같지만 출처가 달라요. 유저 프로필(`/api/apps/{appSlug}/users/me`)도 격리·경로 일관성과 path slug ↔ JWT slug 검증을 위해 앱별 경로로 통일했어요. `/api/core/*` 는 현재 사용하는 엔드포인트가 없고, 앱 무관 공통/admin 엔드포인트용으로 예약돼 있어요.
 
 ### 도입 경로 (경로 A 권장)
 
