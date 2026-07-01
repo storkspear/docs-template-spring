@@ -483,7 +483,6 @@ template-spring/
     ├── docker-compose.local.yml                     # 로컬 Postgres 16 + MinIO
     ├── docker-compose.observability.yml           # Prometheus + Loki + Grafana + Alertmanager
     ├── scripts/
-    │   ├── init-core-schema.sql                   # core_app role 생성용 (ADR-037 후 schema 자체는 unused)
     │   ├── init-app-schema.sql                    # 앱별 schema + role (멱등)
     │   ├── keep-alive.sh                          # Supabase Free 활성 유지
     │   └── backup-to-nas.sh.example

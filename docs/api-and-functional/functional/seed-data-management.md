@@ -238,7 +238,7 @@ apps/app-sumtally/src/main/resources/db/migration/sumtally/
 | 앱 admin 시드 | `apps/app-<slug>/src/main/resources/db/migration/<slug>/V007__seed_admin_user.sql` | Flyway versioned (DML) |
 | 앱 참조 데이터 | `apps/app-<slug>/src/main/resources/db/migration/<slug>/R__*.sql` | Flyway repeatable |
 | 테스트 cleanup | `common/common-testing/src/main/resources/contract-cleanup.sql` | 테스트 전용 |
-| 인프라 부트스트랩 | `infra/scripts/init-app-schema.sql`, `init-core-schema.sql` | psql 로 수동 실행 |
+| 인프라 부트스트랩 | `infra/scripts/init-app-schema.sql` | psql 로 수동 실행 |
 
 "어디에 둘지 헷갈리는 SQL 파일은 대개 Flyway 마이그레이션이 아닙니다." `db/migration/` 밖의 임의 위치에 `.sql` 을 두면 Flyway 가 자동 실행하지 않아요. 그러면 "의도한 스키마와 실제 DB 가 다름" 상태가 됩니다. 가능한 한 위 다섯 가지 중 하나로 분류하세요.
 

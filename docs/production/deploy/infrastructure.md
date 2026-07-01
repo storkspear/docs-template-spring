@@ -298,13 +298,12 @@ postgres (Supabase 또는 로컬 docker)
 
 > **Template 상태** — 현재 레포에는 앱이 없어서 Spring application 자체가 부팅되지 않아요 (`RoutingDataSourceConfig` 의 routing targets 가 비어 fail-secure, [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)). 파생 레포가 `new-app.sh <slug> --provision-db` 를 실행하면 `<slug>` schema 가 자동 생성되고, Flyway 가 users/auth/device 기본 테이블 세트를 앱 schema 에 migrate 해요. Multi-DataSource wiring 은 구현이 끝났습니다 (`RoutingDataSourceConfig` + `<Slug>DataSourceConfig`, `common-persistence/AbstractAppDataSourceConfig` 기반).
 >
-> `core` schema 자체는 ADR-037 이후 unused 예요. `infra/scripts/init-core-schema.sql` 은 legacy artifact 로만 잔존합니다 (별도 cycle 에서 폐기 후보).
+> `core` schema 는 ADR-037 이후 unused 였고, 물리 잔재까지 제거 완료(2026-07-01)예요 — 더는 어떤 스크립트도 `core` schema 를 생성하지 않아요.
 
 ### 10.2 초기 Schema 스크립트
 
 | 파일 | 용도 |
 |---|---|
-| `infra/scripts/init-core-schema.sql` | ADR-037 이후 unused legacy. schema 자체와 `core_app` role 생성 |
 | `infra/scripts/init-app-schema.sql` | 앱별 schema 생성 template (`{slug}` placeholder) |
 
 파생 레포가 새 앱을 만들 때 `new-app.sh <slug> --provision-db` 를 실행하면 `init-app-schema.sql` 이 자동으로 돌아요 (Item 10 완료). 수동 실행이 필요하면 `APP_SLUG=<slug> APP_ROLE=<slug>_app APP_PASSWORD=<pw> psql ... -f infra/scripts/init-app-schema.sql` 로 호출합니다.

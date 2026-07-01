@@ -108,7 +108,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - 컴플라이언스 등 앱 격리 요구 상승
 - **관련 문서**:
   - [`ADR-005`](../../philosophy/adr-005-db-schema-isolation.md), [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)
-  - `infra/scripts/init-app-schema.sql` — 앱 schema·role 생성 (`init-core-schema.sql` 은 ADR-037 이후 미사용 잔재)
+  - `infra/scripts/init-app-schema.sql` — 앱 schema·role 생성 (`core` schema 초기화 스크립트는 ADR-037 로 폐기 완료)
   - `tools/new-app/new-app.sh` — 앱 추가 시 schema 자동 provisioning
 
 ---
