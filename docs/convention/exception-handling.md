@@ -111,6 +111,9 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | ATH_008 | 409 | TOTP_ALREADY_ENABLED | 2FA 이미 활성 |
 | ATH_009 | 409 | TOTP_NOT_ENABLED | 2FA 미활성 상태에서 verify·disable 호출 |
 | ATH_010 | 401 | TOTP_REQUIRED | 2FA pending — `/auth/2fa/login` 으로 완료 필요 |
+| ATH_011 | 401 | INVALID_VERIFICATION_CODE | 가입 前 이메일 인증 코드 불일치·만료·시도초과·미존재 (verify-before-signup) |
+| ATH_012 | 401 | VERIFICATION_PROOF_INVALID | 가입 시 제출된 이메일 인증 증명 JWT 무효 |
+| ATH_013 | 429 | VERIFICATION_RATE_LIMITED | send-code 재발송 횟수 초과 (per-email rate limit) |
 
 `ATH_002`·`ATH_003` 은 refresh·이메일 인증·비밀번호 재설정 토큰 전용이에요. JWT access token 의 만료·무효는 위의 `CMN_007`·`CMN_008` 을 써요.
 

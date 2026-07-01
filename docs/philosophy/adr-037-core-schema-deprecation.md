@@ -1,6 +1,6 @@
 # ADR-037 · core schema + coreDataSource Bean 폐기
 
-**Status**: Accepted. `bootstrap/RoutingDataSourceConfig.java` (신규) + `common-persistence/SchemaRoutingDataSource.fail-secure` 로 구현. `core` schema 자체가 PostgreSQL 에 없으며 `coreDataSource` Bean 도 사라졌습니다.
+**Status**: Accepted. `bootstrap/RoutingDataSourceConfig.java` (신규) + `common-persistence/SchemaRoutingDataSource.fail-secure` 로 구현. 런타임 Bean(`coreDataSource`·`coreFlyway`·core EMF fallback)은 폐기 완료. 단, 물리 `core` schema 는 `infra/postgres/init.sql` 의 legacy baseline 으로 여전히 생성됩니다(테이블 없음·라우팅 대상 제외 — 정리 예정).
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -104,7 +104,7 @@ public void onApplicationReady() {
 
 | 측면 | Before | After |
 |---|---|---|
-| PostgreSQL `core` schema | 존재 | **없음** |
+| PostgreSQL `core` schema | 존재(V001~V008 테이블 포함) | **런타임 미사용 잔재** — init.sql 로 schema 생성되나 Flyway 마이그레이션·라우팅 대상 모두 제외 (0 테이블, 정리 예정) |
 | `coreDataSource` Bean | 10 idle connection 영구 | 폐기 |
 | `core.users / .refresh_tokens / ...` (V001~V008) | core schema 에 중복 | 각 app schema 만 |
 | `SchemaRoutingDataSource` fallback | `core` (silent) | fail-secure exception |
@@ -127,7 +127,7 @@ public void onApplicationReady() {
 
 ### Pro
 
-- core schema 자체가 없으니 N app scale 시 connection 폭증을 회피해요
+- `coreDataSource` Bean 이 없으니 N app scale 시 connection 폭증을 회피해요 (물리 schema 잔재는 connection 미사용)
 - fail-secure routing 으로 데이터 누수 위험이 0 이에요 — silent core fallback 폐기
 - 각 app entity 가 core entity 와 동일 table 을 쓰므로 코드를 재사용해요 (core/core-*-impl 가 library 역할)
 
