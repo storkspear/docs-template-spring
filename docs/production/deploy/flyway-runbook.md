@@ -59,11 +59,11 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 
 | 버전 | 테이블 / 내용 | 비고 |
 |---|---|---|
-| V001 ~ V006 | 인증 기반 (users · social_identities · refresh_tokens · email/password 토큰 · devices) | 모든 앱 공통 |
+| V001 ~ V006 | 인증 기반 (users · auth_social_identities · auth_refresh_tokens · email/password 토큰 · devices) | 모든 앱 공통 |
 | **V007** | admin user 시드 (`V007__seed_admin_user.sql`) | 첫 관리자 계정 1명 (Step 15 에서 채워 넣음) |
-| V008 ~ V012 | 결제·구독·감사 (plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs) | 공통 |
+| V008 ~ V012 | 결제·구독·감사 (subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs) | 공통 |
 | V013 ~ V014 | 2FA(TOTP) 컬럼 · 사용자 알림 채널 toggle | 공통 |
-| V015 | phone_verification_codes (휴대폰 점유인증) | 옵트인 — 안 쓰면 파일 삭제 가능 |
+| V015 | auth_phone_verification_codes (휴대폰 점유인증) | 옵트인 — 안 쓰면 파일 삭제 가능 |
 | **V016 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
 
 V001~V015 가 이미 차 있고 V007 은 도메인이 아니라 관리자 시드라, 본인 도메인 테이블은 V016 부터 시작합니다. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.

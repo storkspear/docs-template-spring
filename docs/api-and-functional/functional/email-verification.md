@@ -268,7 +268,7 @@ public Optional<String> sendVerificationEmail(long userId, String email) {
     String tokenHash = TokenGenerator.sha256Hex(rawCode);
     Instant expiresAt = Instant.now().plus(tokenTtl);
 
-    tokenRepository.save(new EmailVerificationToken(userId, tokenHash, expiresAt));
+    tokenRepository.save(new AuthEmailVerificationToken(userId, tokenHash, expiresAt));
 
     EmailPort emailPort = emailPortProvider.getIfAvailable();
     if (emailPort == null) {                 // app.features.email=false
@@ -319,10 +319,10 @@ public static String generateNumericCode(int digits) {
 ### 3. 토큰 엔티티
 
 ```java
-// core/core-auth-impl/.../entity/EmailVerificationToken.java 발췌
+// core/core-auth-impl/.../entity/AuthEmailVerificationToken.java 발췌
 @Entity
-@Table(name = "email_verification_tokens")
-public class EmailVerificationToken {
+@Table(name = "auth_email_verification_tokens")
+public class AuthEmailVerificationToken {
 
     @Column(name = "token_hash", nullable = false, length = 64)
     private String tokenHash;  // SHA-256 hex, 64자
@@ -347,7 +347,7 @@ public class EmailVerificationToken {
 public long verify(String rawToken) {
     String tokenHash = TokenGenerator.sha256Hex(rawToken);
 
-    EmailVerificationToken token = tokenRepository.findByTokenHash(tokenHash)
+    AuthEmailVerificationToken token = tokenRepository.findByTokenHash(tokenHash)
             .orElseThrow(() -> new AuthException(AuthError.INVALID_TOKEN));
 
     if (token.isUsed()) {
@@ -403,7 +403,7 @@ public Optional<String> requestReset(String email) {
 
     UserAccount user = userOpt.get();
     String rawCode = TokenGenerator.generateNumericCode(CODE_DIGITS);
-    tokenRepository.save(new PasswordResetToken(
+    tokenRepository.save(new AuthPasswordResetToken(
             user.id(), TokenGenerator.sha256Hex(rawCode), Instant.now().plus(tokenTtl)));
 
     EmailPort emailPort = emailPortProvider.getIfAvailable();
@@ -433,7 +433,7 @@ public Optional<String> requestReset(String email) {
 ```java
 // core/core-auth-impl/.../service/PasswordResetService.java 발췌
 public void confirmReset(String rawToken, String newPassword) {
-    PasswordResetToken token = tokenRepository
+    AuthPasswordResetToken token = tokenRepository
             .findByTokenHash(TokenGenerator.sha256Hex(rawToken))
             .orElseThrow(() -> new AuthException(AuthError.INVALID_TOKEN));
 

@@ -5,6 +5,7 @@
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
 > **테이블 리네임 (2026-06-30)**: 본 ADR 이 설계한 `payment_records` 는 현재 `payment_history`, `webhook_events` 는 `payment_webhook_events` 로 리네임됐어요 (엔티티도 `PaymentHistory` · `PaymentWebhookEvent`). 아래 본문은 결정 당시 이름을 그대로 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요. FK 컬럼 `payment_record_id` 는 이름을 유지한 채 `payment_history(id)` 를 참조합니다.
+> **테이블 리네임 (2026-07-01)**: 본 ADR 의 `plans` 테이블은 현재 `subscription_plans` (엔티티 `SubscriptionPlan`) 로 리네임됐어요. 위와 마찬가지로 아래 본문의 이름은 결정 당시를 보존합니다.
 
 ## 결론부터
 
