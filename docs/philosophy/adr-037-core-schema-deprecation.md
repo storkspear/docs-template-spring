@@ -4,6 +4,8 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
+> **테이블 리네임 (2026-07-01)**: 본 ADR 의 비교 표에서 `refresh_tokens` 는 현재 `auth_refresh_tokens` 로 리네임됐어요. 아래 본문은 결정 당시 이름을 보존합니다.
+
 ## 결론부터
 
 `core` schema 와 `coreDataSource` Bean 을 폐기합니다. 각 app 의 users·auth·device table 은 app schema 안에 V001~V0xx 로 생성하며 V007 에 admin 시드가 포함됩니다. `core/core-*-impl` 의 Java 코드(entity·repository·service·controller)는 library 역할로 유지합니다 — 각 app DataSource 의 `entityPackagesToScan()` 에 포함되어 app schema 의 동일 table 에서 동작합니다.

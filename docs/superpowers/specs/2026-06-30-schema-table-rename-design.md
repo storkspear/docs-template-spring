@@ -25,10 +25,12 @@
 ### 2.2 notification: **끝까지 일관 (클라 포함)**
 `user_notification_settings` 로 바꾸는 김에 **API 경로도** `/me/notification-preferences` → `/me/notification-settings` 로 변경해요. 이건 **client-breaking** 이라 template-flutter 의 `backend_api_kit/notification_preferences.dart` 도 같이 수정 + **3레포 동시 배포** 필요해요. (다른 4개 리네임은 경로에 옛 테이블명이 없어 클라 무영향.)
 
-### 2.3 유지 10개
+### 2.3 유지 10개 (이 라운드 기준)
 `users`, `social_identities`, `refresh_tokens`, `email_verification_codes`, `email_verification_tokens`, `password_reset_tokens`, `plans`, `subscriptions`, `devices`, `audit_logs` — 도메인 표준 용어거나 이미 명확해서 그대로 둬요 (바꾸면 옆그레이드).
 
 - `plans`≠`subscriptions` (카탈로그 vs 가입 인스턴스), `audit_logs`(admin/@Audited 액션 append-only — 현재는 admin 환불만 기록되는 idle 인프라지만 유지), `email_verification_codes`(가입前 6자리)/`email_verification_tokens`(가입後 토큰)는 codes/tokens 로 이미 구분됨.
+
+> **후속 라운드 (2026-07-01)**: 위 "유지" 목록 중 auth 계열 6개와 `plans` 는 이후 `auth_` 접두사·`subscription_` 접두사 라운드에서 추가 리네임됐어요. `social_identities`→`auth_social_identities`, `refresh_tokens`→`auth_refresh_tokens`, `email_verification_codes`→`auth_email_verification_codes`, `email_verification_tokens`→`auth_email_verification_tokens`, `password_reset_tokens`→`auth_password_reset_tokens`, `plans`→`subscription_plans`, 그리고 이 라운드에서 리네임된 `phone_verification_codes`→`auth_phone_verification_codes`. 현재 스키마는 [`data-model`](../../reference/data-model.md) 을 참고하세요.
 
 ### 2.4 스코프 외 (이번 라운드 제외)
 **컬럼명은 안 건드려요.** 특히 FK 컬럼 `payment_record_id` (`subscriptions`·`subscription_renewals` 에 존재)는 이름 유지하되 `REFERENCES payment_history(id)` 로 **타겟만 갱신**해요. 컬럼명 정리는 별도 라운드(잔여 불일치 인지함).

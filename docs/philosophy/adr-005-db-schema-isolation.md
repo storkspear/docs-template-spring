@@ -4,6 +4,8 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
+> **테이블 리네임 (2026-07-01)**: 본 ADR 의 코드 다이어그램에서 `social_identities` · `refresh_tokens` 는 현재 `auth_social_identities` · `auth_refresh_tokens` 로 리네임됐어요. 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요.
+
 ## 결론부터
 
 앱이 늘어나도 database 는 하나 (`postgres`) 만 유지하고, 각 앱에게 자기 schema (`sumtally`, `rny`, `gymlog` 등) 를 분리해서 줍니다. schema 안에는 그 앱의 유저 테이블부터 도메인 테이블까지 전부 들어가요. 한 앱이 다른 앱의 schema 를 못 건드리게 하는 방어선은 **5개** — DB role · DataSource · Flyway · 포트 인터페이스 · ArchUnit. Postgres 의 `CREATE SCHEMA` 한 줄이 사실상 "앱 한 개" 의 경계예요.

@@ -5,6 +5,7 @@
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
 > **테이블 리네임 (2026-06-30)**: 본 ADR 의 `phone_otp_codes` 테이블은 현재 `phone_verification_codes`, 엔티티 `PhoneOtpCode` 는 `PhoneVerificationCode` 로 리네임됐어요 (email 인증과 `*_verification_*` 컨벤션 통일). 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요.
+> **테이블 리네임 (2026-07-01)**: 위 `phone_verification_codes` 는 다시 `auth_phone_verification_codes` (엔티티 `AuthPhoneVerificationCode`) 로, 본문의 `social_identities` 는 `auth_social_identities` (엔티티 `AuthSocialIdentity`) 로 리네임됐어요 (`auth_` 도메인 접두사 라운드). 아래 본문은 결정 당시 이름을 그대로 보존합니다.
 
 > **갱신 (2026-06, ADR-013 B 정렬)**: 본문 §5 "앱 재사용 = `PhoneAuthPort` + 얇은 `<Slug>PhoneAuthController`" 는
 > **컨트롤러 공유화로 대체**됐어요. 점유인증 컨트롤러도 auth/payment/iap 와 동일하게 **`core-phone-auth-impl` 의 공유

@@ -181,16 +181,16 @@ public interface AuthFixtures {
     long createUnverifiedUser(String email, String rawPassword);
 
     /** 유효한 refresh token 을 발급하고 raw 값 반환. */
-    String issueRefreshToken(long userId, String appSlug);
+    String issueAuthRefreshToken(long userId, String appSlug);
 
     /** 만료된 refresh token 을 발급하고 raw 값 반환. */
-    String issueExpiredRefreshToken(long userId, String appSlug);
+    String issueExpiredAuthRefreshToken(long userId, String appSlug);
 
     /** 유효한 이메일 인증 토큰을 생성하고 raw 값 반환. */
     String issueVerificationToken(long userId);
 
     /** 유효한 비밀번호 재설정 토큰을 생성하고 raw 값 반환. */
-    String issuePasswordResetToken(long userId);
+    String issueAuthPasswordResetToken(long userId);
 }
 ```
 
@@ -351,9 +351,9 @@ DO $$
 DECLARE
     t TEXT;
     candidates TEXT[] := ARRAY[
-        'subscription_renewals', 'payment_webhook_events', 'subscriptions', 'payment_history', 'plans',
-        'refresh_tokens', 'email_verification_tokens', 'password_reset_tokens',
-        'social_identities', 'devices', 'users'
+        'subscription_renewals', 'payment_webhook_events', 'subscriptions', 'payment_history', 'subscription_plans',
+        'auth_refresh_tokens', 'auth_email_verification_tokens', 'auth_password_reset_tokens',
+        'auth_social_identities', 'devices', 'users'
     ];
 BEGIN
     FOREACH t IN ARRAY candidates LOOP
@@ -364,7 +364,7 @@ BEGIN
 END $$;
 ```
 
-candidates 배열은 billing 테이블(`subscription_renewals` · `payment_webhook_events` · `subscriptions` · `payment_history` · `plans`)부터 auth·user 테이블까지 FK 의존 순서로 나열돼 있어요. `TRUNCATE` 는 `@Sql(BEFORE_TEST_METHOD)` 로 매 테스트 메서드 이전에 실행됩니다. 실행 순서에 의존하지 않도록 항상 빈 상태에서 시작해요.
+candidates 배열은 billing 테이블(`subscription_renewals` · `payment_webhook_events` · `subscriptions` · `payment_history` · `subscription_plans`)부터 auth·user 테이블까지 FK 의존 순서로 나열돼 있어요. `TRUNCATE` 는 `@Sql(BEFORE_TEST_METHOD)` 로 매 테스트 메서드 이전에 실행됩니다. 실행 순서에 의존하지 않도록 항상 빈 상태에서 시작해요.
 
 ---
 

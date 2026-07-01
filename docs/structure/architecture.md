@@ -72,7 +72,7 @@
      - GymlogAuthController (/api/apps/gymlog/auth/*)
      - GymlogDataSourceConfig (gymlog schema 전용)
      - GymlogAppAutoConfiguration
-     - V001~V015 마이그레이션 (users, social_identities, refresh_tokens, V007 admin 시드 등)
+     - V001~V015 마이그레이션 (users, auth_social_identities, auth_refresh_tokens, V007 admin 시드 등)
      - build.gradle
 3. 도메인 코드 작성 (controller / service / entity / repository / Flyway)
 4. core-* 는 건드리지 않음 — 새 기능이 core 에 필요하면 별도 ADR
@@ -163,7 +163,7 @@ template-spring/
 │   │   ├── module-dependencies.md     # 모듈 의존 매트릭스
 │   │   ├── architecture-rules.md      # ArchUnit r1~r22
 │   │   ├── multitenant-architecture.md# per-app schema + DataSource
-│   │   └── jwt-authentication.md      # JWT + SecurityConfig + RefreshToken
+│   │   └── jwt-authentication.md      # JWT + SecurityConfig + AuthRefreshToken
 │   ├── convention/                    # L2 — 코딩 규약
 │   │   ├── README.md
 │   │   ├── design-principles.md
@@ -264,14 +264,14 @@ template-spring/
 │   │       │   ├── UserServiceImpl.java           # UserPort 구현
 │   │       │   ├── entity/
 │   │       │   │   ├── User.java                  # toSummary/toProfile/toAccount (ADR-016)
-│   │       │   │   ├── SocialIdentity.java
-│   │       │   │   └── SocialIdentityId.java      # 복합키
+│   │       │   │   ├── AuthSocialIdentity.java
+│   │       │   │   └── AuthSocialIdentityId.java      # 복합키
 │   │       │   ├── repository/
 │   │       │   ├── controller/UserController.java # 공유 런타임 빈 (UserAutoConfiguration 이 등록)
 │   │       │   └── UserAutoConfiguration.java
 │   │       └── resources/db/migration/core/
 │   │           ├── V001__init_users.sql           # 템플릿 기준선 (users + totp + email index)
-│   │           └── V002__init_social_identities.sql
+│   │           └── V002__init_auth_social_identities.sql
 │   │
 │   ├── core-auth-api/                 # 인증 포트 (signup/signin/2FA/refresh/withdraw)
 │   │   └── src/main/java/com/factory/core/auth/api/
@@ -297,9 +297,9 @@ template-spring/
 │   │       ├── password/
 │   │       │   └── ValidPassword.java             # Bean Validation custom (ADR-029)
 │   │       ├── entity/
-│   │       │   ├── RefreshToken.java
-│   │       │   ├── EmailVerificationToken.java
-│   │       │   ├── PasswordResetToken.java
+│   │       │   ├── AuthRefreshToken.java
+│   │       │   ├── AuthEmailVerificationToken.java
+│   │       │   ├── AuthPasswordResetToken.java
 │   │       │   └── TwoFactorBackupCode.java       # backup codes (1회용 hash)
 │   │       ├── repository/
 │   │       ├── controller/
@@ -346,7 +346,7 @@ template-spring/
 │   │       ├── service/
 │   │       │   ├── OtpService.java                # 발송 rate-limit + 검증 brute-force 가드 (TTL 5분, SHA-256 해시 저장)
 │   │       │   └── OtpCodes.java                  # SecureRandom 6자리 코드 + sha256Hex
-│   │       ├── entity/PhoneVerificationCode.java  # phone_verification_codes (per-app schema 로 라우팅, 코어 schema 없음)
+│   │       ├── entity/AuthPhoneVerificationCode.java  # auth_phone_verification_codes (per-app schema 로 라우팅, 코어 schema 없음)
 │   │       ├── repository/PhoneVerificationCodeRepository.java
 │   │       └── PhoneAuthAutoConfiguration.java    # 라우팅 EMF/txManager(@Primary) 바인딩
 │   │
@@ -387,12 +387,12 @@ template-spring/
 │   ├── core-billing-api/              # 구독/플랜 정책 포트 (ADR-019)
 │   │   ├── BillingPort.java                       # activateFromPayment / findActiveSubscription / cancelSubscription / handleWebhook
 │   │   ├── SubscriptionState / PaymentChannel / PaymentRecordStatus  # 도메인 enum (api 루트 — ArchUnit r18 정합)
-│   │   ├── dto/ {Plan,Subscription,PaymentRecord}Dto                 # records
+│   │   ├── dto/ {SubscriptionPlan,Subscription,PaymentRecord}Dto                 # records
 │   │   └── exception/ BillingError (BIL_001~BIL_010) + BillingException
 │   │
 │   ├── core-billing-impl/             # 구독 정책 layer (ADR-020 + ADR-021/023/025/026/031)
 │   │   ├── BillingServiceImpl.java                # TransactionTemplate phase 분리
-│   │   ├── entity/ {Plan,Subscription,PaymentRecord,WebhookEvent,RenewalAttempt} (BaseEntity 상속)
+│   │   ├── entity/ {SubscriptionPlan,Subscription,PaymentRecord,WebhookEvent,RenewalAttempt} (BaseEntity 상속)
 │   │   ├── repository/ Spring Data JPA
 │   │   ├── scheduler/SubscriptionExpirationScheduler  # @Scheduled cron + slug iter
 │   │   ├── listener/SubscriptionNotificationListener  # 갱신 실패/성공 → Push + Email 발송
@@ -687,7 +687,7 @@ AuthPort.signUpWithEmail(request)       # (AuthServiceImpl @Transactional)
       │   └─→ EmailVerificationService.sendVerificationEmail(user)
       │       └─→ ResendEmailAdapter.send(...)
       │
-      ├─→ RefreshTokenService.issue(userId)    # sumtally.refresh_tokens
+      ├─→ RefreshTokenService.issue(userId)    # sumtally.auth_refresh_tokens
       ├─→ JwtService.issueAccessToken(userId, email, appSlug="sumtally", role)
       │
       └─→ AuthResponse { user, tokens }
@@ -708,9 +708,9 @@ AuthPort.signInWithApple(request)
       │   ├─→ iss / aud / exp 검증
       │   └─→ sub (Apple user ID) 추출
       │
-      ├─→ SocialIdentityRepository.findByProviderAndProviderId("apple", sub)
+      ├─→ AuthSocialIdentityRepository.findByProviderAndProviderId("apple", sub)
       │   ├─→ 있으면: 기존 sumtally User 로그인
-      │   └─→ 없으면: 새 sumtally User + SocialIdentity 생성
+      │   └─→ 없으면: 새 sumtally User + AuthSocialIdentity 생성
       │          (이메일은 Apple 첫 로그인 시에만 제공됨)
       │
       ├─→ RefreshTokenService.issue(userId)
@@ -734,7 +734,7 @@ RefreshTokenService.refresh()
       ├─→ 없음 → InvalidTokenException
       ├─→ 만료 → TokenExpiredException
       ├─→ 이미 used_at != null → 탈취 감지:
-      │   ├─→ 같은 family_id 의 모든 RefreshToken 무효화 (revoked_at = now)
+      │   ├─→ 같은 family_id 의 모든 AuthRefreshToken 무효화 (revoked_at = now)
       │   ├─→ 전체 재로그인 필요
       │   └─→ InvalidTokenException
       │
@@ -775,15 +775,15 @@ postgres (database)
 │
 ├── core                             ← 템플릿 기준선 (core_app role)
 │   ├── users                        ← 레거시/참조용 (실제 런타임 유저는 앱 schema)
-│   ├── social_identities
-│   ├── refresh_tokens, email_verification_tokens, password_reset_tokens
+│   ├── auth_social_identities
+│   ├── auth_refresh_tokens, auth_email_verification_tokens, auth_password_reset_tokens
 │   ├── devices
 │   └── flyway_schema_history        ← core 마이그레이션 전용
 │
 ├── sumtally                         ← apps/app-sumtally 전용 (sumtally_app role)
 │   ├── users                        ← sumtally 독립 유저
-│   ├── social_identities
-│   ├── refresh_tokens, email_verification_tokens, password_reset_tokens
+│   ├── auth_social_identities
+│   ├── auth_refresh_tokens, auth_email_verification_tokens, auth_password_reset_tokens
 │   ├── devices
 │   ├── (도메인 테이블)               ← budget_groups, expenses 등
 │   └── flyway_schema_history
@@ -911,7 +911,7 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 
 
 | 층 | 검증 대상 | 대표 디렉토리 | Spring Context |
 |---|---|---|---|
-| Unit | 순수 알고리즘 (JWT, RefreshToken rotation, Apple JWKS, BCrypt) | `common-security/test/`, `core-auth-impl/test/service/` | 없음 |
+| Unit | 순수 알고리즘 (JWT, AuthRefreshToken rotation, Apple JWKS, BCrypt) | `common-security/test/`, `core-auth-impl/test/service/` | 없음 |
 | Contract (JSON) | DTO ↔ JSON 직렬화 | `core-*-api/test/json/` | 없음 |
 | Contract (Port) | Port 인터페이스 행위 계약 | `core-auth-impl/test/AuthServiceImplContractTest` | @SpringBootTest + Testcontainers |
 | Integration | HTTP → Controller → DB 전체 흐름 | `bootstrap/test/` | @SpringBootTest + Testcontainers |

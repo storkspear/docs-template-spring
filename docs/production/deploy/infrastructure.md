@@ -291,8 +291,8 @@ ingress:
 ```
 postgres (Supabase 또는 로컬 docker)
 └── <slug> schema            ← apps/app-<slug> 소유 — 자기 users/auth/devices + 도메인 테이블
-    ├── users / social_identities / refresh_tokens / email_verification_tokens
-    ├── password_reset_tokens / devices
+    ├── users / auth_social_identities / auth_refresh_tokens / auth_email_verification_tokens
+    ├── auth_password_reset_tokens / devices
     └── (앱 도메인 테이블)
 ```
 
@@ -315,11 +315,11 @@ postgres (Supabase 또는 로컬 docker)
 
 | 버전 | 내용 |
 |---|---|
-| V001 ~ V006 | 인증 기반 — users · social_identities · refresh_tokens · email_verification_tokens · password_reset_tokens · devices |
+| V001 ~ V006 | 인증 기반 — users · auth_social_identities · auth_refresh_tokens · auth_email_verification_tokens · auth_password_reset_tokens · devices |
 | V007 | admin user 시드 (`V007__seed_admin_user.sql`) |
-| V008 ~ V012 | 결제·구독·감사 — plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs |
+| V008 ~ V012 | 결제·구독·감사 — subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs |
 | V013 ~ V014 | 2FA (TOTP) 컬럼 · user_notification_settings |
-| V015 | phone_verification_codes (휴대폰 점유인증, 옵트인 — 안 쓰면 삭제 가능) |
+| V015 | auth_phone_verification_codes (휴대폰 점유인증, 옵트인 — 안 쓰면 삭제 가능) |
 | V016 ~ | 앱 도메인 테이블 (파생 레포가 직접 작성) |
 
 > ADR-037 이후 `core/core-*-impl/src/main/resources/db/migration/core/` 의 production migration 7 개는 삭제됐어요. 각 앱은 자기 `<slug>` schema 만 마이그레이션합니다. `core/core-*-impl/src/test/resources/db/migration/core/` 는 Testcontainers 용으로만 잔존하며, 거기 파일의 버전 번호는 테스트 픽스처용이라 위 운영 번호 체계와는 별개예요. production runtime 에는 영향이 없습니다.
