@@ -78,9 +78,9 @@ apps/app-gymlog/                             ← 새 앱 모듈 디렉터리
     ├── V001__init_users.sql                 ← 유저·인증 기반 테이블
     ├── ...                                  ← V002 ~ V006
     ├── V007__seed_admin_user.sql            ← admin 유저 시드
-    ├── V008__init_plans.sql                 ← 구독·결제 테이블
+    ├── V008__init_subscription_plans.sql                 ← 구독·결제 테이블
     ├── ...                                  ← V009 ~ V014
-    └── V015__init_phone_verification_codes.sql ← 휴대폰 점유인증 (선택)
+    └── V015__init_auth_phone_verification_codes.sql ← 휴대폰 점유인증 (선택)
 ```
 
 [Flyway](../reference/glossary.md#데이터베이스) 마이그레이션이 꽤 많아 보이지만, 대부분 모든 앱이 똑같이 쓰는 인증·결제 기반이에요. 본인 도메인 테이블은 V016 부터 직접 작성하면 돼요. 자세한 구성은 [`Onboarding §3`](../start/onboarding.md#3-첫-앱-모듈-추가) 에 표로 정리돼 있어요.
@@ -103,13 +103,13 @@ postgres (database)
 │
 ├── sumtally schema                 ← 가계부 앱 전용 (예시)
 │   ├── users                       ← sumtally 유저
-│   ├── refresh_tokens
+│   ├── auth_refresh_tokens
 │   ├── budget_groups               ← 가계부 도메인
 │   └── expenses
 │
 ├── rny schema                      ← 자산 앱 전용 (예시)
 │   ├── users                       ← rny 유저 (sumtally 와 완전 별개)
-│   ├── refresh_tokens
+│   ├── auth_refresh_tokens
 │   └── asset_groups                ← 자산 도메인
 │
 └── gymlog schema                   ← 방금 만든 앱 전용

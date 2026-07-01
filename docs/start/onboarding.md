@@ -218,11 +218,11 @@ Started FactoryApplication in 4.xxx seconds
 
 | 버전 | 내용 | 비고 |
 |---|---|---|
-| **V001 ~ V006** | 인증 기반 (users · social_identities · refresh_tokens · email/password 토큰 · devices) | 모든 앱 공통 |
+| **V001 ~ V006** | 인증 기반 (users · auth_social_identities · auth_refresh_tokens · email/password 토큰 · devices) | 모든 앱 공통 |
 | **V007** | admin user 시드 (`V007__seed_admin_user.sql`) | 첫 관리자 계정 1명 |
-| **V008 ~ V012** | 결제·구독·감사 (plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs) | |
+| **V008 ~ V012** | 결제·구독·감사 (subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs) | |
 | **V013 ~ V014** | 2FA(TOTP) 컬럼 · 사용자 알림 채널 toggle | |
-| **V015** | phone_verification_codes (휴대폰 점유인증) | **옵트인** — 점유인증을 안 쓰면 이 파일은 삭제 가능 |
+| **V015** | auth_phone_verification_codes (휴대폰 점유인증) | **옵트인** — 점유인증을 안 쓰면 이 파일은 삭제 가능 |
 
 본인 도메인 테이블은 **V016 부터** 직접 작성하면 돼요. V001~V015 가 이미 차 있고 V007 은 도메인이 아니라 관리자 시드라, 그다음 빈 번호가 V016 이에요.
 

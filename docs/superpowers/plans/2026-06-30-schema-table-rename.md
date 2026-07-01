@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - 리네임 5개(확정): `phone_otp_codes`→`phone_verification_codes`, `renewal_attempts`→`subscription_renewals`, `user_notification_preferences`→`user_notification_settings`, `payment_records`→`payment_history`, `webhook_events`→`payment_webhook_events`
-- 유지 10개: `users`,`social_identities`,`refresh_tokens`,`email_verification_codes`,`email_verification_tokens`,`password_reset_tokens`,`plans`,`subscriptions`,`devices`,`audit_logs` — 절대 건드리지 않음
+- 유지 10개(이 라운드 기준): `users`,`social_identities`,`refresh_tokens`,`email_verification_codes`,`email_verification_tokens`,`password_reset_tokens`,`plans`,`subscriptions`,`devices`,`audit_logs` — 이 라운드에서는 건드리지 않음 (후속 라운드 2026-07-01 에 auth_ 접두사 + subscription_plans 으로 추가 리네임됨 — 현재 스키마는 [data-model](../../reference/data-model.md) 참고)
 - 컬럼명 변경 금지 (이번 스코프 외). FK 컬럼 `payment_record_id` 는 이름 유지, `REFERENCES` 타겟만 갱신
 - 테이블 = snake_case 복수형 / 엔티티 클래스 = PascalCase 단수 (naming.md §261)
 - 커밋 트레일러(Co-Authored-By 등) 금지. push 는 사용자 명시 신호 시에만

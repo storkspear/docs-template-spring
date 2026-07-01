@@ -4,6 +4,8 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
+> **테이블 리네임 (2026-07-01)**: 본 ADR 이 설계한 마이그레이션 파일명과 테이블명은 이후 `auth_` 접두사 라운드에서 바뀌었어요. `V002__init_social_identities.sql` → `V002__init_auth_social_identities.sql` (`auth_social_identities`), `V003__init_refresh_tokens.sql` → `V003__init_auth_refresh_tokens.sql` (`auth_refresh_tokens`), `V004__init_email_verification_tokens.sql` → `V004__init_auth_email_verification_tokens.sql` (`auth_email_verification_tokens`), `V005__init_password_reset_tokens.sql` → `V005__init_auth_password_reset_tokens.sql` (`auth_password_reset_tokens`). 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요.
+
 ## 결론부터
 
 같은 사람이 두 앱을 써도 **계정은 완전히 별개**예요. `sumtally` 의 `users` 테이블과 `rny` 의 `users` 테이블은 같은 이메일을 가져도 서로 모르는 레코드입니다. JWT 는 `appSlug` 단일 claim 만 가지고, 다른 앱 엔드포인트를 치면 **필터 하나** 가 403 으로 차단해요. *통합 계정 + ThreadLocal 라우팅* 모델은 채택하지 않습니다 — UX · 프라이버시 · 구현 복잡도 3 전선에서 모두 한계 (아래 분석).

@@ -258,30 +258,30 @@ Repository scan 을 `apps.<slugPackage>.repository` 로만 한정하는 건, `co
 ```
 apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/
 ├── V001__init_users.sql
-├── V002__init_social_identities.sql
-├── V003__init_refresh_tokens.sql
-├── V004__init_email_verification_tokens.sql
-├── V005__init_password_reset_tokens.sql
+├── V002__init_auth_social_identities.sql
+├── V003__init_auth_refresh_tokens.sql
+├── V004__init_auth_email_verification_tokens.sql
+├── V005__init_auth_password_reset_tokens.sql
 ├── V006__init_devices.sql
-├── V008__init_plans.sql
+├── V008__init_subscription_plans.sql
 ├── V009__init_subscriptions.sql
 ├── V010__init_payment_webhook_events.sql
 ├── V011__init_subscription_renewals.sql
 ├── V012__init_audit_logs.sql
 ├── V013__add_totp_to_users.sql
 ├── V014__init_user_notification_settings.sql
-└── V015__init_phone_verification_codes.sql
+└── V015__init_auth_phone_verification_codes.sql
 ```
 
 `new-app.sh` 가 깔아 주는 공통 마이그레이션은 V001~V015 로, 모든 앱이 똑같이 받는 인증·결제·알림 기반이에요. 어떤 버전이 무엇을 담는지는 아래와 같아요.
 
 | 버전 | 내용 | 비고 |
 |---|---|---|
-| **V001 ~ V006** | 인증 기반 (users · social_identities · refresh_tokens · email/password 토큰 · devices) | 모든 앱 공통 |
+| **V001 ~ V006** | 인증 기반 (users · auth_social_identities · auth_refresh_tokens · email/password 토큰 · devices) | 모든 앱 공통 |
 | **V007** | admin user 시드 (`V007__seed_admin_user.sql`) | 도메인 테이블이 아니라 첫 관리자 계정 1명. §5.2 |
-| **V008 ~ V012** | 결제·구독·감사 (plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs) | |
+| **V008 ~ V012** | 결제·구독·감사 (subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs) | |
 | **V013 ~ V014** | 2FA(TOTP) 컬럼 · 사용자 알림 채널 toggle | |
-| **V015** | phone_verification_codes (휴대폰 점유인증) | 옵트인 — 점유인증을 안 쓰면 이 파일은 삭제해도 돼요 |
+| **V015** | auth_phone_verification_codes (휴대폰 점유인증) | 옵트인 — 점유인증을 안 쓰면 이 파일은 삭제해도 돼요 |
 
 여기서 V007 만 위 디렉토리 목록에 없는 걸 눈치챘을 거예요. `V007__seed_admin_user.sql` 은 Step 6 의 테이블 마이그레이션과 따로, DB provisioning 이 끝난 뒤 별도 단계에서 생성돼요 (§5.2). 본인 도메인 테이블은 V001~V015 다음 빈 번호인 **V016 부터** 직접 작성하면 돼요 (§7).
 

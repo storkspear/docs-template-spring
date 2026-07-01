@@ -765,7 +765,7 @@ Prometheus 컨테이너는 `/var/run/docker.sock:ro` 로 호스트 소켓을 읽
 
 [ADR-037](../../philosophy/adr-037-core-schema-deprecation.md) 이후 별도의 `core` schema 는 존재하지 않아요. 각 앱의 `users`·`auth`·`device` 테이블은 그 앱의 schema 안에 V001~V015 로 생성돼요. `core/core-*-impl` 의 Java 코드는 라이브러리 역할로 남아서, 각 앱 DataSource 의 `entityPackagesToScan()` 에 포함돼 앱 schema 의 같은 테이블 위에서 동작해요.
 
-그래서 파생 레포에 새 앱을 추가하면, 첫 기동 때 Flyway 가 그 앱 schema 에 V001~V015 를 적용해요. 구성은 [onboarding 의 마이그레이션 표](../../start/onboarding.md#3-첫-앱-모듈-추가) 와 같아요. 인증 기반이 V001~V006, admin 시드가 V007, 결제·구독·감사가 V008~V012, 2FA 와 알림이 V013~V014, 휴대폰 점유인증이 V015 예요. V004 는 reserved 가 아니라 `V004__init_email_verification_tokens.sql` 로 실재하고, 도메인 테이블은 V016 부터 작성해요.
+그래서 파생 레포에 새 앱을 추가하면, 첫 기동 때 Flyway 가 그 앱 schema 에 V001~V015 를 적용해요. 구성은 [onboarding 의 마이그레이션 표](../../start/onboarding.md#3-첫-앱-모듈-추가) 와 같아요. 인증 기반이 V001~V006, admin 시드가 V007, 결제·구독·감사가 V008~V012, 2FA 와 알림이 V013~V014, 휴대폰 점유인증이 V015 예요. V004 는 reserved 가 아니라 `V004__init_auth_email_verification_tokens.sql` 로 실재하고, 도메인 테이블은 V016 부터 작성해요.
 
 ---
 

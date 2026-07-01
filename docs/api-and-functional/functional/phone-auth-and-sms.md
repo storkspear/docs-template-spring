@@ -19,7 +19,7 @@
 - **`core-sms-*`** — 도메인 횡단 문자 발송 추상화. 점유인증 OTP 뿐 아니라 운영 알림 등 모든 SMS 의 단일 진입점.
 - **`core-phone-auth-*`** — 점유인증 도메인. OTP 발송/검증 수명 관리 + 검증 후 토큰 발급 오케스트레이션.
 
-식별(번호 → 유저) 자체는 두 모듈이 직접 하지 않고 `core-auth` 의 `AuthPort.issueForVerifiedPhone` 에 위임합니다 — 소셜 로그인과 동일한 `social_identities(provider='phone')` 경로를 재사용합니다.
+식별(번호 → 유저) 자체는 두 모듈이 직접 하지 않고 `core-auth` 의 `AuthPort.issueForVerifiedPhone` 에 위임합니다 — 소셜 로그인과 동일한 `auth_social_identities(provider='phone')` 경로를 재사용합니다.
 
 ---
 
@@ -205,7 +205,7 @@ public class PhoneAuthController {
 
 ### AuthPort.issueForVerifiedPhone — 검증된 번호 → 토큰
 
-`core-auth-api.AuthPort` 에 추가된 메서드입니다. "이 번호의 점유가 검증됐다" 는 신뢰를 전제로, 소셜 로그인과 **동일한 경로**(`social_identities` provider=`phone`, providerId=E.164 번호) 로 유저를 find-or-create 하고 토큰을 발급합니다 — 별도 식별 테이블 없이 기존 소셜 매핑을 재사용합니다.
+`core-auth-api.AuthPort` 에 추가된 메서드입니다. "이 번호의 점유가 검증됐다" 는 신뢰를 전제로, 소셜 로그인과 **동일한 경로**(`auth_social_identities` provider=`phone`, providerId=E.164 번호) 로 유저를 find-or-create 하고 토큰을 발급합니다 — 별도 식별 테이블 없이 기존 소셜 매핑을 재사용합니다.
 
 ```java
 // core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java
@@ -280,23 +280,23 @@ public void verify(String phoneE164, String code) {
 
 ---
 
-## 데이터 — per-app `phone_verification_codes` (V015)
+## 데이터 — per-app `auth_phone_verification_codes` (V015)
 
-점유인증 데이터는 **per-app** 입니다. 코어 schema 는 없습니다 ([`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)). `PhoneVerificationCode` 엔티티는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어, 라우팅 EntityManagerFactory 가 현재 요청 slug 의 schema 로 OTP row 를 읽고 씁니다 (`SlugContext` 기반). `PhoneAuthAutoConfiguration` 도 `core-auth` 와 동일하게 라우팅 EMF/txManager(`@Primary`) 에 바인딩됩니다.
+점유인증 데이터는 **per-app** 입니다. 코어 schema 는 없습니다 ([`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)). `AuthPhoneVerificationCode` 엔티티는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어, 라우팅 EntityManagerFactory 가 현재 요청 slug 의 schema 로 OTP row 를 읽고 씁니다 (`SlugContext` 기반). `PhoneAuthAutoConfiguration` 도 `core-auth` 와 동일하게 라우팅 EMF/txManager(`@Primary`) 에 바인딩됩니다.
 
 ```java
 // common-persistence/AbstractAppDataSourceConfig.java
 public static final String[] CORE_ENTITY_PACKAGES = {
     ...
-    "com.factory.core.phoneauth.impl.entity", // 휴대폰 점유인증 — PhoneVerificationCode
+    "com.factory.core.phoneauth.impl.entity", // 휴대폰 점유인증 — AuthPhoneVerificationCode
 };
 ```
 
-테이블 스키마는 `new-app.sh` 가 앱 생성 시 `V015__init_phone_verification_codes.sql` 로 스캐폴딩합니다 (옵트인 — 점유인증을 쓰지 않으면 이 파일을 삭제 가능).
+테이블 스키마는 `new-app.sh` 가 앱 생성 시 `V015__init_auth_phone_verification_codes.sql` 로 스캐폴딩합니다 (옵트인 — 점유인증을 쓰지 않으면 이 파일을 삭제 가능).
 
 ```sql
--- apps/app-<slug>/.../db/migration/<slug>/V015__init_phone_verification_codes.sql
-CREATE TABLE phone_verification_codes (
+-- apps/app-<slug>/.../db/migration/<slug>/V015__init_auth_phone_verification_codes.sql
+CREATE TABLE auth_phone_verification_codes (
     id              BIGSERIAL PRIMARY KEY,
     phone_e164      VARCHAR(20) NOT NULL,
     code_hash       VARCHAR(64) NOT NULL,   -- raw 6자리의 SHA-256 hex (64 chars)
@@ -305,10 +305,10 @@ CREATE TABLE phone_verification_codes (
     expires_at      TIMESTAMPTZ NOT NULL,
     used_at         TIMESTAMPTZ
 );
-CREATE INDEX idx_phone_verification_codes_phone_created ON phone_verification_codes(phone_e164, created_at DESC);
+CREATE INDEX idx_auth_phone_verification_codes_phone_created ON auth_phone_verification_codes(phone_e164, created_at DESC);
 ```
 
-`idx_phone_verification_codes_phone_created` 인덱스가 검증 시의 "번호의 최신 미사용 코드" 조회와 발송 rate-limit 윈도우 카운트를 모두 지원합니다.
+`idx_auth_phone_verification_codes_phone_created` 인덱스가 검증 시의 "번호의 최신 미사용 코드" 조회와 발송 rate-limit 윈도우 카운트를 모두 지원합니다.
 
 ---
 
@@ -372,8 +372,8 @@ app:
 - 운영은 `CoolSmsAdapter`(SOLAPI HMAC-SHA256 실발송), 개발은 `LoggingSmsAdapter`(콘솔 OTP 캡처) 로 키 유무에 따라 자동 토글됩니다.
 - 점유인증은 `PhoneAuthPort.requestOtp` / `verify` 두 메서드. **core 공유 `PhoneAuthController`** 가 `{appSlug}` path + `app.phone-auth.brands.<slug>` brand config 로 모든 앱에 노출합니다 — `app.features.phone-auth` 토글 (default ON, ADR-013 방향 B).
 - raw 6자리 코드는 **문자에만 들어가고 DB 에는 SHA-256 해시만 저장**합니다. TTL 5분 + 검증 5회 + 발송 rate-limit 의 3중 방어.
-- 검증 성공 후 `AuthPort.issueForVerifiedPhone` 이 `social_identities(provider='phone')` 로 유저를 find-or-create 하고 토큰을 발급합니다.
-- OTP 데이터는 **per-app** `phone_verification_codes`(V015) — 코어 schema 없이 라우팅 EMF 로 현재 slug schema 에 저장됩니다 (ADR-037).
+- 검증 성공 후 `AuthPort.issueForVerifiedPhone` 이 `auth_social_identities(provider='phone')` 로 유저를 find-or-create 하고 토큰을 발급합니다.
+- OTP 데이터는 **per-app** `auth_phone_verification_codes`(V015) — 코어 schema 없이 라우팅 EMF 로 현재 slug schema 에 저장됩니다 (ADR-037).
 
 ---
 
@@ -387,6 +387,6 @@ app:
 - [`ADR-038 · SMS 발송 + 휴대폰 점유인증`](../../philosophy/adr-038-sms-phone-auth.md) — 이 기능의 설계 결정 (core-sms + core-phone-auth)
 - [`ADR-003 · core 모듈을 -api / -impl 로 분리`](../../philosophy/adr-003-api-impl-split.md) — `SmsPort` / `PhoneAuthPort` 가 `-api` 모듈에 있는 근거
 - [`ADR-013 · 앱별 인증 엔드포인트`](../../philosophy/adr-013-per-app-auth-endpoints.md) — 컨트롤러 공유화(방향 B), 점유인증도 동일 적용
-- [`ADR-037 · core schema 폐기`](../../philosophy/adr-037-core-schema-deprecation.md) — per-app `phone_verification_codes` 데이터 라우팅
+- [`ADR-037 · core schema 폐기`](../../philosophy/adr-037-core-schema-deprecation.md) — per-app `auth_phone_verification_codes` 데이터 라우팅
 </content>
 </invoke>

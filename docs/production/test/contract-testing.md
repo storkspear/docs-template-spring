@@ -174,7 +174,7 @@ public interface UserFixtures {
     long createVerifiedUser(String email, String passwordHash, String displayName);
     long createUnverifiedUser(String email, String passwordHash, String displayName);
     long createSoftDeletedUser(String email, String displayName);
-    void linkSocialIdentity(long userId, String provider, String providerId);
+    void linkAuthSocialIdentity(long userId, String provider, String providerId);
 }
 ```
 
@@ -306,10 +306,10 @@ DECLARE
     t TEXT;
     candidates TEXT[] := ARRAY[
         -- billing 도메인 (FK 의존 순서)
-        'subscription_renewals', 'payment_webhook_events', 'subscriptions', 'payment_history', 'plans',
+        'subscription_renewals', 'payment_webhook_events', 'subscriptions', 'payment_history', 'subscription_plans',
         -- auth/user 도메인
-        'refresh_tokens', 'email_verification_tokens', 'password_reset_tokens',
-        'social_identities', 'devices', 'users'
+        'auth_refresh_tokens', 'auth_email_verification_tokens', 'auth_password_reset_tokens',
+        'auth_social_identities', 'devices', 'users'
     ];
 BEGIN
     FOREACH t IN ARRAY candidates LOOP
