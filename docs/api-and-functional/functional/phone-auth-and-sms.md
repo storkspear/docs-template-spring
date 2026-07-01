@@ -48,7 +48,7 @@
 | `core/core-sms-api` | `SmsPort` 인터페이스, `SmsError` (SMS_001~SMS_002) |
 | `core/core-sms-impl` | `CoolSmsAdapter`(SOLAPI 실발송), `LoggingSmsAdapter`(dev fallback), `CoolSmsProperties`, `SmsAutoConfiguration` |
 | `core/core-phone-auth-api` | `PhoneAuthPort` 인터페이스, `PhoneAuthError` (PHA_001~PHA_006) |
-| `core/core-phone-auth-impl` | `PhoneAuthAdapter`, `OtpService`, `OtpCodes`, `PhoneOtpCode` 엔티티, `PhoneOtpCodeRepository`, `PhoneAuthAutoConfiguration` |
+| `core/core-phone-auth-impl` | `PhoneAuthAdapter`, `OtpService`, `OtpCodes`, `AuthPhoneVerificationCode` 엔티티, `AuthPhoneVerificationCodeRepository`, `PhoneAuthAutoConfiguration` |
 
 SMS 발송과 점유인증 책임은 의도적으로 분리되어 있습니다. SMS 도메인은 **"문자를 어떻게 전달하는가"** 만 알고, 점유인증 도메인은 **"OTP 의 수명을 어떻게 관리하는가"** 만 압니다. `core-device` 와 `core-push` 가 분리된 것과 같은 철학입니다 ([`Push Notifications`](./push-notifications.md) 참조).
 
@@ -236,7 +236,7 @@ public Optional<String> requestOtp(String phoneE164, String brandName) {
 
     // 3) 6자리 생성 → SHA-256 해시만 DB 저장 (raw 는 문자로만)
     String rawCode = OtpCodes.generateNumericCode(6);
-    repository.save(new PhoneOtpCode(phoneE164, OtpCodes.sha256Hex(rawCode), now.plus(TTL)));
+    repository.save(new AuthPhoneVerificationCode(phoneE164, OtpCodes.sha256Hex(rawCode), now.plus(TTL)));
 
     // 4) 발송
     smsPort.send(phoneE164, "[" + brandName + "] 인증번호 [" + rawCode + "] 보이스피싱주의, 타인 노출금지");
@@ -252,7 +252,7 @@ public Optional<String> requestOtp(String phoneE164, String brandName) {
 
 ```java
 public void verify(String phoneE164, String code) {
-    PhoneOtpCode otp = repository
+    AuthPhoneVerificationCode otp = repository
         .findFirstByPhoneE164AndUsedAtIsNullOrderByCreatedAtDesc(phoneE164)
         .orElseThrow(() -> new PhoneAuthException(OTP_NOT_FOUND));
 

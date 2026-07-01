@@ -386,20 +386,20 @@ template-spring/
 │   │
 │   ├── core-billing-api/              # 구독/플랜 정책 포트 (ADR-019)
 │   │   ├── BillingPort.java                       # activateFromPayment / findActiveSubscription / cancelSubscription / handleWebhook
-│   │   ├── SubscriptionState / PaymentChannel / PaymentRecordStatus  # 도메인 enum (api 루트 — ArchUnit r18 정합)
-│   │   ├── dto/ {SubscriptionPlan,Subscription,PaymentRecord}Dto                 # records
+│   │   ├── SubscriptionState / PaymentChannel / PaymentHistoryStatus  # 도메인 enum (api 루트 — ArchUnit r18 정합)
+│   │   ├── dto/ {SubscriptionPlan,Subscription,PaymentHistory}Dto                 # records
 │   │   └── exception/ BillingError (BIL_001~BIL_010) + BillingException
 │   │
 │   ├── core-billing-impl/             # 구독 정책 layer (ADR-020 + ADR-021/023/025/026/031)
 │   │   ├── BillingServiceImpl.java                # TransactionTemplate phase 분리
-│   │   ├── entity/ {SubscriptionPlan,Subscription,PaymentRecord,WebhookEvent,RenewalAttempt} (BaseEntity 상속)
+│   │   ├── entity/ {SubscriptionPlan,Subscription,PaymentHistory,PaymentWebhookEvent,SubscriptionRenewal} (BaseEntity 상속)
 │   │   ├── repository/ Spring Data JPA
 │   │   ├── scheduler/SubscriptionExpirationScheduler  # @Scheduled cron + slug iter
 │   │   ├── listener/SubscriptionNotificationListener  # 갱신 실패/성공 → Push + Email 발송
 │   │   ├── notification/                          # 사용자 알림 toggle (ADR-031)
 │   │   │   ├── NotificationKind.java              # RENEWAL_FAILED / RENEWAL_SUCCESS / REFUND
-│   │   │   ├── NotificationPreference.java        # 사용자별 채널 on/off
-│   │   │   └── NotificationPreferenceService.java
+│   │   │   ├── NotificationSetting.java           # 사용자별 채널 on/off
+│   │   │   └── NotificationSettingService.java
 │   │   ├── BillingNotificationProperties.java     # APP_BILLING_NOTIFICATION_*
 │   │   └── BillingAutoConfiguration
 │   │

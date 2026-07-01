@@ -145,8 +145,8 @@ public static final String[] CORE_ENTITY_PACKAGES = {
     "com.factory.core.device.impl.entity",
     "com.factory.core.audit.impl.entity",           // ADR-028 — AuditLog
     "com.factory.core.billing.impl.entity",         // ADR-019/020 — Plan, Subscription...
-    "com.factory.core.billing.impl.notification",   // ADR-031 — NotificationPreference
-    "com.factory.core.phoneauth.impl.entity",       // 휴대폰 점유인증 — PhoneOtpCode
+    "com.factory.core.billing.impl.notification",   // ADR-031 — NotificationSetting
+    "com.factory.core.phoneauth.impl.entity",       // 휴대폰 점유인증 — AuthPhoneVerificationCode
     "com.factory.common.persistence.entity"
 };
 
