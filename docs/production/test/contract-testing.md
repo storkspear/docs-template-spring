@@ -45,12 +45,12 @@ class SignUpRequestJsonTest extends AbstractJsonContractTest<SignUpRequest> {
     @Override protected Class<SignUpRequest> sampleType() { return SignUpRequest.class; }
 
     @Override protected SignUpRequest sample() {
-        return new SignUpRequest("a@b.com", "pw12345678", "홍길동", "sumtally");
+        return new SignUpRequest("a@b.com", "pw12345678", "홍길동", "proof-jwt");
     }
 
     @Override protected String canonicalJson() {
         return """
-            {"email":"a@b.com","password":"pw12345678","displayName":"홍길동","appSlug":"sumtally"}
+            {"email":"a@b.com","password":"pw12345678","displayName":"홍길동","proofToken":"proof-jwt"}
             """;
     }
 }
