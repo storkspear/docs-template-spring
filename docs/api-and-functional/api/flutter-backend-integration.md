@@ -58,7 +58,9 @@
 
 | Method | Path | 인증 | 설명 |
 |---|---|---|---|
-| POST | `/api/apps/{appSlug}/auth/email/signup` | 불필요 | 이메일 가입 (201) |
+| POST | `/api/apps/{appSlug}/auth/email/send-code` | 불필요 | 가입용 인증 코드 발송 (verify-before-signup 1단계) |
+| POST | `/api/apps/{appSlug}/auth/email/verify-code` | 불필요 | 코드 검증 → `proofToken` 발급 (2단계) |
+| POST | `/api/apps/{appSlug}/auth/email/signup` | 불필요 | 이메일 가입 — `proofToken` 필수 (3단계, 201) |
 | POST | `/api/apps/{appSlug}/auth/email/signin` | 불필요 | 이메일 로그인 |
 | POST | `/api/apps/{appSlug}/auth/apple` | 불필요 | Apple 로그인 (`identityToken`) |
 | POST | `/api/apps/{appSlug}/auth/google` | 불필요 | Google 로그인 (`idToken`) |
@@ -97,9 +99,11 @@ public record SignUpRequest(
     @Email @NotBlank String email,
     @NotBlank @ValidPassword String password,
     @NotBlank @Size(max = 30) String displayName,
-    @NotBlank String appSlug
+    @NotBlank String proofToken
 ) {}
 ```
+
+가입은 **verify-before-signup 3단계**입니다: ① `email/send-code` 로 인증 코드 발송 → ② `email/verify-code` 로 코드 검증 → 30분 TTL 의 `proofToken`(JWT) 발급 → ③ `email/signup` 에 `proofToken` 을 담아 가입. 서버가 proofToken 의 서명·만료·email·appSlug·purpose claim 을 검증한 뒤에만 유저를 생성하고, 생성된 유저는 `emailVerified=true` 상태입니다.
 
 `password` 는 `@Size` 가 아니라 커스텀 `@ValidPassword` 정책을 따릅니다. 기본값은 최소 10자에 영문 대/소문자와 숫자 조합, 그리고 흔한 비밀번호 차단이에요. 정확한 조건은 운영자가 `app.password.*` 설정으로 조정할 수 있으니, Flutter 의 클라이언트 측 검증은 백엔드 422 응답을 정답으로 두고 느슨하게 잡는 편이 안전해요.
 
@@ -113,19 +117,18 @@ Content-Type: application/json
   "email": "user@example.com",
   "password": "Password1234",
   "displayName": "홍길동",
-  "appSlug": "sumtally"
+  "proofToken": "<verify-code 가 발급한 JWT>"
 }
 ```
 
-`appSlug` 가 body 에도 있고 path 에도 있는데 중복이 아니에요. Path 는 라우팅 대상이고, body 의 `appSlug` 는 서비스 레이어가 토큰 발급 시 담을 값입니다. 두 값은 일치해야 해요.
+`appSlug` 는 body 로 받지 않아요 — URL path (`/api/apps/{appSlug}/...`) 에서 derive 합니다 (client 조작 방지). proofToken 안의 appSlug claim 과 path 가 일치해야 가입이 진행돼요.
 
 ### SignInRequest
 
 ```java
 public record SignInRequest(
     @Email @NotBlank String email,
-    @NotBlank String password,
-    @NotBlank String appSlug
+    @NotBlank String password
 ) {}
 ```
 
@@ -195,8 +198,7 @@ public record AppleSignInRequest(
     String firstName,           // 첫 로그인에만
     String lastName,            // 첫 로그인에만
     String email,               // 첫 로그인에만
-    String nonce,               // 첫 로그인에만
-    @NotBlank String appSlug
+    String nonce                // 첫 로그인에만
 ) {}
 ```
 
@@ -204,19 +206,17 @@ public record AppleSignInRequest(
 
 ```java
 public record GoogleSignInRequest(
-    @NotBlank String idToken,
-    @NotBlank String appSlug
+    @NotBlank String idToken
 ) {}
 ```
 
-Kakao·Naver 도 같은 모양이에요. 각각 `KakaoSignInRequest` 와 `NaverSignInRequest` 가 `accessToken` 과 `appSlug` 를 받습니다. provider 별로 어떤 토큰을 보내야 하는지는 [`ADR-017`](../../philosophy/adr-017-oauth-integration.md) 에 정리돼 있어요.
+Kakao·Naver 도 같은 모양이에요. 각각 `KakaoSignInRequest` 와 `NaverSignInRequest` 가 `accessToken` 하나를 받습니다 (appSlug 는 모든 인증 요청에서 URL path 로만 전달). provider 별로 어떤 토큰을 보내야 하는지는 [`ADR-017`](../../philosophy/adr-017-oauth-integration.md) 에 정리돼 있어요.
 
 ### RefreshRequest
 
 ```java
 public record RefreshRequest(
-    @NotBlank String refreshToken,
-    @NotBlank String appSlug
+    @NotBlank String refreshToken
 ) {}
 ```
 
@@ -237,7 +237,16 @@ Refresh 는 회전(rotation)이 일어납니다. 요청에 쓴 refresh token 은
 ### 기타 DTO
 
 ```java
-// 이메일 인증
+// 가입용 이메일 인증 코드 발송 (verify-before-signup 1단계)
+public record SendEmailVerificationRequest(@Email @NotBlank String email) {}
+
+// 인증 코드 검증 → proofToken 발급 (2단계, code 는 6자리 숫자)
+public record VerifyEmailCodeRequest(
+    @Email @NotBlank String email,
+    @NotBlank String code
+) {}
+
+// 이메일 인증 (토큰 링크 방식 — resend-verification 이 발급)
 public record VerifyEmailRequest(@NotBlank String token) {}
 
 // 비밀번호 재설정 요청 (이메일)
@@ -467,7 +476,7 @@ Content-Type: application/json
 
 ### 이메일 가입은 됐는데 로그인이 안 돼요
 
-- **원인** — `emailVerified` 가 `false` 인 상태예요. 이메일 인증 링크를 클릭해야 합니다.
+- **원인** — `emailVerified` 가 `false` 인 상태예요. verify-before-signup 가입 유저는 항상 `true` 로 생성되므로, 주로 소셜 가입 등 다른 경로 유저예요. `resend-verification` 으로 인증 메일을 다시 보내 링크 인증을 완료해야 합니다.
 - **확인** — DB 의 `users.email_verified` 값이나 signup 응답의 `user.emailVerified` 를 확인하세요.
 
 ### 소셜 로그인 identity token 이 거부돼요

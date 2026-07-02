@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "paths": [
     "/api/apps/{appSlug}/auth",
     "/api/apps/{appSlug}/auth/2fa/login",
@@ -70,6 +70,7 @@
     "CMN_007",
     "CMN_008",
     "CMN_009",
+    "CMN_010",
     "CMN_429",
     "EMAIL_001",
     "EMAIL_002",
@@ -109,6 +110,17 @@
     "STG_010",
     "USR_001",
     "USR_002"
+  ],
+  "noContentEndpoints": [
+    "/{id}",
+    "Auth.PASSWORD_CHANGE",
+    "Auth.PASSWORD_RESET_CONFIRM",
+    "Auth.PASSWORD_RESET_REQUEST",
+    "Auth.RESEND_VERIFICATION",
+    "Auth.TOTP_DISABLE",
+    "Auth.VERIFY_EMAIL",
+    "Auth.WITHDRAW",
+    "NotificationSettings.BY_KIND"
   ],
   "enums": {
     "NotificationKind": [
