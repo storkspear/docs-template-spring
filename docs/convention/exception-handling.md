@@ -24,7 +24,7 @@
 
 ```
 ErrorInfo (인터페이스)
-    ├── CommonError      ← CMN_001 ~ CMN_009, CMN_429
+    ├── CommonError      ← CMN_001 ~ CMN_010, CMN_429
     ├── AuthError        ← ATH_001 ~ ATH_010 (2FA — ADR-030)
     ├── UserError        ← USR_001 ~ USR_002
     ├── BillingError     ← BIL_001 ~ BIL_010 (구독·결제·webhook — ADR-020)
@@ -94,6 +94,7 @@ GlobalExceptionHandler
 | CMN_007 | 401 | ACCESS_TOKEN_EXPIRED | JWT access token 만료 |
 | CMN_008 | 401 | ACCESS_TOKEN_INVALID | JWT access token 무효 |
 | CMN_009 | 503 | FEATURE_DISABLED | 기능 비활성 (ADR-034 Lite 모드) |
+| CMN_010 | 426 | UPGRADE_REQUIRED | 앱 버전이 서버 최소 요구 버전 미만 (min-version 게이트) |
 | CMN_429 | 429 | RATE_LIMIT_EXCEEDED | Rate limit 초과 (Retry-After 헤더 포함) |
 
 JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `CommonError` 에 있는 건 모듈 의존 때문이에요. 토큰을 검증하는 common-security 가 core-auth-api 에 의존할 수 없어서, 공통 레이어에 배치했어요.
@@ -378,7 +379,7 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 |---|---|
 | `common-web/.../exception/ErrorInfo.java` | Error enum 인터페이스 |
 | `common-web/.../exception/BaseException.java` | 모든 비즈니스 예외 부모 |
-| `common-web/.../exception/CommonError.java` | 공통 에러 enum (CMN_001~009, CMN_429) |
+| `common-web/.../exception/CommonError.java` | 공통 에러 enum (CMN_001~010, CMN_429) |
 | `common-web/.../exception/CommonException.java` | 공통 예외 |
 | `common-web/.../exception/GlobalExceptionHandler.java` | BaseException 통합 핸들러 |
 | `common-web/.../response/ApiError.java` | 에러 응답 구조 |

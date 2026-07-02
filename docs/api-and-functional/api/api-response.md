@@ -31,7 +31,7 @@
 
 > **왜 data 와 error 를 분리했나** — 흔한 대안은 단일 객체에 `success` 불리언 플래그를 두는 방식이에요. 그러면 클라이언트가 항상 `success` 를 먼저 확인한 뒤 분기해야 하고, 응답 타입이 하나라서 Dart 의 타입 시스템이 데이터 필드와 에러 필드를 한 객체에서 동시에 다뤄야 합니다. data 와 error 를 상호 배타적으로 분리하면 성공 경로와 에러 경로가 타입 단계에서 갈라지고, 클라이언트는 `error == null` 한 번만 확인하면 됩니다.
 
-> **본문 없는 성공은 둘 다 null** — 204 No Content 처럼 돌려줄 데이터가 없는 성공 응답은 `data` 와 `error` 가 모두 `null` 입니다. 코드로는 `ApiResponse.empty()` 가 이 형태를 만들어요. 그래서 "데이터가 있는 성공"과 "에러"는 상호 배타적이지만, 그 둘 어디에도 속하지 않는 "본문 없는 성공"이라는 세 번째 상태가 따로 있습니다.
+> **본문 없는 성공은 바디가 아예 없음** — 204 No Content 처럼 돌려줄 데이터가 없는 성공 응답은 코드로는 `ApiResponse.empty()` (data · error 모두 null) 가 표현합니다. 단, **wire 에는 `{"data": null, "error": null}` 같은 JSON 이 전송되지 않아요** — `@ResponseStatus(NO_CONTENT)` 와 함께 쓰면 Tomcat 이 204 응답의 엔티티 바디를 제거하므로 클라이언트가 받는 것은 순수한 빈 바디입니다 (실측 확인). 따라서 클라이언트는 204 에서 바디 파싱을 전제하면 안 되고, 빈 바디 자체를 "본문 없는 성공"으로 해석해야 합니다 (Flutter 쪽은 `ApiClient` 가 `ApiResponse.empty()` 로 정규화). "데이터가 있는 성공"과 "에러"는 상호 배타적이지만, 그 둘 어디에도 속하지 않는 이 세 번째 상태가 따로 있습니다.
 
 ### 성공 응답 예시
 
@@ -191,7 +191,7 @@ public record ApiResponse<T>(T data, ApiError error) {
 }
 ```
 
-`ok` 는 성공, `empty` 는 본문 없는 성공(204), `error` 는 실패 응답을 만듭니다.
+`ok` 는 성공, `empty` 는 본문 없는 성공(204), `error` 는 실패 응답을 만듭니다. 단 `empty()` 를 `@ResponseStatus(NO_CONTENT)` 와 함께 반환하면 직렬화 결과는 wire 에 실리지 않아요 — 204 는 바디 없이 전송됩니다 (위 "본문 없는 성공" 참고).
 
 ### ApiError
 
@@ -243,7 +243,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 - **200 OK** — 조회, 수정
 - **201 Created** — 새 리소스 생성 (POST)
-- **204 No Content** — 삭제, 또는 응답 바디 없는 성공
+- **204 No Content** — 삭제, 또는 응답 바디 없는 성공 (바디가 아예 전송되지 않음)
 
 ### 클라이언트 오류
 
@@ -505,7 +505,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 ## 요약
 
 - 모든 응답은 `{data, error}` 래퍼로 감쌉니다.
-- 데이터가 있는 성공과 에러는 상호 배타적이고, 본문 없는 성공(204)은 둘 다 `null` 입니다.
+- 데이터가 있는 성공과 에러는 상호 배타적이고, 본문 없는 성공(204)은 바디 없이 전송됩니다 (코드 표현은 `ApiResponse.empty()` — 둘 다 `null`).
 - 성공은 HTTP 2xx 와 `data`, 실패는 HTTP 4xx·5xx 와 `error` 로 나갑니다.
 - 에러는 예외로 표현합니다. 컨트롤러는 `ApiResponse.error()` 를 직접 반환하지 않습니다 (상세: [`exception-handling.md`](../../convention/exception-handling.md)).
 - 날짜는 ISO 8601 UTC, 필드명은 camelCase, null 은 생략하되 빈 배열은 그대로 둡니다.

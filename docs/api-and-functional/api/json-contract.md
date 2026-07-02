@@ -72,7 +72,7 @@ public record SignUpRequest(
         @Email @NotBlank String email,
         @NotBlank @ValidPassword String password,
         @NotBlank @Size(max = 30) String displayName,
-        @NotBlank String appSlug) {}
+        @NotBlank String proofToken) {}
 ```
 
 Response DTO 에는 validation 어노테이션이 없어도 돼요. 값을 서버가 만들어 내보내니까요.
@@ -120,12 +120,12 @@ class SignUpRequestJsonTest extends AbstractJsonContractTest<SignUpRequest> {
     }
 
     @Override protected SignUpRequest sample() {
-        return new SignUpRequest("a@b.com", "pw12345678", "홍길동", "sumtally");
+        return new SignUpRequest("a@b.com", "pw12345678", "홍길동", "proof-jwt");
     }
 
     @Override protected String canonicalJson() {
         return """
-            {"email":"a@b.com","password":"pw12345678","displayName":"홍길동","appSlug":"sumtally"}
+            {"email":"a@b.com","password":"pw12345678","displayName":"홍길동","proofToken":"proof-jwt"}
             """;
     }
 }

@@ -386,7 +386,8 @@ template-spring/
 │   │
 │   ├── core-billing-api/              # 구독/플랜 정책 포트 (ADR-019)
 │   │   ├── BillingPort.java                       # activateFromPayment / findActiveSubscription / cancelSubscription / handleWebhook
-│   │   ├── SubscriptionState / PaymentChannel / PaymentHistoryStatus  # 도메인 enum (api 루트 — ArchUnit r18 정합)
+│   │   ├── SubscriptionState / PaymentChannel / PaymentHistoryStatus / SubscriptionRenewalStatus  # 도메인 enum (api 루트 — ArchUnit r18 정합)
+│   │   ├── NotificationKind.java                  # RENEWAL_SUCCEEDED / RENEWAL_FAILED / RENEWAL_ABANDONED / IAP_REFUND / IAP_REVOKE (계약 스냅샷 포함)
 │   │   ├── dto/ {SubscriptionPlan,Subscription,PaymentHistory}Dto                 # records
 │   │   └── exception/ BillingError (BIL_001~BIL_010) + BillingException
 │   │
@@ -397,9 +398,7 @@ template-spring/
 │   │   ├── scheduler/SubscriptionExpirationScheduler  # @Scheduled cron + slug iter
 │   │   ├── listener/SubscriptionNotificationListener  # 갱신 실패/성공 → Push + Email 발송
 │   │   ├── notification/                          # 사용자 알림 toggle (ADR-031)
-│   │   │   ├── NotificationKind.java              # RENEWAL_FAILED / RENEWAL_SUCCESS / REFUND
-│   │   │   ├── NotificationSetting.java           # 사용자별 채널 on/off
-│   │   │   └── NotificationSettingService.java
+│   │   │   └── NotificationSettingService.java    # kind 별 push/email on/off (enum 은 api 의 NotificationKind, entity 는 entity/NotificationSetting)
 │   │   ├── BillingNotificationProperties.java     # APP_BILLING_NOTIFICATION_*
 │   │   └── BillingAutoConfiguration
 │   │
@@ -769,15 +768,10 @@ WithdrawService.withdraw(userId, reason)
 
 ### Schema 레이아웃
 
+`core` schema 는 [`ADR-037`](../philosophy/adr-037-core-schema-deprecation.md) 로 물리 폐기됐어요 (2026-07). 남는 것은 앱별 schema 뿐입니다.
+
 ```
 postgres (database)
-│
-├── core                             ← 템플릿 기준선 (core_app role)
-│   ├── users                        ← 레거시/참조용 (실제 런타임 유저는 앱 schema)
-│   ├── auth_social_identities
-│   ├── auth_refresh_tokens, auth_email_verification_tokens, auth_password_reset_tokens
-│   ├── devices
-│   └── flyway_schema_history        ← core 마이그레이션 전용
 │
 ├── sumtally                         ← apps/app-sumtally 전용 (sumtally_app role)
 │   ├── users                        ← sumtally 독립 유저
