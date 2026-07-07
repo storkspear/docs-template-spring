@@ -253,7 +253,7 @@ public class <SlugPascal>DataSourceConfig extends AbstractAppDataSourceConfig {
 
 Repository scan 을 `apps.<slugPackage>.repository` 로만 한정하는 건, `core-*` 레포지토리가 이미 자기 AutoConfiguration 의 `@EnableJpaRepositories` 로 default EMF 에 등록됐기 때문이에요. 여기서 코어 패키지를 다시 스캔하면 `BeanDefinitionOverrideException` 이 나요.
 
-### 3.5 Flyway Migration — 공통 V001~V015
+### 3.5 Flyway Migration — 공통 V001~V017
 
 ```
 apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/
@@ -270,10 +270,12 @@ apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/
 ├── V012__init_audit_logs.sql
 ├── V013__add_totp_to_users.sql
 ├── V014__init_user_notification_settings.sql
-└── V015__init_auth_phone_verification_codes.sql
+├── V015__init_auth_phone_verification_codes.sql
+├── V016__init_auth_email_verification_codes.sql
+└── V017__init_user_activity_days.sql
 ```
 
-`new-app.sh` 가 깔아 주는 공통 마이그레이션은 V001~V015 로, 모든 앱이 똑같이 받는 인증·결제·알림 기반이에요. 어떤 버전이 무엇을 담는지는 아래와 같아요.
+`new-app.sh` 가 깔아 주는 공통 마이그레이션은 V001~V017 로, 모든 앱이 똑같이 받는 인증·결제·알림·활동추적 기반이에요. 어떤 버전이 무엇을 담는지는 아래와 같아요.
 
 | 버전 | 내용 | 비고 |
 |---|---|---|
@@ -282,8 +284,10 @@ apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/
 | **V008 ~ V012** | 결제·구독·감사 (subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs) | |
 | **V013 ~ V014** | 2FA(TOTP) 컬럼 · 사용자 알림 채널 toggle | |
 | **V015** | auth_phone_verification_codes (휴대폰 점유인증) | 옵트인 — 점유인증을 안 쓰면 이 파일은 삭제해도 돼요 |
+| **V016** | auth_email_verification_codes (가입 전 이메일 소유확인 코드) | |
+| **V017** | user_activity_days (DAU/MAU 활동 추적) | 운영 콘솔(`/api/admin/*`)의 DAU/MAU·리텐션 지표 원천 |
 
-여기서 V007 만 위 디렉토리 목록에 없는 걸 눈치챘을 거예요. `V007__seed_admin_user.sql` 은 Step 6 의 테이블 마이그레이션과 따로, DB provisioning 이 끝난 뒤 별도 단계에서 생성돼요 (§5.2). 본인 도메인 테이블은 V001~V015 다음 빈 번호인 **V016 부터** 직접 작성하면 돼요 (§7).
+여기서 V007 만 위 디렉토리 목록에 없는 걸 눈치챘을 거예요. `V007__seed_admin_user.sql` 은 Step 6 의 테이블 마이그레이션과 따로, DB provisioning 이 끝난 뒤 별도 단계에서 생성돼요 (§5.2). 본인 도메인 테이블은 V001~V017 다음 빈 번호인 **V018 부터** 직접 작성하면 돼요 (§7).
 
 마이그레이션 경로가 `db/migration/<slugPackage>/` 처럼 하이픈을 뺀 패키지명으로 격리돼 있어서, 각 앱 DataSource 의 Flyway 가 자기 디렉토리만 읽어요.
 
@@ -389,14 +393,14 @@ schema·role 생성 (Step 14)
    ↓
 V007__seed_admin_user.sql 생성 (Step 15)   ← admin 계정 1명 INSERT
    ↓
-Flyway migrate-only 로 V001~V015 적용 (Step 16)
+Flyway migrate-only 로 V001~V017 적용 (Step 16)
    ↓
 admin user SELECT 검증 (Step 17)            ← 시드 row 가 보이는지 확인
 ```
 
 `V007__seed_admin_user.sql` 은 임시 관리자 계정(`admin@<slug>.local` / 비밀번호 `admin1234`)을 넣어요. 시드가 필요 없으면 이 파일을 지우고 spring 을 재기동하면 돼요. **운영에서는 첫 로그인 직후 반드시 비밀번호를 바꿔야 해요.**
 
-Step 16 은 web server 를 띄우지 않는 migrate-only 모드로 Flyway 를 돌려 V001~V015 를 적용하고, Step 17 은 `flyway_schema_history` 와 `users` 테이블을 직접 조회해 마이그레이션과 시드가 실제로 반영됐는지 확인해요. 그래서 `new` 가 정상 종료했다면 DB 는 이미 준비된 상태예요.
+Step 16 은 web server 를 띄우지 않는 migrate-only 모드로 Flyway 를 돌려 V001~V017 을 적용하고, Step 17 은 `flyway_schema_history` 와 `users` 테이블을 직접 조회해 마이그레이션과 시드가 실제로 반영됐는지 확인해요. 그래서 `new` 가 정상 종료했다면 DB 는 이미 준비된 상태예요.
 
 ### 5.3 로컬 docker 에 provision 하는 경우
 
@@ -524,7 +528,7 @@ fi
   ✅ .env 에 DB / bucket / credentials placeholder 추가 (Step 10~13)
   ✅ Postgres schema + role 생성 (Step 14)
   ✅ V007__seed_admin_user.sql 자동 생성 (Step 15)
-  ✅ Flyway V001~V015 적용 (Step 16, migrate-only)
+  ✅ Flyway V001~V017 적용 (Step 16, migrate-only)
   ✅ admin user 시드 SELECT 검증 (Step 17)
 
 임시 admin 계정 (운영에선 즉시 변경 필수):
@@ -541,7 +545,7 @@ fi
    APP_CREDENTIALS_<SLUG_UPPER>_FCM_SERVICE_ACCOUNT_JSON 가 비어있으면 graceful no-op
 
 3. 도메인 테이블 작성:
-   apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/V016__init_<your-domain>.sql
+   apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/V018__init_<your-domain>.sql
 
 4. 커밋:
    feat(apps): scaffold app-<slug>
@@ -565,9 +569,9 @@ curl -s http://localhost:8081/actuator/health | jq '.components.db.components | 
 # → ['<slugPackage>', ...] 처럼 슬러그가 포함되면 OK
 ```
 
-### 7.2 도메인 테이블은 V016 부터
+### 7.2 도메인 테이블은 V018 부터
 
-본인 비즈니스 로직 테이블은 `V016__init_<your-domain>.sql` 부터 작성해요. V001~V015 가 이미 차 있고 V007 은 도메인이 아니라 관리자 시드라, 그다음 빈 번호가 V016 이에요.
+본인 비즈니스 로직 테이블은 `V018__init_<your-domain>.sql` 부터 작성해요. V001~V017 이 이미 차 있고 V007 은 도메인이 아니라 관리자 시드라, 그다음 빈 번호가 V018 이에요.
 
 ### 7.3 `--skip-provision-db` 로 돌렸다면
 
@@ -595,7 +599,7 @@ rm -rf apps/app-<slug>
 
 ### 8.2 Flyway checksum mismatch
 
-V001~V015 의 체크섬이 맞지 않으면 Flyway 가 거부해요. 공통 마이그레이션을 수정하지 않았다면 원인은 대개 DB 에 남은 이전 실행 흔적이에요. 로컬에서만 schema 를 drop 하고 재생성하세요. 운영에서는 이 방법을 쓰면 안 되고 `flyway repair` 또는 새 번호로 해결해요.
+V001~V017 의 체크섬이 맞지 않으면 Flyway 가 거부해요. 공통 마이그레이션을 수정하지 않았다면 원인은 대개 DB 에 남은 이전 실행 흔적이에요. 로컬에서만 schema 를 drop 하고 재생성하세요. 운영에서는 이 방법을 쓰면 안 되고 `flyway repair` 또는 새 번호로 해결해요.
 
 ```sql
 DROP SCHEMA <slugPackage> CASCADE;
@@ -620,15 +624,15 @@ slug 자체는 하이픈을 허용하지만, schema·role 이름에는 `SLUG_PAC
 | **최소 명령** | `<repo> new <slug>` — DB provisioning 이 기본 |
 | **DB 끄기** | `--skip-provision-db` 로 코드만 생성 |
 | **slug 규칙** | `^[a-z][a-z0-9-]*$`, 내부 4종 변형 전개 |
-| **생성되는 것** | Gradle 모듈 · 컨트롤러 4종(Health·Auth·Payment·Iap) · ApiEndpoints · AutoConfiguration · DataSource · Flyway V001~V015 · README · settings.gradle / bootstrap.gradle 업데이트 |
+| **생성되는 것** | Gradle 모듈 · 컨트롤러 4종(Health·Auth·Payment·Iap) · ApiEndpoints · AutoConfiguration · DataSource · Flyway V001~V017 · README · settings.gradle / bootstrap.gradle 업데이트 |
 | **`.env` 주입** | DB 3종 · MinIO `<slug>-uploads` · 소셜·IAP·FCM credentials placeholder |
 | **provisioning** | schema + role + grant 생성, 비밀번호 랜덤 생성 후 `.env` 치환 |
-| **검증** | V007 admin 시드 생성 → V001~V015 Flyway 적용 → admin SELECT 확인 |
+| **검증** | V007 admin 시드 생성 → V001~V017 Flyway 적용 → admin SELECT 확인 |
 | **로컬 docker** | `.env` 의 `DB_PSQL_URL` 기본값 자동 로드 — export 불필요 |
 | **운영 DB** | `export DB_PSQL_URL='postgresql://...'` 로 일시 덮어쓰기 |
 | **실패 시** | 자동 롤백 (디렉토리 · Gradle · `.env` · DB schema·role) |
 | **재기동** | `new` 후 `<repo> restart` 필수 — 새 코드 반영 |
-| **남은 수동 작업** | (선택) credentials · V016 도메인 테이블 · 커밋 |
+| **남은 수동 작업** | (선택) credentials · V018 도메인 테이블 · 커밋 |
 
 ---
 

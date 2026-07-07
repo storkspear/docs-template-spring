@@ -36,9 +36,15 @@
     "/api/apps/{appSlug}/payment/verify",
     "/api/apps/{appSlug}/payment/webhook",
     "/api/apps/{appSlug}/users",
-    "/api/apps/{appSlug}/users/me"
+    "/api/apps/{appSlug}/users/me",
+    "/api/apps/{appSlug}/users/me/activity"
   ],
   "errorCodes": [
+    "ADMIN_001",
+    "ADMIN_002",
+    "ADMIN_003",
+    "ADMIN_004",
+    "ADMIN_005",
     "ATH_001",
     "ATH_002",
     "ATH_003",
@@ -120,7 +126,8 @@
     "Auth.TOTP_DISABLE",
     "Auth.VERIFY_EMAIL",
     "Auth.WITHDRAW",
-    "NotificationSettings.BY_KIND"
+    "NotificationSettings.BY_KIND",
+    "User.ACTIVITY"
   ],
   "enums": {
     "NotificationKind": [

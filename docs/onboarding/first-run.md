@@ -85,7 +85,7 @@ Successfully applied 15 migrations to schema "sumtally"
 | **V013 ~ V014** | 2FA([TOTP](../reference/glossary.md#인증--보안)) 컬럼 · 사용자 알림 채널 toggle | |
 | **V015** | auth_phone_verification_codes(휴대폰 점유인증) | 옵트인 — 점유인증을 안 쓰면 이 파일은 삭제 가능 |
 
-본인 도메인 테이블은 V016 부터 직접 작성하면 돼요.
+본인 도메인 테이블은 V018 부터 직접 작성하면 돼요.
 
 ## 5. [Hibernate ORM](../reference/glossary.md#데이터베이스)
 

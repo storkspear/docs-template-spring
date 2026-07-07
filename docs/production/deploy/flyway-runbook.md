@@ -55,7 +55,7 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 
 ### 2-2. 마이그레이션 매핑
 
-`new app` (`tools/new-app/new-app.sh`) 이 새 앱마다 V001~V015 를 자동 생성합니다. 전부 슬러그 schema 안에 만들어지고, 내용은 모든 앱이 동일해요.
+`new app` (`tools/new-app/new-app.sh`) 이 새 앱마다 V001~V017 을 자동 생성합니다. 전부 슬러그 schema 안에 만들어지고, 내용은 모든 앱이 동일해요.
 
 | 버전 | 테이블 / 내용 | 비고 |
 |---|---|---|
@@ -64,9 +64,11 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 | V008 ~ V012 | 결제·구독·감사 (subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs) | 공통 |
 | V013 ~ V014 | 2FA(TOTP) 컬럼 · 사용자 알림 채널 toggle | 공통 |
 | V015 | auth_phone_verification_codes (휴대폰 점유인증) | 옵트인 — 안 쓰면 파일 삭제 가능 |
-| **V016 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
+| V016 | auth_email_verification_codes (가입 전 이메일 소유확인 코드) | 공통 |
+| V017 | user_activity_days (DAU/MAU 활동 추적) | 운영 콘솔(`/api/admin/*`) 지표 원천 |
+| **V018 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
 
-V001~V015 가 이미 차 있고 V007 은 도메인이 아니라 관리자 시드라, 본인 도메인 테이블은 V016 부터 시작합니다. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.
+V001~V017 이 이미 차 있고 V007 은 도메인이 아니라 관리자 시드라, 본인 도메인 테이블은 V018 부터 시작합니다. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.
 
 ---
 
@@ -171,27 +173,27 @@ dev / prod 부팅 시 Flyway 는 validate 만 하고 schema 를 바꾸지 않습
 
 ```bash
 # 1. V스크립트 작성 (보통 PR 안에서)
-vi apps/app-gymlog/src/main/resources/db/migration/gymlog/V016__add_foo.sql
+vi apps/app-gymlog/src/main/resources/db/migration/gymlog/V018__add_foo.sql
 
 # 2. dry-run 으로 미리보기 (실제 적용 X)
-<repo> prod migrate gymlog V016__add_foo --dry-run
+<repo> prod migrate gymlog V018__add_foo --dry-run
 # 또는 직접:
 bash tools/migrate-prod.sh --target=prod gymlog \
-  apps/app-gymlog/src/main/resources/db/migration/gymlog/V016__add_foo.sql --dry-run
+  apps/app-gymlog/src/main/resources/db/migration/gymlog/V018__add_foo.sql --dry-run
 
 # 3. 실제 적용 (prompt 에 yes 입력)
-<repo> prod migrate gymlog V016__add_foo
+<repo> prod migrate gymlog V018__add_foo
 
 # 4. 결과 확인 (스크립트가 자동 출력)
 #    installed_rank | version | description | success | installed_on
-#         16        |   16    |   add foo   |    t    |  2026-05-02 15:30:21+00
+#         18        |   18    |   add foo   |    t    |  2026-05-02 15:30:21+00
 
 # 5. deploy tag + GHA deploy.yml trigger
 git tag deploy/v$(git rev-parse --short HEAD)
 git push --tags
 
 # 6. Spring Boot 부팅 (prod profile, validate-only)
-#    schema_history 의 V016 와 classpath 의 V016__add_foo.sql checksum 비교
+#    schema_history 의 V018 와 classpath 의 V018__add_foo.sql checksum 비교
 #    정합 OK → kamal blue/green 활성
 ```
 
@@ -200,7 +202,7 @@ git push --tags
 `tools/migrate-prod.sh` 의 동작 순서는 이래요.
 
 1. `.env.<target>` 에서 `DB_URL` / `DB_USER` / `DB_PASSWORD` 를 로드하고 JDBC URL 을 psql 형식으로 변환합니다.
-2. V스크립트 파일명에서 version 과 description 을 추출하고 (`V016__add_foo.sql` → `16`, `add foo`) SQL 미리보기를 출력한 뒤 적용을 묻습니다 (`--force` 면 skip).
+2. V스크립트 파일명에서 version 과 description 을 추출하고 (`V018__add_foo.sql` → `16`, `add foo`) SQL 미리보기를 출력한 뒤 적용을 묻습니다 (`--force` 면 skip).
 3. 단일 transaction 으로 `BEGIN; <SQL>; INSERT INTO <slug>.flyway_schema_history ...; COMMIT;` 을 실행합니다. SQL 적용과 history INSERT 가 같은 transaction 이라, 둘 중 하나가 실패하면 둘 다 롤백돼 schema 와 history 의 inconsistent state 를 막아요.
 4. 적용 후 `success = true` 행을 출력해 결과를 확인시킵니다.
 
@@ -243,8 +245,8 @@ dev / prod 부팅 시 `Flyway validate failed` 가 나는 시나리오와 대응
 
 | 증상 | 원인 | 대응 |
 |---|---|---|
-| `Resolved migration not applied` | classpath 에 V016 이 있는데 schema_history 에 없음 | `migrate-prod.sh` 미실행 → 실행 후 재배포 |
-| `Applied migration not resolved` | schema_history 에 V016 이 있는데 classpath 에 없음 | V016 파일이 jar 에 빠짐 → build 검증 |
+| `Resolved migration not applied` | classpath 에 V018 이 있는데 schema_history 에 없음 | `migrate-prod.sh` 미실행 → 실행 후 재배포 |
+| `Applied migration not resolved` | schema_history 에 V018 이 있는데 classpath 에 없음 | V018 파일이 jar 에 빠짐 → build 검증 |
 | `Migration checksum mismatch` | 적용된 V스크립트 수정 또는 `migrate-prod.sh` checksum 불일치 ([§4-2](#4-2-migrate-prodsh-가-하는-일)) | V스크립트를 고쳤다면 새 V로 정정. 도구 checksum 불일치면 부팅 로그에서 Flyway 가 기대하는 checksum 을 추출해 history 를 갱신 |
 
 checksum 불일치 정정은 부팅 로그의 expected 값을 그대로 넣습니다.
