@@ -164,6 +164,8 @@ React: 분석 페이지 "운영 신호" 카드 4개 (실패>0 → semantic.error
 
 ## I. 범위 밖 (v2+)
 
+- **광고 수익 (AdMob) 통합** (2026-07-07 사용자 요청): AdMob Reporting API OAuth 연동 + 일별 수익 pull 스케줄러 + `ad_revenue_days` 테이블 + 대시보드 "광고 수익" 카드/차트. 사용자 개입 필요(AdMob API 활성화·OAuth 동의). 결제 매출과 별도 축으로 표시.
+
 - 발송(푸시/이메일)·역할권한·설정 화면의 백엔드 — 콘솔 스켈레톤만 존재, API 는 파생/후속.
 - 관리자 다계정·TOTP — admin_users 구조상 추가 용이, v1 은 1계정.
 - cross-app 감사로그 커서 페이징 — 규모 커지면.
