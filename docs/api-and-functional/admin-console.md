@@ -46,7 +46,7 @@ sequenceDiagram
     Svc->>DB: findByEmail(email)
     DB-->>Svc: AdminAccount(passwordHash)
     Svc->>Svc: PasswordHasher.verify(password, passwordHash)
-    Svc->>Svc: JwtService.issueAccessToken(id, email, appSlug="admin", role="superadmin")
+    Svc->>Svc: JwtService.issueAdminAccessToken(id, email, appSlug="admin", role="superadmin")
     Svc-->>API: AdminLoginResponse { accessToken, admin }
     API-->>React: 200 { data: AdminLoginResponse }
 
@@ -54,6 +54,8 @@ sequenceDiagram
 ```
 
 발급되는 JWT 의 `appSlug` claim 은 실제 앱 슬러그가 아니라 **고정값 `"admin"`** 이고, `role` claim 은 `"superadmin"` 입니다. 이 두 값이 이후 모든 권한 검사의 기준이 돼요.
+
+콘솔 세션은 앱 유저 access token(`app.jwt.access-token-ttl`, 기본 15분)과 별도로 `app.jwt.admin-access-token-ttl`(기본 `PT12H`, 12시간)을 TTL 로 씁니다. `JwtService.issueAccessToken` 은 앱 유저 전용 TTL 만 계속 쓰고, `issueAdminAccessToken` 은 콘솔 전용 TTL 을 써서 — 운영자가 앱 유저와 같은 15분마다 재로그인하지 않게 분리했어요.
 
 ### 2-3. 권한 검사 — 양방향 격리
 
