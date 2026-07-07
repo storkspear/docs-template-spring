@@ -20,7 +20,8 @@
 ```
 
 - **cross-app 조회 = in-process fan-out** — MSA 라면 필요했을 서비스 간 호출·분산 트랜잭션이 없습니다. 모든 앱이 한 JVM·한 Postgres 인스턴스에 있어서, 슬러그별 `JdbcTemplate` 을 순회하며 메모리에서 합산·병합할 뿐이에요.
-- **JPA 미사용** — `core-admin-impl` 은 다른 `core-*-impl` 의 리포지토리를 재사용할 수 없다는 impl→impl 의존 금지 규칙 때문에, 모든 조회를 `JdbcTemplate` 직접 쿼리로 구현합니다.
+- **조회는 JPA 미사용** — `core-admin-impl` 은 다른 `core-*-impl` 의 리포지토리를 재사용할 수 없다는 impl→impl 의존 금지 규칙 때문에, 모든 조회를 `JdbcTemplate` 직접 쿼리로 구현합니다.
+- **write(환불)는 포트 재사용** — 유일한 write 액션인 결제 환불(§4-11)만 예외예요. `core-admin-impl` 이 자체 JPA를 갖는 게 아니라, `core-billing-api`/`core-payment-api` 의 **포트 인터페이스**(`PaymentPort`/`BillingPort`)만 의존해서 앱쪽 결제 컨트롤러가 쓰는 것과 **같은 포트 메서드**를 그대로 호출해요(impl→impl 의존은 여전히 금지 — api 포트 인터페이스만 compileOnly 의존).
 - **응답 포맷은 템플릿 표준을 그대로 따름** — `ApiResponse<T>`(`{ data, error }`) 래퍼와 목록 조회의 `PageResponse<T>` 는 [`API Response Format`](./api/api-response.md) 과 동일합니다.
 
 ---
@@ -73,7 +74,7 @@ sequenceDiagram
 
 ## 3. 엔드포인트 카탈로그
 
-12개 조회 엔드포인트(#1~12)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
+12개 조회 엔드포인트(#1~12) + 1개 write 엔드포인트(#13, 환불)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
 
 | # | 메서드 · 경로 | 인증 | 데이터 소스 |
 |---|---|---|---|
@@ -89,6 +90,7 @@ sequenceDiagram
 | 10 | `GET /api/admin/analytics/{metric}?slug&from&to` | superadmin | `metric∈{dau,signups,revenue}` — 단일 슬러그 일별 시계열 |
 | 11 | `GET /api/admin/apps/{slug}/ops` | superadmin | 단일 슬러그 — 갱신 실패율·webhook 처리·리텐션 (v1.5) |
 | 12 | `GET /api/admin/apps/{slug}/payments?query&channel&status&type&from&to&page&size` | superadmin | 단일 슬러그 — `payment_history`+`users` 조인 목록 (v1.5) |
+| 13 | `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` | superadmin | 단일 슬러그 — PG 환불(write). `PaymentPort`/`BillingPort` 재사용 |
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
 
 ---
@@ -301,6 +303,38 @@ sequenceDiagram
 }
 ```
 
+### 4-11. `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` — PG 환불 (write, v1.6)
+
+이 콘솔의 **첫 write 액션**이에요. 본문 없이 호출하면 대상 결제를 전액 환불하고, 갱신된 결제 1건을 #4-10 과 동일한 `AdminPaymentListItemResponse` 로 돌려줘요(React 가 이 값으로 목록 행을 즉시 갱신).
+
+**흐름**: admin 요청은 `SlugContext` 가 `"admin"` 으로 고정돼 있어요. 컨트롤러가 서비스 호출 직전에 대상 슬러그로 스왑(`try`) → 원복(`finally`) 하고, 서비스는 그 스왑된 컨텍스트 안에서 앱쪽 결제 컨트롤러가 쓰는 것과 **같은** `PaymentPort.refund(...)` 를 호출해요(환불 로직 중복 없음). `PaymentPort` 는 PortOne 통신만 하고 로컬 `payment_history` 는 안 건드리기 때문에(ADR-019), 환불 성공 직후 **같은 (source, externalId) 로 `BillingPort.handleWebhook(...)` 을 직접 트리거**해서 앱쪽 실제 webhook 이 도착했을 때와 동일한 코드 경로로 `payment_history` 를 `REFUNDED` 로 반영해요 — idempotency 키(source, externalId)를 공유하므로 이후 PortOne 의 진짜 webhook 이 도착해도 이미 처리된 걸로 안전하게 skip 됩니다.
+
+**검증 순서**:
+1. `AdminSlugRegistry.has(slug)` — 없는 슬러그면 404 `ADMIN_003`.
+2. 대상 슬러그 스키마에서 `paymentId` 조회 — 없으면 404 `ADMIN_007`.
+3. `channel != 'PG'`(즉 IAP)면 400 `ADMIN_006` — Apple/Google 스토어가 결제를 소유해서 콘솔이 환불을 대행할 수 없어요.
+4. 이미 환불된 결제 등 "포트가 거부하는" 케이스는 로컬에서 미리 막지 않고 `PaymentPort`/PortOne 이 던지는 예외를 그대로 `GlobalExceptionHandler` 가 매핑해요.
+
+**감사로그**: `@Audited("admin.payment.refund")` 가 `AuditAspect` 를 트리거해요. 컨트롤러가 `SlugContext` 를 스왑한 *이후* 서비스를 호출하기 때문에, 감사 이벤트는 `"admin"` 이 아니라 **대상 앱 슬러그의 스키마**(`audit_logs`)에 남습니다.
+
+```json
+{
+  "data": {
+    "id": 11, "userId": 1, "userEmail": "user@example.com", "channel": "PG",
+    "amount": 9900, "currency": "KRW", "status": "REFUNDED",
+    "paidAt": "2026-06-01T00:00:00Z", "refundedAt": "2026-07-07T09:10:00Z",
+    "externalId": "imp_123456789", "paymentType": "ONE_TIME"
+  },
+  "error": null
+}
+```
+
+IAP 결제 환불 시도 응답:
+
+```json
+{ "data": null, "error": { "code": "ADMIN_006", "message": "PG 결제만 콘솔에서 환불할 수 있어요.", "details": { "channel": "IAP" } } }
+```
+
 ---
 
 ## 5. 핵심 시맨틱 정의
@@ -343,7 +377,7 @@ sequenceDiagram
 
 ---
 
-## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_005`
+## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_007`
 
 | 코드 | HTTP | 발생 상황 |
 |---|---|---|
@@ -352,6 +386,8 @@ sequenceDiagram
 | `ADMIN_003` UNKNOWN_SLUG | 404 | 존재하지 않는 슬러그로 조회(`AdminSlugRegistry` 에 없는 slug) |
 | `ADMIN_004` INVALID_DATE_RANGE | 400 | `from`/`to` 쿼리 파라미터가 ISO-8601 형식이 아님 |
 | `ADMIN_005` USER_NOT_FOUND | 404 | `/apps/{slug}/users/{userId}` 조회 시 해당 유저 없음 |
+| `ADMIN_006` PG_REFUND_ONLY | 400 | 환불 대상 결제의 `channel` 이 `PG` 가 아님(IAP 는 스토어가 결제를 소유해 콘솔 대행 불가) |
+| `ADMIN_007` PAYMENT_NOT_FOUND | 404 | 환불 대상 슬러그 스키마에 그 `paymentId` 의 결제가 없음 |
 
 에러 응답은 다른 모든 API 와 동일한 `ApiResponse` 래퍼를 씁니다.
 
@@ -359,7 +395,7 @@ sequenceDiagram
 { "data": null, "error": { "code": "ADMIN_003", "message": "알 수 없는 앱이에요.", "details": null } }
 ```
 
-`ADMIN_003`/`ADMIN_005` 는 `BaseException` 계열(`AdminSlugNotFoundException`)이라 공용 `GlobalExceptionHandler` 가 자동 매핑하고, `ADMIN_004`(날짜 파싱 실패)와 `ADMIN_005`(유저 없음의 JDBC 0-rows 케이스)는 admin 컨트롤러 전용 `AdminControllerAdvice` 가 매핑합니다. 전체 에러 코드 카탈로그는 [`exception-handling.md`](../convention/exception-handling.md) 를 참고하세요.
+`ADMIN_003`/`ADMIN_005`/`ADMIN_006`/`ADMIN_007` 은 모두 `BaseException` 계열(각각 `AdminSlugNotFoundException`/`AdminPaymentNotFoundException`/`AdminUnsupportedRefundChannelException`)이라 공용 `GlobalExceptionHandler` 가 자동 매핑하고, `ADMIN_004`(날짜 파싱 실패)와 `ADMIN_005`(유저 없음의 JDBC 0-rows 케이스)는 admin 컨트롤러 전용 `AdminControllerAdvice` 가 매핑합니다. 이미 환불된 결제처럼 "포트가 거부하는" 케이스는 이 카탈로그에 없고 `core-payment-api`(`PaymentError`)/`core-billing-api`(`BillingError`) 쪽 코드가 그대로 노출돼요. 전체 에러 코드 카탈로그는 [`exception-handling.md`](../convention/exception-handling.md) 를 참고하세요.
 
 ---
 
