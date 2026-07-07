@@ -476,7 +476,8 @@ public record JwtProperties(
     String secret,
     Duration accessTokenTtl,
     Duration refreshTokenTtl,
-    String issuer
+    String issuer,
+    Duration adminAccessTokenTtl
 ) {
     public JwtProperties {
         if (secret == null || secret.length() < 32) {
@@ -491,11 +492,16 @@ public record JwtProperties(
         if (issuer == null || issuer.isBlank()) {
             throw new IllegalArgumentException("app.jwt.issuer must not be blank");
         }
+        if (adminAccessTokenTtl == null || adminAccessTokenTtl.isZero() || adminAccessTokenTtl.isNegative()) {
+            throw new IllegalArgumentException("app.jwt.admin-access-token-ttl must be positive");
+        }
     }
 }
 ```
 
 Compact constructor 가 보안 필수 조건을 강제합니다. 애플리케이션 부팅 시점에 잘못된 설정이 즉시 실패하므로, production 에서 토큰 검증이 약하게 동작하는 상황을 만들 수 없어요.
+
+`adminAccessTokenTtl` 은 운영 콘솔(superadmin) 전용 TTL 이에요 — `JwtService.issueAdminAccessToken` 이 이 값을 쓰고, 앱 유저용 `issueAccessToken` 은 계속 `accessTokenTtl`(15분)을 씁니다. 콘솔 세션이 앱 유저 TTL 에 종속되어 15분마다 재로그인해야 했던 문제를 이렇게 분리했어요. 자세한 흐름은 [`운영 콘솔 API`](../api-and-functional/admin-console.md) §2-2 참고.
 
 ### YAML 예시
 
@@ -507,6 +513,7 @@ app:
     access-token-ttl: PT15M
     refresh-token-ttl: P30D
     issuer: ${JWT_ISSUER:app-factory-local}
+    admin-access-token-ttl: ${JWT_ADMIN_ACCESS_TTL:PT12H}
 ```
 
 ```yaml
@@ -518,9 +525,10 @@ app:
     access-token-ttl: PT15M
     refresh-token-ttl: P30D
     issuer: ${JWT_ISSUER:app-factory-dev}   # prod 는 app-factory
+    admin-access-token-ttl: ${JWT_ADMIN_ACCESS_TTL:PT12H}
 ```
 
-dev(Mac mini)와 prod 는 default 값 없이 `${VAR}` strict 방식을 써서 환경변수 주입이 빠지면 즉시 실패하도록 합니다 — 운영 안전망이에요. issuer 만 prod(`app-factory`)와 dev(`app-factory-dev`)로 분리해서 토큰 출처를 구별해요.
+dev(Mac mini)와 prod 는 default 값 없이 `${VAR}` strict 방식을 써서 환경변수 주입이 빠지면 즉시 실패하도록 합니다 — 운영 안전망이에요. issuer 만 prod(`app-factory`)와 dev(`app-factory-dev`)로 분리해서 토큰 출처를 구별해요. `admin-access-token-ttl` 은 세 환경 모두 `${JWT_ADMIN_ACCESS_TTL:PT12H}` 로 동일한 default(12시간)를 두고, 필요하면 환경변수로 override 할 수 있어요.
 
 ---
 
