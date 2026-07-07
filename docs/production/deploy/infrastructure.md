@@ -310,7 +310,7 @@ postgres (Supabase 또는 로컬 docker)
 
 ### 10.3 Flyway 마이그레이션
 
-`new-app.sh` 는 모든 앱이 똑같이 받는 공통 마이그레이션 V001 ~ V015 를 앱의 `<slug>` schema 에 생성해요. 인증·결제·감사 기반이 여기에 들어갑니다. 본인 도메인 테이블은 **V016 부터** 직접 작성하면 돼요. V007 은 도메인이 아니라 admin user 시드라, V015 다음 빈 번호가 V016 입니다.
+`new-app.sh` 는 모든 앱이 똑같이 받는 공통 마이그레이션 V001 ~ V017 을 앱의 `<slug>` schema 에 생성해요. 인증·결제·감사 기반이 여기에 들어갑니다. 본인 도메인 테이블은 **V018 부터** 직접 작성하면 돼요. V007 은 도메인이 아니라 admin user 시드라, V017 다음 빈 번호가 V018 입니다.
 
 | 버전 | 내용 |
 |---|---|
@@ -319,7 +319,7 @@ postgres (Supabase 또는 로컬 docker)
 | V008 ~ V012 | 결제·구독·감사 — subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs |
 | V013 ~ V014 | 2FA (TOTP) 컬럼 · user_notification_settings |
 | V015 | auth_phone_verification_codes (휴대폰 점유인증, 옵트인 — 안 쓰면 삭제 가능) |
-| V016 ~ | 앱 도메인 테이블 (파생 레포가 직접 작성) |
+| V018 ~ | 앱 도메인 테이블 (파생 레포가 직접 작성) |
 
 > ADR-037 이후 `core/core-*-impl/src/main/resources/db/migration/core/` 의 production migration 7 개는 삭제됐어요. 각 앱은 자기 `<slug>` schema 만 마이그레이션합니다. `core/core-*-impl/src/test/resources/db/migration/core/` 는 Testcontainers 용으로만 잔존하며, 거기 파일의 버전 번호는 테스트 픽스처용이라 위 운영 번호 체계와는 별개예요. production runtime 에는 영향이 없습니다.
 

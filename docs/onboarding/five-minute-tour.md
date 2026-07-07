@@ -83,7 +83,7 @@ apps/app-gymlog/                             ← 새 앱 모듈 디렉터리
     └── V015__init_auth_phone_verification_codes.sql ← 휴대폰 점유인증 (선택)
 ```
 
-[Flyway](../reference/glossary.md#데이터베이스) 마이그레이션이 꽤 많아 보이지만, 대부분 모든 앱이 똑같이 쓰는 인증·결제 기반이에요. 본인 도메인 테이블은 V016 부터 직접 작성하면 돼요. 자세한 구성은 [`Onboarding §3`](../start/onboarding.md#3-첫-앱-모듈-추가) 에 표로 정리돼 있어요.
+[Flyway](../reference/glossary.md#데이터베이스) 마이그레이션이 꽤 많아 보이지만, 대부분 모든 앱이 똑같이 쓰는 인증·결제 기반이에요. 본인 도메인 테이블은 V018 부터 직접 작성하면 돼요. 자세한 구성은 [`Onboarding §3`](../start/onboarding.md#3-첫-앱-모듈-추가) 에 표로 정리돼 있어요.
 
 그리고 PostgreSQL 쪽에서도 두 가지가 자동으로 생겨요.
 
