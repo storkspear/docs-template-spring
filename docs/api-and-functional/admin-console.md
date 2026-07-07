@@ -284,7 +284,7 @@ sequenceDiagram
 
 `payment_history` 를 `users` 와 조인해 이메일까지 함께 보여주는 목록 조회예요. `query` 는 `users.email` 에 대한 `ILIKE` 부분일치, `channel`/`status`/`type` 은 정확 일치, `from`/`to` 는 `paid_at` 기준 ISO-8601 범위(형식이 잘못되면 400 `ADMIN_004`). `page`/`size` 는 §4-4 와 동일한 clamp 규칙.
 
-`paymentType` 은 `payment_history` 자체 컬럼이 아니라 `subscriptions.payment_record_id` 또는 `subscription_renewals.payment_record_id` 가 그 결제 건을 역참조하는지로 유도해요 — 하나라도 있으면 `"SUBSCRIPTION"`(정기 결제/갱신 시도에 연결된 결제), 없으면 `"ONE_TIME"`(단건 결제). `type` 쿼리 파라미터로 이 유도값을 그대로 필터링할 수 있어요.
+`paymentType` 은 `payment_history.payment_type` 컬럼(기록 시점 확정)이에요 — 구독 활성화/갱신이 이 결제 건을 `payment_record_id` 로 링크하는 순간 같은 트랜잭션에서 `"SUBSCRIPTION"` 으로 확정되고, 그 외에는 기본값 `"ONE_TIME"`(단건 결제)이에요. `type` 쿼리 파라미터로 이 컬럼 값을 그대로 필터링할 수 있어요.
 
 ```json
 {
