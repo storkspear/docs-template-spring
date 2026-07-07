@@ -73,7 +73,7 @@ sequenceDiagram
 
 ## 3. 엔드포인트 카탈로그
 
-9개 조회 엔드포인트 + v1.5 확장 2개(운영 신호 + 활동 ping) = 총 **11개**입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
+12개 조회 엔드포인트(#1~12)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
 
 | # | 메서드 · 경로 | 인증 | 데이터 소스 |
 |---|---|---|---|
@@ -88,6 +88,7 @@ sequenceDiagram
 | 9 | `GET /api/admin/audit-logs?slug&...&page&size` | superadmin | `slug` 지정 시 단일 스키마, 미지정 시 fan-out 병합 |
 | 10 | `GET /api/admin/analytics/{metric}?slug&from&to` | superadmin | `metric∈{dau,signups,revenue}` — 단일 슬러그 일별 시계열 |
 | 11 | `GET /api/admin/apps/{slug}/ops` | superadmin | 단일 슬러그 — 갱신 실패율·webhook 처리·리텐션 (v1.5) |
+| 12 | `GET /api/admin/apps/{slug}/payments?query&channel&status&type&from&to&page&size` | superadmin | 단일 슬러그 — `payment_history`+`users` 조인 목록 (v1.5) |
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
 
 ---
@@ -278,6 +279,27 @@ sequenceDiagram
 ```
 
 `renewalFailures7d` 는 `subscription_renewals.status <> 'SUCCESS'`(즉 `FAILED` + `ABANDONED`) 를 모두 셉니다 — 재시도 대기 중인 것도, 최종 실패한 것도 운영자가 봐야 할 신호이기 때문이에요. `retentionD1`/`retentionD7` 은 코호트 크기가 0이면 `null` 입니다(React 는 "데이터 수집 중"으로 표시).
+
+### 4-10. `GET /api/admin/apps/{slug}/payments` — 결제 내역 목록 (v1.5)
+
+`payment_history` 를 `users` 와 조인해 이메일까지 함께 보여주는 목록 조회예요. `query` 는 `users.email` 에 대한 `ILIKE` 부분일치, `channel`/`status`/`type` 은 정확 일치, `from`/`to` 는 `paid_at` 기준 ISO-8601 범위(형식이 잘못되면 400 `ADMIN_004`). `page`/`size` 는 §4-4 와 동일한 clamp 규칙.
+
+`paymentType` 은 `payment_history` 자체 컬럼이 아니라 `subscriptions.payment_record_id` 또는 `subscription_renewals.payment_record_id` 가 그 결제 건을 역참조하는지로 유도해요 — 하나라도 있으면 `"SUBSCRIPTION"`(정기 결제/갱신 시도에 연결된 결제), 없으면 `"ONE_TIME"`(단건 결제). `type` 쿼리 파라미터로 이 유도값을 그대로 필터링할 수 있어요.
+
+```json
+{
+  "data": {
+    "content": [
+      { "id": 11, "userId": 1, "userEmail": "user@example.com", "channel": "PG",
+        "amount": 9900, "currency": "KRW", "status": "PAID",
+        "paidAt": "2026-06-01T00:00:00Z", "refundedAt": null,
+        "externalId": "imp_123456789", "paymentType": "SUBSCRIPTION" }
+    ],
+    "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
+  },
+  "error": null
+}
+```
 
 ---
 
