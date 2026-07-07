@@ -73,7 +73,7 @@
 
 | verb | local | 비고 |
 |---|---|---|
-| **new app** `[slug]` | 새 앱 모듈 (schema + 공통 마이그레이션 V001~V015 + 검증). V007 은 그중 admin 시드예요. `slug` 생략 시 prompt | `tools/new-app/new-app.sh` |
+| **new app** `[slug]` | 새 앱 모듈 (schema + 공통 마이그레이션 V001~V017 + 검증). V007 은 그중 admin 시드예요. `slug` 생략 시 prompt | `tools/new-app/new-app.sh` |
 | **remove app** `<slug>` | 앱 모듈 완전 제거 (코드 + .env + local/dev schema·role). prod 미지원 | `tools/new-app/remove-app.sh` |
 | **feature list** | Lite 모드 토글 가능 모듈 + 현재 상태 (ADR-034) | `local feature` 만 |
 | **feature enable** `<n>` | `APP_FEATURES_<N>=true` (`.env` + `.env.prod` 동시 갱신) | — |
@@ -125,8 +125,8 @@
 
 # 3) (선택) 새 앱 추가
 <repo> new myapp
-   → apps/app-myapp + schema + 공통 마이그레이션 V001~V015 (V007 은 admin 시드)
-   → 도메인 테이블은 V016 부터 직접 작성
+   → apps/app-myapp + schema + 공통 마이그레이션 V001~V017 (V007 은 admin 시드)
+   → 도메인 테이블은 V018 부터 직접 작성
    → 끝나면: <repo> local restart   (새 코드 반영)
 ```
 
@@ -222,13 +222,13 @@ GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 5 단
 
 ```bash
 # dry-run (실제 적용은 일어나지 않고 SQL 만 출력해요)
-<repo> prod migrate <slug> V016__add_my_table --dry-run
+<repo> prod migrate <slug> V018__add_my_table --dry-run
 
 # 실제 적용
-<repo> prod migrate <slug> V016__add_my_table
+<repo> prod migrate <slug> V018__add_my_table
 
 # checksum 어긋남 등 의도적 force (운영 DB 를 직접 수정하므로 주의)
-<repo> prod migrate <slug> V016__add_my_table --force
+<repo> prod migrate <slug> V018__add_my_table --force
 ```
 
 자세한 절차는 [`flyway-runbook`](../production/deploy/flyway-runbook.md) 을 참조하세요. 결정 근거는 [`ADR-033 Flyway Hybrid`](../philosophy/adr-033-flyway-hybrid-policy.md) 에 정리되어 있어요.

@@ -72,7 +72,7 @@
      - GymlogAuthController (/api/apps/gymlog/auth/*)
      - GymlogDataSourceConfig (gymlog schema 전용)
      - GymlogAppAutoConfiguration
-     - V001~V015 마이그레이션 (users, auth_social_identities, auth_refresh_tokens, V007 admin 시드 등)
+     - V001~V017 마이그레이션 (users, auth_social_identities, auth_refresh_tokens, user_activity_days 등)
      - build.gradle
 3. 도메인 코드 작성 (controller / service / entity / repository / Flyway)
 4. core-* 는 건드리지 않음 — 새 기능이 core 에 필요하면 별도 ADR
