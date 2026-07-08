@@ -76,7 +76,7 @@ sequenceDiagram
 
 ## 3. 엔드포인트 카탈로그
 
-12개 조회 엔드포인트(#1~12) + 1개 write 엔드포인트(#13, 환불)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
+13개 조회 엔드포인트(#1~12, #14) + 1개 write 엔드포인트(#13, 환불)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
 
 | # | 메서드 · 경로 | 인증 | 데이터 소스 |
 |---|---|---|---|
@@ -89,10 +89,11 @@ sequenceDiagram
 | 7 | `GET /api/admin/apps/{slug}/users/{userId}` | superadmin | 단일 슬러그 — `users`+`devices`+`subscriptions`+`payment_history`(최근 10건) |
 | 8 | `GET /api/admin/apps/{slug}/billing?from&to` | superadmin | 단일 슬러그 — `payment_history` 집계 |
 | 9 | `GET /api/admin/audit-logs?slug&...&page&size` | superadmin | `slug` 지정 시 단일 스키마, 미지정 시 fan-out 병합 |
-| 10 | `GET /api/admin/analytics/{metric}?slug&from&to` | superadmin | `metric∈{dau,signups,revenue}` — 단일 슬러그 일별 시계열 |
+| 10 | `GET /api/admin/analytics/{metric}?slug&from&to` | superadmin | `metric∈{dau,signups,revenue}` — `slug` 생략 시 전 슬러그 fan-out sum-merge (v1.7), 지정 시 단일 슬러그 일별 시계열 |
 | 11 | `GET /api/admin/apps/{slug}/ops` | superadmin | 단일 슬러그 — 갱신 실패율·webhook 처리·리텐션 (v1.5) |
 | 12 | `GET /api/admin/apps/{slug}/payments?query&channel&status&type&from&to&page&size` | superadmin | 단일 슬러그 — `payment_history`+`users` 조인 목록 (v1.5) |
 | 13 | `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` | superadmin | 단일 슬러그 — PG 환불(write). `PaymentPort`/`BillingPort` 재사용 |
+| 14 | `GET /api/admin/dashboard/top-customers?window&size` | superadmin | 슬러그 fan-out — 결제 TOP N 고객 병합 후 금액 내림차순 재정렬 (v1.7) |
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
 
 ---
@@ -125,7 +126,8 @@ sequenceDiagram
     "totals": {
       "users": 640, "newUsers": 45, "dau": 88, "mau": 310,
       "revenue": 8000000, "refunded": 120000,
-      "activeSubscriptions": 235, "failures24h": 2
+      "activeSubscriptions": 235, "failures24h": 2,
+      "renewalFailures7d": 6, "webhookPending": 1, "webhookFailed": 3
     },
     "perSlug": [
       { "slug": "gymlog", "users": 128, "newUsers": 10, "dau": 20, "mau": 70,
@@ -137,6 +139,8 @@ sequenceDiagram
 ```
 
 `revenue`/`refunded` 는 §5 의 gross 시맨틱을 따릅니다. `failures24h` 는 `audit_logs` 의 `result='FAILURE'` 이고 `occurred_at` 이 최근 24시간 이내인 건수예요.
+
+`renewalFailures7d`/`webhookPending`/`webhookFailed` 는 §4-9(운영 신호)와 **동일 SQL 시맨틱**을 전 슬러그로 합산한 치명신호 필드예요(v1.7, additive). `perSlug`(`SlugMetricsResponse`)에는 반영하지 않고 `totals` 에만 추가했어요 — 앱별 세부 신호는 §4-9 `GET /api/admin/apps/{slug}/ops` 로 확인하세요.
 
 ### 4-3. `GET /api/admin/apps/{slug}/metrics` — 앱 단일 지표
 
@@ -243,7 +247,7 @@ sequenceDiagram
 
 ### 4-8. `GET /api/admin/analytics/{metric}` — 분석 시계열
 
-`metric` 은 경로변수, `slug` 는 **필수** 쿼리 파라미터(생략 시 400). 지원 metric 은 3종류. 지원하지 않는 값은 400 `ADMIN_002`.
+`metric` 은 경로변수, `slug` 는 **선택** 쿼리 파라미터예요(v1.7 — 이전엔 필수였습니다). 지원 metric 은 3종류. 지원하지 않는 값은 400 `ADMIN_002`.
 
 | metric | 데이터 소스 | 의미 |
 |---|---|---|
@@ -265,6 +269,8 @@ sequenceDiagram
 ```
 
 `dau` 시계열은 `user_activity_days` 추적 시작일 이전 구간에는 데이터가 없습니다 — 차트는 데이터가 쌓인 구간만 표시하세요.
+
+**`slug` 생략 시 — 전 슬러그 합산 모드(v1.7)**: `slug` 를 지정하면 그 앱만(기존 동작), 생략(또는 blank)하면 `AdminSlugRegistry.slugs()` 전체를 순회해 동일 쿼리를 돌리고 **일자(`ts`)별로 값을 sum-merge** 합니다 — 한쪽 슬러그에만 있는 날짜도 결과에 그대로 포함돼요(그 날짜의 값 = 그 슬러그 값 그대로). 응답 shape 은 단일 슬러그 조회와 동일합니다.
 
 ### 4-9. `GET /api/admin/apps/{slug}/ops` — 운영 신호 (v1.5)
 
@@ -337,6 +343,22 @@ IAP 결제 환불 시도 응답:
 { "data": null, "error": { "code": "ADMIN_006", "message": "PG 결제만 콘솔에서 환불할 수 있어요.", "details": { "channel": "IAP" } } }
 ```
 
+### 4-12. `GET /api/admin/dashboard/top-customers` — 결제 TOP N 고객 (v1.7)
+
+`window`(기본 `"30d"`, `"7d"` 도 가능, 그 외 값은 `30d`)와 `size`(기본 5, `[1,20]` 범위로 clamp — 내부 콘솔 전용이라 400 대신 보정)를 받아 전 슬러그의 결제 TOP N 을 병합합니다.
+
+슬러그별로 `payment_history` 를 `users` 와 조인해(§5-1 gross 시맨틱과 동일하게 `status IN ('PAID','REFUNDED')` 필터) 유저당 합산 금액 기준 상위 `size` 명을 먼저 뽑고, 전 슬러그 결과를 합쳐 `totalAmount` 내림차순으로 다시 상위 `size` 만 추립니다 — 슬러그별 상위 `size` 사전 필터링만으로 전역 정확도가 보장돼요(한 슬러그가 최종 top-`size` 에 `size` 건보다 많이 기여할 수 없기 때문).
+
+```json
+{
+  "data": [
+    { "slug": "gymlog", "userId": 7, "userEmail": "vip@example.com", "totalAmount": 990000, "paymentCount": 12 },
+    { "slug": "sumtally", "userId": 3, "userEmail": "big@example.com", "totalAmount": 450000, "paymentCount": 5 }
+  ],
+  "error": null
+}
+```
+
 ---
 
 ## 5. 핵심 시맨틱 정의
@@ -353,7 +375,7 @@ IAP 결제 환불 시도 응답:
 | `refunded` | `refunded_at` 이 조회 기간에 속하는 건의 `amount` 합 |
 | `net` | `gross - refunded` |
 
-대시보드(§4-2)·앱 metrics(§4-3)·billing(§4-6)·analytics revenue(§4-8) **4곳 모두** 이 시맨틱을 동일하게 따릅니다. 구현은 `AdminMetricsService`/`AdminDashboardService`/`AdminAnalyticsService` 를 참고하세요.
+대시보드(§4-2)·앱 metrics(§4-3)·billing(§4-6)·analytics revenue(§4-8) **4곳 모두** 이 시맨틱을 동일하게 따릅니다. 구현은 `AdminMetricsService`/`AdminDashboardService`/`AdminAnalyticsService` 를 참고하세요. top-customers(§4-12)도 랭킹 대상을 뽑을 때 같은 `status IN ('PAID', 'REFUNDED')` 필터를 씁니다.
 
 ### 5-2. 리텐션 정의 — 코호트 D1/D7
 
