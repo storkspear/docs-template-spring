@@ -21,7 +21,7 @@
 
 - **cross-app 조회 = in-process fan-out** — MSA 라면 필요했을 서비스 간 호출·분산 트랜잭션이 없습니다. 모든 앱이 한 JVM·한 Postgres 인스턴스에 있어서, 슬러그별 `JdbcTemplate` 을 순회하며 메모리에서 합산·병합할 뿐이에요.
 - **조회는 JPA 미사용** — `core-admin-impl` 은 다른 `core-*-impl` 의 리포지토리를 재사용할 수 없다는 impl→impl 의존 금지 규칙 때문에, 모든 조회를 `JdbcTemplate` 직접 쿼리로 구현합니다.
-- **write(환불)는 포트 재사용** — 유일한 write 액션인 결제 환불(§4-11)만 예외예요. `core-admin-impl` 이 자체 JPA를 갖는 게 아니라, `core-billing-api`/`core-payment-api` 의 **포트 인터페이스**(`PaymentPort`/`BillingPort`)만 의존해서 앱쪽 결제 컨트롤러가 쓰는 것과 **같은 포트 메서드**를 그대로 호출해요(impl→impl 의존은 여전히 금지 — api 포트 인터페이스만 compileOnly 의존).
+- **write 는 포트 재사용** — 결제 환불(§4-11)과 파일 검역/복원/삭제(§4-14~4-16, v1.8)가 write 액션이에요. `core-admin-impl` 이 자체 JPA를 갖는 게 아니라, `core-billing-api`/`core-payment-api`/`core-storage-api` 의 **포트 인터페이스**(`PaymentPort`/`BillingPort`/`StoragePort`)만 의존해서 앱쪽 컨트롤러가 쓰는 것과 **같은 포트 메서드**를 그대로 호출해요(impl→impl 의존은 여전히 금지 — api 포트 인터페이스만 compileOnly 의존). 파일 관리는 슬러그별 schema 가 아니라 슬러그별 **bucket**(`<slug>-uploads`)을 다루기 때문에 `JdbcTemplate` 을 전혀 쓰지 않아요 — `AdminSlugRegistry` 는 슬러그 존재 검증 용도로만 씁니다.
 - **응답 포맷은 템플릿 표준을 그대로 따름** — `ApiResponse<T>`(`{ data, error }`) 래퍼와 목록 조회의 `PageResponse<T>` 는 [`API Response Format`](./api/api-response.md) 과 동일합니다.
 
 ---
@@ -76,7 +76,7 @@ sequenceDiagram
 
 ## 3. 엔드포인트 카탈로그
 
-13개 조회 엔드포인트(#1~12, #14) + 1개 write 엔드포인트(#13, 환불)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
+14개 조회 엔드포인트(#1~12, #14~15) + 4개 write 엔드포인트(#13 환불, #16~18 파일 검역/복원/삭제)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
 
 | # | 메서드 · 경로 | 인증 | 데이터 소스 |
 |---|---|---|---|
@@ -94,6 +94,10 @@ sequenceDiagram
 | 12 | `GET /api/admin/apps/{slug}/payments?query&channel&status&type&from&to&page&size` | superadmin | 단일 슬러그 — `payment_history`+`users` 조인 목록 (v1.5) |
 | 13 | `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` | superadmin | 단일 슬러그 — PG 환불(write). `PaymentPort`/`BillingPort` 재사용 |
 | 14 | `GET /api/admin/dashboard/top-customers?window&size` | superadmin | 슬러그 fan-out — 결제 TOP N 고객 병합 후 금액 내림차순 재정렬 (v1.7) |
+| 15 | `GET /api/admin/apps/{slug}/files?prefix&max` | superadmin | 단일 슬러그 — `<slug>-uploads` bucket 목록 (v1.8) |
+| 16 | `POST /api/admin/apps/{slug}/files/quarantine?key` | superadmin | 단일 슬러그 — bucket write(검역, write). `StoragePort` 재사용 (v1.8) |
+| 17 | `POST /api/admin/apps/{slug}/files/restore?key` | superadmin | 단일 슬러그 — bucket write(복원, write) (v1.8) |
+| 18 | `DELETE /api/admin/apps/{slug}/files?key` | superadmin | 단일 슬러그 — bucket write(불가역 삭제) (v1.8) |
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
 
 ---
@@ -359,6 +363,51 @@ IAP 결제 환불 시도 응답:
 }
 ```
 
+### 4-13. `GET /api/admin/apps/{slug}/files` — 업로드 파일 목록 (v1.8)
+
+앱별 업로드 bucket(`<slug>-uploads` 컨벤션 — [`스토리지 버킷 격리`](../production/setup/storage-bucket-isolation.md) §2)의 object 를 `prefix` 로 필터링해 조회해요. `max`(기본 200)는 §4-4 와 같은 내부 콘솔 clamp 규칙으로 `[1, 1000]` 범위로 보정됩니다. `url` 은 만료 ~10분짜리 presigned GET URL(미리보기/다운로드 용도)이고, `quarantined` 는 `key` 가 `quarantine/` 프리픽스로 시작하는지로 판정해요.
+
+```json
+{
+  "data": {
+    "files": [
+      { "key": "avatars/42.png", "size": 10240, "lastModified": "2026-07-06T10:00:00Z",
+        "url": "https://minio.example.com/gymlog-uploads/avatars/42.png?X-Amz-...", "quarantined": false },
+      { "key": "quarantine/avatars/7.png", "size": 5120, "lastModified": "2026-07-05T09:00:00Z",
+        "url": "https://minio.example.com/gymlog-uploads/quarantine/avatars/7.png?X-Amz-...", "quarantined": true }
+    ],
+    "truncated": false
+  },
+  "error": null
+}
+```
+
+`truncated` 는 실제 object 수가 `max` 를 초과해 목록이 잘렸는지 여부예요(별도 COUNT 쿼리 없이 `max+1` 개를 조회해 판정).
+
+### 4-14. `POST /api/admin/apps/{slug}/files/quarantine` — 파일 검역 (write, v1.8)
+
+유해 컨텐츠 대응용 write 액션이에요. `key` 를 `quarantine/` 프리픽스 하위로 옮깁니다(`StoragePort.copyObject` + `deleteObject` 조합 — move 는 별도 API 가 없어 두 호출을 조합해요). 이미 `quarantine/` 로 시작하는 `key` 를 다시 검역하려 하면 400 `ADMIN_008`.
+
+```json
+{ "data": { "key": "quarantine/avatars/42.png", "size": 10240, "lastModified": "2026-07-07T09:10:00Z", "url": "https://minio.example.com/...", "quarantined": true }, "error": null }
+```
+
+### 4-15. `POST /api/admin/apps/{slug}/files/restore` — 파일 복원 (write, v1.8)
+
+`quarantine/` 프리픽스를 제거해 원래 위치로 되돌려요. 검역되지 않은(즉 `quarantine/` 로 시작하지 않는) `key` 를 복원하려 하면 400 `ADMIN_009`.
+
+```json
+{ "data": { "key": "avatars/42.png", "size": 10240, "lastModified": "2026-07-07T09:20:00Z", "url": "https://minio.example.com/...", "quarantined": false }, "error": null }
+```
+
+### 4-16. `DELETE /api/admin/apps/{slug}/files` — 파일 삭제 (write, v1.8)
+
+불가역 삭제예요. `StoragePort.deleteObject` 가 idempotent(존재하지 않는 key 를 지워도 예외 없음)라 이 엔드포인트도 그렇습니다. 본문 없이 204 No Content 를 돌려줘요(`ApiResponse.empty()` — [`API Response Format`](./api/api-response.md) 의 "본문 없는 성공" 참고).
+
+**§4-13~4-16 공통 검증 순서**: `AdminSlugRegistry.has(slug)` 가 false 면 404 `ADMIN_003` — bucket 이름 자체를 슬러그로부터 조립하기 때문에(schema 라우팅과 달리 코드가 bucket 접근을 막지 않음) 존재하지 않는 슬러그를 조기에 걸러내는 이 검증이 유일한 방어선이에요. 검역/복원 대상 `key` 가 실제로 존재하지 않으면 `StoragePort.copyObject` 가 던지는 `StorageException`(`STG_002 OBJECT_NOT_FOUND`, 404)이 그대로 노출됩니다 — §4-11 의 "포트가 거부하는 케이스는 그대로 노출" 패턴과 동일하게, 이 도메인에 별도 FILE_NOT_FOUND 코드를 새로 만들지 않았어요.
+
+**감사로그**: `@Audited("admin.file.quarantine"/"admin.file.restore"/"admin.file.delete")` 가 §4-11 환불과 동일하게 `AuditAspect` 를 트리거해요. 컨트롤러가 서비스 호출 전 `SlugContext` 를 대상 슬러그로 스왑(`try`)하고 호출 후 원복(`finally`)하기 때문에, 감사 이벤트는 대상 앱 슬러그의 스키마에 남습니다 — bucket 접근 자체는 이름으로 직접 라우팅돼 `SlugContext` 를 보지 않지만, 감사로그 라우팅을 위해 스왑이 필요해요.
+
 ---
 
 ## 5. 핵심 시맨틱 정의
@@ -401,7 +450,7 @@ IAP 결제 환불 시도 응답:
 
 ---
 
-## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_007`
+## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_009`
 
 | 코드 | HTTP | 발생 상황 |
 |---|---|---|
@@ -412,6 +461,8 @@ IAP 결제 환불 시도 응답:
 | `ADMIN_005` USER_NOT_FOUND | 404 | `/apps/{slug}/users/{userId}` 조회 시 해당 유저 없음 |
 | `ADMIN_006` PG_REFUND_ONLY | 400 | 환불 대상 결제의 `channel` 이 `PG` 가 아님(IAP 는 스토어가 결제를 소유해 콘솔 대행 불가) |
 | `ADMIN_007` PAYMENT_NOT_FOUND | 404 | 환불 대상 슬러그 스키마에 그 `paymentId` 의 결제가 없음 |
+| `ADMIN_008` FILE_ALREADY_QUARANTINED | 400 | 이미 `quarantine/` 프리픽스인 `key` 를 다시 검역 시도(v1.8) |
+| `ADMIN_009` FILE_NOT_QUARANTINED | 400 | `quarantine/` 프리픽스가 아닌 `key` 를 복원 시도(v1.8) |
 
 에러 응답은 다른 모든 API 와 동일한 `ApiResponse` 래퍼를 씁니다.
 
@@ -419,7 +470,7 @@ IAP 결제 환불 시도 응답:
 { "data": null, "error": { "code": "ADMIN_003", "message": "알 수 없는 앱이에요.", "details": null } }
 ```
 
-`ADMIN_003`/`ADMIN_005`/`ADMIN_006`/`ADMIN_007` 은 모두 `BaseException` 계열(각각 `AdminSlugNotFoundException`/`AdminPaymentNotFoundException`/`AdminUnsupportedRefundChannelException`)이라 공용 `GlobalExceptionHandler` 가 자동 매핑하고, `ADMIN_004`(날짜 파싱 실패)와 `ADMIN_005`(유저 없음의 JDBC 0-rows 케이스)는 admin 컨트롤러 전용 `AdminControllerAdvice` 가 매핑합니다. 이미 환불된 결제처럼 "포트가 거부하는" 케이스는 이 카탈로그에 없고 `core-payment-api`(`PaymentError`)/`core-billing-api`(`BillingError`) 쪽 코드가 그대로 노출돼요. 전체 에러 코드 카탈로그는 [`exception-handling.md`](../convention/exception-handling.md) 를 참고하세요.
+`ADMIN_003`/`ADMIN_005`/`ADMIN_006`/`ADMIN_007`/`ADMIN_008`/`ADMIN_009` 는 모두 `BaseException` 계열(각각 `AdminSlugNotFoundException`/`AdminPaymentNotFoundException`/`AdminUnsupportedRefundChannelException`/`AdminFileAlreadyQuarantinedException`/`AdminFileNotQuarantinedException`)이라 공용 `GlobalExceptionHandler` 가 자동 매핑하고, `ADMIN_004`(날짜 파싱 실패)와 `ADMIN_005`(유저 없음의 JDBC 0-rows 케이스)는 admin 컨트롤러 전용 `AdminControllerAdvice` 가 매핑합니다. 이미 환불된 결제처럼 "포트가 거부하는" 케이스는 이 카탈로그에 없고 `core-payment-api`(`PaymentError`)/`core-billing-api`(`BillingError`)/`core-storage-api`(`StorageError`, 예: 검역/복원 대상 `key` 가 없으면 `STG_002 OBJECT_NOT_FOUND`) 쪽 코드가 그대로 노출돼요. 전체 에러 코드 카탈로그는 [`exception-handling.md`](../convention/exception-handling.md) 를 참고하세요.
 
 ---
 
@@ -449,3 +500,5 @@ IAP 결제 환불 시도 응답:
 - [`Exception Handling`](../convention/exception-handling.md) — 전체 에러 코드 카탈로그 규약
 - [`ADR-027 · admin role 권한 분리`](../philosophy/adr-027-admin-role-authorization.md) — `ROLE_ADMIN`(앱 내부) vs `ROLE_SUPERADMIN`(콘솔) 구분
 - [`ADR-028 · audit log 도메인`](../philosophy/adr-028-audit-log-domain.md) — `audit_logs` 가 쌓이는 방식(AOP)
+- [`오브젝트 스토리지 규약`](./functional/storage.md) — `StoragePort`, presigned URL, object key 패턴
+- [`스토리지 버킷 격리`](../production/setup/storage-bucket-isolation.md) — `<slug>-uploads` bucket 네이밍 컨벤션(§4-13~4-16 이 의존)
