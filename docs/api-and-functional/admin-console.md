@@ -300,14 +300,17 @@ sequenceDiagram
 
 `paymentType` 은 `payment_history.payment_type` 컬럼(기록 시점 확정)이에요 — 구독 활성화/갱신이 이 결제 건을 `payment_record_id` 로 링크하는 순간 같은 트랜잭션에서 `"SUBSCRIPTION"` 으로 확정되고, 그 외에는 기본값 `"ONE_TIME"`(단건 결제)이에요. `type` 쿼리 파라미터로 이 컬럼 값을 그대로 필터링할 수 있어요.
 
+`refundedAmount` 는 누적 환불액(`payment_history.refunded_amount`)이에요 — 부분환불(§4-11) 추적용이고, `amount - refundedAmount` 가 남은 환불 가능액이에요. `periodStart`/`periodEnd` 는 이 결제에 링크된 구독의 현재 기간(`subscriptions.started_at`/`expires_at`)을 `LEFT JOIN LATERAL` 로 붙인 값이에요 — 부분환불 모달의 **일할계산**(잔여기간 비례) 근거로 쓰고, 비구독·미링크 결제는 `null` 이에요.
+
 ```json
 {
   "data": {
     "content": [
       { "id": 11, "userId": 1, "userEmail": "user@example.com", "channel": "PG",
-        "amount": 9900, "currency": "KRW", "status": "PAID",
+        "amount": 9900, "refundedAmount": 0, "currency": "KRW", "status": "PAID",
         "paidAt": "2026-06-01T00:00:00Z", "refundedAt": null,
-        "externalId": "imp_123456789", "paymentType": "SUBSCRIPTION" }
+        "externalId": "imp_123456789", "paymentType": "SUBSCRIPTION",
+        "periodStart": "2026-06-01T00:00:00Z", "periodEnd": "2026-07-01T00:00:00Z" }
     ],
     "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
   },
@@ -315,27 +318,38 @@ sequenceDiagram
 }
 ```
 
-### 4-11. `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` — PG 환불 (write, v1.6)
+### 4-11. `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` — PG 환불 (write, v1.6 · 부분환불 v1.9)
 
-이 콘솔의 **첫 write 액션**이에요. 본문 없이 호출하면 대상 결제를 전액 환불하고, 갱신된 결제 1건을 #4-10 과 동일한 `AdminPaymentListItemResponse` 로 돌려줘요(React 가 이 값으로 목록 행을 즉시 갱신).
+이 콘솔의 **첫 write 액션**이에요. 요청 본문은 `{ "amount": <원, 선택>, "reason": <필수> }` — `amount` 를 생략(또는 `null`)하면 **남은 잔액 전액**을, 양수를 주면 그 금액만 **부분환불**해요(잔액 이하만 허용). 갱신된 결제 1건을 #4-10 과 동일한 `AdminPaymentListItemResponse` 로 돌려줘요(React 가 이 값으로 목록 행을 즉시 갱신).
 
-**흐름**: admin 요청은 `SlugContext` 가 `"admin"` 으로 고정돼 있어요. 컨트롤러가 서비스 호출 직전에 대상 슬러그로 스왑(`try`) → 원복(`finally`) 하고, 서비스는 그 스왑된 컨텍스트 안에서 앱쪽 결제 컨트롤러가 쓰는 것과 **같은** `PaymentPort.refund(...)` 를 호출해요(환불 로직 중복 없음). `PaymentPort` 는 PortOne 통신만 하고 로컬 `payment_history` 는 안 건드리기 때문에(ADR-019), 환불 성공 직후 **같은 (source, externalId) 로 `BillingPort.handleWebhook(...)` 을 직접 트리거**해서 앱쪽 실제 webhook 이 도착했을 때와 동일한 코드 경로로 `payment_history` 를 `REFUNDED` 로 반영해요 — idempotency 키(source, externalId)를 공유하므로 이후 PortOne 의 진짜 webhook 이 도착해도 이미 처리된 걸로 안전하게 skip 됩니다.
+**부분환불 모델**(E-Commerce/구독 서비스 관행): `payment_history.refunded_amount` 에 누적 환불액을 쌓아요. `amount - refunded_amount` 가 남은 환불 가능액이고, 잔액을 다 환불하면 `REFUNDED`, 일부만 남기면 `PARTIALLY_REFUNDED` 로 상태가 바뀌어요(둘 다 환불 가능 상태 → 잔액이 남는 한 여러 번 부분환불 가능). 구독 결제는 응답의 `periodStart`/`periodEnd`(§4-10)로 프론트가 **일할계산**(잔여기간 비례 환불액) 버튼을 제공해요 — 한국 계속거래/전자상거래법의 잔여분 환급 관행.
+
+**환불 이력 원장**: 환불 1건마다 `payment_refunds`(금액·사유·처리자 email·시각) 에 1행을 기록해요 — 누적값만으로는 다회 부분환불 시 건별 사유/시각/처리자가 덮여 사라지기 때문이에요. `GET /api/admin/apps/{slug}/payments/{paymentId}/refunds` 로 최신순 이력을 조회하고(모달의 "환불 이력" 리스트), 매출 `refunded` 집계(§5-1)도 이 원장을 씁니다.
+
+**흐름**: admin 요청은 `SlugContext` 가 `"admin"` 으로 고정돼 있어요. 컨트롤러가 서비스 호출 직전에 대상 슬러그로 스왑(`try`) → 원복(`finally`) 하고, 서비스는 그 스왑된 컨텍스트 안에서 앱쪽 결제 컨트롤러가 쓰는 것과 **같은** `PaymentPort.refund(...)`(전액이면 `amount=null`, 부분이면 해당 금액)를 호출해요(환불 로직 중복 없음). 상태 반영은 두 경로로 갈려요:
+- **첫 환불이 전액(`PAID` → 전액)**: 기존 경로 유지 — 환불 성공 직후 **같은 (source, externalId) 로 `BillingPort.handleWebhook(...)` 을 직접 트리거**해서 앱쪽 실제 webhook 이 도착했을 때와 동일한 코드 경로로 `payment_history` 를 `REFUNDED` 로 반영해요(idempotency 키 공유 → 이후 PortOne 진짜 webhook 도착해도 안전하게 skip).
+- **부분환불 · 부분→완납**: webhook(전액 `REFUNDED` 전제)을 쓰지 않고 `payment_history` 를 직접 갱신해요 — `status = PARTIALLY_REFUNDED | REFUNDED`, `refunded_amount` 누적, `refunded_at`/`refund_reason`.
 
 **검증 순서**:
 1. `AdminSlugRegistry.has(slug)` — 없는 슬러그면 404 `ADMIN_003`.
 2. 대상 슬러그 스키마에서 `paymentId` 조회 — 없으면 404 `ADMIN_007`.
 3. `channel != 'PG'`(즉 IAP)면 400 `ADMIN_006` — Apple/Google 스토어가 결제를 소유해서 콘솔이 환불을 대행할 수 없어요.
-4. 이미 환불된 결제 등 "포트가 거부하는" 케이스는 로컬에서 미리 막지 않고 `PaymentPort`/PortOne 이 던지는 예외를 그대로 `GlobalExceptionHandler` 가 매핑해요.
+4. 환불 가능 잔액이 0 이하이거나 상태가 `PAID`/`PARTIALLY_REFUNDED` 가 아니면 400 `ADMIN_021`(환불 불가 상태).
+5. 요청 금액이 남은 잔액을 초과하면 400 `ADMIN_020`(환불 금액 오류). `amount` 는 `@Positive` 라서 0·음수는 그 전에 bean validation(422 `CMN_*`)에서 걸러져요 — `ADMIN_020` 은 "잔액 초과" 전용이에요.
+6. 그 외 PortOne 이 거부하는 케이스는 `PaymentPort` 예외를 `GlobalExceptionHandler` 가 매핑해요.
 
 **감사로그**: `@Audited("admin.payment.refund")` 가 `AuditAspect` 를 트리거해요. 컨트롤러가 `SlugContext` 를 스왑한 *이후* 서비스를 호출하기 때문에, 감사 이벤트는 `"admin"` 이 아니라 **대상 앱 슬러그의 스키마**(`audit_logs`)에 남습니다.
+
+부분환불 응답(12000 중 4000 환불 → 잔액 8000):
 
 ```json
 {
   "data": {
     "id": 11, "userId": 1, "userEmail": "user@example.com", "channel": "PG",
-    "amount": 9900, "currency": "KRW", "status": "REFUNDED",
+    "amount": 12000, "refundedAmount": 4000, "currency": "KRW", "status": "PARTIALLY_REFUNDED",
     "paidAt": "2026-06-01T00:00:00Z", "refundedAt": "2026-07-07T09:10:00Z",
-    "externalId": "imp_123456789", "paymentType": "ONE_TIME"
+    "externalId": "imp_123456789", "paymentType": "SUBSCRIPTION",
+    "periodStart": "2026-06-01T00:00:00Z", "periodEnd": "2026-07-01T00:00:00Z"
   },
   "error": null
 }
@@ -345,6 +359,12 @@ IAP 결제 환불 시도 응답:
 
 ```json
 { "data": null, "error": { "code": "ADMIN_006", "message": "PG 결제만 콘솔에서 환불할 수 있어요.", "details": { "channel": "IAP" } } }
+```
+
+잔액 초과 환불 시도 응답:
+
+```json
+{ "data": null, "error": { "code": "ADMIN_020", "message": "환불 금액이 환불 가능 잔액을 벗어났어요.", "details": { "requested": 9999, "refundable": 8000 } } }
 ```
 
 ### 4-12. `GET /api/admin/dashboard/top-customers` — 결제 TOP N 고객 (v1.7)
@@ -412,19 +432,21 @@ IAP 결제 환불 시도 응답:
 
 ## 5. 핵심 시맨틱 정의
 
-### 5-1. gross 수금총액 — `status IN ('PAID', 'REFUNDED')`
+### 5-1. gross 수금총액 — `status IN ('PAID', 'REFUNDED', 'PARTIALLY_REFUNDED')`
 
-`payment_history.status` 는 `PaymentHistory.markRefunded()` 가 환불 시 `PAID` → `REFUNDED` 로 **덮어씁니다**(별도 플래그가 아니라 상태 자체가 바뀜). 이 때문에 gross 를 `status='PAID'` 로만 집계하면 환불된 결제가 gross 에서도 빠져버리고, 이어서 `gross - refunded` 로 다시 한 번 차감되는 **이중차감** 버그가 생깁니다.
+`payment_history.status` 는 환불 시 `PAID` → `REFUNDED`(전액) 또는 `PARTIALLY_REFUNDED`(부분, §4-11)로 **덮어씁니다**(별도 플래그가 아니라 상태 자체가 바뀜). 이 때문에 gross 를 `status='PAID'` 로만 집계하면 환불된 결제가 gross 에서도 빠져버리고, 이어서 `gross - refunded` 로 다시 한 번 차감되는 **이중차감** 버그가 생깁니다. 부분환불 건도 **전액이 한 번 수금**됐으므로 gross 엔 전액이 들어가야 해요(그래서 세 상태 모두 포함).
 
 올바른 시맨틱은 다음과 같습니다.
 
 | 필드 | 정의 |
 |---|---|
-| `gross` | `status IN ('PAID', 'REFUNDED')` 인 건의 `amount` 합 — **환불 여부와 무관하게 한 번이라도 수금된 금액의 총합** |
-| `refunded` | `refunded_at` 이 조회 기간에 속하는 건의 `amount` 합 |
+| `gross` | `status IN ('PAID', 'REFUNDED', 'PARTIALLY_REFUNDED')` 인 건의 `amount` 합 — **환불 여부와 무관하게 한 번이라도 수금된 금액의 총합** |
+| `refunded` | **`payment_refunds` 원장**에서 `refunded_at` 이 조회 기간에 속하는 건의 `amount` 합 — 부분/전액 환불마다 원장에 1행 쌓이므로, 다회 부분환불도 **각 환불이 실제 발생한 기간에 정확히 귀속**됩니다(§4-11) |
 | `net` | `gross - refunded` |
 
-대시보드(§4-2)·앱 metrics(§4-3)·billing(§4-6)·analytics revenue(§4-8) **4곳 모두** 이 시맨틱을 동일하게 따릅니다. 구현은 `AdminMetricsService`/`AdminDashboardService`/`AdminAnalyticsService` 를 참고하세요. top-customers(§4-12)도 랭킹 대상을 뽑을 때 같은 `status IN ('PAID', 'REFUNDED')` 필터를 씁니다.
+대시보드(§4-2)·앱 metrics(§4-3)·billing(§4-6)·analytics revenue(§4-8) **4곳 모두** 이 시맨틱을 동일하게 따릅니다. 구현은 `AdminMetricsService`/`AdminDashboardService`/`AdminAnalyticsService` 를 참고하세요. top-customers(§4-12)도 랭킹 대상을 뽑을 때 같은 `status IN ('PAID', 'REFUNDED', 'PARTIALLY_REFUNDED')` 필터를 씁니다.
+
+> **환불 원장으로 기간 귀속 정확**: `refunded` 는 `payment_history.refunded_amount`(누적)·`refunded_at`(마지막 값)이 아니라 `payment_refunds` **건별 원장**에서 집계합니다 — 한 결제를 서로 다른 기간에 걸쳐 여러 번 부분환불해도 각 건이 자기 기간에 정확히 잡혀요(예: 6월 4000 + 7월 3000 → 6월 4000·7월 3000). 과거(원장 도입 전) 환불 건은 V023 마이그레이션이 누적액 1행(시각=마지막 환불 시각)으로 백필합니다.
 
 ### 5-2. 리텐션 정의 — 코호트 D1/D7
 

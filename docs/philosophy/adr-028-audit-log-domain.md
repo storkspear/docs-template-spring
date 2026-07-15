@@ -228,6 +228,6 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id)
 
 - **Audit endpoint 노출** — `GET /api/admin/audit-logs?action=billing.&since=...` 같은 운영자 조회 endpoint. 비즈니스별 admin UI 결정 후 추가해요.
 - **세부 변경 추적** — JPA `@PreUpdate` 로 entity 변경 전후를 캡처해요 (예: User.role 변경 시 old/new 값). `details` JSONB 활용은 가능하지만 별도 사이클로 다뤄요.
-- **Audit log 보존 정책** — 영구 보관 vs 90일 후 archive. PCI-DSS 는 1년을 권장해요. 별도 cron 으로 archive table 로 이동시켜요.
+- ~~**Audit log 보존 정책**~~ — **구현됨.** `AuditRetentionScheduler`(`app.audit.retention.enabled` 로 게이팅)가 슬러그별 schema 를 순회하며 hot `audit_logs` 의 90일(`hot-days`) 경과분을 `audit_logs_archive`(V021, 원본 id 보존)로 원자적 이동(CTE `DELETE … RETURNING → INSERT`)하고, archive 의 365일(`archive-days`, PCI-DSS 권장) 경과분을 purge 합니다. `AttachmentPurgeScheduler` 와 동일 패턴.
 - **암호화** — actor_email·details 의 민감 정보 암호화. 필요 시 별도 사이클로 다뤄요.
 - **외부 SIEM 통합** — Splunk·Datadog 으로 로그를 stream 해요. 운영 규모가 커지면 추가합니다.
