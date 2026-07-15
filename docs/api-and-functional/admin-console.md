@@ -371,7 +371,7 @@ IAP 결제 환불 시도 응답:
 
 `window`(기본 `"30d"`, `"7d"` 도 가능, 그 외 값은 `30d`)와 `size`(기본 5, `[1,20]` 범위로 clamp — 내부 콘솔 전용이라 400 대신 보정)를 받아 전 슬러그의 결제 TOP N 을 병합합니다.
 
-슬러그별로 `payment_history` 를 `users` 와 조인해(§5-1 gross 시맨틱과 동일하게 `status IN ('PAID','REFUNDED')` 필터) 유저당 합산 금액 기준 상위 `size` 명을 먼저 뽑고, 전 슬러그 결과를 합쳐 `totalAmount` 내림차순으로 다시 상위 `size` 만 추립니다 — 슬러그별 상위 `size` 사전 필터링만으로 전역 정확도가 보장돼요(한 슬러그가 최종 top-`size` 에 `size` 건보다 많이 기여할 수 없기 때문).
+슬러그별로 `payment_history` 를 `users` 와 조인해(§5-1 gross 시맨틱과 동일하게 `status IN ('PAID','REFUNDED','PARTIALLY_REFUNDED')` 필터) 유저당 합산 금액 기준 상위 `size` 명을 먼저 뽑고, 전 슬러그 결과를 합쳐 `totalAmount` 내림차순으로 다시 상위 `size` 만 추립니다 — 슬러그별 상위 `size` 사전 필터링만으로 전역 정확도가 보장돼요(한 슬러그가 최종 top-`size` 에 `size` 건보다 많이 기여할 수 없기 때문).
 
 ```json
 {
