@@ -76,7 +76,7 @@ sequenceDiagram
 
 ## 3. 엔드포인트 카탈로그
 
-14개 조회 엔드포인트(#1~12, #14~15) + 4개 write 엔드포인트(#13 환불, #16~18 파일 검역/복원/삭제)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
+17개 조회 엔드포인트(#1~12, #14~15, #19 게시물, #24~25 이벤트) + 8개 write 엔드포인트(#13 환불, #16~18 파일 검역/복원/삭제, #20~23 게시물 숨김/복원/삭제)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
 
 | # | 메서드 · 경로 | 인증 | 데이터 소스 |
 |---|---|---|---|
@@ -98,6 +98,13 @@ sequenceDiagram
 | 16 | `POST /api/admin/apps/{slug}/files/quarantine?key` | superadmin | 단일 슬러그 — bucket write(검역, write). `StoragePort` 재사용 (v1.8) |
 | 17 | `POST /api/admin/apps/{slug}/files/restore?key` | superadmin | 단일 슬러그 — bucket write(복원, write) (v1.8) |
 | 18 | `DELETE /api/admin/apps/{slug}/files?key` | superadmin | 단일 슬러그 — bucket write(불가역 삭제) (v1.8) |
+| 19 | `GET /api/admin/apps/{slug}/content?board&status&page&size` | `CONTENT_READ` | 단일 슬러그 — 공유 게시물(`posts`) 전량 조회·필터 (v1.10) |
+| 20 | `POST /api/admin/apps/{slug}/content/{id}/hide` | `CONTENT_WRITE` | 게시물 숨김(사유 필수, write) (v1.10) |
+| 21 | `POST /api/admin/apps/{slug}/content/{id}/restore` | `CONTENT_WRITE` | 숨김 해제(공개 복원, write) (v1.10) |
+| 22 | `POST /api/admin/apps/{slug}/content/{id}/restore-deleted` | `CONTENT_WRITE` | 삭제 대상 복원(write) (v1.10) |
+| 23 | `DELETE /api/admin/apps/{slug}/content/{id}` | `CONTENT_WRITE` | soft-delete(사유 필수, 30일 후 purge) (v1.10) |
+| 24 | `GET /api/admin/analytics/events?slug&from&to` | `APPS_READ` | 제품 이벤트별 발생수·순사용자 요약(`analytics_daily`, 발생수 내림차순) (v1.10) |
+| 25 | `GET /api/admin/analytics/events/{eventName}?slug&from&to` | `APPS_READ` | 단일 이벤트 일별 발생수 추이 (v1.10) |
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
 
 ---
@@ -276,6 +283,28 @@ sequenceDiagram
 
 **`slug` 생략 시 — 전 슬러그 합산 모드(v1.7)**: `slug` 를 지정하면 그 앱만(기존 동작), 생략(또는 blank)하면 `AdminSlugRegistry.slugs()` 전체를 순회해 동일 쿼리를 돌리고 **일자(`ts`)별로 값을 sum-merge** 합니다 — 한쪽 슬러그에만 있는 날짜도 결과에 그대로 포함돼요(그 날짜의 값 = 그 슬러그 값 그대로). 응답 shape 은 단일 슬러그 조회와 동일합니다.
 
+### 4-8b. `GET /api/admin/analytics/events` — 제품 이벤트 요약 (v1.10)
+
+`@TrackEvent` 로 자동 계측된 제품 이벤트(`post_created`·`payment_succeeded` 등)를 `analytics_daily`(야간 롤업 집계)에서 기간 합산해 **발생수 내림차순**으로 반환합니다. "유저가 무엇을 쓰나(기능 채택)"를 **콘텐츠 열람 없이** 확인하는 뷰예요. `slug` 는 §4-8 과 동일하게 선택(생략 시 전 앱 합산). 이벤트는 **행동 + 메타데이터만** 담고 콘텐츠 내용은 담지 않습니다(개발 방침).
+
+```json
+{
+  "data": [
+    { "eventName": "post_created", "count": 128, "uniqueUsers": 74 },
+    { "eventName": "payment_succeeded", "count": 31, "uniqueUsers": 29 }
+  ],
+  "error": null
+}
+```
+
+`uniqueUsers` 는 **일별 순 사용자의 기간 합**이라 pre-aggregated daily 특성상 기간 전체의 절대 unique 는 아닙니다(같은 유저가 여러 날 활동 시 중복 가산). 발생수(`count`)가 채택 지표의 헤드라인이에요.
+
+### 4-8c. `GET /api/admin/analytics/events/{eventName}` — 단일 이벤트 추이 (v1.10)
+
+특정 이벤트의 일별 발생수 시계열(드릴다운). 응답 shape 은 §4-8 시계열과 동일(`metric` 자리에 `eventName`). 리터럴 `/events` 는 §4-8 의 `/{metric}` 보다 우선 매핑되므로 충돌하지 않습니다. 미집계 이벤트명은 빈 `points` 를 반환해요(에러 아님).
+
+> **롤업 타이밍**: 두 엔드포인트 모두 `analytics_daily`(야간 롤업 산물)를 읽으므로, 오늘 발생한 원본 이벤트는 다음 롤업(`AnalyticsRetentionScheduler`, 기본 04:15) 후 반영됩니다. 원본(`analytics_events`)은 90일 후 purge 되고 집계는 daily 에 영구 보존됩니다.
+
 ### 4-9. `GET /api/admin/apps/{slug}/ops` — 운영 신호 (v1.5)
 
 구독 갱신 실패율·결제 웹훅 처리 상태·리텐션 3종을 한 번에 반환합니다. 리텐션 정의는 §5-2 참고.
@@ -428,6 +457,23 @@ IAP 결제 환불 시도 응답:
 
 **감사로그**: `@Audited("admin.file.quarantine"/"admin.file.restore"/"admin.file.delete")` 가 §4-11 환불과 동일하게 `AuditAspect` 를 트리거해요. 컨트롤러가 서비스 호출 전 `SlugContext` 를 대상 슬러그로 스왑(`try`)하고 호출 후 원복(`finally`)하기 때문에, 감사 이벤트는 대상 앱 슬러그의 스키마에 남습니다 — bucket 접근 자체는 이름으로 직접 라우팅돼 `SlugContext` 를 보지 않지만, 감사로그 라우팅을 위해 스왑이 필요해요.
 
+### 4-17. `GET /api/admin/apps/{slug}/content` + 모더레이션 (v1.10)
+
+**공유(공개) 게시물** 콘솔이에요 — 앱들의 공개 게시판(`posts`, `core-content`)을 전량 조회하고 숨김/삭제/복원합니다. **프라이빗 기록은 이 도메인에 오지 않습니다**(각 앱 자체 테이블). 공개 콘텐츠라 프라이버시 이슈 없이 전량 열람·모더레이션이 정당합니다(개발 방침). 파일 검역(§4-13~16)과 동일한 상태 전이·soft-delete·purge 패턴을 복제했어요.
+
+| 메서드 · 경로 | 상태 전이 | 비고 |
+|---|---|---|
+| `GET .../content?board&status&page&size` | — | 전량 조회·필터. `AdminPostResponse` 페이지 |
+| `POST .../content/{id}/hide` (사유 필수) | `ACTIVE → HIDDEN` | 회원에게 숨김. `CONTENT_WRITE` |
+| `POST .../content/{id}/restore` | `HIDDEN → ACTIVE` | 숨김 해제(재공개) |
+| `POST .../content/{id}/restore-deleted` | `DELETED → ACTIVE` | 삭제 대상 복원 |
+| `DELETE .../content/{id}` (사유 필수) | `→ DELETED` (`purge_at` = now+30일) | soft-delete. 30일 후 purge 스케줄러가 실삭제 |
+
+- **권한**: 조회 `CONTENT_READ`, 쓰기 3종 `CONTENT_WRITE`(`PermissionCatalog` 의 `CONTENT_WRITE ⇒ CONTENT_READ` 의존). RBAC 역할·권한 분리는 [`ADR-027`](../philosophy/adr-027-admin-role-authorization.md) 참고.
+- **감사로그**: `@Audited("admin.content.hide"/"restore"/"restore-deleted"/"delete")` — §4-11/§4-16 과 동일한 `SlugContext` 스왑으로 대상 앱 스키마 `audit_logs` 에 기록.
+- **대상 없음**: 존재하지 않는 `id` 는 404 `ADMIN_022`(`ADMIN_CONTENT_NOT_FOUND`).
+- **작성자 마스킹 없음**: 공개 게시물이라 작성자(`authorUserId`) 를 그대로 노출합니다(파일/유저의 PII reveal 패턴 불필요).
+
 ---
 
 ## 5. 핵심 시맨틱 정의
@@ -472,7 +518,7 @@ IAP 결제 환불 시도 응답:
 
 ---
 
-## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_009`
+## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_009`, `ADMIN_020` ~ `ADMIN_022`
 
 | 코드 | HTTP | 발생 상황 |
 |---|---|---|
@@ -485,6 +531,9 @@ IAP 결제 환불 시도 응답:
 | `ADMIN_007` PAYMENT_NOT_FOUND | 404 | 환불 대상 슬러그 스키마에 그 `paymentId` 의 결제가 없음 |
 | `ADMIN_008` FILE_ALREADY_QUARANTINED | 400 | 이미 `quarantine/` 프리픽스인 `key` 를 다시 검역 시도(v1.8) |
 | `ADMIN_009` FILE_NOT_QUARANTINED | 400 | `quarantine/` 프리픽스가 아닌 `key` 를 복원 시도(v1.8) |
+| `ADMIN_020` REFUND_AMOUNT_INVALID | 400 | 환불 금액이 환불 가능 잔액을 벗어남(부분환불, v1.9) |
+| `ADMIN_021` REFUND_NOT_ALLOWED | 400 | 이미 전액 환불됐거나 결제완료 상태가 아닌 결제의 환불 시도(v1.9) |
+| `ADMIN_022` CONTENT_NOT_FOUND | 404 | `/apps/{slug}/content/{id}` 모더레이션 대상 게시물 없음(v1.10) |
 
 에러 응답은 다른 모든 API 와 동일한 `ApiResponse` 래퍼를 씁니다.
 
