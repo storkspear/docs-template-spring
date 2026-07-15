@@ -114,7 +114,7 @@ private static final String UPSERT =
 
 - **9 + 2 개 엔드포인트가 mock 이 아닌 실 데이터로 동작** — login/health/apps/dashboard/metrics/users/userDetail/billing/audit-logs/analytics 9개에 더해, v1.5 로 ops(갱신 실패율·webhook 처리·리텐션)와 활동 ping 이 추가됨.
 - **React 계약의 진실화** — 조회 불가능했던 필드를 없애는 대신, DAU/MAU 처럼 실제로 유용한 지표는 데이터 소스를 새로 만들어 계약을 지켰습니다. "라벨은 유지, 값은 진짜로" 원칙.
-- **gross 매출 시맨틱 정합** — `payment_history.status` 가 환불 시 `PAID`→`REFUNDED` 로 *덮어써지는* 구조라, gross(수금총액)를 `status='PAID'` 로만 집계하면 환불건이 gross 에서도 빠지고 `gross - refunded` 로 다시 한 번 차감되는 이중차감 버그가 있었습니다. `status IN ('PAID','REFUNDED')` 로 정정해 "환불 여부와 무관하게 한 번이라도 수금된 금액의 총합" 이라는 시맨틱을 대시보드/앱 metrics/billing/analytics 4곳 모두에 일관 적용했습니다.
+- **gross 매출 시맨틱 정합** — `payment_history.status` 가 환불 시 `PAID`→`REFUNDED` 로 *덮어써지는* 구조라, gross(수금총액)를 `status='PAID'` 로만 집계하면 환불건이 gross 에서도 빠지고 `gross - refunded` 로 다시 한 번 차감되는 이중차감 버그가 있었습니다. `status IN ('PAID','REFUNDED')` 로 정정해 "환불 여부와 무관하게 한 번이라도 수금된 금액의 총합" 이라는 시맨틱을 대시보드/앱 metrics/billing/analytics 4곳 모두에 일관 적용했습니다. *(후속: 부분환불 도입으로 gross 필터에 `PARTIALLY_REFUNDED` 를 추가하고, `refunded` 는 `payment_refunds` 원장의 건별 합으로 이관 — 현행 시맨틱은 [`admin-console.md §5-1`](../api-and-functional/admin-console.md) 참고.)*
 - **네트워크 홉 0** — MSA 였다면 필요했을 서비스 간 호출·분산 트랜잭션 없이, 슬러그별 JdbcTemplate 순회만으로 cross-app 집계가 끝납니다.
 - **양방향 권한 격리** — `ROLE_SUPERADMIN`/`ROLE_ADMIN` 분리로 앱 admin 의 콘솔 침입과 superadmin 의 앱 API 접근을 모두 차단.
 
@@ -157,7 +157,7 @@ private static final String UPSERT =
 
 **fan-out**:
 - [`core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminSlugRegistry.java`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminSlugRegistry.java)
-- [`core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminMetricsService.java`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminMetricsService.java) — gross/net 시맨틱(`status IN ('PAID','REFUNDED')`)
+- [`core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminMetricsService.java`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminMetricsService.java) — gross/net 시맨틱(`status IN ('PAID','REFUNDED','PARTIALLY_REFUNDED')`, refunded 는 `payment_refunds` 원장)
 - [`core/core-admin-impl/src/main/java/com/factory/core/admin/impl/controller/AdminControllerAdvice.java`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/java/com/factory/core/admin/impl/controller/AdminControllerAdvice.java) — `@Order(HIGHEST_PRECEDENCE)` 예외 매핑
 
 **활동 추적**:
