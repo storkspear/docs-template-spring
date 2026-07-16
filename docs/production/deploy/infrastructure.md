@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~12분
 
-프로젝트의 환경별 인프라 구성, 책임 분담, 프로비저닝 상태를 기록해요. 코드 아키텍처의 "왜" 는 [`philosophy/` 의 38 개 ADR](../../philosophy/README.md) 에, "무엇이 어디에" 는 [`Architecture Reference`](../../structure/architecture.md) 에 있어요. 이 문서는 그 위에서 운영 환경의 실체 — 어떤 호스트에 무엇이 떠 있고 누가 책임지는가 — 를 다룹니다.
+프로젝트의 환경별 인프라 구성, 책임 분담, 프로비저닝 상태를 기록해요. 코드 아키텍처의 "왜" 는 [`philosophy/` 의 39 개 ADR](../../philosophy/README.md) 에, "무엇이 어디에" 는 [`Architecture Reference`](../../structure/architecture.md) 에 있어요. 이 문서는 그 위에서 운영 환경의 실체 — 어떤 호스트에 무엇이 떠 있고 누가 책임지는가 — 를 다룹니다.
 
 독자는 셋입니다. 본인 (미래의 자신), 파생 레포를 만든 개발자, 그리고 운영 담당 (Phase 1 이후).
 
@@ -29,7 +29,7 @@
 | 맥미니 (운영 호스트) | `hardware-acquired` | 물리 보유. Kamal 초기 셋업은 파생 레포가 `kamal setup` 한 번 |
 | Cloudflare Tunnel | `template-ready` | cloudflared 설치는 파생 레포 개발자 몫. ingress 샘플은 `§4.2`, 상세는 `deployment.md` |
 | 배포 파이프라인 (Kamal + GHA) | `template-ready` | `config/deploy.yml` 과 `.github/workflows/deploy.yml` 가 커밋돼 있어요. 파생 레포가 env 와 Secrets 만 채우면 바로 동작. 결정 I-09 |
-| 알림 (Discord webhook) | `provisioned` (임계치 미정) | Alertmanager 컨테이너와 Discord receiver 구성 완료. `DISCORD_WEBHOOK_URL` env 로 즉시 동작. 실제 알림 룰은 Phase 2 |
+| 알림 (Discord webhook) | `provisioned` | Alertmanager 컨테이너와 Discord receiver 구성 완료. `DISCORD_WEBHOOK_URL` env 로 즉시 동작. 알림 룰 8개 정의됨 (`infra/prometheus/rules.yml` — 에러율·지연·rate-limit·백엔드 다운·MinIO 다운/디스크 3단계) |
 | 운영 관측성 스택 | `template-ready` | `infra/docker-compose.observability.yml`, retention 7 일, `mem_limit` 명시. Mac mini 에서 `docker compose up -d` 한 번 |
 | 로컬 docker 관측성 | `not-applicable` | 로컬에서는 기동하지 않아요. 운영 전용 (I-06 노트) |
 | 2-tier bucket 정책 | `provisioned` (로컬 `dev-shared`) / `planned` (운영 `{slug}-{category}`) | `BucketProvisioner` 가 자동 생성. 상세는 `storage.md`, I-07 |
@@ -114,8 +114,8 @@ docker compose -f infra/docker-compose.local.yml up -d postgres minio
        │             - 내부 :8080  (비즈니스 HTTP + /actuator/* 공유)
        │                   actuator 는 health, info, prometheus 만 노출
        │                   (민감 endpoint 는 exposure 에서 제외)
-       │             - Flyway migrate 는 컨테이너 기동 시 advisory lock 으로 직렬화
-       │             - 파괴적 DDL 은 migrate-only 모드로 사전 수동 실행 권장
+       │             - Flyway 는 prod 부팅 시 validate 만 수행 (VALIDATE_ONLY, ADR-033)
+       │             - schema 변경은 배포 전 tools/migrate-prod.sh 로 사전 적용
        │             │
        │             ├─→ JDBC (Supavisor :6543) → [Supabase Seoul]
        │             │     - <slug> schema (apps/app-<slug> 소유 — users/auth/devices/도메인 테이블)
@@ -183,12 +183,12 @@ ingress:
 | DB (운영) | Supabase | provisioned | I-01, keep-alive.sh |
 | DB (로컬) | docker postgres | provisioned | compose |
 | 오브젝트 스토리지 | NAS MinIO | provisioned (LAN 전용) | I-03, `storage.md` |
-| 관측성 (메트릭·로그·알림) | 셀프 호스트 스택 | provisioned (로컬) / planned (운영) | I-06 |
+| 관측성 (메트릭·로그·알림) | 셀프 호스트 스택 | template-ready (운영 전용 — 로컬 미기동, §2 상태 표) | I-06 |
 | 이메일 발송 | Resend | 계정 준비, app key 등록 필요 | `social-auth-setup.md` (유사) |
 | 푸시 (FCM) | Firebase Cloud Messaging | 설정 pending, NoOp fallback | `core-push-impl` |
 | 소셜 로그인 검증 | Apple·Google API 직접 호출 | provisioned (Java 구현 완료) | `social-auth-setup.md` |
 | 백업 | pg_dump → NAS | planned | Item Ops-1 |
-| 시크릿 보관 | `.env` (로컬), GitHub Secrets (CI 예정) | provisioned (로컬) / planned (CI) | Item Ops-1 |
+| 시크릿 보관 | `.env` (로컬), GitHub Secrets (CI) | provisioned — `init-prod.sh` 가 `.env.prod` 를 GitHub Secrets 로 자동 push | `secret-chain-4stage.md` |
 
 ---
 
@@ -246,10 +246,10 @@ ingress:
 - **내부 전용 포트** — Prometheus :9090, Loki :3100, Alertmanager 127.0.0.1:9093 은 kamal 네트워크 내부와 loopback 에만 두고, 어느 것도 cloudflared ingress 에 노출하지 않아요
 - **NAS MinIO 외부 접근** — Tailscale, Cloudflare Tunnel, DDNS + 포트포워딩 중 무엇을 쓸지는 Phase 2 에서 결정합니다 (backlog 참조)
 
-### 8.3 시크릿 보관 (planned)
+### 8.3 시크릿 보관
 - **로컬** — `.env` (gitignored)
-- **운영 CI** — GitHub Secrets (Item Ops-1 에서 등록)
-- **중앙 관리 체계** — Item Ops-1 에서 선택 (1Password CLI, sops, Vault 중)
+- **운영 CI** — GitHub Secrets. `init-prod.sh` / `init-dev.sh` 가 `.env.prod` / `.env.dev` 값을 자동 push 해요 (4단계 체인은 [`secret-chain-4stage.md`](../setup/secret-chain-4stage.md))
+- **중앙 관리 체계** — 미도입 (1Password CLI, sops, Vault 중 선택은 후속 과제)
 
 ---
 
@@ -310,16 +310,19 @@ postgres (Supabase 또는 로컬 docker)
 
 ### 10.3 Flyway 마이그레이션
 
-`new-app.sh` 는 모든 앱이 똑같이 받는 공통 마이그레이션 V001 ~ V017 을 앱의 `<slug>` schema 에 생성해요. 인증·결제·감사 기반이 여기에 들어갑니다. 본인 도메인 테이블은 **V018 부터** 직접 작성하면 돼요. V007 은 도메인이 아니라 admin user 시드라, V017 다음 빈 번호가 V018 입니다.
+`new-app.sh` 는 모든 앱이 똑같이 받는 공통 마이그레이션 기본 24개 (V001 ~ V025, V007 제외) 를 앱의 `<slug>` schema 에 생성해요. 인증·결제·감사·운영 콘솔 기반이 여기에 들어갑니다. 본인 도메인 테이블은 **V026 부터** 직접 작성하면 돼요. V007 은 admin user 시드로 `--seed-admin` 을 붙일 때만 생성되지만 (opt-in, 랜덤 비밀번호), 생성하지 않아도 번호는 시드용으로 비워 둡니다.
 
 | 버전 | 내용 |
 |---|---|
 | V001 ~ V006 | 인증 기반 — users · auth_social_identities · auth_refresh_tokens · auth_email_verification_tokens · auth_password_reset_tokens · devices |
-| V007 | admin user 시드 (`V007__seed_admin_user.sql`) |
+| V007 | admin user 시드 (`V007__seed_admin_user.sql`, `--seed-admin` opt-in) |
 | V008 ~ V012 | 결제·구독·감사 — subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs |
 | V013 ~ V014 | 2FA (TOTP) 컬럼 · user_notification_settings |
 | V015 | auth_phone_verification_codes (휴대폰 점유인증, 옵트인 — 안 쓰면 삭제 가능) |
-| V018 ~ | 앱 도메인 테이블 (파생 레포가 직접 작성) |
+| V016 ~ V017 | auth_email_verification_codes · user_activity_days |
+| V018 ~ V021 | 운영·콘솔 — attachment_file · user_read_history · message_send_history · audit_logs_archive |
+| V022 ~ V025 | 환불·콘텐츠·분석 — payment refunded_amount · payment_refunds · posts · analytics |
+| V026 ~ | 앱 도메인 테이블 (파생 레포가 직접 작성) |
 
 > ADR-037 이후 `core/core-*-impl/src/main/resources/db/migration/core/` 의 production migration 7 개는 삭제됐어요. 각 앱은 자기 `<slug>` schema 만 마이그레이션합니다. `core/core-*-impl/src/test/resources/db/migration/core/` 는 Testcontainers 용으로만 잔존하며, 거기 파일의 버전 번호는 테스트 픽스처용이라 위 운영 번호 체계와는 별개예요. production runtime 에는 영향이 없습니다.
 
@@ -345,11 +348,11 @@ cron 예시는 매 14 분 호출입니다.
 
 ### 코드 아키텍처 / 설계 결정
 - [`Architecture Reference`](../../structure/architecture.md) — 코드 아키텍처 (포트·어댑터, 모듈 의존성)
-- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 38 개 ADR 인덱스 (설계 결정의 근거)
+- [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 39 개 ADR 인덱스 (설계 결정의 근거)
 - 특히 [`ADR-001 · 모듈러 모놀리스`](../../philosophy/adr-001-modular-monolith.md), [`ADR-005 · Postgres schema 격리`](../../philosophy/adr-005-db-schema-isolation.md), [`ADR-007 · 솔로 친화적 운영`](../../philosophy/adr-007-solo-friendly-operations.md)
 
 ### 인프라 결정 / 운영
-- [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) — 인프라 결정 카드 I-01 ~ I-07
+- [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) — 인프라 결정 카드 I-01 ~ I-14
 - [`CI / CD 전체 플로우`](./ci-cd-flow.md) — commit 부터 운영 반영까지 전체 배포 흐름
 - [`운영 런북 (Runbook)`](./runbook.md) — 운영 절차와 장애 대응
 - [`Edge Cases & Risk Analysis`](../../reference/edge-cases.md) — 엣지 케이스와 예외 처리 목록
@@ -366,4 +369,3 @@ cron 예시는 매 14 분 호출입니다.
 - [`Onboarding — 템플릿 첫 사용 가이드`](../../start/onboarding.md) — 템플릿 첫 사용 가이드
 - [`운영 배포 가이드 (파생 레포 onboarding)`](./deployment.md) — 파생 레포 첫 운영 배포
 - [`Backlog`](../../planned/backlog.md) — 미완료 항목 (Item Ops-1 묶음 포함)
-</content>

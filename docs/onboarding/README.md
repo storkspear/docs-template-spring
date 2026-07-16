@@ -40,7 +40,7 @@ QuickStart 는 다음 세 가지를 해요.
    - [ADR-003 · `-api` / `-impl` 분리](../philosophy/adr-003-api-impl-split.md) — 왜 포트 인터페이스를 분리하나
 2. [`Architecture Reference`](../structure/architecture.md) 의 "전체 구성 요약" 한 섹션만 읽으세요. 모듈 4종류와 기술 스택의 한눈 요약이 있어요. 네 종류는 `common/`, `core/`, `apps/`, `bootstrap` 이에요.
 
-여기까지 읽으면 이 레포가 뭘 하려는 도구인지 감이 잡혀요. 나머지 ADR 은 해당 영역이 궁금해질 때 돌아오면 돼요. 전체 38개 중 테마 1 의 4개를 뺀 34개가 테마 2~8 에 흩어져 있어요. 어떤 L2 문서가 어느 ADR 의 결과인지는 [`philosophy/README.md`](../philosophy/README.md) 끝의 "L2 ↔ L3 매핑" 표에서 빠르게 찾을 수 있어요.
+여기까지 읽으면 이 레포가 뭘 하려는 도구인지 감이 잡혀요. 나머지 ADR 은 해당 영역이 궁금해질 때 돌아오면 돼요. 전체 39개 중 테마 1 의 4개를 뺀 35개가 테마 2~8 에 흩어져 있어요. 어떤 L2 문서가 어느 ADR 의 결과인지는 [`philosophy/README.md`](../philosophy/README.md) 끝의 "L2 ↔ L3 매핑" 표에서 빠르게 찾을 수 있어요.
 
 ---
 
@@ -69,7 +69,7 @@ template 은 비즈니스 로직 없이 뼈대만 가지고 있어요. 실제로
 수행하는 일은 한 줄이에요.
 
 ```bash
-./tools/new-app/new-app.sh <slug> --provision-db
+./tools/new-app/new-app.sh <slug>
 ```
 
 이 명령은 `apps/app-<slug>/` 디렉터리를 만들고, Postgres 에 앱 전용 schema 와 role 을 자동으로 생성해요. 생성되는 파일 목록과 동작은 onboarding 의 §3 에 표로 정리돼 있어요.
@@ -175,7 +175,7 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 | 📚 입문 | 0 | 3~10분 | [`Level 0 진입점`](./getting-started.md) · [`5분 투어`](./five-minute-tour.md) · 용어 사전 · 첫 실행·수정·배포 맛보기 |
 | 🏃 시작하기 | 1 | 1~2시간 | [`Onboarding`](../start/onboarding.md) · 소셜 로그인 · 앱 스캐폴딩 · 도그푸딩 · Cherry-pick |
 | 🏗️ 구조 이해하기 | 2 | 1시간 | [`Architecture`](../structure/architecture.md) · 모듈 의존 · ArchUnit 규칙 · 멀티테넌시 · JWT 인증 |
-| 📖 프로젝트 철학 | 3 | 2~3시간 | [`38 ADR 인덱스`](../philosophy/README.md) · 테마 1~8 |
+| 📖 프로젝트 철학 | 3 | 2~3시간 | [`39 ADR 인덱스`](../philosophy/README.md) · 테마 1~8 |
 | 📝 코딩 규약 | 2 | 1시간 | 설계 원칙 · 네이밍 · DTO · 예외 처리 · Git 워크플로 |
 | 🔌 API 및 기능 | 2 | 필요 시 | API 응답 · 푸시 · 이메일 · 스토리지 · 마이그레이션 · 관측성 |
 | ✅ 테스팅 | 2 | 필요 시 | [`Testing Strategy`](../production/test/testing-strategy.md) · 계약 테스트 |
@@ -188,7 +188,7 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 
 | 궁금한 것 | 문서 | 한 줄 |
 |---|---|---|
-| 왜 이렇게 설계? | [`Repository Philosophy — 책 안내`](../philosophy/README.md) | 38 ADR · 프롤로그 3 제약 |
+| 왜 이렇게 설계? | [`Repository Philosophy — 책 안내`](../philosophy/README.md) | 39 ADR · 프롤로그 3 제약 |
 | 문서 작성 규칙 (저자) | [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) | 5 유형 템플릿 · 메타블록 규격 · 검증 체크리스트 |
 | 모듈 구조 상세 | [`Architecture Reference`](../structure/architecture.md) | 파일 트리 + 의존 그래프 + Extraction 레이어 |
 | 환경별 인프라 현황 | [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) | 어떤 서비스가 어디에서 도는지 |

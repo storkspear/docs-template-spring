@@ -41,12 +41,12 @@ v0.3.0 에서 도입된 breaking change 요약.
 ### Before (v0.2.0)
 ```java
 modulePort.oldMethodName(new RequestType(arg));
-```
+```text
 
 ### After (v0.3.0)
 ```java
 modulePort.newMethodName(new RequestType(arg));
-```
+```text
 
 ### Reason
 실제 deprecation 사유 (네이밍 일관성·도메인 분리·API 단순화 등).
@@ -66,7 +66,7 @@ modulePort.newMethodName(new RequestType(arg));
 
 breaking change 는 갑자기 나타나지 않아요. 신규 API 를 먼저 추가하고, 기존 API 를 deprecated 로 마킹한 뒤, 여러 minor 주기 동안 둘 다 동작시키다가, 다음 major 에서야 기존 API 를 제거합니다. 이 단계적 흐름 덕에 파생 레포는 한 번에 깨지지 않고 천천히 따라올 시간을 법니다.
 
-```
+```text
 v0.2.0  신규 API 추가 + 기존 API @Deprecated
 v0.3.0  기존 API 여전히 동작 (deprecated 경고)
 v0.4.0  기존 API 여전히 동작 (deprecated 경고)
@@ -93,7 +93,7 @@ v1.0.0  기존 API 제거 → breaking — migration guide 필수
 
 ## 현재 상태
 
-`template-v0.1.0` (초기 릴리스) 시점에는 이전 버전이 없어 breaking change 도 없습니다. 그래서 아직 작성된 migration guide 는 없어요. 첫 breaking 변경이 나오는 버전부터 `v<...>.md` 파일이 이 디렉토리에 쌓입니다.
+최신 릴리스는 `template-v0.3.0` 입니다 (git tag 기준, 2026-07). 지금까지의 릴리스에는 migration guide 를 요구하는 breaking change 가 없어 아직 작성된 가이드는 없어요. 첫 breaking 변경이 나오는 버전부터 `v<...>.md` 파일이 이 디렉토리에 쌓입니다.
 
 ---
 

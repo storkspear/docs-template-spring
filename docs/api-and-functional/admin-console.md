@@ -8,15 +8,21 @@
 
 ---
 
+## 한 문장 요약
+
+운영 콘솔은 `admin` schema 계정으로 로그인해 RBAC 4티어(viewer/support/admin/master)의 효과 권한(`PERM_*`)이 `permissions` claim 으로 실린 콘솔 JWT 를 받고, `/api/admin/*` 에서 모든 앱 schema 를 in-process fan-out 으로 조회·운영하는 cross-app API 예요.
+
+---
+
 ## 1. 개요
 
-`core-admin-impl` 모듈이 이 API 를 제공합니다. 앱 데이터를 저장하는 곳은 아니고, 이미 존재하는 앱별 schema 를 **fan-out** 으로 읽기만 하는 조회 전용 콘솔이에요. 운영자 계정만 담는 `admin` schema(`admin_users` 테이블 1개)가 유일한 예외적인 신규 저장소입니다.
+`core-admin-impl` 모듈이 이 API 를 제공합니다. 앱 데이터를 저장하는 곳은 아니고, 이미 존재하는 앱별 schema 를 **fan-out** 으로 읽기만 하는 조회 중심 콘솔이에요. 운영자 계정과 역할·권한만 담는 `admin` schema 가 유일한 예외적인 신규 저장소입니다 — `V001` 이 `admin_users` 를 만들고, `V002` 가 RBAC 역할 컬럼(`role`, 기본 `master`)을, `V003` 이 역할별 권한 grant 표(`role_permissions`)를 추가해요.
 
-```
-[React admin] ──(superadmin JWT)──> /api/admin/*  ──> core-admin-impl (bootstrap jar 안)
-                                                        │
-                                                        ├─ admin 스키마: admin_users (운영자 계정)
-                                                        └─ 앱 스키마 fan-out: 슬러그 순회 조회 → 메모리 합산/병합
+```text
+[React admin] ──(콘솔 JWT: role + permissions)──> /api/admin/*  ──> core-admin-impl (bootstrap jar 안)
+                                                                      │
+                                                                      ├─ admin 스키마: admin_users (V002 role) + role_permissions (V003)
+                                                                      └─ 앱 스키마 fan-out: 슬러그 순회 조회 → 메모리 합산/병합
 ```
 
 - **cross-app 조회 = in-process fan-out** — MSA 라면 필요했을 서비스 간 호출·분산 트랜잭션이 없습니다. 모든 앱이 한 JVM·한 Postgres 인스턴스에 있어서, 슬러그별 `JdbcTemplate` 을 순회하며 메모리에서 합산·병합할 뿐이에요.
@@ -26,13 +32,13 @@
 
 ---
 
-## 2. 인증 흐름 — env 시더 → superadmin JWT → Bearer
+## 2. 인증 흐름 — env 시더 → 콘솔 JWT(RBAC) → Bearer
 
 ### 2-1. 최초 계정 시딩
 
-부팅 시 `admin_users` 테이블이 비어 있고 `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 모두 채워져 있으면, `AdminAccountSeeder` 가 1계정을 시드합니다(비어 있으면 조용히 no-op). 표시 이름은 고정값 `"operator"` 예요. 이미 계정이 1개 이상 있으면 다시 시드하지 않습니다.
+부팅 시 `admin_users` 테이블이 비어 있고 `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 모두 채워져 있으면, `AdminAccountSeeder` 가 1계정을 시드합니다(비어 있으면 조용히 no-op). 표시 이름은 고정값 `"operator"`, 역할은 최고 등급 `master` 예요 — 이후 콘솔에서 다른 티어 계정을 발급합니다. 이미 계정이 1개 이상 있으면 다시 시드하지 않습니다.
 
-### 2-2. 로그인 → superadmin JWT
+### 2-2. 로그인 → 콘솔 JWT (role + permissions)
 
 ```mermaid
 sequenceDiagram
@@ -46,27 +52,33 @@ sequenceDiagram
     Svc->>DB: findByEmail(email)
     DB-->>Svc: AdminAccount(passwordHash)
     Svc->>Svc: PasswordHasher.verify(password, passwordHash)
-    Svc->>Svc: JwtService.issueAdminAccessToken(id, email, appSlug="admin", role="superadmin")
+    Svc->>Svc: RolePermissionService.effectivePermissions(role) → PERM_* 집합
+    Svc->>Svc: JwtService.issueAdminAccessToken(id, email, appSlug="admin", role, permissions)
     Svc-->>API: AdminLoginResponse { accessToken, admin }
     API-->>React: 200 { data: AdminLoginResponse }
 
     Note over React,API: 이후 모든 /api/admin/* 요청은 Authorization: Bearer <accessToken>
 ```
 
-발급되는 JWT 의 `appSlug` claim 은 실제 앱 슬러그가 아니라 **고정값 `"admin"`** 이고, `role` claim 은 `"superadmin"` 입니다. 이 두 값이 이후 모든 권한 검사의 기준이 돼요.
+발급되는 JWT 의 `appSlug` claim 은 실제 앱 슬러그가 아니라 **고정값 `"admin"`** 이고, `role` claim 은 계정의 **RBAC 4티어 코드**(`viewer`/`support`/`admin`/`master` — `AdminRole`)입니다. 여기에 `RolePermissionService.effectivePermissions` 가 계산한 효과 권한(`PERM_*` 목록)이 **`permissions` claim** 으로 실려요 — 코드 고정 baseline(대시보드 등, master 는 계정관리 포함) ∪ `role_permissions` 표의 grant 입니다. 이 값들이 이후 모든 권한 검사의 기준이 돼요.
 
 콘솔 세션은 앱 유저 access token(`app.jwt.access-token-ttl`, 기본 15분)과 별도로 `app.jwt.admin-access-token-ttl`(기본 `PT12H`, 12시간)을 TTL 로 씁니다. `JwtService.issueAccessToken` 은 앱 유저 전용 TTL 만 계속 쓰고, `issueAdminAccessToken` 은 콘솔 전용 TTL 을 써서 — 운영자가 앱 유저와 같은 15분마다 재로그인하지 않게 분리했어요.
 
-### 2-3. 권한 검사 — 양방향 격리
+### 2-3. 권한 검사 — RBAC 4티어 + 양방향 격리
+
+인가의 유일한 계약은 `permissions` claim 이에요. `JwtAuthFilter` 가 claim 의 `PERM_*` 값들을 `GrantedAuthority` 로 변환하고, `SecurityConfig` 가 `/api/admin/**` 리소스별로 `hasAuthority(PERM_*)` 를 검사합니다(예: 결제 환불 POST 는 `PERM_PAYMENTS_WRITE`, 감사로그는 `PERM_AUDIT_READ`). 매칭되지 않은 나머지 콘솔 경로는 최소 유효 콘솔 토큰을 요구하는 fail-safe(`authenticated()`)예요.
+
+티어는 누적입니다 — `viewer(1) < support(2) < admin(3) < master(4)`. 기본 grant(V003 seed)는 viewer=앱·분석 조회, support=+사용자(마스킹)·파일(마스킹) 조회·발송, admin=+사용자 원본·결제(조회·환불)·감사로그, master=전 도메인+계정관리(`PERM_ADMIN_MANAGE`, 코드 고정)이고, `role_permissions` 표를 콘솔에서 편집해 조정할 수 있어요(`PermissionCatalog` 가 WRITE/UNMASK ⇒ READ 의존과 편집 가능 범위를 강제).
 
 | 시나리오 | 결과 |
 |---|---|
-| superadmin JWT 로 `/api/admin/**` 호출 | 200 — 정상 처리 |
-| 앱 유저(`ROLE_USER`/`ROLE_ADMIN`) JWT 로 `/api/admin/**` 호출 | 403 (인증은 됐으나 권한 부족 — `JsonAccessDeniedHandler`) |
-| superadmin JWT 로 `/api/apps/{slug}/**` 호출 | 403 — `AppSlugVerificationFilter` 가 JWT 의 `appSlug="admin"` 과 path 의 실제 슬러그 불일치를 차단 |
+| 필요한 `PERM_*` 를 가진 콘솔 JWT 로 `/api/admin/**` 호출 | 200 — 정상 처리 |
+| 권한이 부족한 콘솔 JWT(예: viewer 가 결제 조회) | 403 (인증은 됐으나 권한 부족 — `JsonAccessDeniedHandler`) |
+| 앱 유저 JWT 로 `/api/admin/**` 호출 | 403 — `permissions` claim 이 없어 어떤 `PERM_*` 검사도 통과 못 함 |
+| 콘솔 JWT 로 `/api/apps/{slug}/**` 호출 | 403 — `AppSlugVerificationFilter` 가 JWT 의 `appSlug="admin"` 과 path 의 실제 슬러그 불일치를 차단 |
 | JWT 없이 `/api/admin/**`(로그인·헬스 제외) 호출 | 401 CMN_004 |
 
-`ROLE_SUPERADMIN` 을 `ROLE_ADMIN`(앱 내부 관리자, [`ADR-027`](../philosophy/adr-027-admin-role-authorization.md))과 완전히 분리한 이유는 앱 admin 이 전체 콘솔에 침입하는 걸 막기 위해서예요. 자세한 배경은 [`ADR-039`](../philosophy/adr-039-admin-module.md) §결정-1 을 참고하세요.
+콘솔 권한 체계를 앱 내부 `role`(`user`/`admin`, [`ADR-027`](../philosophy/adr-027-admin-role-authorization.md))과 완전히 분리한 이유는 앱 admin 이 전체 콘솔에 침입하는 걸 막기 위해서예요. 자세한 배경은 [`ADR-039`](../philosophy/adr-039-admin-module.md) §결정-1 을 참고하세요.
 
 ### 2-4. 헬스 프로브
 
@@ -76,36 +88,51 @@ sequenceDiagram
 
 ## 3. 엔드포인트 카탈로그
 
-17개 조회 엔드포인트(#1~12, #14~15, #19 게시물, #24~25 이벤트) + 8개 write 엔드포인트(#13 환불, #16~18 파일 검역/복원/삭제, #20~23 게시물 숨김/복원/삭제)입니다. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
+`ApiEndpoints.Admin` + `core-admin-impl` 컨트롤러 12개 기준 실측 **38개 매핑**이에요(2026-07). "권한" 열은 `SecurityConfig` 의 `hasAuthority(PERM_*)` 게이트입니다 — `public` 은 무인증, `인증` 은 유효한 콘솔 토큰이면 충분. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
 
-| # | 메서드 · 경로 | 인증 | 데이터 소스 |
+| # | 메서드 · 경로 | 권한 | 데이터 소스 / 비고 |
 |---|---|---|---|
-| 1 | `POST /api/admin/auth/login` | public | `admin.admin_users` |
+| 1 | `POST /api/admin/auth/login` | public | `admin.admin_users` — role+`PERM_*` 실린 콘솔 JWT 발급 |
 | 2 | `GET /api/admin/health` | public | — (liveness) |
-| 3 | `GET /api/admin/apps` | superadmin | 슬러그 fan-out — 앱별 `users`/`subscriptions` count |
-| 4 | `GET /api/admin/dashboard/metrics?window=` | superadmin | 슬러그 fan-out — 전체 합산 (기본 `window=30d`, `7d` 도 가능) |
-| 5 | `GET /api/admin/apps/{slug}/metrics` | superadmin | 단일 슬러그 — #4 와 동일 지표의 앱 단위 스냅샷 |
-| 6 | `GET /api/admin/apps/{slug}/users?query&page&size` | superadmin | 단일 슬러그 — `users` 검색 + 페이지네이션 |
-| 7 | `GET /api/admin/apps/{slug}/users/{userId}` | superadmin | 단일 슬러그 — `users`+`devices`+`subscriptions`+`payment_history`(최근 10건) |
-| 8 | `GET /api/admin/apps/{slug}/billing?from&to` | superadmin | 단일 슬러그 — `payment_history` 집계 |
-| 9 | `GET /api/admin/audit-logs?slug&...&page&size` | superadmin | `slug` 지정 시 단일 스키마, 미지정 시 fan-out 병합 |
-| 10 | `GET /api/admin/analytics/{metric}?slug&from&to` | superadmin | `metric∈{dau,signups,revenue}` — `slug` 생략 시 전 슬러그 fan-out sum-merge (v1.7), 지정 시 단일 슬러그 일별 시계열 |
-| 11 | `GET /api/admin/apps/{slug}/ops` | superadmin | 단일 슬러그 — 갱신 실패율·webhook 처리·리텐션 (v1.5) |
-| 12 | `GET /api/admin/apps/{slug}/payments?query&channel&status&type&from&to&page&size` | superadmin | 단일 슬러그 — `payment_history`+`users` 조인 목록 (v1.5) |
-| 13 | `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` | superadmin | 단일 슬러그 — PG 환불(write). `PaymentPort`/`BillingPort` 재사용 |
-| 14 | `GET /api/admin/dashboard/top-customers?window&size` | superadmin | 슬러그 fan-out — 결제 TOP N 고객 병합 후 금액 내림차순 재정렬 (v1.7) |
-| 15 | `GET /api/admin/apps/{slug}/files?prefix&max` | superadmin | 단일 슬러그 — `<slug>-uploads` bucket 목록 (v1.8) |
-| 16 | `POST /api/admin/apps/{slug}/files/quarantine?key` | superadmin | 단일 슬러그 — bucket write(검역, write). `StoragePort` 재사용 (v1.8) |
-| 17 | `POST /api/admin/apps/{slug}/files/restore?key` | superadmin | 단일 슬러그 — bucket write(복원, write) (v1.8) |
-| 18 | `DELETE /api/admin/apps/{slug}/files?key` | superadmin | 단일 슬러그 — bucket write(불가역 삭제) (v1.8) |
-| 19 | `GET /api/admin/apps/{slug}/content?board&status&page&size` | `CONTENT_READ` | 단일 슬러그 — 공유 게시물(`posts`) 전량 조회·필터 (v1.10) |
-| 20 | `POST /api/admin/apps/{slug}/content/{id}/hide` | `CONTENT_WRITE` | 게시물 숨김(사유 필수, write) (v1.10) |
-| 21 | `POST /api/admin/apps/{slug}/content/{id}/restore` | `CONTENT_WRITE` | 숨김 해제(공개 복원, write) (v1.10) |
-| 22 | `POST /api/admin/apps/{slug}/content/{id}/restore-deleted` | `CONTENT_WRITE` | 삭제 대상 복원(write) (v1.10) |
-| 23 | `DELETE /api/admin/apps/{slug}/content/{id}` | `CONTENT_WRITE` | soft-delete(사유 필수, 30일 후 purge) (v1.10) |
-| 24 | `GET /api/admin/analytics/events?slug&from&to` | `APPS_READ` | 제품 이벤트별 발생수·순사용자 요약(`analytics_daily`, 발생수 내림차순) (v1.10) |
-| 25 | `GET /api/admin/analytics/events/{eventName}?slug&from&to` | `APPS_READ` | 단일 이벤트 일별 발생수 추이 (v1.10) |
+| 3 | `GET /api/admin/apps` | `APPS_READ` | 슬러그 fan-out — 앱별 `users`/`subscriptions` count |
+| 4 | `GET /api/admin/dashboard/metrics?window=` | `DASHBOARD_READ` | 슬러그 fan-out — 전체 합산 (기본 `window=30d`, `7d` 도 가능) |
+| 5 | `GET /api/admin/dashboard/top-customers?window&size` | `DASHBOARD_READ` | 슬러그 fan-out — 결제 TOP N 고객 병합 후 금액 내림차순 재정렬 (v1.7) |
+| 6 | `GET /api/admin/apps/{slug}/metrics` | `APPS_READ` | 단일 슬러그 — #4 와 동일 지표의 앱 단위 스냅샷 |
+| 7 | `GET /api/admin/apps/{slug}/billing?from&to` | `APPS_READ` | 단일 슬러그 — `payment_history` 집계 |
+| 8 | `GET /api/admin/apps/{slug}/ops` | `APPS_READ` | 단일 슬러그 — 갱신 실패율·webhook 처리·리텐션 (v1.5) |
+| 9 | `GET /api/admin/apps/{slug}/users?query&page&size` | `USERS_READ` | 단일 슬러그 — `users` 검색 + 페이지네이션 (PII 는 티어별 마스킹) |
+| 10 | `GET /api/admin/apps/{slug}/users/{userId}` | `USERS_READ` | 단일 슬러그 — `users`+`devices`+`subscriptions`+`payment_history`(최근 10건) |
+| 11 | `GET /api/admin/apps/{slug}/users/{userId}/reveal` | `USERS_READ` | 단건 원본 PII 열람 — `user_read_history` 에 열람 기록 |
+| 12 | `GET /api/admin/audit-logs?slug&...&page&size` | `AUDIT_READ` | `slug` 지정 시 단일 스키마, 미지정 시 fan-out 병합 |
+| 13 | `GET /api/admin/analytics/{metric}?slug&from&to` | `APPS_READ` | `metric∈{dau,signups,revenue}` — `slug` 생략 시 전 슬러그 fan-out sum-merge (v1.7), 지정 시 단일 슬러그 일별 시계열 |
+| 14 | `GET /api/admin/analytics/events?slug&from&to` | `APPS_READ` | 제품 이벤트별 발생수·순사용자 요약(`analytics_daily`, 발생수 내림차순) (v1.10) |
+| 15 | `GET /api/admin/analytics/events/{eventName}?slug&from&to` | `APPS_READ` | 단일 이벤트 일별 발생수 추이 (v1.10) |
+| 16 | `GET /api/admin/apps/{slug}/payments?query&channel&status&type&from&to&page&size` | `PAYMENTS_READ` | 단일 슬러그 — `payment_history`+`users` 조인 목록 (v1.5) |
+| 17 | `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` | `PAYMENTS_WRITE` | 단일 슬러그 — PG 환불(write). `PaymentPort`/`BillingPort` 재사용 |
+| 18 | `GET /api/admin/apps/{slug}/payments/{paymentId}/refunds` | `PAYMENTS_READ` | 환불 이력 원장(`payment_refunds`) 최신순 (v1.9) |
+| 19 | `GET /api/admin/apps/{slug}/files?prefix&kind&status&page&size` | `FILES_READ` | 단일 슬러그 — `<slug>-uploads` bucket 목록 (v1.8) |
+| 20 | `GET /api/admin/apps/{slug}/files/{key}/reveal` | `FILES_READ` | 단건 파일 원본(업로더·IP·기기) 열람 — `user_read_history` 기록 |
+| 21 | `POST /api/admin/apps/{slug}/files/quarantine?key` | `FILES_WRITE` | 단일 슬러그 — bucket write(검역). `StoragePort` 재사용 (v1.8) |
+| 22 | `POST /api/admin/apps/{slug}/files/restore?key` | `FILES_WRITE` | 단일 슬러그 — bucket write(검역 해제 복원) (v1.8) |
+| 23 | `POST /api/admin/apps/{slug}/files/restore-deleted?key` | `FILES_WRITE` | 단일 슬러그 — 삭제 대상 복원(write) |
+| 24 | `DELETE /api/admin/apps/{slug}/files?key` | `FILES_WRITE` | 단일 슬러그 — bucket write(불가역 삭제) (v1.8) |
+| 25 | `GET /api/admin/apps/{slug}/content?board&status&page&size` | `CONTENT_READ` | 단일 슬러그 — 공유 게시물(`posts`) 전량 조회·필터 (v1.10) |
+| 26 | `GET /api/admin/apps/{slug}/content/{id}` | `CONTENT_READ` | 게시물 상세 — 본문+첨부이미지 열람 |
+| 27 | `POST /api/admin/apps/{slug}/content/{id}/hide` | `CONTENT_WRITE` | 게시물 숨김(사유 필수, write) (v1.10) |
+| 28 | `POST /api/admin/apps/{slug}/content/{id}/restore` | `CONTENT_WRITE` | 숨김 해제(공개 복원, write) (v1.10) |
+| 29 | `POST /api/admin/apps/{slug}/content/{id}/restore-deleted` | `CONTENT_WRITE` | 삭제 대상 복원(write) (v1.10) |
+| 30 | `DELETE /api/admin/apps/{slug}/content/{id}` | `CONTENT_WRITE` | soft-delete(사유 필수, 30일 후 purge) (v1.10) |
+| 31 | `GET /api/admin/admins` | `ADMIN_MANAGE` | 관리자 계정 목록 (`admin.admin_users`) |
+| 32 | `POST /api/admin/admins` | `ADMIN_MANAGE` | 계정 생성 — 자기보다 낮은 티어만 (write) |
+| 33 | `PATCH /api/admin/admins/{id}` | `ADMIN_MANAGE` | 역할 변경 — 본인 변경 불가·마지막 master 강등 불가 (write) |
+| 34 | `DELETE /api/admin/admins/{id}` | `ADMIN_MANAGE` | 계정 삭제 — 본인·마지막 master 삭제 불가 (write) |
+| 35 | `POST /api/admin/admins/{id}/password` | `ADMIN_MANAGE` | 타 계정 비밀번호 재설정 (write) |
+| 36 | `POST /api/admin/me/password` | 인증 | 본인 비밀번호 변경 — 모든 콘솔 계정 (write) |
+| 37 | `GET /api/admin/roles/permissions` | `ADMIN_MANAGE` | 역할×권한 매트릭스 조회 (`admin.role_permissions`) |
+| 38 | `PUT /api/admin/roles/permissions` | `ADMIN_MANAGE` | 매트릭스 편집 — `PermissionCatalog` 가 편집 범위·의존 강제 (write) |
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
+
+`USERS_UNMASK`/`FILES_UNMASK` 권한은 별도 엔드포인트가 아니라 목록·상세(#9~10, #19) 응답의 **PII 마스킹 해제**를 결정해요 — 권한이 없으면 같은 엔드포인트가 마스킹(`●●●●`)된 값을 돌려줍니다. 마스킹 티어를 위한 단건 원본 열람이 `reveal`(#11, #20)이고, 열람 사실은 `user_read_history` 에 남아요.
 
 ---
 
@@ -453,7 +480,7 @@ IAP 결제 환불 시도 응답:
 
 불가역 삭제예요. `StoragePort.deleteObject` 가 idempotent(존재하지 않는 key 를 지워도 예외 없음)라 이 엔드포인트도 그렇습니다. 본문 없이 204 No Content 를 돌려줘요(`ApiResponse.empty()` — [`API Response Format`](./api/api-response.md) 의 "본문 없는 성공" 참고).
 
-**§4-13~4-16 공통 검증 순서**: `AdminSlugRegistry.has(slug)` 가 false 면 404 `ADMIN_003` — bucket 이름 자체를 슬러그로부터 조립하기 때문에(schema 라우팅과 달리 코드가 bucket 접근을 막지 않음) 존재하지 않는 슬러그를 조기에 걸러내는 이 검증이 유일한 방어선이에요. 검역/복원 대상 `key` 가 실제로 존재하지 않으면 `StoragePort.copyObject` 가 던지는 `StorageException`(`STG_002 OBJECT_NOT_FOUND`, 404)이 그대로 노출됩니다 — §4-11 의 "포트가 거부하는 케이스는 그대로 노출" 패턴과 동일하게, 이 도메인에 별도 FILE_NOT_FOUND 코드를 새로 만들지 않았어요.
+**§4-13~4-16 공통 검증 순서**: `AdminSlugRegistry.has(slug)` 가 false 면 404 `ADMIN_003` — bucket 이름 자체를 슬러그로부터 조립하기 때문에(schema 라우팅과 달리 코드가 bucket 접근을 막지 않음) 존재하지 않는 슬러그를 조기에 걸러내는 이 검증이 유일한 방어선이에요. 검역/복원 대상 `key` 가 실제로 존재하지 않으면 404 `ADMIN_010`(`FILE_NOT_FOUND`, `AdminFileNotFoundException`)으로 응답합니다.
 
 **감사로그**: `@Audited("admin.file.quarantine"/"admin.file.restore"/"admin.file.delete")` 가 §4-11 환불과 동일하게 `AuditAspect` 를 트리거해요. 컨트롤러가 서비스 호출 전 `SlugContext` 를 대상 슬러그로 스왑(`try`)하고 호출 후 원복(`finally`)하기 때문에, 감사 이벤트는 대상 앱 슬러그의 스키마에 남습니다 — bucket 접근 자체는 이름으로 직접 라우팅돼 `SlugContext` 를 보지 않지만, 감사로그 라우팅을 위해 스왑이 필요해요.
 
@@ -464,6 +491,7 @@ IAP 결제 환불 시도 응답:
 | 메서드 · 경로 | 상태 전이 | 비고 |
 |---|---|---|
 | `GET .../content?board&status&page&size` | — | 전량 조회·필터. `AdminPostResponse` 페이지 |
+| `GET .../content/{id}` | — | 게시물 상세 — 본문+첨부이미지 열람. `CONTENT_READ` |
 | `POST .../content/{id}/hide` (사유 필수) | `ACTIVE → HIDDEN` | 회원에게 숨김. `CONTENT_WRITE` |
 | `POST .../content/{id}/restore` | `HIDDEN → ACTIVE` | 숨김 해제(재공개) |
 | `POST .../content/{id}/restore-deleted` | `DELETED → ACTIVE` | 삭제 대상 복원 |
@@ -518,7 +546,7 @@ IAP 결제 환불 시도 응답:
 
 ---
 
-## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_009`, `ADMIN_020` ~ `ADMIN_022`
+## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_022`
 
 | 코드 | HTTP | 발생 상황 |
 |---|---|---|
@@ -529,8 +557,18 @@ IAP 결제 환불 시도 응답:
 | `ADMIN_005` USER_NOT_FOUND | 404 | `/apps/{slug}/users/{userId}` 조회 시 해당 유저 없음 |
 | `ADMIN_006` PG_REFUND_ONLY | 400 | 환불 대상 결제의 `channel` 이 `PG` 가 아님(IAP 는 스토어가 결제를 소유해 콘솔 대행 불가) |
 | `ADMIN_007` PAYMENT_NOT_FOUND | 404 | 환불 대상 슬러그 스키마에 그 `paymentId` 의 결제가 없음 |
-| `ADMIN_008` FILE_ALREADY_QUARANTINED | 400 | 이미 `quarantine/` 프리픽스인 `key` 를 다시 검역 시도(v1.8) |
-| `ADMIN_009` FILE_NOT_QUARANTINED | 400 | `quarantine/` 프리픽스가 아닌 `key` 를 복원 시도(v1.8) |
+| `ADMIN_008` FILE_ALREADY_QUARANTINED | 400 | 이미 검역된 파일을 다시 검역 시도(v1.8) |
+| `ADMIN_009` FILE_NOT_QUARANTINED | 400 | 검역되지 않은 파일을 복원 시도(v1.8) |
+| `ADMIN_010` FILE_NOT_FOUND | 404 | 검역/복원/열람 대상 파일 없음 |
+| `ADMIN_011` ADMIN_EMAIL_EXISTS | 409 | 계정 생성 시 이미 사용 중인 이메일 |
+| `ADMIN_012` ADMIN_ACCOUNT_NOT_FOUND | 404 | `/admins/{id}` 대상 관리자 계정 없음 |
+| `ADMIN_013` ADMIN_INVALID_ROLE | 400 | 4티어 코드(viewer/support/admin/master)가 아닌 역할 입력 |
+| `ADMIN_014` ADMIN_CANNOT_MODIFY_SELF | 400 | 본인 계정 삭제·역할 변경 시도 |
+| `ADMIN_015` ADMIN_LAST_MASTER | 400 | 마지막 master 계정 삭제·강등 시도 |
+| `ADMIN_016` ADMIN_WRONG_PASSWORD | 400 | 본인 비밀번호 변경 시 현재 비밀번호 불일치 |
+| `ADMIN_017` ADMIN_ROLE_EDIT_FORBIDDEN | 403 | 상급자·본인 티어의 권한/계정 편집 시도 |
+| `ADMIN_018` ADMIN_PERM_NOT_EDITABLE | 400 | 편집 불가 권한(`PermissionCatalog` FIXED 등) 편집 시도 |
+| `ADMIN_019` ADMIN_PERM_DEPENDENCY | 400 | WRITE/UNMASK 권한을 해당 READ 권한 없이 부여 시도 |
 | `ADMIN_020` REFUND_AMOUNT_INVALID | 400 | 환불 금액이 환불 가능 잔액을 벗어남(부분환불, v1.9) |
 | `ADMIN_021` REFUND_NOT_ALLOWED | 400 | 이미 전액 환불됐거나 결제완료 상태가 아닌 결제의 환불 시도(v1.9) |
 | `ADMIN_022` CONTENT_NOT_FOUND | 404 | `/apps/{slug}/content/{id}` 모더레이션 대상 게시물 없음(v1.10) |
@@ -541,7 +579,7 @@ IAP 결제 환불 시도 응답:
 { "data": null, "error": { "code": "ADMIN_003", "message": "알 수 없는 앱이에요.", "details": null } }
 ```
 
-`ADMIN_003`/`ADMIN_005`/`ADMIN_006`/`ADMIN_007`/`ADMIN_008`/`ADMIN_009` 는 모두 `BaseException` 계열(각각 `AdminSlugNotFoundException`/`AdminPaymentNotFoundException`/`AdminUnsupportedRefundChannelException`/`AdminFileAlreadyQuarantinedException`/`AdminFileNotQuarantinedException`)이라 공용 `GlobalExceptionHandler` 가 자동 매핑하고, `ADMIN_004`(날짜 파싱 실패)와 `ADMIN_005`(유저 없음의 JDBC 0-rows 케이스)는 admin 컨트롤러 전용 `AdminControllerAdvice` 가 매핑합니다. 이미 환불된 결제처럼 "포트가 거부하는" 케이스는 이 카탈로그에 없고 `core-payment-api`(`PaymentError`)/`core-billing-api`(`BillingError`)/`core-storage-api`(`StorageError`, 예: 검역/복원 대상 `key` 가 없으면 `STG_002 OBJECT_NOT_FOUND`) 쪽 코드가 그대로 노출돼요. 전체 에러 코드 카탈로그는 [`exception-handling.md`](../convention/exception-handling.md) 를 참고하세요.
+`ADMIN_*` 코드는 모두 `AdminError` enum + `BaseException` 계열(예: `AdminSlugNotFoundException`/`AdminPaymentNotFoundException`/`AdminFileNotFoundException`/`AdminAccountException`)이라 공용 `GlobalExceptionHandler` 가 자동 매핑하고, `ADMIN_004`(날짜 파싱 실패)와 `ADMIN_005`(유저 없음의 JDBC 0-rows 케이스)는 admin 컨트롤러 전용 `AdminControllerAdvice` 가 매핑합니다. 이미 환불된 결제처럼 "포트가 거부하는" 케이스는 이 카탈로그에 없고 `core-payment-api`(`PaymentError`)/`core-billing-api`(`BillingError`)/`core-storage-api`(`StorageError`) 쪽 코드가 그대로 노출돼요. 전체 에러 코드 카탈로그는 [`exception-handling.md`](../convention/exception-handling.md) 를 참고하세요.
 
 ---
 
@@ -569,7 +607,7 @@ IAP 결제 환불 시도 응답:
 - [`JWT Authentication`](../structure/jwt-authentication.md) — 토큰 발급/검증 공통 흐름
 - [`Multi-tenant Architecture`](../structure/multitenant-architecture.md) — `SchemaRoutingDataSource` + `SlugContext`
 - [`Exception Handling`](../convention/exception-handling.md) — 전체 에러 코드 카탈로그 규약
-- [`ADR-027 · admin role 권한 분리`](../philosophy/adr-027-admin-role-authorization.md) — `ROLE_ADMIN`(앱 내부) vs `ROLE_SUPERADMIN`(콘솔) 구분
+- [`ADR-027 · admin role 권한 분리`](../philosophy/adr-027-admin-role-authorization.md) — 앱 내부 `role`(user/admin)과 콘솔 RBAC(4티어 + `PERM_*`) 구분
 - [`ADR-028 · audit log 도메인`](../philosophy/adr-028-audit-log-domain.md) — `audit_logs` 가 쌓이는 방식(AOP)
 - [`오브젝트 스토리지 규약`](./functional/storage.md) — `StoragePort`, presigned URL, object key 패턴
 - [`스토리지 버킷 격리`](../production/setup/storage-bucket-isolation.md) — `<slug>-uploads` bucket 네이밍 컨벤션(§4-13~4-16 이 의존)

@@ -169,7 +169,7 @@
 ## 관련 문서
 
 - [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) — step-by-step 정상 흐름
-- [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) — 12 함정 참조 (1회차 위주)
+- [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) — 15 함정 참조
 - [`도그푸딩 FAQ`](./dogfood-faq.md) — Q&A 형식
 - [`secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) — 4 곳 매핑 표
 - [`인프라 결정 기록`](../production/deploy/decisions-infra.md) — I-09 ~ I-14 (왜 이 결정을 내렸나)

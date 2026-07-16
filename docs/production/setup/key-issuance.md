@@ -353,7 +353,7 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/<id>/<token>/slack
    - v1 API Key 와 Secret — legacy 호환용
    - v2 API Key — 신규 API 호출용
    - 가맹점 식별 코드 (Customer Code)
-5. **webhook secret 은 `init-prod.sh` 가 자동 발급해요.** 사용자가 콘솔에서 따로 발급하는 값이 아니에요. `init-prod.sh` 1회차가 random 32자를 생성해 `APP_PAYMENT_PORTONE_WEBHOOK_SECRET` 에 채워주면, 그 값을 PortOne 콘솔의 *Webhook* 메뉴에 가서 webhook secret 입력란에 그대로 붙여넣어요. webhook URL 은 `https://<APP_DOMAIN>/api/payment/webhook` 형식으로 등록해요.
+5. **webhook secret 은 `init-prod.sh` 가 자동 발급해요.** 사용자가 콘솔에서 따로 발급하는 값이 아니에요. `init-prod.sh` 1회차가 random 32자를 생성해 `APP_PAYMENT_PORTONE_WEBHOOK_SECRET` 에 채워주면, 그 값을 PortOne 콘솔의 *Webhook* 메뉴에 가서 webhook secret 입력란에 그대로 붙여넣어요. webhook URL 은 `https://<APP_DOMAIN>/api/apps/<slug>/payment/webhook` 형식으로 등록해요 (payment 엔드포인트는 앱 slug 경로 아래에 있어요 — `/api/payment/webhook` 으로 등록하면 전부 404 가 납니다).
 
 **`.env.prod` 채울 위치**:
 ```bash

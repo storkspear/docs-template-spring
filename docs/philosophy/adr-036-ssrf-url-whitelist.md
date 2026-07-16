@@ -16,7 +16,7 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 웹 백엔드의 외부 호출은 보통 *third-party API 통합* (소셜 로그인 검증, 결제 webhook, 푸시 발송, 이메일 발송, 스토리지 등) 에서 발생해요. 이런 호출은 종종 *동적 URL* 형태로 구현되는데, *사용자 입력* 이 URL 의 일부에 들어가면 SSRF 가 가능해져요.
 
@@ -87,7 +87,7 @@ InterruptedException 처리도 표준 패턴 따름 — `Thread.currentThread().
 
 ---
 
-## Consequences
+## 이 선택이 가져온 것
 
 **얻는 것**:
 - 새 외부 호출 추가 시 SSRF 위험 사전 차단 (review 기준선)

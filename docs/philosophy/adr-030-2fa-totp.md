@@ -20,7 +20,7 @@
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 비밀번호 강화 ([`ADR-029`](./adr-029-password-policy.md)) 만으로는 *credential stuffing* 공격을 완전히 막을 수 없어요. 사용자가 *우리 시스템에서는 정책에 맞게 강한 비밀번호* 를 설정해도, *다른 사이트에서 같은 비밀번호를 재사용* 하고 그 사이트가 유출되면 *우리 시스템의 비밀번호도 유출된 것* 과 마찬가지가 됩니다. 사용자의 다른 사이트 보안 습관을 우리가 통제할 수 없는 한, *비밀번호만으로 인증* 하는 시스템은 *유출된 비밀번호 데이터베이스 기반 자동 공격* 에 취약해요.
 
@@ -229,7 +229,8 @@ core 공유 `AuthController` (`AuthAutoConfiguration` 등록) 에 포함돼요 (
 ## 관련 파일
 
 신규:
-- `tools/new-app/new-app.sh` — V013 마이그레이션 + AuthController 4개 endpoint heredoc + ApiEndpoints.Auth.TOTP_*
+- `tools/new-app/new-app.sh` — V013 마이그레이션 heredoc
+- `core/core-auth-impl/.../controller/AuthController.java` — TOTP 4개 endpoint (공유 컨트롤러, ADR-013 B — 앱별 heredoc 미생성) + ApiEndpoints.Auth.TOTP_*
 - `core/core-auth-impl/.../totp/TotpService.java` — RFC 6238 알고리즘
 - `core/core-auth-impl/.../totp/TwoFactorService.java` — 비즈로직 (setup/verify/disable/loginWith2fa)
 - `core/core-auth-impl/src/test/.../totp/TotpServiceTest.java` — 11건

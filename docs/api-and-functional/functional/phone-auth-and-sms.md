@@ -10,6 +10,12 @@
 
 ---
 
+## 한 문장 요약
+
+휴대폰 점유인증은 core 공유 `PhoneAuthController` 가 SMS OTP 의 발송(rate-limit)·검증(brute-force 가드)을 오케스트레이션하고, 발송은 `SmsPort`(키 유무로 CoolSMS 실발송 ↔ 콘솔 캡처 토글), 검증 후 토큰 발급은 `AuthPort.issueForVerifiedPhone` 에 위임하는 구조예요.
+
+---
+
 ## 개요
 
 **점유인증(占有認證)** 은 "이 사용자가 실제로 이 휴대폰 번호를 소유(점유) 하고 있는가" 를 SMS 일회용 코드(OTP) 로 확인하는 절차입니다. 번호로 6자리 코드를 보내고, 사용자가 그 코드를 입력하면 "이 번호의 점유가 검증됐다" 는 신뢰가 생깁니다. 그 신뢰를 바탕으로 가입/로그인 토큰을 발급합니다.
@@ -25,7 +31,7 @@
 
 ## 아키텍처 개요
 
-```
+```text
 [PhoneAuthController]                  (core-phone-auth-impl — 공유 컨트롤러, {appSlug} path + brand config)
        │
        ▼
@@ -97,7 +103,7 @@ SOLAPI 는 국내형 번호(`01012345678`) 를 요구하므로, E.164(`+8210…`
 
 발신사 키가 없는 비-운영 환경의 fallback 입니다. 실제 문자를 보내지 않고 수신 번호/본문을 `WARN` 로그로 출력합니다 — 점유인증 OTP 를 개발자가 콘솔에서 바로 확인할 수 있습니다.
 
-```
+```text
 [DEV-SMS] SMS captured to logs (real SMS provider not configured)
   To: +821012345678
   Text: [랜목톡] 인증번호 [042193] 보이스피싱주의, 타인 노출금지
@@ -388,5 +394,3 @@ app:
 - [`ADR-003 · core 모듈을 -api / -impl 로 분리`](../../philosophy/adr-003-api-impl-split.md) — `SmsPort` / `PhoneAuthPort` 가 `-api` 모듈에 있는 근거
 - [`ADR-013 · 앱별 인증 엔드포인트`](../../philosophy/adr-013-per-app-auth-endpoints.md) — 컨트롤러 공유화(방향 B), 점유인증도 동일 적용
 - [`ADR-037 · core schema 폐기`](../../philosophy/adr-037-core-schema-deprecation.md) — per-app `auth_phone_verification_codes` 데이터 라우팅
-</content>
-</invoke>

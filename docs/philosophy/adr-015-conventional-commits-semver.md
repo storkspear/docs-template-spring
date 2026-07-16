@@ -116,7 +116,8 @@ export default {
         ]],
         'scope-enum': [1, 'always', [
             'auth', 'user', 'device', 'push', 'billing', 'sms', 'phone-auth',
-            'common', 'bootstrap', 'spec', 'docs',
+            'content', 'analytics', 'attachment', 'storage',
+            'common', 'bootstrap', 'admin', 'spec', 'docs',
             'core', 'apps', 'tools',
             'ops', 'infra', 'env', 'deploy'
         ]],
@@ -131,7 +132,7 @@ export default {
 ```
 
 - **10개 type** — feat, fix 는 버전 영향 (minor/patch), 나머지는 문서·내부
-- **19개 scope** — 경고 레벨 (2=error, 1=warning). 새 모듈 추가 시 warning 발생하면 리스트 업데이트
+- **23개 scope** — 경고 레벨 (2=error, 1=warning). 새 모듈 추가 시 warning 발생하면 리스트 업데이트
 - **72자 제한** — git log 의 한 줄 표시 가독성
 
 ### husky commit-msg 훅
@@ -206,7 +207,7 @@ Breaking change 는 직접 도입하지 않고 아래 경로로:
    ```
 2. Javadoc `@deprecated` 태그 — 대체 방안 명시
 3. CHANGELOG `### Deprecated` 섹션 — 이번 릴리스에서 deprecate 된 것
-4. `docs/features/migration.md` — 복잡한 이행이 필요한 경우
+4. [`docs/api-and-functional/functional/migration.md`](../api-and-functional/functional/migration.md) — 복잡한 이행이 필요한 경우
 
 **ArchUnit r20 이 기계 강제**:
 ```java

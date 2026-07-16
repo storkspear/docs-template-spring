@@ -20,7 +20,7 @@
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 비밀번호 정책의 *기본값* 만으로 시스템이 출시되면 운영 보안 audit 에서 *baseline 미달* 로 분류되는 경우가 많아요. *최소 8 자 + 복잡도 요구 없음* 같은 단순 정책은 *brute-force 시간 비용* 을 충분히 늘리지 못하고, *credential stuffing 공격* (다른 사이트에서 유출된 이메일/비밀번호 조합으로 자동 로그인 시도) 에도 무방비입니다.
 
@@ -112,7 +112,7 @@ APP_SECURITY_PASSWORD_REQUIRE_SPECIAL=true
 ## 적용 DTO (3개)
 
 ```
-SignUpRequest                @ValidPassword newPassword
+SignUpRequest                @ValidPassword password
 ChangePasswordRequest         @ValidPassword newPassword
 PasswordResetConfirmRequest   @ValidPassword newPassword
 ```

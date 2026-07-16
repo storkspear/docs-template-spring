@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: 클라이언트 개발자 (Level 1~2) · **읽는 시간**: ~12분
 
-본 문서는 모든 앱이 공유하는 **코어 REST API 엔드포인트 카탈로그**입니다. auth / user / device / notification-settings / payment / iap 엔드포인트는 **core 공유 컨트롤러**가 각 AutoConfiguration 으로 등록되어 `/api/apps/{appSlug}/*` 로 제공돼요 — 앱을 추가하면 그 슬러그 경로로 자동 제공됩니다 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) B). 앱 고유 도메인 엔드포인트만 `<your-backend> new <slug>` 시 `tools/new-app/new-app.sh` 가 `<Slug>HealthController` + `<Slug>ApiEndpoints` 로 생성합니다.
+본 문서는 모든 앱이 공유하는 **코어 REST API 엔드포인트 카탈로그**입니다. auth / user / device / notification-settings / posts / payment / iap 엔드포인트는 **core 공유 컨트롤러**가 각 AutoConfiguration 으로 등록되어 `/api/apps/{appSlug}/*` 로 제공돼요 — 앱을 추가하면 그 슬러그 경로로 자동 제공됩니다 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) B). 앱 고유 도메인 엔드포인트만 `<your-backend> new <slug>` 시 `tools/new-app/new-app.sh` 가 `<Slug>HealthController` + `<Slug>ApiEndpoints` 로 생성합니다.
 
 ## 공통 사항
 
@@ -32,7 +32,9 @@
 
 | 메서드 | 경로 | 인증 | 설명 | 관련 ADR |
 |---|---|---|---|---|
-| POST | `/auth/email/signup` | X | 이메일 가입 + 인증 코드 발송 | ADR-013 |
+| POST | `/auth/email/send-code` | X | 가입 전 이메일 인증 코드 발송 (verify-BEFORE-signup 1단계, per-email rate limit) | ADR-013 |
+| POST | `/auth/email/verify-code` | X | 6자리 코드 검증 → `proofToken` 반환 (2단계) | ADR-013 |
+| POST | `/auth/email/signup` | X | 이메일 가입 — `proofToken` 제출 (3단계) | ADR-013 |
 | POST | `/auth/email/signin` | X | 이메일 로그인 (2FA 활성 시 pending token 반환) | ADR-013, ADR-030 |
 | POST | `/auth/apple` | X | Apple 소셜 로그인 (identity token RS256 검증) | ADR-013 |
 | POST | `/auth/google` | X | Google 소셜 로그인 (id_token 검증) | ADR-013 |
@@ -57,11 +59,21 @@
 | POST | `/auth/me/2fa/disable` | O | 2FA 비활성 (현재 비밀번호 + TOTP 코드 검증) |
 | POST | `/auth/2fa/login` | X (twoFactorToken) | signin 후 pending token + TOTP/backup code 로 정상 토큰 발급 |
 
-**Pending token**: `signin` 응답이 `twoFactorToken` (만료 5분, type="2fa-pending") 만 반환할 때, 클라이언트는 `/2fa/login` 으로 정식 토큰 발급.
+**Pending token**: `signin` 응답이 `twoFactorToken` (만료 5분, type="2fa_pending") 만 반환할 때, 클라이언트는 `/2fa/login` 으로 정식 토큰 발급.
 
 ---
 
-## 2. 결제 PG (`/payment/*`) — core-payment
+## 2. 유저 (`/users/*`) — core-user
+
+| 메서드 | 경로 | 인증 | 설명 |
+|---|---|---|---|
+| GET | `/users/me` | O | 현재 유저 프로필 조회 |
+| PATCH | `/users/me` | O | 프로필 수정 (displayName — null 필드는 유지, PATCH semantics) |
+| POST | `/users/me/activity` | O | 활동 ping (204) — 본문 로직 없음, `UserActivityTrackingFilter` 가 (user, 오늘) 활동 기록 |
+
+---
+
+## 3. 결제 PG (`/payment/*`) — core-payment
 
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
@@ -71,7 +83,7 @@
 
 ---
 
-## 3. 인앱 결제 IAP (`/iap/*`) — core-iap (ADR-022)
+## 4. 인앱 결제 IAP (`/iap/*`) — core-iap (ADR-022)
 
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
@@ -95,7 +107,7 @@
 
 ---
 
-## 4. 디바이스 (`/devices/*`) — core-device
+## 5. 디바이스 (`/devices/*`) — core-device
 
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
@@ -104,7 +116,7 @@
 
 ---
 
-## 5. 알림 설정 (`/me/notification-settings/*`) — core-billing (ADR-031)
+## 6. 알림 설정 (`/me/notification-settings/*`) — core-billing (ADR-031)
 
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
@@ -120,7 +132,18 @@
 
 ---
 
-## 6. 시스템 (`/health`, `/version`)
+## 7. 공유 게시물 (`/posts/*`) — core-content
+
+| 메서드 | 경로 | 인증 | 설명 |
+|---|---|---|---|
+| POST | `/posts` | O | 게시물 작성 (인증 유저가 작성자, 상태 ACTIVE) |
+| GET | `/posts?board={board}` | O | 게시판 목록 — ACTIVE 만 최신순 페이징 (`page`/`size`, size 최대 100) |
+
+MVP 는 작성·목록 두 액션만 제공합니다. 개별 조회·작성자 삭제는 후속이고, 모더레이션 (숨김·삭제) 은 관리자 콘솔 담당이에요.
+
+---
+
+## 8. 시스템 (`/health`, `/version`)
 
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
@@ -131,11 +154,11 @@
 
 ---
 
-## 7. 명세 동기화
+## 9. 명세 동기화
 
-코어 엔드포인트(auth / user / device / notification / payment / iap)의 경로는 `common-web` 의 `ApiEndpoints` + 각 `core-*-impl` 의 공유 컨트롤러에서 관리돼요 — 경로 변경 시 그쪽을 고칩니다. 앱 고유 경로만 `tools/new-app/new-app.sh` 의 heredoc 이 `<Slug>HealthController` / `<Slug>ApiEndpoints` 로 생성합니다.
+코어 엔드포인트(auth / user / device / notification / posts / payment / iap)의 경로는 `common-web` 의 `ApiEndpoints` + 각 `core-*-impl` 의 공유 컨트롤러에서 관리돼요 — 경로 변경 시 그쪽을 고칩니다. 앱 고유 경로만 `tools/new-app/new-app.sh` 의 heredoc 이 `<Slug>HealthController` / `<Slug>ApiEndpoints` 로 생성합니다.
 
-- `common/common-web/.../ApiEndpoints.java` — 코어 공유 경로 상수 (`Auth` / `User` / `Device` / `NotificationPreferences` / `Payment` / `Iap`)
+- `common/common-web/.../ApiEndpoints.java` — 코어 공유 경로 상수 (`Auth` / `User` / `Device` / `NotificationSettings` / `Posts` / `Payment` / `Iap`)
 - `core/core-auth-impl/.../AuthController.java`, `core/core-billing-impl/.../controller/{Payment,Iap}Controller.java`, `core/core-phone-auth-impl/.../controller/PhoneAuthController.java` 등 — 공유 런타임 빈 (각 AutoConfiguration 이 등록)
 
 ---

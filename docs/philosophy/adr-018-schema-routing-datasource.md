@@ -12,7 +12,7 @@
 
 이 구조의 장점은 *service Bean 은 그대로 단일* 이라는 점이에요. `AuthServiceImpl` 한 개가 모든 슬러그의 회원가입을 처리하지만, *connection 자체가 슬러그별로 분기되므로* `INSERT INTO users` 가 *현재 요청의 슬러그 schema* 로 자동으로 흘러가요. `@Transactional` 도 단일 TransactionManager 그대로 쓰고, JPA Repository 도 default EntityManagerFactory 그대로 쓰는데, *connection 이 결정하는 search_path* 덕에 자연스럽게 격리가 작동합니다.
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 이 *공유 controller + 공통 `AuthPort` 위임* 패턴을 정했지만, 이 패턴은 *controller 와 service 사이의 위임* 까지만 책임집니다. service 가 실제로 *어느 schema 에 INSERT 할지* 는 [`ADR-013`](./adr-013-per-app-auth-endpoints.md) 의 범위 밖이에요. 결과적으로 *controller 는 슬러그를 알지만 service 는 슬러그에 무관* 한 비대칭이 생기고, 이 비대칭을 메우지 않으면 [`ADR-005`](./adr-005-db-schema-isolation.md) 의 5중 방어선 중 *DataSource 분리 방어선* 이 사실상 작동하지 않아요.
 
@@ -26,7 +26,7 @@ ThreadLocal 기반 라우팅은 *Spring 의 표준 패턴* 이에요. `AbstractR
 
 > **service-layer 가 슬러그를 명시적으로 받지 않으면서도 슬러그별 schema 격리를 자연스럽게 따르게 하는 구조는 무엇인가?**
 
-## 채택한 패턴
+## 결정 — 채택한 패턴
 
 ### `SlugContext` (ThreadLocal)
 
@@ -110,7 +110,7 @@ test-svc 슬러그 + helloworld admin signin 시도 → 401 (격리 정상)
 hibernate SQL log: insert into users (...) — schema prefix 없음, connection 이 결정
 ```
 
-## 핵심 파일
+## Code References
 
 - `common/common-persistence/SlugContext.java` (신규)
 - `common/common-persistence/SchemaRoutingDataSource.java` (신규)

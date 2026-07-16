@@ -1,6 +1,6 @@
 # ADR-003 · core 모듈을 `-api` / `-impl` 로 분리
 
-**Status**: Accepted. core 의 12 개 도메인 (user, auth, phone-auth, device, push, billing, iap, payment, storage, email, sms, audit) 이 모두 `-api`·`-impl` 쌍으로 구성돼 있어요. ArchUnit 9 개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 이 구조를 강제합니다.
+**Status**: Accepted. core 의 16 개 도메인 중 15 개 (user, auth, phone-auth, device, push, billing, iap, payment, storage, email, sms, audit, attachment, content, analytics) 가 `-api`·`-impl` 쌍으로 구성돼 있어요 (admin 은 운영 콘솔 특성상 `core-admin-impl` 단독 — [ADR-039](./adr-039-admin-module.md)). ArchUnit 9 개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 이 구조를 강제합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -83,7 +83,7 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 
 ### Option 4 — `-api` / `-impl` Gradle 모듈 분리 ★ (채택)
 
-12개 도메인 각각을 `core-<domain>-api` + `core-<domain>-impl` 두 개의 Gradle 모듈로 분리.
+도메인 각각을 `core-<domain>-api` + `core-<domain>-impl` 두 개의 Gradle 모듈로 분리 (현재 15쌍).
 
 - **`-api` 모듈**: 인터페이스 + DTO + Exception 만. JPA 의존 0. Spring 의존 0.
 - **`-impl` 모듈**: Spring 빈 + JPA 엔티티 + 비즈니스 로직.
@@ -95,7 +95,7 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 - 미래 추출 시 `-api` 는 그대로, `-impl` 만 HTTP 클라이언트로 교체.
 
 **단점**:
-- 모듈 수 2배 (12개 도메인 → 24 모듈).
+- 모듈 수 2배 (도메인당 2개 — 현재 15쌍 30 모듈 + `core-admin-impl`).
 - 인터페이스와 구현체 사이의 매핑 파일 관리 필요 (DTO ↔ Entity 변환 등).
 - 초기 설정 복잡도 약간 상승.
 
@@ -103,7 +103,7 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 
 ## 결정
 
-core 12개 도메인 전부 `-api` / `-impl` 쌍으로 분리합니다.
+core 도메인 전부를 `-api` / `-impl` 쌍으로 분리합니다 (현재 15쌍 — 운영 콘솔 admin 만 `core-admin-impl` 단독, [ADR-039](./adr-039-admin-module.md)).
 
 ```
 core/
@@ -122,7 +122,7 @@ core/
 `-api` 모듈의 인터페이스는 `*Port` 접미사를 사용합니다 (Hexagonal Architecture 용어). 실제 예시 ([`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java)):
 
 ```java
-// core-auth-api/AuthPort.java 발췌 — 전체 18 메서드 중 일부
+// core-auth-api/AuthPort.java 발췌 — 전체 20 메서드 중 일부
 public interface AuthPort {
     AuthResponse signUpWithEmail(SignUpRequest request);
     AuthResponse signInWithEmail(SignInRequest request);
@@ -266,11 +266,11 @@ references class <com.factory.core.user.impl.entity.User>
 
 ### 부정적 결과
 
-**모듈 수 2배** — 12개 도메인 × 2 = 24 core 모듈이에요. IDE 프로젝트 트리가 길어져요. 완화: 관습으로 짝 구조가 명확해서 탐색은 쉬워요.
+**모듈 수 2배** — 도메인 15쌍 × 2 = 30 core 모듈 (+ `core-admin-impl`) 이에요. IDE 프로젝트 트리가 길어져요. 완화: 관습으로 짝 구조가 명확해서 탐색은 쉬워요.
 
 **DTO ↔ Entity 변환 비용** — Port 가 Entity 반환을 금지하므로 `-impl` 내부에서 Entity 를 DTO 로 변환해야 해요. 완화: ADR-016 (DTO Mapper 금지, Entity 메서드 패턴) 이 이 비용을 최소화해요.
 
-**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **18 메서드** 예요. email 가입과 다섯 가지 로그인 (이메일·Apple·Google·Kakao·Naver), refresh·탈퇴, password reset 3개 (요청·확인·변경), email verify 2개 (검증·재발송), 2FA TOTP 4개 (setup·verify·disable·login), 휴대폰 점유인증 1개를 한데 담고 있어요. 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 돼요. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 책임 기반 분할을 고려해요. 현재 18 메서드는 관리 가능한 수준이에요.
+**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **20 메서드** 예요. 가입 전 이메일 인증코드 2개 (발송·검증), email 가입과 다섯 가지 로그인 (이메일·Apple·Google·Kakao·Naver), refresh·탈퇴, password reset 3개 (요청·확인·변경), email verify 2개 (검증·재발송), 2FA TOTP 관리 3개 (setup·verifyAndEnable·disable) 와 2FA 로그인 1개, 휴대폰 점유인증 1개를 한데 담고 있어요. 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 돼요. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 책임 기반 분할을 고려해요. 현재 20 메서드는 관리 가능한 수준이에요.
 
 ### 감당 가능성 판단
 
@@ -298,7 +298,7 @@ references class <com.factory.core.user.impl.entity.User>
 ## Code References
 
 **Port 인터페이스** (모두 `-api` 모듈):
-- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 18 메서드, JavaDoc 풍부.
+- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 20 메서드, JavaDoc 풍부.
 - [`UserPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/UserPort.java)
 - [`PushPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-push-api/src/main/java/com/factory/core/push/api/PushPort.java)
 - [`EmailPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-email-api/src/main/java/com/factory/core/email/api/EmailPort.java) — 간결. Secondary Adapter 의 대상.

@@ -32,18 +32,20 @@
 
 `OpenApiConfig` 의 `openAPI()` 빈이 여기에 한 가지를 더 얹어요. 모든 엔드포인트가 Bearer JWT 를 요구한다는 보안 스킴을 글로벌로 등록해서, Swagger UI 의 "Authorize" 버튼으로 토큰을 한 번 입력하면 이후 모든 호출에 자동으로 첨부됩니다.
 
-## 슬러그별 컨트롤러
+## 슬러그별 컨트롤러 — HealthController 하나 + core 공유
 
-`<repo> new <slug>` 가 만드는 앱 모듈은 controller 4 개를 함께 생성해요. 각 base path 와 역할은 이래요.
+`<repo> new <slug>` 가 만드는 앱 모듈의 컨트롤러는 `<Slug>HealthController` **1 개**뿐이에요 (`@Tag(name = "<slug>")`, `GET /api/apps/<slug>/health`). 인증·결제·IAP 는 슬러그별 사본이 아니라 core 의 **공유 런타임 빈**이 `{appSlug}` path 변수로 모든 앱을 처리합니다 (ADR-013 B).
 
-| Controller | base path | 역할 |
-|---|---|---|
-| `*HealthController` | `/api/apps/<slug>` | 슬러그별 헬스체크 (`/health`) |
-| `*AuthController` | `/api/apps/<slug>/auth` | 가입 · 로그인 · 토큰 갱신 · 비밀번호 재설정 |
-| `*PaymentController` | `/api/apps/<slug>/payment` | 포트원 PG 결제 검증 · webhook |
-| `*IapController` | `/api/apps/<slug>/iap` | Apple·Google IAP 영수증 검증 · webhook |
+| Controller | 소유 모듈 | base path | `@Tag` |
+|---|---|---|---|
+| `<Slug>HealthController` | `apps/app-<slug>` (생성됨) | `/api/apps/<slug>` | `<slug>` |
+| `AuthController` | `core-auth-impl` (공유) | `/api/apps/{appSlug}/auth` | `auth` |
+| `UserController` | `core-user-impl` (공유) | `/api/apps/{appSlug}/users` | `core-user` |
+| `DeviceController` | `core-device-impl` (공유) | `/api/apps/{appSlug}/devices` | `core-device` |
+| `PaymentController` | `core-billing-impl` (공유) | `/api/apps/{appSlug}/payment` | `payment` |
+| `IapController` | `core-billing-impl` (공유) | `/api/apps/{appSlug}/iap` | `iap` |
 
-이 4 개는 슬러그별 thin wrapper 입니다. 직접 로직을 담지 않고 core 의 Port — `AuthPort`·`PaymentPort`·`IapPort` (그리고 `BillingPort`) — 를 호출하는 얇은 어댑터예요. 각 controller 의 `@Tag` 가 슬러그를 prefix 로 달아서 (`<slug>`, `<slug>-auth`, `<slug>-payment`, `<slug>-iap`) Swagger UI 에서 슬러그별로 그룹화돼 보입니다. 예를 들어 `banana` 앱이면 `banana-auth`·`banana-iap` 식이에요.
+Swagger UI 에서 슬러그별 그룹은 `<slug>` 태그(헬스체크)로만 보이고, 인증·유저·결제 그룹은 공유 태그(`auth`·`core-user`·`payment`·`iap` 등) 아래에 `{appSlug}` path 변수 형태로 나타나요.
 
 ## 새 controller 추가 시
 

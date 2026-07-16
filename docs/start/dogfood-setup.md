@@ -225,7 +225,7 @@ GYMLOG_DB_PASSWORD=
 bash tools/init-prod.sh <owner>/<repo>
 # 예: bash tools/init-prod.sh storkspear/server-factory
 # 또는: <repo> prod init storkspear/server-factory
-# 또는: <repo> init storkspear/server-factory   (= local + prod 순차)
+# 또는: <repo> all init storkspear/server-factory   (= local → prod 순차; init 만 쓰면 local 셋업만)
 ```
 
 1회차에서 `init-prod.sh` 가 하는 일이에요.
@@ -282,7 +282,7 @@ $EDITOR .env.prod
 
 #### 결제 — 일부만 채우면 부팅이 막혀요
 
-`<repo> new <slug>` 가 만드는 슬러그 컨트롤러(`*PaymentController`)가 `PaymentPort` 를 의존해요. prod profile 의 `PortOneProdConfigGuard` 는 v1 키·secret·webhook secret 셋 중 *일부만* 채워진 상태를 부팅 시점에 막아요. webhook 만 빠지면 위조 위험, v1 키만 빠지면 결제 불가 — 둘 다 사고라 `IllegalStateException` 으로 fail-fast 해요.
+`<repo> new <slug>` 로 앱을 올리면 core 공유 결제 컨트롤러가 `PaymentPort` 를 통해 결제를 처리해요. prod profile 의 `PortOneProdConfigGuard` 는 v1 키·secret·webhook secret 셋 중 *일부만* 채워진 상태를 부팅 시점에 막아요. webhook 만 빠지면 위조 위험, v1 키만 빠지면 결제 불가 — 둘 다 사고라 `IllegalStateException` 으로 fail-fast 해요.
 
 ```bash
 # 결제 미사용 — 도그푸딩 단계에서는 더미값으로 충분합니다
@@ -374,7 +374,7 @@ bash tools/init-prod.sh <owner>/<repo>
 
 `setup.sh` 가 하는 일이에요.
 
-- 필수 변수 14개 검증 (`GH_REPO`·SSH 키 경로·DB·도메인·Tailscale 등) + `DB_URL` 형식 확인
+- 필수 변수 13개 검증 (`GH_REPO`·SSH 키 경로·DB·도메인·Tailscale 등) + `DB_URL` 형식 확인
 - GitHub Actions workflow 권한 = write
 - `gha_deploy` SSH 키 발급(없으면) + Mac mini authorized_keys 등록
 - GitHub 에 Variables 2개(`KAMAL_SERVICE_NAME`, `DEPLOY_ENABLED`)와 Secrets 20개 등록

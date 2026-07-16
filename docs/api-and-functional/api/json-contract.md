@@ -30,7 +30,7 @@ JSON 계약 테스트는 프로젝트 정책을 재현한 `ObjectMapper` 로 직
 
 ### null 생략은 어디서 일어나나
 
-테스트 ObjectMapper 는 `NON_NULL` 을 전역으로 설정하지만, 프로덕션 Spring Boot 의 기본 Jackson 은 null 을 그대로 직렬화해요. 두 곳이 다르기 때문에, null 이 될 수 있는 응답 필드는 DTO 에 `@JsonInclude(NON_NULL)` 을 명시적으로 달아 줘야 프로덕션에서도 생략됩니다.
+프로덕션은 `bootstrap` 의 `application.yml` 이 `spring.jackson.default-property-inclusion: non_null` 을 **전역**으로 설정해서, null 필드는 어디서든 직렬화에서 빠져요. 계약 테스트의 ObjectMapper 도 같은 `NON_NULL` 을 설정해 두 환경이 일치합니다. DTO 컴포넌트에 붙는 `@JsonInclude(NON_NULL)` 은 전역 설정과 결과가 겹치지만, "이 필드는 응답 모양에 따라 빠질 수 있다"는 계약을 코드에서 바로 읽히게 하는 명시적 표시로 유지해요.
 
 이걸 실제로 적용한 곳이 `AuthResponse` 예요. 정상 응답이면 `user` 와 `tokens` 만 채우고, 2FA 가 필요한 응답이면 `twoFactorToken` 만 채우는 두 모양을 가져서, 나머지 필드는 컴포넌트마다 `@JsonInclude(NON_NULL)` 로 생략해요.
 

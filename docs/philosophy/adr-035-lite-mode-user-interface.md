@@ -20,7 +20,7 @@ admin GUI 와 결제 게이트는 본 ADR 의 scope 밖으로 미뤄요. admin G
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 backend 의 toggle 메커니즘 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.md)) 만으로는 사용자 경험이 완성되지 않아요. *어떤 도메인이 활성화되어 있는지 조회*, *특정 도메인을 비활성화*, *비활성화 후 git commit + deploy* 같은 운영 작업이 *어떤 인터페이스로 일어나는지* 가 *Lite 모드의 실제 사용성* 을 좌우합니다.
 
@@ -99,16 +99,19 @@ CLI 가 `.env` + `.env.prod` 를 동시 변경하는 것에 비해 한쪽만 변
 
 ## 토글 매트릭스 (검증 결과)
 
+> **갱신 (2026-07-15)**: 결정 당시 payment·iap·email·2fa 는 "후속 — 토글 시 부팅 fail" 이었지만, 이후 `ObjectProvider` lazy 의존 적용으로 전 도메인 토글이 완료됐어요 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.md)). phone-auth 도 [`ADR-038`](./adr-038-sms-phone-auth.md) 에서 추가됐습니다. 아래 매트릭스는 현행 기준이에요 — `FeatureToggleTest` 가 9개 도메인 동시 off + 부팅 OK 를 @Test 12건으로 검증합니다.
+
 | Feature | default | toggle off 동작 | 검증 |
 |---|---|---|---|
 | `audit` | true | AuditPort bean 미등록 → `@Audited` 무동작 | ✅ FeatureToggleTest |
 | `push` | true | PushPort bean 미등록 → 푸시 발송 무동작 | ✅ FeatureToggleTest |
-| `billing-notification` | true | listener 미등록 → 갱신 알림 X | ✅ ConditionalOnExpression |
-| `password-policy` | true | PasswordValidator 미등록 → @ValidPassword 무동작 | ✅ ConditionalOnProperty |
-| `payment` | true | 🟡 후속 — 토글 시 부팅 fail | ADR-034 의 invasive 후속 |
-| `iap` | true | 🟡 후속 — 토글 시 부팅 fail | 동일 |
-| `email` | true | 🟡 후속 — 토글 시 부팅 fail | 동일 |
-| `2fa` | true | 🟡 후속 — 토글 시 부팅 fail | 동일 |
+| `billing-notification` | true | listener 미등록 → 갱신 알림 X | ✅ FeatureToggleTest |
+| `password-policy` | true | PasswordValidator 미등록 → @ValidPassword 무동작 | ✅ FeatureToggleTest |
+| `payment` | true | PaymentPort·공유 PaymentController 미등록 → 호출 시 CMN_009 | ✅ FeatureToggleTest |
+| `iap` | true | IapPort·공유 IapController 미등록 → 호출 시 CMN_009 | ✅ FeatureToggleTest |
+| `email` | true | EmailPort 미등록 → 메일 발송 silent skip | ✅ FeatureToggleTest |
+| `2fa` | true | TwoFactorService 미등록 → 호출 시 CMN_009 | ✅ FeatureToggleTest (동시 off 부팅) |
+| `phone-auth` | true | PhoneAuthPort·공유 PhoneAuthController 미등록 | ✅ FeatureToggleTest |
 
 ### 검증 절차 (운영자가 수동 확인)
 

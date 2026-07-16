@@ -165,8 +165,8 @@ Breaking change 를 도입할 때 **최소 1 minor 주기의 Deprecation 기간*
 갑작스러운 major bump (v0.3.0 → v1.0.0) 는 파생 레포 관점에서 "나중에 업그레이드 포기" 로 귀결됩니다. 그래서:
 
 1. v0.4.0 에서 `@Deprecated` 표시 + 대체 API 도입 + CHANGELOG 에 마이그레이션 가이드
-2. v0.5.0 에서 실제 제거 (major bump)
-3. 파생 레포는 v0.4.0 ~ v0.5.0 사이에 마이그레이션
+2. 다음 major 인 v1.0.0 에서 실제 제거 ([`ADR-015`](./adr-015-conventional-commits-semver.md) 의 Deprecation 3단계)
+3. 파생 레포는 v0.4.0 ~ v1.0.0 사이에 마이그레이션
 
 ArchUnit 규칙 r20 (`DEPRECATED_MUST_DECLARE_SINCE_AND_FOR_REMOVAL`) 이 `@Deprecated(since, forRemoval)` 형식을 강제해서 **기계가 읽을 수 있는 메타데이터** 로 남깁니다.
 
