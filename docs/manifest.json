@@ -30,7 +30,7 @@
           "children": [
             { "path": "start/dogfood-walkthrough.md",       "title": "Dogfood Walkthrough",  "desc": "도그푸딩 시간순 walkthrough — 정착된 패턴" },
             { "path": "start/dogfood-faq.md",               "title": "Dogfood FAQ",          "desc": "도그푸딩 자주 묻는 질문" },
-            { "path": "start/dogfood-pitfalls.md",          "title": "Dogfood Pitfalls",     "desc": "도그푸딩 함정 12 개 모음" }
+            { "path": "start/dogfood-pitfalls.md",          "title": "Dogfood Pitfalls",     "desc": "도그푸딩 함정 15 개 모음" }
           ]
         },
         { "path": "start/cross-repo-cherry-pick.md",        "title": "Cross-repo Cherry-pick","desc": "template → 파생 레포 변경 동기화" }
