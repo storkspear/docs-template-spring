@@ -20,7 +20,7 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 기본 Flyway 설정 — *모든 환경에서 부팅 시 자동 migrate* — 은 개발 단계에서는 가장 단순하고 자연스러운 형태예요. 코드와 schema 가 *한 commit 에 함께 묶여 deploy* 되어 *환경 동기화* 가 자동으로 이뤄지고, 별도 운영 절차도 필요 없습니다. 작은 팀 / 단일 환경에서는 이 단순함의 가치가 압도적이에요.
 
@@ -215,10 +215,12 @@ local / test 는 자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구
 
 ## 후속 작업
 
-- `tools/migrate-prod.sh` 신규 (Phase 2-3)
-- `flyway-runbook.md` 본문 갱신 (Phase 2-4)
-- `bootstrap` profile 분기 적용 (Phase 2-2)
-- 파생 앱의 `<Slug>DataSourceConfig` 도 동일 패턴 — `new-app.sh` heredoc 갱신 (Phase 2-2 후속)
+> **갱신 (2026-07-15)**: 아래 후속 작업은 모두 완료됐어요 — `tools/migrate-prod.sh` 가 실존하고, `application-prod.yml`/`application-dev.yml` 이 `APP_FLYWAY_MODE:VALIDATE_ONLY` 로 분기하며, `new-app.sh` 의 `<Slug>DataSourceConfig` heredoc 도 동일 패턴을 따릅니다.
+
+- `tools/migrate-prod.sh` 신규 (Phase 2-3) — 완료
+- `flyway-runbook.md` 본문 갱신 (Phase 2-4) — 완료
+- `bootstrap` profile 분기 적용 (Phase 2-2) — 완료
+- 파생 앱의 `<Slug>DataSourceConfig` 도 동일 패턴 — `new-app.sh` heredoc 갱신 (Phase 2-2 후속) — 완료
 - 관측: prod 부팅 로그에 `Flyway validate OK (N migrations)` 명시. 실패 시 alert.
 
 ---
@@ -227,4 +229,4 @@ local / test 는 자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구
 
 - [`Flyway Runbook`](../production/deploy/flyway-runbook.md) — 운영 절차 상세
 - [`ADR-018 · SchemaRoutingDataSource`](./adr-018-schema-routing-datasource.md) — 슬러그 schema 격리
-- `tools/migrate-prod.sh` (예정) — 자동화 도구
+- `tools/migrate-prod.sh` — 자동화 도구

@@ -28,7 +28,7 @@
 
 ### 앱별 스코프 — 대부분의 엔드포인트
 
-```
+```text
 /api/apps/{appSlug}/{resource}
 ```
 
@@ -163,7 +163,7 @@ public record AuthTokens(
 |---|---|---|
 | `user` · `tokens` | 정상 로그인/가입 | 토큰 저장 후 진입 |
 | `twoFactorToken` | 2FA 활성 유저의 1단계 통과 | `user`·`tokens` 가 비어 있음. 이 토큰으로 `/auth/2fa/login` 호출 |
-| `devVerificationToken` | dev·local 에서 메일 fallback 활성 시 | 로컬 테스트용. 운영에서는 절대 안 나옴 |
+| `devVerificationToken` | (레거시 컴포넌트 — 현행 가입 플로우에선 채워지지 않음) | verify-before-signup 전환 후 dev 노출은 `send-code` 응답의 `devCode` 가 담당 (dev·local 의 `app.email.dev-fallback-raw=true` 에서만). 운영에서는 절대 안 나옴 |
 
 응답 예시 (201 Created):
 
@@ -336,7 +336,7 @@ JWT access token 의 claim 구조는 다음과 같아요. 발급은 `JwtService.
 
 ### 추천 흐름
 
-```
+```text
 요청 전송
    │
    ├─ 200 → 정상 처리

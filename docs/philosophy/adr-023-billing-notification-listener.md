@@ -16,11 +16,11 @@
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 결제 도메인이 *이벤트는 정확히 발행하지만 그 이벤트를 받는 listener 가 없는* 상태로는 사용자에게 *권한 변경의 이유* 가 전달되지 않아요. 이벤트는 시스템 내부의 시그널일 뿐이라 *외부 채널 (push·email) 로 변환* 하는 단계가 별도로 필요합니다.
 
-알림이 없을 때 운영에서 실제로 발생하는 시나리오를 보면 그 부담이 명확해요. 자동 갱신 실패 — 카드 한도 초과나 카드 만료 같은 일시적 문제 — 가 발생하면 [`ADR-021`](./adr-021-renewal-failure-policy.md) 의 재시도 정책 (1h → 6h → 24h 백오프) 이 동작하지만, 사용자가 *알림을 받지 못하면 카드 정보를 갱신할 기회조차 잃어요*. 결국 3회 시도가 모두 실패하면 ABANDONED 처리되어 자동 취소되고, 사용자는 *어느 날 갑자기 Pro 권한이 사라진* 상태를 마주합니다.
+알림이 없을 때 운영에서 실제로 발생하는 시나리오를 보면 그 부담이 명확해요. 자동 갱신 실패 — 카드 한도 초과나 카드 만료 같은 일시적 문제 — 가 발생하면 [`ADR-021`](./adr-021-renewal-failure-policy.md) 의 재시도 정책 (백오프 [1h, 6h], 최대 3회 시도) 이 동작하지만, 사용자가 *알림을 받지 못하면 카드 정보를 갱신할 기회조차 잃어요*. 결국 3회 시도가 모두 실패하면 ABANDONED 처리되어 자동 취소되고, 사용자는 *어느 날 갑자기 Pro 권한이 사라진* 상태를 마주합니다.
 
 환불도 마찬가지예요. PG 환불이 처리되면 PaymentRecord 의 status 가 REFUNDED 로 바뀌고 Subscription 이 CANCELLED 로 전환되지만, 사용자는 *왜 권한이 사라졌는지* 즉시 알 수 없어요. CS 문의로 *내 환불이 잘 처리됐나?* 같은 질문이 누적되는 형태로 운영 부담이 돌아옵니다.
 
@@ -78,7 +78,7 @@
 
 이벤트 자체는 BillingServiceImpl 의 phase 3 안에서 1회만 발행 — 중복 발행 0.
 
-다만 Spring `@EventListener` 는 default 동기 호출 (publishEvent 호출자 thread). 이는 BillingServiceImpl 의 phase 3 (write TX) 가 commit 된 후 호출됨 (NOT_SUPPORTED + executeWithoutResult 끝난 후). 즉:
+다만 Spring `@EventListener` 는 default 동기 호출 (publishEvent 호출자 thread) 이라, BillingServiceImpl 의 phase 3 (write TX) 가 commit 된 후 호출됩니다 (NOT_SUPPORTED + executeWithoutResult 끝난 후). 즉:
 
 - 알림 발송 중 throw → log only (listener 가 catch)
 - 알림 발송이 BillingPort 의 본 흐름 trigger 했지만 commit 은 이미 완료 — 데이터 일관성 영향 X

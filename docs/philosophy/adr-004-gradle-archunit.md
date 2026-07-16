@@ -11,7 +11,7 @@
 
 Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`, Rust 컴파일러처럼 **컨벤션을 문서가 아니라 빌드 자체가 강제** 하는 장치입니다. 우리 프로젝트에서 그 역할을 하는 것이 `DependencyRules.groovy` DSL 과 ArchUnit 의 조합이에요. 전자는 빌드 시, 후자는 소스 스캔 시 작동합니다. 사람이 "이 규칙 지켜주세요" 라고 부탁하는 대신, 규칙 위반 시 빌드가 실패하도록 설계했습니다.
 
-여기서 *컨벤션* 은 추상 개념이 아니라 [`docs/convention/`](../convention/README.md) 의 8 개 문서 — [네이밍](../convention/naming.md), [설계 원칙](../convention/design-principles.md), [DTO Factory](../convention/dto-factory.md), [Records / Classes](../convention/records-and-classes.md), [코드 주석](../convention/code-comments.md), [Git Workflow](../convention/git-workflow.md), [예외 처리](../convention/exception-handling.md) — 가 정리한 *구체 규칙* 들이에요. 본 ADR 의 ArchUnit 22 규칙과 Gradle convention plugin 5 종이 그 컨벤션을 *기계가 검증할 수 있는 형태* 로 강제합니다.
+여기서 *컨벤션* 은 추상 개념이 아니라 [`docs/convention/`](../convention/README.md) 의 8 개 문서 — [네이밍](../convention/naming.md), [설계 원칙](../convention/design-principles.md), [DTO Factory](../convention/dto-factory.md), [동적 쿼리](../convention/dynamic-query.md), [Records / Classes](../convention/records-and-classes.md), [코드 주석](../convention/code-comments.md), [Git Workflow](../convention/git-workflow.md), [예외 처리](../convention/exception-handling.md) — 가 정리한 *구체 규칙* 들이에요. 본 ADR 의 ArchUnit 22 규칙과 Gradle convention plugin 5 종이 그 컨벤션을 *기계가 검증할 수 있는 형태* 로 강제합니다.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -24,7 +24,7 @@ Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`
 
 ## 고민했던 대안들
 
-##### Option 1 — PR 리뷰 / 문서에 의존
+### Option 1 — PR 리뷰 / 문서에 의존
 
 "conventions/module-dependencies.md 를 읽고 지켜주세요" 같은 방식.
 
@@ -32,7 +32,7 @@ Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`
 - **단점**: 솔로 → 리뷰어가 없어요. 문서 전체를 먼저 읽어야 실수를 피할 수 있어요. 실수가 main 까지 올라간 뒤 한참 지나서야 발견돼요.
 - **탈락 이유**: 솔로 인디 환경에서는 강제력이 실질적으로 0이에요.
 
-##### Option 2 — Git pre-commit hook (로컬)
+### Option 2 — Git pre-commit hook (로컬)
 
 husky 같은 도구로 로컬 커밋 순간에 검증해요.
 
@@ -40,13 +40,13 @@ husky 같은 도구로 로컬 커밋 순간에 검증해요.
 - **단점**: `git commit --no-verify` 로 우회 가능. CI 환경과 로컬 환경 규칙 동기화 어려움.
 - **부분 채택**: 커밋 메시지 검증 ([`ADR-002`](./adr-002-use-this-template.md) 의 Conventional Commits) 에는 사용. 하지만 **구조 규칙** 에는 부적합.
 
-##### Option 3 — 전통적 Java lint 도구 (Checkstyle, PMD, SpotBugs)
+### Option 3 — 전통적 Java lint 도구 (Checkstyle, PMD, SpotBugs)
 
 - **장점**: 성숙하고 안정적이에요. IDE 통합도 잘 돼요.
 - **단점**: 기본 rule set 이 **우리 특화 규칙** (-api/-impl 경계, multi-module 의존) 을 커버하지 못해요. 커스텀 rule 작성은 가능하지만 ArchUnit 보다 유연성이 떨어져요.
 - **탈락 이유**: 범용 도구라 아키텍처 검증에는 맞춤 도구가 더 나아요.
 
-##### Option 4 — Gradle convention plugin + ArchUnit ★ (채택)
+### Option 4 — Gradle convention plugin + ArchUnit ★ (채택)
 
 Gradle 의 빌드 단계 검증과 ArchUnit 의 소스 스캔 검증, 두 레이어를 조합해요.
 
@@ -298,7 +298,7 @@ ArchUnit 규칙은 `r1`, `r2`, ..., `r22` 처럼 **번호로** 참조합니다.
 - [`production/test/contract-testing.md`](../production/test/contract-testing.md) — Port 계약 테스트 패턴 (r10 / r17 정합)
 
 **관련 스펙 문서 — 컨벤션 (본 ADR 의 ArchUnit 룰이 강제하는 영역)**:
-- [`convention/naming.md`](../convention/naming.md) — 네이밍 규약 (r12 / r13 / r14 가 위치 강제)
+- [`convention/naming.md`](../convention/naming.md) — 네이밍 규약 (r13 / r14 / r15 가 위치 강제)
 - [`convention/design-principles.md`](../convention/design-principles.md) — 모듈 설계 원칙 (SOLID, YAGNI 등)
 - [`convention/dto-factory.md`](../convention/dto-factory.md) — Entity → DTO 변환 패턴 (r22 가 Mapper 클래스 차단)
 - [`convention/records-and-classes.md`](../convention/records-and-classes.md) — DTO record + Entity class 분리 (r18 / r19 강제)

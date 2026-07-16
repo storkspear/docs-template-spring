@@ -278,15 +278,15 @@ public ApiResponse<DeviceDto> getDevice(@PathVariable Long id, ...) {
 
 ### 적용 예시
 
-Phase 0 에서 다음을 명시적으로 제외했어요.
+Phase 0 에서 다음을 명시적으로 제외했어요. 각 항목은 지금 당장 필요한가를 물어서 아니면 뺐고, 필요해진 시점에 하나씩 구현했습니다.
 
-- `core-iap-impl` 실제 구현 (Apple StoreKit 2·Google Play Verifier) → 첫 IAP 앱 준비 시점까지 대기. PG (포트원)와 billing 정책은 ADR-019·020 에서 Phase 1 을 완료했어요.
-- `core-sync-*` 델타 동기화 → 첫 앱이 진짜 필요로 할 때
-- Kakao Sign In → 한국 타겟 앱 출시 직전
-- 관리자 대시보드 UI → 직접 psql 로 충분
-- 2FA·MFA → 금융 앱 수준이 되면
+- `core-iap-impl` 실제 구현 (Apple StoreKit 2·Google Play Verifier) → 첫 IAP 앱 준비 시점까지 대기 → 이후 구현 완료 (`AppleAppStoreAdapter`·`GooglePlayAdapter`)
+- `core-sync-*` 델타 동기화 → 첫 앱이 진짜 필요로 할 때 (아직 미구현 — 유일하게 남은 항목)
+- Kakao Sign In → 한국 타겟 앱 출시 직전 → 이후 구현 완료 (`KakaoSignInService`, Naver 포함)
+- 관리자 대시보드 UI → 직접 psql 로 충분 → 이후 운영 콘솔 (`core-admin` + template-react-admin) 로 구현 완료
+- 2FA·MFA → 금융 앱 수준이 되면 → 이후 TOTP 2FA 구현 완료
 
-각 항목은 지금 당장 필요한가를 물어서 아니면 뺐어요.
+미리 만들지 않고 미룬 항목 대부분이 결국 구현됐지만, 그게 YAGNI 실패가 아니에요. 필요가 실제로 확인된 시점에 만들었기 때문에 추측 설계 비용 없이 진행됐다는 게 핵심입니다.
 
 ### 실전 판단
 

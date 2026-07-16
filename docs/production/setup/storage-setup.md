@@ -111,13 +111,15 @@ mc ilm rule add --expire-days 90 nas/voicechat-voices
 
 ## 용량 모니터링
 
-Grafana 대시보드 "App Factory Overview" 에 MinIO 용량 패널이 자동으로 표시돼요. Alertmanager 규칙도 이미 설정돼 있어요.
+MinIO 디스크 사용량 알림 룰 3단계는 `infra/prometheus/rules.yml` 에 정의돼 있어요.
 
 | 사용률 | 알림 등급 |
 |---|---|
 | 70% | info |
 | 85% | warning |
 | 95% | critical (즉시 조치) |
+
+다만 **룰만 정의된 상태라 현재는 발화하지 않습니다.** NAS MinIO 가 관측성 스택과 다른 docker network 밖에 있어 `infra/prometheus/prometheus.yml` 의 MinIO scrape job 이 주석 처리돼 있고, Grafana 대시보드에 MinIO 용량 패널도 아직 없어요. 활성화하려면 Tailscale 등으로 bridge 한 뒤 `prometheus.yml` 의 `minio-cluster` job 주석을 해제하고 target 을 채워야 해요 ([`운영 모니터링 셋업 가이드`](./monitoring-setup.md) 참조).
 
 ## 조치 옵션 (용량 초과 시)
 

@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. `BillingServiceImpl.renewSubscription` 이 3 회 백오프 (1h → 6h → 24h) 재시도 + ABANDONED 시 auto-cancel + 3 종 이벤트를 발행해요. `renewal_attempts` 테이블에 시도 이력이 영속됩니다.
+**Status**: Accepted. `BillingServiceImpl.renewSubscription` 이 재시도 백오프 [1h, 6h] 로 최대 3 회 시도 (3 회 실패 시 ABANDONED, 총 ~7h) + ABANDONED 시 auto-cancel + 3 종 이벤트를 발행해요. `renewal_attempts` 테이블에 시도 이력이 영속됩니다.
 
 > **테이블 리네임 (2026-06-30)**: 본 ADR 의 `renewal_attempts` 는 현재 `subscription_renewals` (엔티티 `SubscriptionRenewal`), `payment_records` 는 `payment_history` 로 리네임됐어요. 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요. FK 컬럼 `payment_record_id` 는 이름을 유지한 채 `payment_history(id)` 를 참조합니다.
 
@@ -14,7 +14,7 @@
 
 자동 갱신 결제는 *반드시 한 번에 성공하지 않는* 비즈니스 영역이에요. 카드 한도 일시 초과, 카드사 점검 시간대, 네트워크 timeout 같은 *회복 가능한 실패* 와 카드 만료·사용자 결제 거부 같은 *영구 실패* 가 섞여 들어옵니다. 첫 시도 실패만으로 구독을 즉시 취소하면 *일시 장애로 사용자 권한이 갑자기 사라지는* 사고가 생기고, 무한 재시도하면 *영구 실패한 카드에도 PG 호출이 누적* 되어 비용과 운영 피로가 쌓여요.
 
-본 ADR 은 *3 회 백오프 (1h → 6h → 24h) 재시도 + 최종 실패 시 명시적 auto-cancel* 의 갱신 실패 정책을 정의합니다. 백오프 간격은 *카드 한도 초기화 주기 (24h)* 를 cover 하면서 *일시 네트워크 장애* 같은 짧은 회복 시간도 흡수하는 형태로 잡았어요. 3 회 시도가 모두 실패하면 `ABANDONED` 로 분류되어 구독이 `cancel_reason="renewal_failed_after_3"` 으로 명시 취소되고, 사용자에게는 별도 알림 listener ([`ADR-023`](./adr-023-billing-notification-listener.md)) 가 *push + email* 로 통보합니다.
+본 ADR 은 *최대 3 회 시도 — 재시도 백오프 [1h, 6h] — + 최종 실패 시 명시적 auto-cancel* 의 갱신 실패 정책을 정의합니다. 백오프 간격은 *일시 네트워크 장애* 같은 짧은 회복 시간과 *카드사 점검 cycle* 을 흡수하면서, 총 ~7h 안에 결론이 나 *만료 전 사용자 알림 시간* 을 확보하는 형태로 잡았어요. 3 회 시도가 모두 실패하면 `ABANDONED` 로 분류되어 구독이 `cancel_reason="renewal_failed_after_3"` 으로 명시 취소되고, 사용자에게는 별도 알림 listener ([`ADR-023`](./adr-023-billing-notification-listener.md)) 가 *push + email* 로 통보합니다.
 
 이 정책의 핵심 모델은 `RenewalAttempt` 테이블이에요. *각 갱신 시도의 횟수·시각·결과·error code* 가 영속되어 *운영자가 어떤 사용자의 어느 갱신이 왜 실패했는지* 를 추적할 수 있고, *이력이 누적되면 카드 한도 갱신 시간대·자주 실패하는 PG 채널* 같은 비즈니스 시그널도 분석할 수 있어요. webhook 과 scheduler 가 동시에 같은 구독을 재시도하는 race 는 Phase 1 의 직전 attempt 종결상태 (SUCCESS·ABANDONED) 체크로 1차 차단하고, `UNIQUE(subscription_id, attempt_no)` 제약이 두 번째 INSERT 를 `DataIntegrityViolationException` 으로 막아 추가 방어선으로 작동합니다.
 
@@ -22,7 +22,7 @@
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 자동 갱신 정책이 *단순 fail-fast* 형태로 시작하면 곧 운영 부담이 누적돼요. 결제 실패가 *회복 가능한 일시 장애* 인지 *영구 실패* 인지를 *한 번의 시도로* 구분할 길이 없고, 첫 실패만으로 구독을 종료하면 *카드 한도가 다음 날 회복되었을 사용자* 의 권한이 갑자기 사라집니다. 결제 갱신 같은 *장기 비즈니스 흐름* 에는 *재시도 정책이 정상 동작의 일부* 라는 사실을 정직하게 받아들여야 해요.
 
@@ -43,7 +43,7 @@
 | 항목 | 값 | 사유 |
 |---|---|---|
 | **재시도 횟수** | 3회 | 업계 통상 (Stripe Smart Retries, RevenueCat 등). N=2 는 방어 부족, N>=4 는 catch-up 비용 ↑ |
-| **백오프 간격** | 1h → 6h → 24h | 카드 한도 초기화 (24h) 까지 cover. attempt 1→2 단기 (네트워크 일시 장애), 2→3 중기, 3→ABANDONED |
+| **백오프 간격** | [1h, 6h] 2회 (총 ~7h) | attempt 1→2 단기 (네트워크 일시 장애), 2→3 중기 (카드사 점검 cycle), 3회 실패 시 즉시 ABANDONED |
 | **이력 저장** | `renewal_attempts` 별도 테이블 | 운영 디버깅 (왜 실패? 언제? error code 무엇?) — 단순 카운터 컬럼은 이력 손실 |
 | **최종 실패 처리** | subscription auto-cancel (`status=CANCELLED`, `cancel_reason="renewal_failed_after_3"`) | EXPIRED 자동 마킹 대비 명시적 의사. 운영자가 RECONCILE 가능 |
 | **이벤트 발행** | `SubscriptionRenewalSucceededEvent` / `FailedEvent` / `AbandonedEvent` 3종 | 알림 (push/email) listener 는 별도 사이클 |
@@ -161,7 +161,7 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 |---|---|---|
 | 1→2 | 1h | 네트워크/PG 일시 장애 회복 시간. 너무 길면 사용자 만료 직후 권한 끊김 |
 | 2→3 | 6h | 카드사 점검 / 시스템 유지보수 cycle |
-| 3→ABANDONED | (없음) | 24h 카드 한도 reset 후에도 실패면 영구 문제 (블랙리스트, 한도 초과, 카드 만료) |
+| 3→ABANDONED | (없음) | 총 ~7h 의 재시도 창에도 실패면 영구 문제 가능성 (블랙리스트, 한도 초과, 카드 만료) — 잔여 회복 케이스는 만료 전 알림 + 수동 재결제로 처리 |
 
 총 7h 후 abandon — 만료 24h 전부터 재시도하면 abandon 도 만료 17h 전에 결정돼요 → 사용자에게 알림을 발송할 시간을 확보합니다.
 

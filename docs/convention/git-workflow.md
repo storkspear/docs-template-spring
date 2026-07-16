@@ -86,7 +86,7 @@ GitHub 저장소 설정은 다음과 같이 맞춰요.
 
 scope 는 변경이 어느 영역에 속하는지를 표시해요. `scope-enum` 이 다음 집합을 권장합니다.
 
-`auth`, `user`, `device`, `push`, `billing`, `sms`, `phone-auth`, `common`, `bootstrap`, `spec`, `docs`, `core`, `apps`, `tools`, `ops`, `infra`, `env`, `deploy`
+`auth`, `user`, `device`, `push`, `billing`, `sms`, `phone-auth`, `content`, `analytics`, `attachment`, `storage`, `common`, `bootstrap`, `admin`, `spec`, `docs`, `core`, `apps`, `tools`, `ops`, `infra`, `env`, `deploy`
 
 scope 규칙은 warning 수준이에요. scope 가 없어도, 집합 밖 scope 를 써도 커밋은 통과하고 경고만 남습니다. 막는 게 아니라 권장하는 거예요.
 

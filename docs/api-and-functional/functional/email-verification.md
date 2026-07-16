@@ -20,7 +20,8 @@
 
 인증 메일이 만들어져서 사용자에게 닿기까지의 경로는 다음과 같아요. 도메인 서비스는 화살표 왼쪽까지만 알고, 오른쪽은 환경이 결정합니다.
 
-```
+```text
+EmailPreVerificationService
 EmailVerificationService
 PasswordResetService      ──► EmailPort.send(to, subject, htmlBody)
                                    │
@@ -38,7 +39,7 @@ PasswordResetService      ──► EmailPort.send(to, subject, htmlBody)
 |---|---|
 | `core/core-email-api` | `EmailPort` 인터페이스, `EmailError` 에러 코드 |
 | `core/core-email-impl` | `ResendEmailAdapter`, `LoggingEmailAdapter`, `ResendProperties`, `EmailAutoConfiguration` |
-| `core/core-auth-impl` | `EmailVerificationService`, `PasswordResetService`, `EmailAuthService` — `EmailPort` 소비 측 |
+| `core/core-auth-impl` | `EmailPreVerificationService`(가입 전 인증), `EmailVerificationService`, `PasswordResetService`, `EmailAuthService` — `EmailPort` 소비 측 |
 
 ### EmailPort
 
@@ -178,7 +179,7 @@ public class EmailAutoConfiguration {
 
 `RESEND_API_KEY` 가 비어 있는 local 환경에서 활성됩니다. 실제 메일을 보내지 않고 수신자·제목·HTML 본문을 `WARN` 로그로 찍어, 인증 코드나 재설정 코드를 콘솔에서 바로 확인할 수 있게 해 줘요.
 
-```
+```text
 [DEV-EMAIL] Email captured to logs (Resend API key not configured)
   To: user@example.com
   Subject: 이메일 인증 코드
@@ -200,11 +201,11 @@ dev 서버는 실제 Resend 키로 메일을 보내면서도 `dev-fallback-raw=t
 
 | 엔드포인트 | 노출 위치 | 형태 |
 |---|---|---|
-| `POST /auth/email/signup` | 응답 body | `AuthResponse.devVerificationToken` |
+| `POST /auth/email/send-code` | 응답 body | `SendEmailCodeResponse.devCode` |
 | `POST /auth/resend-verification` | 응답 헤더 | `X-Dev-Verification-Token` |
 | `POST /auth/password-reset/request` | 응답 헤더 | `X-Dev-Reset-Token` |
 
-`AuthResponse.devVerificationToken` 은 `@JsonInclude(NON_NULL)` 이라, 값이 없으면 응답에서 필드 자체가 사라져요. 운영에서는 두 스위치가 모두 꺼져 있어 이 필드와 헤더가 항상 비어 있습니다.
+`SendEmailCodeResponse.devCode` 는 `@JsonInclude(NON_NULL)` 이라, 값이 없으면 응답에서 필드 자체가 사라져요. 운영에서는 두 스위치가 모두 꺼져 있어 이 필드와 헤더가 항상 비어 있습니다. (`AuthResponse.devVerificationToken` 컴포넌트는 남아 있지만 현행 가입 플로우에선 채워지지 않아요 — 인증이 가입 *전에* 끝나므로 signup 이 메일을 보내지 않거든요.)
 
 > 테스트 통과가 곧 운영 가용성은 아니에요. local 에서 회원가입과 재설정 플로우가 돈다고 운영에서도 돈다는 보장은 없어요. 운영은 `RESEND_API_KEY` 가 채워져 있어야만 부팅되고, 비어 있으면 yml 의 strict placeholder 가 기동을 막습니다.
 
@@ -227,37 +228,75 @@ public class SendGridEmailAdapter implements EmailPort {
 
 ---
 
-## 이메일 인증 플로우
+## 이메일 인증 플로우 — verify-BEFORE-signup
 
-가입 시점에 6자리 코드를 발급해 메일로 보내고, 사용자가 앱에서 그 코드를 입력하면 검증하여 `email_verified = true` 로 전환합니다.
+가입은 **인증을 먼저 끝낸 뒤** 이루어지는 3단계예요. 계정이 없는 상태에서 이메일로 6자리 코드를 보내고(`send-code`), 코드를 검증해 30분짜리 proof JWT 를 받고(`verify-code`), 그 `proofToken` 을 담아 가입(`signup`)합니다. 가입 시점에 유저는 곧바로 `email_verified = true` 로 생성돼요 — 가입 후 인증 메일을 따로 보내지 않습니다.
 
-### 1. 가입 시 인증 메일 발송
+```text
+① POST /auth/email/send-code   { email }              → 코드 메일 발송 (계정 미생성)
+② POST /auth/email/verify-code { email, code }        → proofToken (30분 JWT)
+③ POST /auth/email/signup      { ..., proofToken }    → 유저 생성 (emailVerified=true) + 토큰 발급
+```
 
-`EmailAuthService.signUp` 이 유저를 만들고 토큰을 발급한 뒤, 인증 메일 발송을 `VerificationEmailSender` 에 위임합니다. 이 인터페이스의 구현체가 `EmailVerificationService` 예요.
+이 흐름을 담당하는 서비스가 `EmailPreVerificationService` 예요. 에러는 세 코드로 분리돼 있어요 — 코드 불일치/만료/재사용/시도초과는 `ATH_011`, proof 무효는 `ATH_012`, 발송 한도 초과는 `ATH_013`(429).
+
+### 1. send-code — 코드 생성·발송 (계정 미생성)
 
 ```java
-// core/core-auth-impl/.../service/EmailAuthService.java 발췌
-public AuthResponse signUp(SignUpRequest request) {
-    String passwordHash = passwordHasher.hash(request.password());
-    UserSummary user = userPort.createUserWithPassword(
-            request.email(), passwordHash, request.displayName());
+// core/core-auth-impl/.../service/EmailPreVerificationService.java 발췌
+@Transactional
+public Optional<String> sendCode(String email) {
+    Instant windowStart = Instant.now().minus(codeTtl);
+    long recentSends = codeRepository.countByEmailAndCreatedAtAfter(email, windowStart);
+    if (recentSends >= MAX_SENDS_PER_WINDOW) {   // TTL 윈도우 내 5회
+        throw new AuthException(AuthError.VERIFICATION_RATE_LIMITED);   // ATH_013, 429
+    }
 
-    AuthTokens tokens = refreshTokenIssuer.issueForNewLogin(
-            user.id(), user.email(), request.appSlug(), "user");
+    String rawCode = TokenGenerator.generateNumericCode(CODE_DIGITS);   // 6자리
+    codeRepository.save(new AuthEmailVerificationCode(
+            email, TokenGenerator.sha256Hex(rawCode), Instant.now().plus(codeTtl)));
 
-    // 발송 결과를 try/catch 로 삼키지 않습니다 — 환경별 정책은 sendVerificationEmail 안에서 결정.
-    Optional<String> devVerificationToken =
-            verificationEmailSender.sendVerificationEmail(user.id(), user.email());
-
-    return new AuthResponse(user, tokens, devVerificationToken.orElse(null));
+    // EmailPort 발송 — 실패 시 dev/local 은 raw 반환, prod 는 예외 전파 (아래 발송 정책 참고)
+    // ...
 }
 ```
 
-여기서 정확히 짚어야 할 게 있어요. 이 메서드에는 발송 실패를 감싸는 try/catch 가 없습니다. 발송 실패 시 가입이 살아남는지 막히는지는 전적으로 `sendVerificationEmail` 안의 환경별 정책이 정해요. 그 정책은 다음 절에서 다룹니다.
+DB 에는 raw 코드의 SHA-256 해시만 저장하고, TTL 윈도우(기본 5분) 내 최대 5회 발송으로 이메일 enumeration·메일 폭탄을 막아요.
 
-### 2. 토큰 생성과 발송 정책
+### 2. verify-code — 코드 검증 → proofToken
 
-`sendVerificationEmail` 은 코드를 만들어 해시를 DB 에 저장한 뒤 메일을 보냅니다. 핵심은 발송 결과에 따라 반환값이 갈린다는 점이에요.
+`verifyCode(email, rawCode, appSlug)` 는 해당 이메일의 최신 코드를 찾아 미사용·미만료·시도횟수(5회 미만)를 확인하고, timing-safe 비교로 해시를 대조해요. 실패하면 시도 횟수를 올리고 `ATH_011` — 마지막 허용 시도까지 실패하면 코드를 폐기합니다. 성공하면 코드를 1회용으로 무효화하고 `JwtService.issueEmailVerificationProof(email, appSlug)` 가 서명한 **30분 TTL proof JWT** 를 돌려줘요 (`purpose=email_verification_proof` 로 access token 과 분리).
+
+### 3. signup — proofToken 검증 후 유저 생성
+
+```java
+// core/core-auth-impl/.../service/EmailAuthService.java 발췌
+public AuthResponse signUp(SignUpRequest request, String appSlug) {
+    // 1) verification proof 검증 — 무효면 여기서 즉시 거부 (계정 미생성). ATH_012
+    preVerificationService.validateProof(request.proofToken(), request.email(), appSlug);
+
+    // 2) User 생성 (UserPort 가 이메일 중복 검사 + EmailAlreadyExists throw).
+    String passwordHash = passwordHasher.hash(request.password());
+    UserSummary created = userPort.createUserWithPassword(
+            request.email(), passwordHash, request.displayName());
+
+    // 3) 가입 전 인증을 통과했으므로 emailVerified=true 로 전환.
+    userPort.verifyEmail(created.id());
+    UserSummary user = new UserSummary(
+            created.id(), created.email(), created.displayName(), /* emailVerified */ true);
+
+    // 4) 토큰 발급.
+    AuthTokens tokens = refreshTokenIssuer.issueForNewLogin(
+            user.id(), user.email(), appSlug, "user");
+    return new AuthResponse(user, tokens);
+}
+```
+
+`appSlug` 는 클라이언트 body 가 아니라 URL path 에서 derive 되고, proof JWT 의 email·appSlug·purpose claim 이 모두 일치해야 가입이 진행돼요.
+
+### 가입 후 재인증 경로 — verify-email · resend-verification
+
+토큰 기반의 가입 후 인증 경로(`AuthEmailVerificationToken`)도 함께 남아 있어요 — `resend-verification` 으로 인증 메일을 다시 받고 `verify-email` 로 검증하는, 소셜 가입 등 `emailVerified=false` 상태의 유저를 위한 경로입니다. 이 경로의 발송은 `EmailVerificationService.sendVerificationEmail` 이 담당해요. 코드를 만들어 해시를 DB 에 저장한 뒤 메일을 보내고, 발송 결과에 따라 반환값이 갈립니다.
 
 ```java
 // core/core-auth-impl/.../service/EmailVerificationService.java 발췌
@@ -281,7 +320,7 @@ public Optional<String> sendVerificationEmail(long userId, String email) {
         if (devFallbackRaw) {                // dev / local — 진행 보장
             return Optional.of(rawCode);
         }
-        throw e;                             // prod — 가입 트랜잭션 rollback
+        throw e;                             // prod — 발송 실패를 명시적으로 전파
     }
 
     return (devFallbackRaw || emailPort.isDevCapture())
@@ -290,10 +329,10 @@ public Optional<String> sendVerificationEmail(long userId, String email) {
 }
 ```
 
-발송이 실패했을 때의 갈림길이 운영 안전성의 핵심이에요.
+발송이 실패했을 때의 갈림길이 운영 안전성의 핵심이에요. `EmailPreVerificationService.sendCode` 도 같은 정책을 씁니다.
 
-- dev·local 처럼 `dev-fallback-raw` 가 true 면, 발송이 실패해도 raw 코드를 반환하고 가입을 그대로 진행합니다. 외부 메일 장애가 로컬 개발을 막지 않게 하려는 거예요.
-- 운영처럼 false 면 예외를 그대로 다시 던져요. `signUp` 이 이 예외를 삼키지 않으므로 가입 트랜잭션이 rollback 되고 가입이 명시적으로 실패합니다. 예전에 이 자리를 try/catch 로 삼켰다가 rollback-only 마크와 충돌해 회귀가 났던 이력이 있어, 지금은 의도적으로 전파해요.
+- dev·local 처럼 `dev-fallback-raw` 가 true 면, 발송이 실패해도 raw 코드를 반환하고 플로우를 그대로 진행합니다. 외부 메일 장애가 로컬 개발을 막지 않게 하려는 거예요.
+- 운영처럼 false 면 예외를 그대로 다시 던져요. 호출자가 이 예외를 삼키지 않으므로 요청이 명시적으로 실패합니다. 예전에 이 자리를 try/catch 로 삼켰다가 rollback-only 마크와 충돌해 회귀가 났던 이력이 있어, 지금은 의도적으로 전파해요.
 
 저장 규칙도 한 줄로 못 박을 수 있어요. raw 6자리는 이메일 본문에만 들어가고, DB 에는 SHA-256 해시만 저장합니다. DB 가 유출돼도 해시에서 raw 코드를 되돌릴 수 없어요.
 
@@ -316,7 +355,7 @@ public static String generateNumericCode(int digits) {
 
 > 6자리는 100만 가지라 brute-force 평균 50만 회 요청이에요. 짧은 TTL 5분과 사용자별 rate limit 별도 정책으로 이 표면을 막습니다.
 
-### 3. 토큰 엔티티
+### 토큰 엔티티 (가입 후 경로)
 
 ```java
 // core/core-auth-impl/.../entity/AuthEmailVerificationToken.java 발췌
@@ -338,7 +377,7 @@ public class AuthEmailVerificationToken {
 
 `usedAt` 이 null 이 아니면 이미 쓴 토큰이라 재사용할 수 없고, `expiresAt` 이 현재보다 과거면 만료된 토큰입니다.
 
-### 4. 사용자가 6자리를 입력하면 검증
+### 사용자가 6자리를 입력하면 검증 — verify-email
 
 사용자가 메일에서 받은 6자리 코드를 앱에 입력하면, 클라이언트가 `POST /api/apps/{appSlug}/auth/verify-email` 을 body `{"token": "042193"}` 으로 호출해요.
 
@@ -472,8 +511,10 @@ public static final Duration DEFAULT_TOKEN_TTL = Duration.ofMinutes(5);
 
 | 경로 | 설명 | 인증 |
 |---|---|---|
-| `POST /api/apps/{slug}/auth/email/signup` | 가입과 인증 메일 발송 | 불필요 |
-| `POST /api/apps/{slug}/auth/verify-email` | 인증 코드 검증 | 불필요 |
+| `POST /api/apps/{slug}/auth/email/send-code` | 가입 전 인증 코드 발송 (verify-BEFORE-signup ①) | 불필요 |
+| `POST /api/apps/{slug}/auth/email/verify-code` | 코드 검증 → `proofToken` 발급 (②) | 불필요 |
+| `POST /api/apps/{slug}/auth/email/signup` | 가입 — `proofToken` 필수 (③, 인증 메일 발송 없음) | 불필요 |
+| `POST /api/apps/{slug}/auth/verify-email` | 가입 후 인증 코드 검증 | 불필요 |
 | `POST /api/apps/{slug}/auth/resend-verification` | 인증 메일 재발송 | 필요 |
 | `POST /api/apps/{slug}/auth/password-reset/request` | 재설정 요청 | 불필요 |
 | `POST /api/apps/{slug}/auth/password-reset/confirm` | 재설정 확인 | 불필요 |
@@ -481,6 +522,13 @@ public static final Duration DEFAULT_TOKEN_TTL = Duration.ofMinutes(5);
 요청 DTO 는 record 로 선언하고 Bean Validation 으로 입력을 검증해요.
 
 ```java
+// core/core-auth-api/.../dto/SignUpRequest.java
+public record SignUpRequest(
+        @Email @NotBlank String email,
+        @NotBlank @ValidPassword String password,
+        @NotBlank @Size(max = 30) String displayName,
+        @NotBlank String proofToken) {}
+
 // core/core-auth-api/.../dto/VerifyEmailRequest.java
 public record VerifyEmailRequest(@NotBlank String token) {}
 
@@ -517,6 +565,9 @@ EMAIL_CONFIG_MISSING(503, "EMAIL_002", "이메일 발송 설정 누락");
 | `ATH_002` TOKEN_EXPIRED | 401 | 인증·재설정 토큰 만료 |
 | `ATH_003` INVALID_TOKEN | 401 | 토큰 미존재, 이미 사용됨, 조작됨 |
 | `ATH_005` EMAIL_NOT_VERIFIED | 401 | 이메일 인증이 필요한 엔드포인트에 미인증 유저 접근 |
+| `ATH_011` INVALID_VERIFICATION_CODE | 401 | 가입 전 인증 코드 불일치·만료·재사용·시도횟수 초과 |
+| `ATH_012` VERIFICATION_PROOF_INVALID | 401 | signup 의 `proofToken` 누락·서명/만료/email·appSlug·purpose 불일치 |
+| `ATH_013` VERIFICATION_RATE_LIMITED | 429 | send-code 가 TTL 윈도우 내 발송 한도(5회) 초과 |
 | `EMAIL_001` EMAIL_DELIVERY_FAILED | 502 | Resend 장애, 2xx 외 응답, 네트워크 에러 |
 | `EMAIL_002` EMAIL_CONFIG_MISSING | 503 | Resend 키나 발신 주소 설정 누락 |
 
@@ -526,7 +577,7 @@ EMAIL_CONFIG_MISSING(503, "EMAIL_002", "이메일 발송 설정 누락");
 
 이메일 발송은 외부 의존이라 언제든 실패할 수 있어요. 그래서 플로우마다 실패를 다르게 다룹니다.
 
-- 가입에서는 환경이 정합니다. 운영은 발송 실패 시 예외가 전파돼 가입이 rollback 되고, 로컬·dev 는 raw 코드를 응답으로 받아 그대로 진행해요. 운영에서까지 메일이 안 나간 채로 가입이 끝나면 유저가 인증할 길이 막히므로, 명시적 실패가 더 안전합니다.
+- 가입 전 인증(send-code)에서는 환경이 정합니다. 운영은 발송 실패 시 예외가 전파돼 요청이 명시적으로 실패하고(계정은 아직 생성 전이라 잃는 것이 없어요), 로컬·dev 는 raw 코드를 응답으로 받아 그대로 진행해요. 메일이 안 나갔는데 성공처럼 응답하면 유저가 인증할 길이 막히므로, 명시적 실패가 더 안전합니다.
 - 비밀번호 재설정 요청에서는 발송이 실패해도 토큰이 이미 저장돼 있어 로그만 남기고 넘어가요. 유저가 재요청하면 새 토큰이 나갑니다.
 - 비밀번호 재설정 확인에서는 메일 발송이 끼지 않아요. 토큰 검증 실패나 만료만 명확한 에러로 처리합니다.
 
@@ -539,8 +590,9 @@ EMAIL_CONFIG_MISSING(503, "EMAIL_002", "이메일 발송 설정 누락");
 - `LoggingEmailAdapter` fallback 은 `local` 프로파일에서만 붙어요. dev 서버는 운영과 똑같이 `RESEND_API_KEY` 가 없으면 부팅이 막힙니다.
 - raw 6자리 코드는 이메일에만, DB 에는 SHA-256 해시만 저장합니다.
 - dev 응답의 raw 코드 노출은 `app.email.dev-fallback-raw` 또는 `isDevCapture()` 중 하나만 켜져도 동작하고, 운영에서는 둘 다 꺼져 항상 비어 있어요.
-- 가입 시 발송 실패는 운영에서는 가입을 rollback 시키고, 로컬·dev 에서는 raw 반환으로 진행을 보장합니다.
-- 인증과 재설정 토큰 TTL 은 모두 기본 5분이에요.
+- 가입은 verify-BEFORE-signup 3단계(send-code → verify-code → `proofToken` → signup)이고, 생성된 유저는 곧바로 `emailVerified=true` 예요 (에러: ATH_011~013).
+- send-code 발송 실패는 운영에서는 요청을 명시적으로 실패시키고, 로컬·dev 에서는 raw 반환으로 진행을 보장합니다.
+- 인증 코드·재설정 토큰 TTL 은 모두 기본 5분이고, verify-code 가 발급하는 proof JWT 는 30분이에요.
 - 비밀번호 재설정 성공 시 해당 유저의 모든 refresh token 이 무효화됩니다.
 - 존재하지 않는 이메일로 재설정 요청이 와도 동일한 응답을 반환해 열거를 막아요.
 

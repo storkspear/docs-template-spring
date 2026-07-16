@@ -20,7 +20,7 @@
 
 같은 드리프트 논리가 결제/IAP 에도 그대로 적용돼서, `PaymentController` / `IapController` 도 **core 공유 빈**으로 옮겼어요. 단 auth 와 다른 점이 하나 있어요 — **auth 는 모든 앱이 쓰지만 결제/IAP 는 수익화 앱만** 써요. 그래서 toggle 로 켜고 꺼요.
 
-- 둘 다 `core-billing-impl` 의 `BillingAutoConfiguration` 이 `@Bean` 으로 등록해요 (`NotificationPreferenceController` 와 같은 자리 — 셋 다 `{appSlug}` path 만으로 라우팅하는 Port 기반 컨트롤러라 per-app state 가 없어요). `@RequestMapping(ApiEndpoints.Payment.BASE)` = `/api/apps/{appSlug}/payment/*`, `ApiEndpoints.Iap.BASE` = `.../iap/*`.
+- 둘 다 `core-billing-impl` 의 `BillingAutoConfiguration` 이 `@Bean` 으로 등록해요 (`NotificationSettingController` 와 같은 자리 — 셋 다 `{appSlug}` path 만으로 라우팅하는 Port 기반 컨트롤러라 per-app state 가 없어요). `@RequestMapping(ApiEndpoints.Payment.BASE)` = `/api/apps/{appSlug}/payment/*`, `ApiEndpoints.Iap.BASE` = `.../iap/*`.
 - **게이팅**: `@ConditionalOnProperty(app.features.payment | app.features.iap, matchIfMissing=true)` — 각 도메인의 AutoConfiguration(`PaymentAutoConfiguration` / `IapAutoConfiguration`)이 `PaymentPort` / `IapPort` 를 거는 토글과 **같은 키**예요. 그래서 `false` 면 Port 와 컨트롤러가 **함께** 사라져요 (부팅 OK, dangling 의존 없음). default 는 ON 이라 기존 동작은 그대로.
 - **webhook public 경로**: `Payment`/`Iap` 의 webhook(`/payment/webhook`, `/iap/apple/webhook`, `/iap/google/webhook`)은 외부(PG/Apple/Google)가 JWT 없이 호출하므로 `ApiEndpoints.{Payment,Iap}.PUBLIC_PATTERNS` 로 `SecurityConfig` 에 명시했어요. 위변조는 각 webhook 의 HMAC(PortOne) / JWS(Apple) / OIDC(Google) 가 검증해요. (라이브러리화 전 per-app 컨트롤러 시절엔 이 public 패턴이 빠져있어서 webhook 이 401 로 죽는 잠복 버그가 있었는데, 공유로 옮기면서 같이 고쳤어요.)
 - override / additive 규칙은 auth 와 동일 (`@ConditionalOnMissingBean`). `new-app.sh` 는 더 이상 `<Slug>PaymentController` / `<Slug>IapController` / `<Slug>ApiEndpoints.Payment|Iap` 를 생성하지 않아요.
@@ -387,13 +387,13 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 - [`common/common-web/ApiEndpoints.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) — `APP_BASE`, `Auth.BASE`, 11개 경로 상수 + `PUBLIC_PATTERNS`
 
 **Port + Service**:
-- [`core-auth-api/AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 17개 메서드 인터페이스
-- [`core-auth-impl/AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java) — 10개 서비스 위임, `@Transactional`
-- [`core-auth-impl/AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — bean 등록 (Controller 는 import 안 함)
+- [`core-auth-api/AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 20개 메서드 인터페이스
+- [`core-auth-impl/AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java) — 서비스 위임, `@Transactional`
+- [`core-auth-impl/AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — `AuthController` 를 `@Bean` + `@ConditionalOnMissingBean` 으로 등록
 
-**Controller (레퍼런스 + 앱별)**:
-- [`core-auth-impl/controller/AuthController.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — 레퍼런스 소스, 런타임 미등록
-- [`tools/new-app/new-app.sh` L595-767](https://github.com/storkspear/template-spring/blob/main/tools/new-app/new-app.sh#L595-L767) — `<Slug>AuthController` 자동 생성
+**Controller (공유 빈 — `## 갱신` B)**:
+- [`core-auth-impl/controller/AuthController.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — 공유 런타임 빈 (`{appSlug}` path 변수로 모든 앱 처리)
+- `tools/new-app/new-app.sh` 의 `<Slug>AuthController` 자동 생성 — **역사** (원 결정 A 시절의 구현. 현재 스크립트는 앱별 AuthController 를 생성하지 않아요)
 
 **경계 강제**:
 - [`common-security/AppSlugVerificationFilter.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/AppSlugVerificationFilter.java) — URL slug vs JWT appSlug 일치 검증 (403)

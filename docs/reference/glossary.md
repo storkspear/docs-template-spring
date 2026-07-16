@@ -190,7 +190,7 @@
 | Sealed Interface / Sealed Class | Java 17 이상의 "허용된 하위 타입만 구현하거나 상속 가능" 한 인터페이스·클래스. 도메인 타입 제한에 사용해요 |
 | Record | Java 14 이상의 불변 데이터 클래스. `record User(Long id, String name) {}` 한 줄로 생성자, getter, equals, hashCode 가 자동 생성돼요 |
 | DTO (Data Transfer Object) | 계층 간 데이터 전송 객체. 이 레포는 Record 로 선언하고 Mapper 는 금지해요 ([`ADR-016`](../philosophy/adr-016-dto-mapper-forbidden.md)) |
-| DTO Factory | DTO 생성을 엔티티의 static 메서드인 `UserResponse.of(user)` 로 처리하는 패턴. Mapper 를 대체해요 |
+| DTO Factory | Entity → DTO 변환을 Entity 의 인스턴스 메서드 `to<Dto>()` (예: `user.toProfile()`) 로 처리하는 패턴. Mapper 를 대체해요. Entity 를 받는 DTO 쪽 static factory 는 금지예요 ([`dto-factory`](../convention/dto-factory.md)) |
 | SOLID | 객체지향 설계 5원칙. SRP, OCP, LSP, ISP, DIP 를 말해요 |
 | Idempotent (멱등) | 같은 요청을 여러 번 보내도 결과가 같은 연산. PUT, DELETE 가 전형적이에요 |
 | Ephemeral | "일회성, 휘발성" 을 뜻해요. 테스트 컨테이너, 임시 토큰 등에 쓰는 용어예요 |

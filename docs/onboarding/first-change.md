@@ -1,6 +1,6 @@
 # 첫 코드 변경 — 한 필드가 코드 여러 곳에 닿는 경험
 
-> **유형**: Tutorial · **독자**: Level 0~1 · **읽는 시간**: ~15분
+> **유형**: How-to · **독자**: Level 0~1 · **읽는 시간**: ~15분
 
 "코드를 한 줄 바꿔보고 싶다" 는 단계예요. 이 문서는 `users` 테이블의 `nickname` 필드를 따라가며, 한 필드가 DB부터 HTTP 응답까지 코드의 **어느 자리들** 에 닿는지 손으로 짚어 봐요. 따라 하고 나면 이 레포의 한 변경이 어떤 흐름으로 퍼지는지 — 마이그레이션, 엔티티, DTO, 변환 메서드, 테스트 — 가 그림으로 잡혀요.
 
@@ -71,11 +71,11 @@ CREATE TABLE users (
 **본인 필드를 추가한다면** — `nickname` 처럼 이미 만들어진 테이블에 *나중에* 컬럼을 더할 때는, `V001` 을 고치는 게 아니라 **다음 비어 있는 번호로 새 파일** 을 만들어요. 이미 실행된 마이그레이션 파일을 수정하면 [`Checksum`](../reference/glossary.md#데이터베이스) 이 어긋나 부팅이 막히거든요([`흔한 에러 §6.5`](../start/onboarding.md#65-flyway-checksum-mismatch)).
 
 ```sql
--- 예: apps/app-<slug>/.../db/migration/<slug>/V018__add_users_bio.sql
+-- 예: apps/app-<slug>/.../db/migration/<slug>/V026__add_users_bio.sql
 ALTER TABLE users ADD COLUMN bio VARCHAR(200);
 ```
 
-`new-app.sh` 가 깔아 주는 번호는 V001~V017 까지 차 있고, 그 중 도메인용으로 비워 둔 자리도 있어요. 정확한 번호 배치는 [`Onboarding §3.1`](../start/onboarding.md#31-코드-골격-자동) 의 마이그레이션 표를 보세요. 본인 컬럼은 보통 **그다음 비어 있는 번호** 로 더하면 돼요.
+`new-app.sh` 가 깔아 주는 번호는 V001~V025 까지 차 있어요 (V007 은 `--seed-admin` 을 붙였을 때만 생성되는 admin 시드 자리예요). 정확한 번호 배치는 [`Onboarding §3.1`](../start/onboarding.md#31-코드-골격-자동) 의 마이그레이션 표를 보세요. 본인 컬럼은 보통 **그다음 비어 있는 번호**(현재 V026)로 더하면 돼요.
 
 > **왜 `NOT NULL` 을 함부로 못 붙이나** — 운영 DB에는 이미 가입한 사용자 레코드가 있어요. 새 필수 컬럼을 한 번에 강제하면 기존 레코드가 위반돼 마이그레이션이 깨져요. 그래서 "먼저 nullable 로 추가 → 값 채우기 → 나중에 NOT NULL" 의 단계적 배포를 써요. 자세한 규율은 [`운영 런북`](../production/deploy/runbook.md) 에 있어요.
 
@@ -266,7 +266,7 @@ void updatesNickname_whenValidRequest() {
 빌드가 통과했다면 새 마이그레이션이 깨끗이 적용됐다는 뜻이에요. 부팅 로그에서도 적용된 버전을 확인할 수 있어요.
 
 ```
-Migrating schema "<slug>" to version "16 - add users bio"
+Migrating schema "<slug>" to version "26 - add users bio"
 Successfully applied 1 migration to schema "<slug>"
 ```
 

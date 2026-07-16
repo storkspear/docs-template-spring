@@ -19,7 +19,7 @@ core-billing      ← 구독/플랜 정책 layer (위)
 
 핵심 아이디어는 *Billing 도메인이 채널에 무관* 하다는 점이에요. 사용자가 IAP 로 결제했든 PG 로 결제했든, *Pro plan 활성·만료일·환불 처리* 같은 정책은 같은 코드로 처리됩니다. 채널 layer 는 *외부 시스템과의 어댑터* 역할만 맡고, 검증된 결제 결과를 정책 layer 에 전달하는 단방향 흐름이에요.
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 결제 도메인을 분리해야 하는 진짜 이유는 *IAP 와 PG 의 본질이 다르다* 는 한 문장으로 요약돼요. 표면만 보면 *둘 다 결제* 라 같은 모듈에 묶이는 게 자연스러워 보이지만, 실제로 들여다보면 *결제 처리 주체*, *수수료 모델*, *환불 흐름*, *webhook 패턴* 이 서로 무관합니다.
 
@@ -41,7 +41,7 @@ core-billing      ← 구독/플랜 정책 layer (위)
 
 > **대안 분석의 한계** — 본 ADR 은 *한 방향적 결정* 이에요. IAP 와 PG 의 결제 흐름이 본질적으로 다르다는 점이 이미 *결정의 전제* 라서, *단일 도메인 통합* 이 합리적 대안으로 성립하지 않아요. 그래서 형식적 대안 비교보다는 *왜 다른 분리 형태가 부적합한가* 를 짧게 기록합니다.
 
-### 대안 1 — 단일 `core-billing` 안에 IAP + PG 모두 흡수
+### Option 1 — 단일 `core-billing` 안에 IAP + PG 모두 흡수
 
 가장 단순한 구조예요. 결제 관련 모든 코드 — IAP receipt 검증, subscription 정책, PG 결제 — 를 한 모듈 `core-billing` 안에 두는 형태입니다. 모듈 수가 적어 IDE 트리도 깔끔해 보이고, 결제 관련 로직을 한 곳에서 찾을 수 있다는 점이 매력이에요.
 
@@ -51,7 +51,7 @@ core-billing      ← 구독/플랜 정책 layer (위)
 
 탈락 이유는 *PG 통합 임박 시점에 도메인 경계가 흐려지는 방향* 으로만 진화한다는 점입니다.
 
-### 대안 2 — IAP 만 분리 (billing + payment 통합 유지)
+### Option 2 — IAP 만 분리 (billing + payment 통합 유지)
 
 중간 절충안이에요. IAP 가 *Apple·Google 외부 검증* 이라는 명확히 다른 결이라 분리하되, *billing 정책* 과 *PG 직접 결제* 는 "둘 다 우리가 처리하는 영역" 이라는 공통점으로 한 모듈에 묶는 형태입니다.
 
@@ -59,13 +59,13 @@ core-billing      ← 구독/플랜 정책 layer (위)
 
 탈락 이유는 *결국 분리 압력이 같은 형태로 다시 발생* 한다는 점이에요. 한 단계 미루는 결정이 되어 *지금 명확히 분리* 하는 편이 정합합니다.
 
-### 채택 — 3 도메인 분리 (billing / iap / payment) ★
+### Option 3 — 3 도메인 분리 (billing / iap / payment) ★ (채택)
 
 정책 layer 하나와 채널 layer 둘로 명확히 나누는 형태입니다. *billing* 은 외부 의존 0 의 비즈니스 정책 모듈, *iap* 와 *payment* 는 각자의 외부 시스템 (Apple·Google·포트원) 과의 어댑터 모듈이에요. 결제 흐름이 *채널 → 정책* 의 단방향이라 의존 방향도 자연스럽게 정렬됩니다.
 
 이름 자체가 *layer 관계* 를 드러내는 점이 추가 가치예요. *Billing > {IAP, Payment}* 의 위계가 단어에서 즉시 읽히고, 새 사람이 *어디에 무엇이 있는지* 를 모듈 이름만으로 빠르게 파악할 수 있어요. 새 채널 (예: 베트남 *VNPay* 통합) 이 추가되더라도 *core-vnpay* 같은 별도 채널 모듈로 들어가면 되어 정책 layer 는 흔들리지 않습니다.
 
-## 채택한 분리
+## 결정 — 채택한 분리
 
 | 도메인 | 책임 | 외부 의존 |
 |---|---|---|
@@ -81,7 +81,7 @@ core-billing      ← 구독/플랜 정책 layer (위)
 [백엔드] PaymentController → PaymentPort.verify(impUid)
                           → PortOneAdapter (포트원 REST API)
                           ← PaymentResult (status, amount, paidAt)
-                          → BillingPort.activateSubscription(userId, plan, paymentResult)
+                          → BillingPort.activateFromPayment(userId, planCode, paymentResult)
                           ← Subscription 활성
 ```
 
@@ -91,9 +91,9 @@ IAP 도 같은 흐름:
 [Flutter] StoreKit/BillingClient → receipt 획득
 [Flutter] POST /api/apps/<slug>/iap/verify { receipt, productId, platform }
 [백엔드] IapController → IapPort.verifyReceipt(...)
-                       → AppleReceiptVerifier / GooglePlayVerifier (Phase 1)
+                       → AppleAppStoreAdapter / GooglePlayAdapter
                        ← PurchaseVerificationResult
-                       → BillingPort.activateSubscription(...)
+                       → BillingPort.activateFromIap(...)
 ```
 
 ## 이름 정체성 (사용자 mental model 정합)
@@ -134,7 +134,7 @@ IAP 도 같은 흐름:
 
 **전환 시점**. 매출이 1억 원 이상에 도달하면 PG 와 직결 협상을 통해 수수료를 낮추는 흐름이 자연스러워집니다. 그 시점에는 `NicePayAdapter` 같은 별도 어댑터를 추가해 직결 경로를 운영하면 됩니다. 그 전까지는 포트원 한 추상화만으로 충분합니다.
 
-## 핵심 파일
+## Code References
 
 - `core/core-iap-api/`, `core/core-iap-impl/` — IAP 채널 (Apple StoreKit / Google Play receipt 검증)
 - `core/core-payment-api/`, `core/core-payment-impl/` — PG 채널 (`PortOneAdapter`, `PortOneWebhookVerifier`)
@@ -146,7 +146,7 @@ IAP 도 같은 흐름:
 
 ## 안 다루는 범위 (다음 사이클)
 
-- IAP 실제 구현 (Apple StoreKit 2 / Google Play Verifier) — `core-iap-impl` 은 현재 stub
+- ~~IAP 실제 구현~~ — **이후 완료**. `core-iap-impl` 의 `AppleAppStoreAdapter` / `GooglePlayAdapter` 로 구현됐어요 (서버 알림은 [`ADR-022`](./adr-022-iap-server-notifications.md))
 - Subscription 자동 갱신 (cron 또는 Server Notification 처리)
 - PortOne v2 API 마이그레이션 (현재 v1 기반)
 - Flutter 템플릿 — `portone_flutter` SDK 통합 + 백엔드 OpenAPI 기반 client 자동 생성

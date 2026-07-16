@@ -139,11 +139,11 @@ public void onApplicationReady() {
 
 ## Code References
 
-- `bootstrap/src/main/java/com/factory/bootstrap/config/RoutingDataSourceConfig.java` (신규, line 1~127)
-- `common/common-persistence/src/main/java/com/factory/common/persistence/SchemaRoutingDataSource.java:41-58` (fail-secure)
-- `common/common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java:74` (DEFAULT_POOL_SIZE = 5), `:186-209` (static EMF/TM builder)
-- `core/core-storage-impl/src/main/java/com/factory/core/storage/impl/BucketProvisioner.java:33-40` (virtual thread)
-- `common/common-security/src/main/java/com/factory/common/security/AppSlugMdcFilter.java:23-26` (slug 추출 fail-secure 문맥)
+- `bootstrap/src/main/java/com/factory/bootstrap/config/RoutingDataSourceConfig.java` (신규)
+- `common/common-persistence/src/main/java/com/factory/common/persistence/SchemaRoutingDataSource.java#determineCurrentLookupKey` (fail-secure)
+- `common/common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java#DEFAULT_POOL_SIZE` (= 5), `#buildEntityManagerFactory` / `#buildTransactionManager0` (static EMF/TM builder)
+- `core/core-storage-impl/src/main/java/com/factory/core/storage/impl/BucketProvisioner.java#onApplicationReady` (virtual thread 분리)
+- `common/common-security/src/main/java/com/factory/common/security/AppSlugMdcFilter.java` (class javadoc — slug 추출 fail-secure 문맥)
 
 ## 후속
 

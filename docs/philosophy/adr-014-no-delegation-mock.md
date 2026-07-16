@@ -324,7 +324,7 @@ delegation mock 허용 시의 trade-off — 작성 속도는 빨라 보입니다
 
 **Port 계약 테스트 구조**:
 - [`core-auth-impl/test/AuthServiceImplContractTest.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/test/java/com/factory/core/auth/impl/AuthServiceImplContractTest.java) — AuthPort 계약 구현 테스트
-- [`core-auth-api/test/AbstractAuthPortContractTest`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-api/src/test) — 추상 계약 정의
+- [`core-auth-api/testFixtures/AbstractAuthPortContractTest`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/testFixtures/java/com/factory/core/auth/api/contract/AbstractAuthPortContractTest.java) — 추상 계약 정의
 
 **Fake adapter 예시**:
 - [`core-auth-impl/test/.../InMemoryEmailAdapter`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/test) — Resend 대체 fake
@@ -342,7 +342,7 @@ delegation mock 허용 시의 trade-off — 작성 속도는 빨라 보입니다
 
 **부재 확인 (delegation mock 없음)**:
 - `grep -rE "verify\(.*\)\.[a-z]+\(" core/ common/` — delegation 검증 패턴 0건 (외부 시스템 verify 제외)
-- `@ExtendWith(MockitoExtension.class)` 사용처 — 30여 건, 모두 외부 시스템 격리 또는 순수 알고리즘 비결정 고정
+- `org.mockito` 직접 사용 — 약 40개 테스트 파일 (`@ExtendWith(MockitoExtension.class)` 는 0건 — `Mockito.mock()` 직접 호출 패턴), 모두 외부 시스템 격리 또는 순수 알고리즘 비결정 고정
 
 **관련 ADR**:
 - [`ADR-003 · -api / -impl 분리`](./adr-003-api-impl-split.md) — Port 가 계약 단위

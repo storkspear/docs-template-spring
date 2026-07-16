@@ -93,7 +93,9 @@
 
 ## 조회 API 표준 요청 형식
 
-목록 조회 API 는 `SearchRequest` 를 body 로 받습니다. 메서드는 POST 를 씁니다.
+목록 조회 API 는 `PageListRequest<T>` 를 body 로 받습니다. 메서드는 POST 를 씁니다. 최상위 필드는 네 가지예요 — `page`(0부터, 음수는 0으로 보정) · `size`(기본 20, `[1, 200]` 으로 clamp) · `sorts`(정렬 목록) · `filterModel`(도메인별 **타입 있는 필터 DTO**).
+
+클라이언트는 `conditions` 같은 자유형 Map 을 직접 보내지 않아요. 필터는 도메인이 정의한 `filterModel` 의 명시적 필드로만 표현되고, 서버의 Assembler 가 이를 `필드명_연산자` 조건 Map 으로 변환해 `QueryDslPredicateBuilder` 에 넘깁니다 (아래 [조건 연산자 규칙](#조건-연산자-규칙) 참고). `sorts` 의 `field` 키는 `filterModel`(`SortFieldMapper`)의 화이트리스트로 검증되어, 목록에 없는 키는 무시되고 기본 정렬로 fallback 해요 — 임의 컬럼 정렬로 인한 비공개 컬럼 노출·SQL injection 을 막는 장치입니다.
 
 ### 요청 예시
 
@@ -102,21 +104,19 @@ POST /api/apps/sumtally/expenses/search
 Content-Type: application/json
 
 {
-  "conditions": {
-    "categoryId_eq": 5,
-    "amount_gte": 10000,
-    "title_like": "커피",
-    "createdAt_gte": "2026-01-01T00:00:00Z",
-    "createdAt_lte": "2026-03-31T23:59:59Z"
-  },
-  "page": {
-    "page": 0,
-    "size": 20
-  },
-  "sort": [
+  "page": 0,
+  "size": 20,
+  "sorts": [
     { "field": "createdAt", "direction": "DESC" },
-    { "field": "amount", "direction": "ASC", "nullHandling": "NULLS_LAST" }
-  ]
+    { "field": "amount", "direction": "ASC" }
+  ],
+  "filterModel": {
+    "categoryId": 5,
+    "minAmount": 10000,
+    "titleContains": "커피",
+    "from": "2026-01-01T00:00:00Z",
+    "to": "2026-03-31T23:59:59Z"
+  }
 }
 ```
 
@@ -138,9 +138,11 @@ Content-Type: application/json
 }
 ```
 
-### 조건 연산자 규칙
+<a id="조건-연산자-규칙"></a>
 
-조건 키는 `필드명_연산자` 형태입니다. 연산자를 생략하면 `eq` 로 동작합니다.
+### 조건 연산자 규칙 (서버 내부 — Assembler → QueryDslPredicateBuilder)
+
+`filterModel` 의 각 필드는 서버의 Assembler 가 아래 `필드명_연산자` 키로 변환합니다 (예: `minAmount: 10000` → `amount_gte`, `titleContains: "커피"` → `title_like`). 연산자를 생략하면 `eq` 로 동작합니다. 클라이언트가 이 키를 직접 보내는 게 아니라, 도메인이 필드→연산자 매핑을 Assembler 에서 결정해요.
 
 | 키 형식 | 의미 | 값 타입 |
 |---|---|---|

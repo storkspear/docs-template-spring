@@ -1,6 +1,6 @@
 # ADR-009 · BaseEntity 공통 슈퍼클래스
 
-**Status**: Accepted. `common-persistence/entity/BaseEntity.java` 에 구현돼 있고, 모든 `@Entity` 가 이를 상속합니다.
+**Status**: Accepted. `common-persistence/entity/BaseEntity.java` 에 구현돼 있고, `@Entity` 는 BaseEntity 상속이 기본입니다. 단 예외 7개 — 만료시각 기반 인증 토큰·코드류 (`AuthRefreshToken` · `AuthPasswordResetToken` · `AuthEmailVerificationToken` · `AuthEmailVerificationCode` · `AuthPhoneVerificationCode`) 와 `AuthSocialIdentity` · `AnalyticsEvent` — 는 자체 필드 설계로 미상속이에요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 

@@ -20,7 +20,7 @@
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 권한 검증 패턴이 *명시적 컨벤션* 으로 잡혀 있지 않으면 *각 컨트롤러가 자기 방식으로 권한을 체크* 하게 되어 일관성이 깨져요. 어떤 컨트롤러는 `currentUser.isAdmin()` 헬퍼를 직접 호출하고, 어떤 컨트롤러는 `@PreAuthorize` 를 쓰고, 어떤 컨트롤러는 *권한 체크 자체를 잊어버리는* 형태로 흩어집니다. 흩어진 패턴은 *어느 endpoint 가 정말 운영자 전용인지* 코드만 봐서는 알 수 없게 만들고, *권한 체크 누락* 이라는 보안 사고의 빈 자리가 생기기 쉬워요.
 
@@ -101,14 +101,14 @@ User.role 이 "user" 인 경우:
 
 ## Admin user 셋업
 
-`new-app.sh` 의 `V007__seed_admin_user.sql` 가 운영자용 user 1명을 자동 생성:
+`new-app.sh --seed-admin` (opt-in, 기본은 시드 없음) 이 `V007__seed_admin_user.sql` 로 운영자용 user 1명을 생성합니다:
 
 ```sql
 INSERT INTO <slug>.users (email, password_hash, email_verified, created_at, updated_at)
 VALUES ('admin@<slug>.local', '<bcrypt>', TRUE, NOW(), NOW());
 ```
 
-임시 비밀번호는 `admin1234`. 운영에서 첫 로그인 즉시 변경 필수예요.
+비밀번호는 생성 시 랜덤 발급 (20자) 되어 bcrypt 해시만 저장되고, 평문은 생성 완료 안내에서 1회만 출력돼요. 운영에서 첫 로그인 즉시 변경을 권장해요.
 
 이 시드 INSERT 는 `role` 컬럼을 명시하지 않으므로, `users.role VARCHAR(20) NOT NULL DEFAULT 'user'` 의 기본값에 따라 생성 직후 role 은 `'user'` 입니다. `@AdminOnly` 를 통과하려면 생성 후 role 을 직접 `'admin'` 으로 올려야 해요. 운영자가 admin 권한을 부여하려면:
 - 직접 DB UPDATE: `UPDATE <slug>.users SET role = 'admin' WHERE email = 'admin@<slug>.local';`
@@ -168,7 +168,7 @@ public @interface AdminOrModerator {}
 - **Admin 전용 controller convention** — 모든 admin 메소드를 `<Slug>AdminController` 로 분리해요. type level `@AdminOnly` 를 적용하고 ArchUnit 으로 강제할 수 있어요.
 - **2FA / 추가 인증** — admin 액션 시 한 번 더 비밀번호 입력 (sudo 모드)
 - **Audit 로그** — 누가 언제 무엇을 admin 액션 했는지 (별도 table)
-- **role 다중화** — 현재는 user/admin 단일이에요. moderator/billing_ops 등 추가는 비즈니스 결정에 맡겨요.
+- **role 다중화** — 앱 사용자의 `users.role` 은 여전히 user/admin 단일이에요. moderator/billing_ops 등 추가는 비즈니스 결정에 맡겨요. 다만 운영 콘솔 계정은 이후 별도 admin 모듈이 역할·권한 (PERM_*) 기반 RBAC 로 구현됐어요 ([`ADR-039`](./adr-039-admin-module.md) 참조).
 - **role enum 화** — `String role` → `Role enum (USER, ADMIN, ...)` — 타입 안전성 ↑
 
 ---

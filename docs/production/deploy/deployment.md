@@ -215,6 +215,7 @@ gh variable set DEPLOY_ENABLED --body 'true'
 gh variable set KAMAL_SERVICE_NAME --body '<파생레포-slug>'
 gh variable set DEPLOY_HOST --body '100.x.x.x'          # Mac mini Tailscale IP
 gh variable set PUBLIC_HOSTNAME --body 'server.<도메인>'
+gh variable set DEPLOY_SSH_USER --body '<mac-mini-계정>'  # 미설정 시 root 로 폴백 → SSH 접속 실패 함정
 ```
 
 ### 3.2 Repository Secrets (시크릿)
@@ -239,7 +240,7 @@ gh secret set LOKI_URL --body 'http://loki:3100/loki/api/v1/push'
 gh secret set DISCORD_WEBHOOK_URL --body 'https://discord.com/api/webhooks/...'
 ```
 
-Tailscale OAuth client 는 Tailscale admin → Settings → OAuth clients → `Generate` 로 발급해요 (scope `devices:ci`, tag `tag:ci`).
+Tailscale OAuth client 는 Tailscale admin → Settings → OAuth clients → `Generate` 로 발급해요. scope 는 `Devices → Core → Write` 와 `Keys → Auth Keys → Write` **두 개를 모두** 체크하고 각각 `tag:ci` 를 부여합니다 — 하나라도 빠지면 배포 시 403 이 나요 ([`decisions-infra.md I-14`](./decisions-infra.md) · [`dogfood-setup §3.2`](../../start/dogfood-setup.md)).
 
 **GHCR 토큰** — `secrets.GITHUB_TOKEN` 자동 주입만으론 부족합니다. 첫 GHCR 패키지 push 시 repo 와 package 가 자동 연결되지 않아 403 이 나거든요. `repo` + `write:packages` scope 의 Classic PAT 를 발급해 `GHCR_TOKEN` secret 으로 등록해야 합니다. `init-prod.sh` 가 `.env.prod` 의 `GHCR_TOKEN` 을 GitHub Secrets 로 자동 push 하므로, 운영자는 PAT 발급과 `.env.prod` 채우기만 하면 끝이에요. 자세한 배경은 [`decisions-infra.md I-10`](./decisions-infra.md) 과 [`dogfood-pitfalls.md #7`](../../start/dogfood-pitfalls.md) 의 함정 사례를 참고하세요.
 
@@ -349,7 +350,7 @@ prod 셋업 완료 후, 같은 Mac mini 에 `dev-server.<도메인>` 을 격리 
    gh secret set APP_STORAGE_MINIO_BUCKETS_0_DEV     # dev bucket
    ```
 
-   나머지 (JWT · RESEND · PortOne · Tailscale · SSH · MinIO ENDPOINT·KEY · LOKI_URL · DISCORD_WEBHOOK_URL · GHCR) 는 prod 와 공용 secret 그대로 사용해요.
+   나머지 운영 자격 (JWT · RESEND · PortOne · MinIO ENDPOINT·KEY · APP_DOMAIN · LOKI_URL · DISCORD_WEBHOOK_URL) 도 전부 `_DEV` suffix 의 별도 secret 이에요 — `init-dev.sh` 가 `.env.dev` 값을 `_DEV` suffix 로 push 하고, `deploy-dev.yml` 이 컨테이너 안에서 일반 이름으로 export 합니다. prod 와 공용인 것은 `GHCR_TOKEN` · `SSH_PRIVATE_KEY` · `TS_OAUTH_*` 뿐이에요 ([`develop-branch-policy §5`](../operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델) 의 격리 모델과 일치).
 
 ### 자동 배포
 
@@ -360,7 +361,7 @@ prod 셋업 완료 후, 같은 Mac mini 에 `dev-server.<도메인>` 을 격리 
 ### 폐기
 
 ```bash
-<repo> dev cleanup       # 인프라만 (Cloudflare + kamal app remove + _DEV secrets 회수)
+<repo> dev clear         # 인프라만 (Cloudflare + kamal app remove + _DEV secrets 회수)
                           # → Supabase 스키마 / MinIO bucket 보존
 <repo> dev force-clear   # + Supabase 스키마 DROP + MinIO bucket 제거 (3단계 confirm)
                           # → prod host 충돌 safety check 내장
@@ -409,5 +410,3 @@ prod 셋업 완료 후, 같은 Mac mini 에 `dev-server.<도메인>` 을 격리 
 **왜 이렇게?**:
 - Kamal 선택: [`인프라 결정 기록 (Decisions — Infrastructure) I-09`](./decisions-infra.md)
 - 템플릿 패턴: [`ADR-002 (GitHub Template Repository 패턴)`](../../philosophy/adr-002-use-this-template.md)
-</content>
-</invoke>

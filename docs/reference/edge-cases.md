@@ -94,7 +94,7 @@
 
 **영향** — 유저 신뢰 상실, 앱 삭제.
 
-**해결** — service account 파일은 환경변수 경로(`FCM_CREDENTIALS_PATH`)로만 참조하고 git 커밋을 금지합니다. 유출이 의심되면 Firebase Console 에서 key rotation 으로 기존 키를 즉시 비활성화하고 새 키를 발급해요. service account 에는 Firebase Cloud Messaging send 권한만 부여하고 Admin 권한은 주지 않는 최소 권한 원칙을 지킵니다.
+**해결** — service account JSON 은 환경변수(`APP_CREDENTIALS_<SLUG>_FCM_SERVICE_ACCOUNT_JSON`)로만 주입하고 git 커밋을 금지합니다. 유출이 의심되면 Firebase Console 에서 key rotation 으로 기존 키를 즉시 비활성화하고 새 키를 발급해요. service account 에는 Firebase Cloud Messaging send 권한만 부여하고 Admin 권한은 주지 않는 최소 권한 원칙을 지킵니다.
 
 ---
 
@@ -296,11 +296,11 @@
 
 ### 🟢 5-3. 매 앱마다 동일한 인증 테이블 Flyway 마이그레이션 반복
 
-**시나리오** — `new-app.sh` 가 공통 마이그레이션 V001~V017 을 앱마다 생성해요(인증·결제·구독·감사·2FA·알림·점유인증 테이블 + V007 admin 시드). 앱이 20 개면 같은 구조의 테이블이 20 벌 생깁니다.
+**시나리오** — `new-app.sh` 가 공통 마이그레이션 V001~V025 를 앱마다 생성해요(인증·결제·구독·감사·2FA·알림·점유인증·첨부·게시물·애널리틱스 테이블 + opt-in V007 admin 시드). 앱이 20 개면 같은 구조의 테이블이 20 벌 생깁니다.
 
 **영향** — Flyway 실행 시간이 약간 늘고 DB 저장 공간을 조금 더 쓰지만, 기능에는 영향이 없어요.
 
-**해결** — 그대로 수용합니다. 각 앱의 유저 수가 적고 테이블 20 벌의 오버헤드는 무시할 만한 수준이라, 멀티테넌시 격리의 대가로 받아들이는 게 합리적이에요. 도메인 테이블은 V001~V017 이 이미 차 있어 그다음 빈 번호인 V018 부터 직접 작성합니다.
+**해결** — 그대로 수용합니다. 각 앱의 유저 수가 적고 테이블 20 벌의 오버헤드는 무시할 만한 수준이라, 멀티테넌시 격리의 대가로 받아들이는 게 합리적이에요. 도메인 테이블은 V001~V025 가 이미 차 있어 그다음 빈 번호인 V026 부터 직접 작성합니다.
 
 ---
 
@@ -312,7 +312,7 @@
 
 **영향** — UX 결정이 필요하고, 잘못하면 기존 유저가 이탈할 수 있어요.
 
-**해결** — 구독 모델([`ADR-020`](../philosophy/adr-020-subscription-domain-model.md))로 권한을 판단합니다. `BillingPort.findActiveSubscription(userId)` 는 상태가 ACTIVE 이거나, CANCELLED 이지만 아직 만료되지 않은 구독을 반환해요. 기존 무료 유저는 `subscriptions` row 가 없어 기본 'free' plan(V008 시드)의 무료 기능만 씁니다. 결제가 완료되면 `BillingPort.activateFromPayment(userId, planCode, paymentResult)` 가 구독을 활성화해 프리미엄 기능을 풀어요. 초기 유저에게 무료로 프리미엄을 주려면 운영자가 SQL 로 구독을 직접 INSERT(status=ACTIVE, 만료일을 N 개월 뒤로)하는 grandfathering 도 가능합니다(admin 엔드포인트와 RBAC 는 다음 사이클).
+**해결** — 구독 모델([`ADR-020`](../philosophy/adr-020-subscription-domain-model.md))로 권한을 판단합니다. `BillingPort.findActiveSubscription(userId)` 는 상태가 ACTIVE 이거나, CANCELLED 이지만 아직 만료되지 않은 구독을 반환해요. 기존 무료 유저는 `subscriptions` row 가 없어 기본 'free' plan(V008 시드)의 무료 기능만 씁니다. 결제가 완료되면 `BillingPort.activateFromPayment(userId, planCode, paymentResult)` 가 구독을 활성화해 프리미엄 기능을 풀어요. 초기 유저에게 무료로 프리미엄을 주려면 운영자가 SQL 로 구독을 직접 INSERT(status=ACTIVE, 만료일을 N 개월 뒤로)하는 grandfathering 도 가능합니다(운영 콘솔과 RBAC 4역할은 구현 완료 — [`ADR-039`](../philosophy/adr-039-admin-module.md)).
 
 ---
 
@@ -352,7 +352,7 @@
 
 ## 관련 문서
 
-- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 38 개 ADR 인덱스 (설계 결정의 이유)
+- [`Repository Philosophy — 책 안내`](../philosophy/README.md) — 39 개 ADR 인덱스 (설계 결정의 이유)
 - [`Architecture Reference`](../structure/architecture.md) — 시스템 구조
 - [`API Response Format`](../api-and-functional/api/api-response.md) — API 응답 포맷
 - [`Design Principles`](../convention/design-principles.md) — 설계 원칙
