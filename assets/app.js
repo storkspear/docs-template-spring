@@ -190,6 +190,7 @@ async function loadDoc(docPath) {
     let html = transformEmoji(marked.parse(md));
     html = html.replace(/<p>%%LOCAL_DEV_DIAGRAM%%<\/p>/g, DIAGRAMS['LOCAL_DEV']);
     html = html.replace(/<p>%%PROD_DIAGRAM%%<\/p>/g, DIAGRAMS['PROD']);
+    html = html.replace(/<p>%%TECH_STACK_DIAGRAM%%<\/p>/g, DIAGRAMS['TECH_STACK']);
 
     const contentEl = document.getElementById('content');
     contentEl.innerHTML = html;

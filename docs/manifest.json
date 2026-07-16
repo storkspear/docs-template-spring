@@ -180,6 +180,7 @@
       "files": [
         { "path": "reference/glossary.md",               "title": "용어 사전",            "desc": "Spring · JPA · Docker · JWT · Kamal · 결제/IAP/구독 등 105+ 용어" },
         { "path": "reference/environment.md",            "title": "Environment",          "desc": "프레임워크 · 라이브러리 · 외부 서비스 인벤토리 (버전 포함)" },
+        { "path": "reference/environment-ui.md",         "title": "Environment UI",       "desc": "기술 스택 한눈 다이어그램 (아이콘)" },
         { "path": "reference/edge-cases.md",             "title": "Edge Cases",           "desc": "엣지 케이스 및 예외 처리 기록" },
         { "path": "reference/STYLE_GUIDE.md",            "title": "Documentation Style Guide", "desc": "저자용 · 5 유형 템플릿 · ADR 규격 · cross-link 정책" },
         { "path": "reference/api/README.md",             "title": "API Reference",        "desc": "API 인덱스" }

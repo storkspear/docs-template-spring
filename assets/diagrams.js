@@ -182,3 +182,82 @@ DIAGRAMS['PROD'] = `
     <span class="legend-item obs">Observability</span>
   </div>
 </div>`;
+
+DIAGRAMS['TECH_STACK'] = `
+<div class="aws-diagram" id="tech-stack-diagram">
+  <div class="aws-diagram-title">기술 스택 한눈 보기 — 앱 공장 3종 세트</div>
+
+  <div class="stack-row">
+    <div class="stack-label" style="background:#042B59">클라이언트</div>
+    <div class="stack-nodes">
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#042B59"><img src="https://cdn.simpleicons.org/flutter/54C5F8" width="18" height="18" alt="Flutter"></div><div class="aws-name sm">Flutter 앱</div><div class="aws-sub">template-flutter · 14 Kit</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#0f172a"><img src="https://cdn.simpleicons.org/react/61DAFB" width="18" height="18" alt="React"></div><div class="aws-name sm">React Admin</div><div class="aws-sub">React 19 · antd 5 · ag-grid 36</div></div>
+    </div>
+  </div>
+  <div class="stack-arrow">▼&nbsp;&nbsp;REST <code>{data,error}</code> 계약&nbsp;·&nbsp;<code>/api/admin</code>&nbsp;&nbsp;▼</div>
+
+  <div class="stack-row">
+    <div class="stack-label" style="background:#166534">백엔드</div>
+    <div class="stack-nodes">
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#f1f8f4"><img src="https://cdn.simpleicons.org/springboot/6DB33F" width="18" height="18" alt="Spring Boot"></div><div class="aws-name sm">Spring Boot 3.5</div><div class="aws-sub">멀티모듈 · 16 도메인</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#f1f8f4"><img src="https://cdn.simpleicons.org/springsecurity/6DB33F" width="18" height="18" alt="Security"></div><div class="aws-name sm">Security</div><div class="aws-sub">JWT · TOTP · RBAC</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#1e3a8a"><span class="stack-chip">QD</span></div><div class="aws-name sm">QueryDSL 5.1</div><div class="aws-sub">동적 검색 15연산자</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#fff2f0"><img src="https://cdn.simpleicons.org/flyway/CC0200" width="18" height="18" alt="Flyway"></div><div class="aws-name sm">Flyway</div><div class="aws-sub">dev AUTO · prod 수동</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#4c1d95"><span class="stack-chip">AN</span></div><div class="aws-name sm">자체 Analytics</div><div class="aws-sub">활동 ping · 매출 이벤트</div></div>
+    </div>
+  </div>
+
+  <div class="stack-row">
+    <div class="stack-label" style="background:#9a3412">외부 연동</div>
+    <div class="stack-nodes">
+      <div class="aws-node mini optional"><div class="aws-icon sm" style="background:#f97316"><span class="stack-chip">P1</span></div><div class="aws-name sm">PortOne</div><div class="aws-sub">PG 결제</div></div>
+      <div class="aws-node mini optional"><div class="aws-icon sm" style="background:#0f172a"><img src="https://cdn.simpleicons.org/apple/ffffff" width="18" height="18" alt="Apple"></div><div class="aws-name sm">App Store</div><div class="aws-sub">IAP · JWS 검증</div></div>
+      <div class="aws-node mini optional"><div class="aws-icon sm" style="background:#f8fafc"><img src="https://cdn.simpleicons.org/googleplay/414141" width="18" height="18" alt="Google Play"></div><div class="aws-name sm">Google Play</div><div class="aws-sub">IAP · RTDN</div></div>
+      <div class="aws-node mini optional"><div class="aws-icon sm" style="background:#0f172a"><img src="https://cdn.simpleicons.org/resend/ffffff" width="18" height="18" alt="Resend"></div><div class="aws-name sm">Resend</div><div class="aws-sub">이메일</div></div>
+      <div class="aws-node mini optional"><div class="aws-icon sm" style="background:#2563eb"><span class="stack-chip">CS</span></div><div class="aws-name sm">CoolSMS</div><div class="aws-sub">SMS 인증</div></div>
+      <div class="aws-node mini optional"><div class="aws-icon sm" style="background:#fff7ed"><img src="https://cdn.simpleicons.org/firebase/DD2C00" width="18" height="18" alt="FCM"></div><div class="aws-name sm">FCM</div><div class="aws-sub">푸시</div></div>
+    </div>
+  </div>
+
+  <div class="stack-row">
+    <div class="stack-label" style="background:#1e40af">데이터</div>
+    <div class="stack-nodes">
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#eff6ff"><img src="https://cdn.simpleicons.org/postgresql/4169E1" width="18" height="18" alt="PostgreSQL"></div><div class="aws-name sm">PostgreSQL</div><div class="aws-sub">Supabase · schema-per-app</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#fef2f2"><img src="https://cdn.simpleicons.org/minio/C72E28" width="18" height="18" alt="MinIO"></div><div class="aws-name sm">MinIO</div><div class="aws-sub">S3 호환 스토리지</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#ecfdf5"><img src="https://cdn.simpleicons.org/supabase/3FCF8E" width="18" height="18" alt="Supabase"></div><div class="aws-name sm">Supabase</div><div class="aws-sub">운영 DB 호스팅</div></div>
+    </div>
+  </div>
+
+  <div class="stack-row">
+    <div class="stack-label" style="background:#334155">인프라 · 배포</div>
+    <div class="stack-nodes">
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#eff6ff"><img src="https://cdn.simpleicons.org/docker/2496ED" width="18" height="18" alt="Docker"></div><div class="aws-name sm">Docker</div><div class="aws-sub">컨테이너</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#7c2d12"><span class="stack-chip">K</span></div><div class="aws-name sm">Kamal</div><div class="aws-sub">blue-green 배포</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#fff7ed"><img src="https://cdn.simpleicons.org/cloudflare/F38020" width="18" height="18" alt="Cloudflare"></div><div class="aws-name sm">Cloudflare</div><div class="aws-sub">Tunnel · DNS</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#f8fafc"><img src="https://cdn.simpleicons.org/tailscale/242424" width="18" height="18" alt="Tailscale"></div><div class="aws-name sm">Tailscale</div><div class="aws-sub">CI 사설망 접근</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#eff6ff"><img src="https://cdn.simpleicons.org/githubactions/2088FF" width="18" height="18" alt="GitHub Actions"></div><div class="aws-name sm">GitHub Actions</div><div class="aws-sub">CI/CD 13 workflows</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#0f172a"><img src="https://cdn.simpleicons.org/apple/ffffff" width="18" height="18" alt="Mac mini"></div><div class="aws-name sm">Mac mini</div><div class="aws-sub">자가 호스팅</div></div>
+    </div>
+  </div>
+
+  <div class="stack-row">
+    <div class="stack-label" style="background:#b45309">관측성</div>
+    <div class="stack-nodes">
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#fff7ed"><img src="https://cdn.simpleicons.org/prometheus/E6522C" width="18" height="18" alt="Prometheus"></div><div class="aws-name sm">Prometheus</div><div class="aws-sub">메트릭</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#fff7ed"><img src="https://cdn.simpleicons.org/grafana/F46800" width="18" height="18" alt="Grafana"></div><div class="aws-name sm">Grafana</div><div class="aws-sub">대시보드 4종</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#fffbeb"><img src="https://cdn.simpleicons.org/grafana/F9B71C" width="18" height="18" alt="Loki"></div><div class="aws-name sm">Loki</div><div class="aws-sub">로그 수집</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#eef2ff"><img src="https://cdn.simpleicons.org/discord/5865F2" width="18" height="18" alt="Discord"></div><div class="aws-name sm">Discord</div><div class="aws-sub">알림 8룰</div></div>
+    </div>
+  </div>
+
+  <div class="stack-row">
+    <div class="stack-label" style="background:#475569">품질 게이트</div>
+    <div class="stack-nodes">
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#334155"><span class="stack-chip">AU</span></div><div class="aws-name sm">ArchUnit</div><div class="aws-sub">r1~r22 · 활성 21</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#334155"><span class="stack-chip">TC</span></div><div class="aws-name sm">Testcontainers</div><div class="aws-sub">통합 테스트</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#334155"><span class="stack-chip">WM</span></div><div class="aws-name sm">WireMock</div><div class="aws-sub">외부 API stub</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#334155"><span class="stack-chip">SP</span></div><div class="aws-name sm">spotless</div><div class="aws-sub">google-java-format</div></div>
+      <div class="aws-node mini"><div class="aws-icon sm" style="background:#f8fafc"><img src="https://cdn.simpleicons.org/commitlint/000000" width="18" height="18" alt="commitlint"></div><div class="aws-name sm">commitlint</div><div class="aws-sub">Conventional Commits</div></div>
+    </div>
+  </div>
+</div>`;
