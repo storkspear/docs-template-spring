@@ -29,7 +29,7 @@
 
 이 ADR 은 네 개념의 구체 모양을 결정해요. 4 테이블의 컬럼 정의와 관계, *슬러그별 schema 에 위치* 시킨 이유, webhook 의 *3 중 방어* 메커니즘, 그리고 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 을 점유하지 않게 하는 *phase 분리 트랜잭션* 패턴까지가 본 ADR 의 범위입니다.
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 결제 도메인을 *비즈니스 정책·채널 어댑터* 로 분리한 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 골격 위에, *실제 비즈 로직 + DB 모델 + 트랜잭션 정책 + webhook 보안* 을 채워야 운영 가능한 시스템이 돼요. 이 채움 과정에서 *네 가지 결정* 이 자연스럽게 떠오릅니다.
 
@@ -432,11 +432,10 @@ app:
 
 ## 안 다루는 범위 (다음 사이클)
 
-- **Apple Server Notifications V2 webhook** — 자동 갱신 / 환불 / 만료 통보를 처리해요. 현재는 verify 만, webhook 처리는 X 예요.
-- **Google Real-time Developer Notifications (RTDN)** — Pub/Sub 을 통한 실시간 갱신/환불 통보를 다뤄요.
-- **갱신 실패 정책** — chargeAgain (PG) 또는 IAP renewal 이 FAILED 반환 시 retry / 사용자 알림 / 자동 cancel 을 처리해요. 현재는 log only 예요.
-- **분산 lock** — 다중 인스턴스 운영 시 cron + listener 중복 실행을 방지해요 (Quartz cluster / shedlock).
-- **분산 lock** — 다중 인스턴스 운영 시 cron 중복 실행을 방지해요 (Quartz cluster / shedlock). 단일 Mac mini 운영에선 불필요해요.
+- ~~**Apple Server Notifications V2 webhook**~~ — **구현됨.** [`ADR-022`](./adr-022-iap-server-notifications.md) 에서 `AppleNotificationDecoder` + 공유 `IapController` 의 apple webhook endpoint 로 자동 갱신 / 환불 / 만료 통보를 처리합니다.
+- ~~**Google Real-time Developer Notifications (RTDN)**~~ — **구현됨.** [`ADR-022`](./adr-022-iap-server-notifications.md) 의 `GoogleNotificationDecoder` (Pub/Sub decode) + [`ADR-032`](./adr-032-google-webhook-auth.md) 의 `GoogleWebhookAuthFilter` (Bearer JWT 검증) 로 처리합니다.
+- ~~**갱신 실패 정책**~~ — **구현됨.** [`ADR-021`](./adr-021-renewal-failure-policy.md) 이 재시도 백오프 + ABANDONED 시 auto-cancel + 사용자 알림 정책을 정의하고, `BillingServiceImpl` 이 구현합니다.
+- **분산 lock** — 다중 인스턴스 운영 시 cron + listener 중복 실행을 방지해요 (Quartz cluster / shedlock). 단일 Mac mini 운영에선 불필요해요.
 - **PortOne v2 API 마이그레이션** — 현재 v1 (`api.iamport.kr` + impUid) 이에요. v2 는 `api.portone.io` + paymentId 기반이에요. PortOneAdapter + WireMock stub 동시 마이그레이션이 필요해요.
 - **Plan 관리 admin UI** — 현재 Plan INSERT 는 SQL 직접 입력이에요. 운영 시 admin endpoint + RBAC 가 필요해요.
 - **PortOne 토큰 캐시 thundering herd** — `PortOneApiClient.getAccessToken()` 의 synchronized 블록 안에서 외부를 호출해요. 토큰 만료 직전 동시 N개 요청 시 직렬화돼요. sandbox 단계에선 영향이 미미하고, 운영 트래픽 확보 후 double-checked locking 또는 lazy refresh 분리를 검토합니다.

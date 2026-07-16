@@ -22,7 +22,7 @@
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 [`ADR-022`](./adr-022-iap-server-notifications.md) 가 Google RTDN webhook 의 *처리 로직* 을 정의했지만, *인증* 은 별개의 영역으로 남아 있어요. webhook endpoint 는 *공개 인터넷에 노출* 되어야 Google 의 push 를 받을 수 있고, 그 *공개성* 자체가 *무방비 공격 표면* 의 시작점입니다.
 
@@ -36,7 +36,7 @@ Apple webhook 은 이 영역이 *자동으로* 해결되어 있어요. Apple App
 
 해결책의 후보로 *IP allowlist* 같은 단순한 형태도 있어요. *Google Pub/Sub 의 발송 IP 범위만 허용* 하는 방식인데, 이는 두 가지 한계가 있습니다. 첫째, *Google Pub/Sub IP 범위* 는 *모든 GCP 사용자가 공유* 해서 *같은 GCP 의 다른 프로젝트* 도 우리 IP allowlist 를 통과할 수 있어요. 둘째, 우리 인프라가 *Cloudflare Tunnel·Kamal proxy* 를 거치면 *원본 IP 가 가짜화* 되어 IP 검증 자체가 무력화됩니다.
 
-진짜 안전한 방법은 *Bearer JWT 검증* 이에요. Google Pub/Sub push 발송 시 첨부되는 JWT 는 *우리가 지정한 service account 가 발급한 RS256 서명* 이라 *위조가 사실상 불가능* 하고, *우리 audience URL 매칭 + email whitelist* 까지 더하면 *우리 plzkt 만이 발급할 수 있는 토큰* 으로 좁혀집니다. 추가 인프라 없이 *Google JWKS endpoint* 만으로 검증이 가능한 점도 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 솔로 친화 정신에 정합해요.
+진짜 안전한 방법은 *Bearer JWT 검증* 이에요. Google Pub/Sub push 발송 시 첨부되는 JWT 는 *우리가 지정한 service account 가 발급한 RS256 서명* 이라 *위조가 사실상 불가능* 하고, *우리 audience URL 매칭 + email whitelist* 까지 더하면 *우리 프로젝트만이 발급할 수 있는 토큰* 으로 좁혀집니다. 추가 인프라 없이 *Google JWKS endpoint* 만으로 검증이 가능한 점도 [`ADR-007`](./adr-007-solo-friendly-operations.md) 의 솔로 친화 정신에 정합해요.
 
 이 결정이 답해야 할 물음은 이거예요.
 

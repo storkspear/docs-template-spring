@@ -34,10 +34,10 @@
 
 ## 형식 — Javadoc 과 인라인
 
-클래스·메서드 위는 Javadoc 으로, body 안은 읽다가 막힐 곳에만 인라인으로 적어요. 아래는 `@CurrentUser` 로 주입한 유저 정보를 컨트롤러가 그대로 쓰는 실제 패턴이에요.
+클래스·메서드 위는 Javadoc 으로, body 안은 읽다가 막힐 곳에만 인라인으로 적어요. 아래는 `@CurrentUser` 로 주입한 유저 정보를 컨트롤러가 그대로 쓰는 실제 패턴이에요. 인라인 주석 두 줄은 "이런 자리에 적는다" 를 보여 주기 위해 이 문서에서 추가한 것이고, 실제 파일에는 없습니다.
 
 ```java
-// core-user-impl/controller/UserController.java 발췌
+// core-user-impl/controller/UserController.java 발췌 — 인라인 주석 2줄은 설명용 추가
 @GetMapping(ApiEndpoints.User.ME)
 @Operation(summary = "현재 유저 프로필 조회", description = "JWT 토큰의 유저 ID 로 자기 자신의 전체 프로필을 반환합니다.")
 public ApiResponse<UserProfile> getMyProfile(@CurrentUser AuthenticatedUser user) {

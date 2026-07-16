@@ -1,6 +1,6 @@
 # ADR-039 · admin 모듈 — cross-app 운영 콘솔 (superadmin + admin 스키마 + in-process fan-out)
 
-**Status**: Accepted. `core/core-admin-impl` 모듈로 구현 완료(`feat/admin-module`, 도그푸딩까지 완료). `ROLE_SUPERADMIN` + `admin` 스키마(`admin_users`) + 슬러그 fan-out(`AdminSlugRegistry`) + 활동 추적(`user_activity_days`, V017)으로 `/api/admin/*` 11개 엔드포인트(9개 + v1.5 확장 2개)를 제공합니다.
+**Status**: Accepted. `core/core-admin-impl` 모듈로 구현 완료(`feat/admin-module`, 도그푸딩까지 완료). `admin` 스키마 + 슬러그 fan-out(`AdminSlugRegistry`) + 활동 추적(`user_activity_days`, V017)으로 `/api/admin/*` 콘솔을 제공합니다 — 현재 컨트롤러 12개·매핑 38개(2026-07-15 실측). 이 ADR 이 신설한 `ROLE_SUPERADMIN` 단일 권한은 이후 viewer/support/admin/master 4티어 + 리소스별 `PERM_*` 권한 RBAC 로 확장됐어요(§결정 1 의 갱신 참고).
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~10분
 
@@ -8,7 +8,7 @@
 
 `template-react-admin` 은 9개 `/api/admin/*` 엔드포인트 계약을 이미 갖고 있었지만 template-spring 쪽 구현은 0개였습니다. 이 ADR 은 그 실물을 채우는 결정이에요. 핵심은 **"per-app 격리 원칙을 깨지 않으면서 cross-app 콘솔을 어떻게 얹는가"** 입니다.
 
-답은 세 갈래입니다. ① 앱 사용자 권한(`ROLE_ADMIN`)과 완전히 분리된 `ROLE_SUPERADMIN` 을 신설해 양방향 격리를 강제하고, ② 운영자 계정만 담는 **`admin` 스키마**(`admin_users` 테이블 1개)를 라우팅 대상에서 제외된 고정 DataSource 로 붙이며, ③ cross-app 조회는 별도 서비스나 메시지 큐 없이 **같은 JVM 안에서 슬러그별 DataSource 를 순회하는 in-process fan-out** 으로 처리합니다. 여기에 운영에 실제로 필요한데 조회 불가능했던 DAU/MAU 지표는 라벨만 유지한 채 버리지 않고, **활동 추적 테이블(`user_activity_days`)을 신설해 진짜 데이터로 만들었습니다.**
+답은 세 갈래입니다. ① 앱 사용자 권한(`ROLE_ADMIN`)과 완전히 분리된 `ROLE_SUPERADMIN` 을 신설해 양방향 격리를 강제하고(이후 4티어 RBAC 로 확장), ② 운영자 계정·권한만 담는 **`admin` 스키마**(`admin_users` — 이후 RBAC 확장으로 `role_permissions` 추가)를 라우팅 대상에서 제외된 고정 DataSource 로 붙이며, ③ cross-app 조회는 별도 서비스나 메시지 큐 없이 **같은 JVM 안에서 슬러그별 DataSource 를 순회하는 in-process fan-out** 으로 처리합니다. 여기에 운영에 실제로 필요한데 조회 불가능했던 DAU/MAU 지표는 라벨만 유지한 채 버리지 않고, **활동 추적 테이블(`user_activity_days`)을 신설해 진짜 데이터로 만들었습니다.**
 
 `admin` 스키마는 [ADR-037](./adr-037-core-schema-deprecation.md) 이 폐기한 "공유 core schema" 의 부활이 **아닙니다** — 거기엔 앱 데이터가 한 byte 도 없고, 담는 건 공장 운영자 계정 하나뿐이에요.
 
@@ -63,13 +63,22 @@
 
 `role='admin'` 인 앱 유저는 이미 `ROLE_ADMIN` 으로 인가됩니다([ADR-027](./adr-027-admin-role-authorization.md)). 여기에 `/api/admin/**` 를 `ROLE_ADMIN` 으로 열면 **어떤 앱이든 자기 admin 계정으로 전체 콘솔에 들어올 수 있게 됩니다** — 앱 하나가 뚫리면 공장 전체가 뚫리는 셈이에요. 그래서 앱 권한과 완전히 분리된 `ROLE_SUPERADMIN` 을 신설했습니다.
 
+> **갱신 (2026-07, RBAC 확장)**: v1 의 인가 규칙은 `.requestMatchers(SECURED_PATTERN).hasRole("SUPERADMIN")` 단일 게이트였어요. 이후 콘솔 RBAC 확장으로 `admin_users.role`(V002 — viewer/support/admin/master 4티어)과 편집 가능한 `role_permissions`(V003)가 도입되면서, 지금은 콘솔 JWT 에 실린 리소스별 `PERM_*` authority 를 `SecurityConfig` 가 검사합니다. "앱 권한과 콘솔 권한의 양방향 격리" 라는 이 절의 본질은 그대로예요. 아래는 현행 스니펫입니다.
+
 ```java
-// common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java
+// common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java:92-152 (발췌)
+// 운영 콘솔 RBAC — 로그인/헬스만 public, 나머지는 리소스별 PERM_* 권한.
 .requestMatchers(ApiEndpoints.Admin.PUBLIC_PATTERNS).permitAll()   // login, health
-.requestMatchers(ApiEndpoints.Admin.SECURED_PATTERN).hasRole("SUPERADMIN")
+.requestMatchers(ApiEndpoints.Admin.ADMINS, ApiEndpoints.Admin.ADMINS + "/**",
+                ApiEndpoints.Admin.ROLES_PERMISSIONS)
+        .hasAuthority(ApiEndpoints.Admin.PERM_ADMIN_MANAGE)        // 계정 관리·역할 매트릭스 (master)
+.requestMatchers(ApiEndpoints.Admin.APP_USERS_PATTERN)
+        .hasAuthority(ApiEndpoints.Admin.PERM_USERS_READ)          // 사용자 조회 (support+)
+// ... 결제/파일/콘텐츠/감사로그/대시보드/앱·분석도 각각 PERM_* 로 게이팅 ...
+.requestMatchers(ApiEndpoints.Admin.SECURED_PATTERN).authenticated()   // 그 외 콘솔 경로 fail-safe
 ```
 
-양방향으로 격리됩니다. `/api/admin/**` 는 `ROLE_SUPERADMIN` 만 허용하고, superadmin JWT 로 `/api/apps/{slug}/**` 를 호출하면 기존 `AppSlugVerificationFilter` 가 403 을 냅니다(JWT 의 `appSlug` claim 이 `"admin"` 고정값이라 어떤 실제 슬러그와도 일치하지 않음).
+양방향으로 격리됩니다. `/api/admin/**` 는 콘솔 계정의 JWT(리소스별 `PERM_*` authority)만 허용하고, 콘솔 JWT 로 `/api/apps/{slug}/**` 를 호출하면 기존 `AppSlugVerificationFilter` 가 403 을 냅니다(JWT 의 `appSlug` claim 이 `"admin"` 고정값이라 어떤 실제 슬러그와도 일치하지 않음).
 
 ### 2. `admin` 스키마 + `admin_users` — 유일한 비-per-slug 예외
 
@@ -81,7 +90,7 @@
 public DataSource adminDataSource(...) { ... }   // ADMIN_DB_* 미설정 시 core DB_URL 의 currentSchema 를 admin 으로 치환
 ```
 
-이 빈은 `RoutingDataSourceConfig` 의 슬러그 열거 대상에서 명시적으로 제외됩니다(§교훈의 fail-secure 이슈 참고). `admin_users` 는 `id, email(unique), password_hash, display_name, created_at, updated_at` 여섯 컬럼뿐인 축소판 유저 테이블이고, `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 채워져 있고 테이블이 비어 있을 때만 `AdminAccountSeeder` 가 부팅 시 1계정을 시드합니다.
+이 빈은 `RoutingDataSourceConfig` 의 슬러그 열거 대상에서 명시적으로 제외됩니다(§교훈의 fail-secure 이슈 참고). `admin_users` 는 v1 에선 `id, email(unique), password_hash, display_name, created_at, updated_at` 여섯 컬럼뿐인 축소판 유저 테이블이었고, 이후 RBAC 확장으로 `role` 컬럼(V002)과 역할별 권한 grant 테이블 `role_permissions`(V003)가 admin 스키마에 추가됐어요. `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 채워져 있고 테이블이 비어 있을 때만 `AdminAccountSeeder` 가 부팅 시 최고 티어(master) 1계정을 시드합니다.
 
 ### 3. in-process fan-out — `AdminSlugRegistry`
 
@@ -106,13 +115,13 @@ private static final String UPSERT =
         + " ON CONFLICT DO NOTHING";
 ```
 
-"오늘" 은 애플리케이션 서버 시계가 아니라 **DB 의 `CURRENT_DATE`** 로 upsert 쿼리 안에서 결정합니다 — 앱 서버와 DB 서버의 시계·타임존이 어긋나도 기록 시점과 `WHERE activity_date = CURRENT_DATE` 집계 쿼리의 기준이 항상 일치하도록 시계를 통일한 거예요. 유저×날짜 인메모리 dedup 캐시로 같은 날 중복 upsert 를 걸러 부하는 사실상 0 입니다. 이 테이블은 V017 로 신설되어(§data-model 참고) 도메인 테이블 시작 번호가 V017 → V018 로 한 칸 밀렸습니다.
+"오늘" 은 애플리케이션 서버 시계가 아니라 **DB 의 `CURRENT_DATE`** 로 upsert 쿼리 안에서 결정합니다 — 앱 서버와 DB 서버의 시계·타임존이 어긋나도 기록 시점과 `WHERE activity_date = CURRENT_DATE` 집계 쿼리의 기준이 항상 일치하도록 시계를 통일한 거예요. 유저×날짜 인메모리 dedup 캐시로 같은 날 중복 upsert 를 걸러 부하는 사실상 0 입니다. 이 테이블은 V017 로 신설되어(§data-model 참고) 당시 도메인 테이블 시작 번호가 V017 → V018 로 한 칸 밀렸습니다(이후 공통 테이블이 계속 늘어 현재 도메인 시작 번호는 V026).
 
 ## 이 선택이 가져온 것
 
 ### 긍정적 결과
 
-- **9 + 2 개 엔드포인트가 mock 이 아닌 실 데이터로 동작** — login/health/apps/dashboard/metrics/users/userDetail/billing/audit-logs/analytics 9개에 더해, v1.5 로 ops(갱신 실패율·webhook 처리·리텐션)와 활동 ping 이 추가됨.
+- **콘솔 전체가 mock 이 아닌 실 데이터로 동작** — v1 의 login/health/apps/dashboard/metrics/users/userDetail/billing/audit-logs 9개에서 출발해, analytics·ops(갱신 실패율·webhook 처리·리텐션)·활동 ping·RBAC 계정 관리·파일·콘텐츠 모더레이션 등으로 확장. 현재 컨트롤러 12개·매핑 38개(2026-07-15 실측).
 - **React 계약의 진실화** — 조회 불가능했던 필드를 없애는 대신, DAU/MAU 처럼 실제로 유용한 지표는 데이터 소스를 새로 만들어 계약을 지켰습니다. "라벨은 유지, 값은 진짜로" 원칙.
 - **gross 매출 시맨틱 정합** — `payment_history.status` 가 환불 시 `PAID`→`REFUNDED` 로 *덮어써지는* 구조라, gross(수금총액)를 `status='PAID'` 로만 집계하면 환불건이 gross 에서도 빠지고 `gross - refunded` 로 다시 한 번 차감되는 이중차감 버그가 있었습니다. `status IN ('PAID','REFUNDED')` 로 정정해 "환불 여부와 무관하게 한 번이라도 수금된 금액의 총합" 이라는 시맨틱을 대시보드/앱 metrics/billing/analytics 4곳 모두에 일관 적용했습니다. *(후속: 부분환불 도입으로 gross 필터에 `PARTIALLY_REFUNDED` 를 추가하고, `refunded` 는 `payment_refunds` 원장의 건별 합으로 이관 — 현행 시맨틱은 [`admin-console.md §5-1`](../api-and-functional/admin-console.md) 참고.)*
 - **네트워크 홉 0** — MSA 였다면 필요했을 서비스 간 호출·분산 트랜잭션 없이, 슬러그별 JdbcTemplate 순회만으로 cross-app 집계가 끝납니다.
@@ -122,7 +131,7 @@ private static final String UPSERT =
 
 - **cross-app 감사로그는 메모리 페이징** — slug 미지정 조회는 전 슬러그를 병합 정렬한 뒤 메모리에서 페이지를 자릅니다. 솔로 규모(앱 수 ~10, 로그 수만 건)에선 문제없지만, 커지면 slug 필터 유도나 커서 방식 개선이 필요합니다.
 - **DAU 과거 데이터 없음** — `user_activity_days` 추적 시작일 이전 활동은 존재하지 않아, 차트는 데이터가 쌓인 구간부터만 보입니다.
-- **`admin` schema 는 "완전한 per-app 격리" 원칙의 명시적 예외** — 예외가 하나 생겼다는 것 자체가 앞으로 "이것도 admin 스키마에 넣어도 되지 않나" 하는 요청의 근거가 될 수 있어, `admin_users` 외의 어떤 것도 이 schema 에 들어가지 않도록 원칙을 문서로 계속 명확히 해야 합니다.
+- **`admin` schema 는 "완전한 per-app 격리" 원칙의 명시적 예외** — 예외가 하나 생겼다는 것 자체가 앞으로 "이것도 admin 스키마에 넣어도 되지 않나" 하는 요청의 근거가 될 수 있어, 운영자 계정·권한 메타(현재 `admin_users`·`role_permissions`) 외의 어떤 것도 — 특히 앱 데이터의 파생물은 — 이 schema 에 들어가지 않도록 원칙을 문서로 계속 명확히 해야 합니다.
 
 ## 교훈
 
@@ -145,13 +154,13 @@ private static final String UPSERT =
 ## Code References
 
 **인증/권한**:
-- [`common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java:91-95`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java) — `Admin.PUBLIC_PATTERNS`/`SECURED_PATTERN` + `hasRole("SUPERADMIN")`
+- [`common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java:92-152`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java) — `Admin.PUBLIC_PATTERNS` permitAll + 리소스별 `PERM_*` `hasAuthority` + `SECURED_PATTERN` fail-safe(갱신)
 - [`common/common-security/src/main/java/com/factory/common/security/JsonAccessDeniedHandler.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/JsonAccessDeniedHandler.java) — sendError 회피, 403 직접 커밋(교훈 ②)
 - [`core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminAuthService.java`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminAuthService.java) — `SUPERADMIN_ROLE` 상수 + 로그인
 
 **admin 스키마**:
 - [`core/core-admin-impl/src/main/java/com/factory/core/admin/impl/config/AdminDataSourceConfig.java`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/java/com/factory/core/admin/impl/config/AdminDataSourceConfig.java) — 고정 DataSource + 전용 Flyway
-- [`core/core-admin-impl/src/main/resources/db/migration/admin/V001__init_admin_users.sql`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/resources/db/migration/admin/V001__init_admin_users.sql)
+- [`core/core-admin-impl/src/main/resources/db/migration/admin/V001__init_admin_users.sql`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/resources/db/migration/admin/V001__init_admin_users.sql) — 이후 [`V002__add_admin_role.sql`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/resources/db/migration/admin/V002__add_admin_role.sql)(4티어 role) + [`V003__init_role_permissions.sql`](https://github.com/storkspear/template-spring/blob/main/core/core-admin-impl/src/main/resources/db/migration/admin/V003__init_role_permissions.sql)(편집 가능 권한 매트릭스) 추가
 - [`infra/scripts/init-admin-schema.sql`](https://github.com/storkspear/template-spring/blob/main/infra/scripts/init-admin-schema.sql)
 - [`bootstrap/src/main/java/com/factory/bootstrap/config/RoutingDataSourceConfig.java:66-71`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/java/com/factory/bootstrap/config/RoutingDataSourceConfig.java) — `adminDataSource` 라우팅 제외(교훈 ③)
 
@@ -162,7 +171,7 @@ private static final String UPSERT =
 
 **활동 추적**:
 - [`core/core-user-impl/src/main/java/com/factory/core/user/impl/UserActivityTrackingFilter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-impl/src/main/java/com/factory/core/user/impl/UserActivityTrackingFilter.java) — `CURRENT_DATE` upsert
-- [`tools/new-app/new-app.sh:280`](https://github.com/storkspear/template-spring/blob/main/tools/new-app/new-app.sh) — 예약어 슬러그(admin/core/public) 차단(교훈 ④), 889행 부근 V017 heredoc
+- [`tools/new-app/new-app.sh:277-282`](https://github.com/storkspear/template-spring/blob/main/tools/new-app/new-app.sh) — 예약어 슬러그(admin/core/public) 차단(교훈 ④), 891행 부근 V017 heredoc
 
 **스펙 원본**:
 - [`docs/superpowers/specs/2026-07-06-admin-module-design.md`](https://github.com/storkspear/template-spring/blob/main/docs/superpowers/specs/2026-07-06-admin-module-design.md)
@@ -170,5 +179,5 @@ private static final String UPSERT =
 ## 후속
 
 - cross-app 감사로그 커서 페이징 — 앱 수·로그 수가 솔로 규모를 넘어서면 메모리 병합 페이징을 교체.
-- admin 다계정·TOTP — `admin_users` 구조상 추가는 쉽지만 v1 은 1계정 원칙 유지.
+- ~~admin 다계정~~ — **구현 완료**: `AdminAccountsController`(계정 생성·역할부여·비번변경, self/계층 가드) + 4티어 RBAC. admin TOTP 는 여전히 후속.
 - DAU 정밀화 — 현재는 인증 요청 자체가 활동 신호(부팅·활동 ping). 포그라운드 복귀 수준 정밀도는 flutter kit v2 후보.

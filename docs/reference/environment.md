@@ -148,7 +148,7 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 
 | 이름 | 버전 | 용도 |
 |---|---|---|
-| **GitHub Actions** | — | CI/CD 플랫폼 (`.github/workflows/` 총 11 개) |
+| **GitHub Actions** | — | CI/CD 플랫폼 (`.github/workflows/` 총 13 개) |
 | **GitHub Container Registry (GHCR)** | — | 도커 이미지 저장소 |
 
 주요 워크플로우:
@@ -164,7 +164,7 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 
 주요 Actions:
 
-- `actions/checkout@v4` · `actions/setup-java@v5` · `actions/upload-artifact@v4` · `actions/download-artifact@v8`
+- `actions/checkout@v4` · `actions/setup-java@v5` · `actions/upload-artifact@v4`
 - `docker/setup-buildx-action@v3` · `docker/login-action@v4` · `docker/build-push-action@v5`
 - `ruby/setup-ruby@v1` · `tailscale/github-action@v4`
 - `softprops/action-gh-release@v3` · `actions/delete-package-versions@v5`
@@ -224,7 +224,7 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 - `common-testing` — Testcontainers · ArchUnit · 계약 테스트 base
 - `common-persistence` — QueryDsl · Flyway · JPA 공통
 
-**core/** — 도메인 포트/어댑터 (각 `-api`/`-impl` 페어):
+**core/** — 도메인 포트/어댑터, 16 도메인 31 모듈 (`core-admin` 만 `-impl` 단독, 나머지는 `-api`/`-impl` 페어):
 
 - `core-auth` — 인증 (소셜 로그인 · JWT · 2FA TOTP — ADR-030)
 - `core-user` — 유저 도메인
@@ -232,12 +232,16 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 - `core-push` — 푸시 알림 (FCM)
 - `core-email` — 이메일 발송 (Resend — ADR-024, auth 에서 추출)
 - `core-sms` — 문자 발송 (SOLAPI/CoolSMS, 키 없으면 LoggingSmsAdapter)
-- `core-phone-auth` — 휴대폰 점유인증 OTP (발급·검증, `core-sms` 사용)
+- `core-phone-auth` — 휴대폰 점유인증 OTP (발급·검증, `core-sms` 사용 · `app.features.phone-auth` 토글, 기본 ON)
 - `core-audit` — 감사 로그 (AOP `@Audited` — ADR-028)
 - `core-billing` — 구독/플랜 정책 + 갱신 실패 알림 (ADR-019/020/021/023/025/031)
 - `core-iap` — Apple App Store Server V2 + Google Play RTDN (ADR-022)
 - `core-payment` — PG 결제 채널 (포트원 어댑터)
 - `core-storage` — 오브젝트 스토리지
+- `core-attachment` — 파일 첨부 메타 + 검역/soft-delete 상태 전이 (`core-storage` 사용)
+- `core-content` — 공유 게시물 (공개 게시판 + 모더레이션)
+- `core-analytics` — 제품 이벤트 (`@TrackEvent` 원본 적재 + 일별 롤업)
+- `core-admin` — 운영 콘솔 `/api/admin/*` (RBAC · cross-app 조회 — ADR-039, `-impl` 단독)
 
 **bootstrap/** — Fat JAR 조립 지점 (모든 `-impl` 의존 허용, ArchUnit r-series 로 방어)
 

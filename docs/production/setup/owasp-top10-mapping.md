@@ -175,7 +175,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `core/core-iap-impl/.../AppleJwsVerifier.java:1-227` — Apple JWS 검증. ES256 (SHA256withECDSA) 서명 + X.509 cert chain (Apple Root CA G3, classpath embedded `apple-root-ca-g3.cer`)
 - `core/core-auth-impl/.../service/GoogleSignInService.java:117-156` — Google id token 을 Google `/tokeninfo` endpoint 에 위임 검증 (RS256 + aud/iss/exp 를 Google 측에서 처리)
 - `core/core-iap-impl/.../google/GoogleJwksClient.java:1-101` — Google webhook Bearer JWT 검증. JWKS 캐시 1시간. 4 단계 (RS256 서명 / audience / email service account allowlist / exp). ADR-032 참조
-- `tools/migrate-prod.sh` — Flyway migration SHA-1 checksum 사전 검증. 부팅 시 VALIDATE_ONLY 모드로 재검증
+- `tools/migrate-prod.sh` — Flyway migration checksum (zlib CRC32) 사전 등록. 부팅 시 VALIDATE_ONLY 모드로 재검증
 - `.github/workflows/deploy.yml` — Docker image `:${sha}` 태그 (commit SHA 추적)
 - Kamal `--skip-push` — CI 의 jar 만 사용, 로컬 재빌드 금지
 
@@ -183,7 +183,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `AppleJwsVerifierTest` (cert chain + ES256)
 - `GoogleWebhookAuthFilterTest` (Bearer JWT)
 - `AppleSignInServiceTest`, `GoogleSignInServiceTest`
-- WireMock fixtures: `apple-server-notification-v2.json`, `google-rtdn.json`
+- WireMock fixtures: `apple-server-notification-v2.json`, `google-rtdn-pubsub.json`
 
 **Gap**:
 - **Docker image signing 부재** — cosign / Sigstore 같은 서명이 없어요. GHCR 의 image 가 진짜 우리 CI 에서 왔는지 검증할 수 없어요

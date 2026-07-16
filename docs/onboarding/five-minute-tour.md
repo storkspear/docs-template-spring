@@ -1,6 +1,6 @@
 # 5 분 투어
 
-> **유형**: Tutorial · **독자**: Level 0 · **읽는 시간**: ~5분
+> **유형**: How-to · **독자**: Level 0 · **읽는 시간**: ~5분
 
 [`이게 뭐야?`](./what-is-this.md) 를 읽고 "조금 더 봐볼까" 싶어졌다면 잘 오셨어요. 이 문서는 코드를 직접 돌려보지 않고도 "이 레포의 정체를 대충 알겠다" 는 상태에 닿는 게 목적이에요. 빠르게 한 바퀴 둘러보는 투어라, 5 분이면 다음 네 가지 그림이 머릿속에 잡혀요.
 
@@ -35,10 +35,14 @@
        │   ├── core-device      → 디바이스 등록
        │   ├── core-push        → FCM 푸시 전송
        │   ├── core-storage     → 파일 업로드·다운로드
+       │   ├── core-attachment  → 첨부파일 메타 관리
+       │   ├── core-content     → 콘텐츠·게시글
        │   ├── core-email       → 이메일 발송 (Resend)
        │   ├── core-sms         → SMS 발송
        │   ├── core-phone-auth  → 휴대폰 점유인증 (SMS OTP)
        │   ├── core-audit       → 감사 로그
+       │   ├── core-analytics   → 사용 분석 이벤트
+       │   ├── core-admin       → admin 운영 콘솔
        │   ├── core-billing     → 구독·플랜 정책
        │   ├── core-iap         → Apple·Google 인앱 결제 채널
        │   └── core-payment     → PG 채널 (포트원 어댑터)
@@ -70,27 +74,28 @@
 ```
 apps/app-gymlog/                             ← 새 앱 모듈 디렉터리
 ├── build.gradle                             ← Gradle 설정
+├── README.md                                ← 앱 모듈 안내
 ├── src/main/java/com/factory/apps/gymlog/
-│   ├── GymlogAppAutoConfiguration.java      ← Spring Boot 자동 설정
+│   ├── GymlogApiEndpoints.java              ← 앱 전용 경로 상수 카탈로그
+│   ├── config/GymlogAppAutoConfiguration.java ← Spring Boot 자동 설정
 │   ├── config/GymlogDataSourceConfig.java   ← 앱 전용 DB 연결
-│   └── controller/GymlogAuthController.java ← /api/apps/gymlog/auth/* 인증 엔드포인트
+│   └── controller/GymlogHealthController.java ← /api/apps/gymlog/health
 └── src/main/resources/db/migration/gymlog/
     ├── V001__init_users.sql                 ← 유저·인증 기반 테이블
     ├── ...                                  ← V002 ~ V006
-    ├── V007__seed_admin_user.sql            ← admin 유저 시드
-    ├── V008__init_subscription_plans.sql                 ← 구독·결제 테이블
-    ├── ...                                  ← V009 ~ V014
-    └── V015__init_auth_phone_verification_codes.sql ← 휴대폰 점유인증 (선택)
+    ├── V008__init_subscription_plans.sql    ← 구독·결제 테이블
+    ├── ...                                  ← V009 ~ V024 (감사·알림·첨부·환불·게시글 등)
+    └── V025__add_analytics.sql              ← 분석 이벤트 테이블
 ```
 
-[Flyway](../reference/glossary.md#데이터베이스) 마이그레이션이 꽤 많아 보이지만, 대부분 모든 앱이 똑같이 쓰는 인증·결제 기반이에요. 본인 도메인 테이블은 V018 부터 직접 작성하면 돼요. 자세한 구성은 [`Onboarding §3`](../start/onboarding.md#3-첫-앱-모듈-추가) 에 표로 정리돼 있어요.
+[Flyway](../reference/glossary.md#데이터베이스) 마이그레이션이 꽤 많아 보이지만, 대부분 모든 앱이 똑같이 쓰는 인증·결제 기반이에요. admin 유저 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼서 기본 실행에는 없어요. 본인 도메인 테이블은 그다음 비어 있는 번호(현재 V026)부터 직접 작성하면 돼요. 자세한 구성은 [`Onboarding §3`](../start/onboarding.md#3-첫-앱-모듈-추가) 에 표로 정리돼 있어요.
 
 그리고 PostgreSQL 쪽에서도 두 가지가 자동으로 생겨요.
 
 - `gymlog` [schema](../reference/glossary.md#데이터베이스) 가 새로 만들어져요.
 - `gymlog_app` 이라는 전용 [role](../reference/glossary.md#데이터베이스) 이 만들어져요. 이 role 은 다른 앱 schema 에는 접근하지 못해요.
 
-`GymlogAuthController` 에는 가입·로그인·소셜 로그인·토큰 갱신·비밀번호 재설정·2단계 인증까지 인증 엔드포인트 열다섯 개가 이미 들어 있어요. 직접 손으로 짤 필요가 없어요. 인증은 `core-auth-impl` 이 이미 다 해주니까요.
+인증 컨트롤러는 앱 모듈에 새로 생기지 않아요. `core-auth-impl` 의 공유 `AuthController` 한 개가 `/api/apps/{appSlug}/auth/*` 경로로 모든 앱의 인증을 처리해요. 가입·로그인·소셜 로그인·토큰 갱신·비밀번호 재설정·2단계 인증까지 엔드포인트 열아홉 개가 이미 들어 있어서, 직접 손으로 짤 필요가 없어요.
 
 그래서 새 앱을 받은 당신이 할 일은 단순해요. `apps/app-gymlog/` 안에 그 앱만의 도메인 코드를 더하면 돼요. 운동 기록 앱이라면 세트·반복·운동 같은 것들이요. 이 "복사 자동화" 덕분에 앱 추가에 걸리는 시간이 분 단위로 떨어져요.
 

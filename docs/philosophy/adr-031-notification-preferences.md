@@ -22,7 +22,7 @@ skip 처리는 *메트릭 차원에서도 의미* 가 있어요. listener 가 pr
 
 ---
 
-## 왜 이런 결정이 필요했나?
+## 왜 이런 고민이 시작됐나?
 
 알림 인프라 ([`ADR-023`](./adr-023-billing-notification-listener.md), [`ADR-025`](./adr-025-billing-notification-email-channel.md)) 가 push + email 듀얼 채널까지 갖춰지고 나면, *모든 사용자에게 모든 알림이 강제 발송* 되는 단계가 마지막 부담으로 남아요. 이 단계에서 *사용자 측의 통제권* 이 없으면 운영의 여러 측면에서 부담이 누적됩니다.
 

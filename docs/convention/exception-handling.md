@@ -25,7 +25,7 @@
 ```
 ErrorInfo (인터페이스)
     ├── CommonError      ← CMN_001 ~ CMN_010, CMN_429
-    ├── AuthError        ← ATH_001 ~ ATH_010 (2FA — ADR-030)
+    ├── AuthError        ← ATH_001 ~ ATH_013 (ATH_006 결번 · 2FA — ADR-030 · 이메일 인증 코드)
     ├── UserError        ← USR_001 ~ USR_002
     ├── BillingError     ← BIL_001 ~ BIL_010 (구독·결제·webhook — ADR-020)
     ├── EmailError       ← EMAIL_001 ~ EMAIL_002 (ADR-024)
@@ -33,7 +33,8 @@ ErrorInfo (인터페이스)
     ├── PhoneAuthError   ← PHA_001 ~ PHA_006 (휴대폰 점유인증)
     ├── IapError         ← IAP_001 ~ IAP_007 (Apple·Google IAP — ADR-022)
     ├── PaymentError     ← PAY_001 ~ PAY_009 (PortOne PG — ADR-019)
-    └── StorageError     ← STG_001 ~ STG_010 (오브젝트 스토리지)
+    ├── StorageError     ← STG_001 ~ STG_011 (오브젝트 스토리지)
+    └── AdminError       ← ADMIN_001 ~ ADMIN_022 (운영 콘솔 — core-admin-impl)
 
 BaseException (부모)
     ├── CommonException      ← 공통 예외 (NOT_FOUND, FORBIDDEN, JWT 토큰 등)
@@ -45,7 +46,9 @@ BaseException (부모)
     ├── PhoneAuthException   ← 휴대폰 점유인증 예외
     ├── IapException         ← IAP 영수증 검증·webhook 예외 (ADR-022)
     ├── PaymentException     ← PG 결제 검증·환불·webhook 예외
-    └── StorageException     ← 오브젝트 스토리지 예외
+    ├── StorageException     ← 오브젝트 스토리지 예외
+    └── Admin*Exception      ← 운영 콘솔 예외 다수 (AdminAuthException·AdminAccountException·
+                               AdminFileNotFoundException 등 — admin 은 세분화된 예외 클래스 사용)
 
 GlobalExceptionHandler
     └── @ExceptionHandler(BaseException.class) 하나로 전부 처리
@@ -71,6 +74,7 @@ GlobalExceptionHandler
 | iap | IAP | IAP_001 ~ IAP_999 (ADR-022) |
 | payment | PAY | PAY_001 ~ PAY_999 (PortOne PG) |
 | storage | STG | STG_001 ~ STG_999 |
+| admin (운영 콘솔) | ADMIN | ADMIN_001 ~ ADMIN_999 (의미 우선해서 5자) |
 | 파생 앱 | 발음 3자 | STL_001 (settlement), GYM_001 (gymlog) |
 
 한 가지 원칙만 기억하면 돼요. **이미 부여한 코드 번호는 재배치하지 않습니다.** 새 에러는 그 도메인의 다음 빈 번호에 추가만 해요. 번호를 바꾸면 이미 그 코드로 분기 중인 클라이언트가 한꺼번에 깨지기 때문이에요. 같은 이유로 ATH 처럼 중간 번호 (ATH_006) 가 비어 있어도 그 자리는 다시 채우지 않고 비워 둡니다. 이 규칙은 [`CLAUDE.md`](../../CLAUDE.md) 에도 빌드 규칙으로 명시돼 있어요.
@@ -207,6 +211,11 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | STG_008 | 500 | SIGNED_URL_GENERATION_FAILED | signed URL 생성 실패 |
 | STG_009 | 503 | ADAPTER_UNAVAILABLE | 스토리지 어댑터 미가용 |
 | STG_010 | 500 | DELETE_FAILED | 삭제 실패 |
+| STG_011 | 500 | COPY_FAILED | 복사 실패 |
+
+### AdminError (ADMIN)
+
+운영 콘솔 (core-admin-impl) 전용 에러 ADMIN_001 ~ ADMIN_022 는 `/api/admin` API 에서만 사용됩니다. 앱 클라이언트가 분기할 일이 없어서 여기서는 목록을 생략해요 — 전체 코드는 `core-admin-impl/.../exception/AdminError.java` 를 참조하세요.
 
 ### graceful 503 패턴
 
@@ -383,7 +392,7 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 | `common-web/.../exception/CommonException.java` | 공통 예외 |
 | `common-web/.../exception/GlobalExceptionHandler.java` | BaseException 통합 핸들러 |
 | `common-web/.../response/ApiError.java` | 에러 응답 구조 |
-| `core-auth-api/.../exception/AuthError.java` | 인증 에러 enum (ATH_001~010) |
+| `core-auth-api/.../exception/AuthError.java` | 인증 에러 enum (ATH_001~013, ATH_006 결번) |
 | `core-auth-api/.../exception/AuthException.java` | 인증 예외 |
 | `core-user-api/.../exception/UserError.java` | 유저 에러 enum (USR_001~002) |
 | `core-user-api/.../exception/UserException.java` | 유저 예외 |
@@ -395,7 +404,9 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 | `core-iap-api/.../exception/IapError.java` | IAP 에러 enum (IAP_001~007) |
 | `core-payment-api/.../exception/PaymentError.java` | PG 결제 에러 enum (PAY_001~009) |
 | `core-payment-api/.../exception/PaymentException.java` | PG 결제 예외 |
-| `core-storage-api/.../exception/StorageError.java` | 스토리지 에러 enum (STG_001~010) |
+| `core-storage-api/.../exception/StorageError.java` | 스토리지 에러 enum (STG_001~011) |
+| `core-admin-impl/.../exception/AdminError.java` | 운영 콘솔 에러 enum (ADMIN_001~022) |
+| `core-admin-impl/.../exception/Admin*Exception.java` | 운영 콘솔 예외 (AdminAuthException 등 다수) |
 
 ---
 

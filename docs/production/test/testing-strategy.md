@@ -457,5 +457,3 @@ PG 결제(PortOne)는 풀 e2e 를 하나의 테스트로 강제하면 안 돼요
 - [`ADR-011 · 모듈 안 레이어드 아키텍처 + 포트/어댑터 패턴`](../../philosophy/adr-011-layered-port-adapter.md) — Port 경계 설계
 - [`Architecture Rules (ArchUnit)`](../../structure/architecture-rules.md) — ArchUnit 22 규칙(ArchUnit 대상)
 - [`모듈 의존 규칙 (Module Dependencies)`](../../structure/module-dependencies.md) — 모듈 경계 + DB 방어선
-</content>
-</invoke>

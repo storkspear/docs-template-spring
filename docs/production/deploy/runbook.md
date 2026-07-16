@@ -19,7 +19,7 @@
 | 외부 HTTPS 가 522 / 530 | Cloudflare Tunnel 장애 | [장애 첫 3가지 체크](#장애-첫-3가지-체크) |
 | 외부 HTTPS 가 502 / 503 | Spring 컨테이너 다운 | [장애 첫 3가지 체크](#장애-첫-3가지-체크) · [로그 확인](#로그-확인) |
 | 직전 배포가 앱을 깨뜨림 | 롤백 필요 | [롤백](#롤백) |
-| 배포가 health 타임아웃으로 실패 | Flyway 락 경쟁 | [블루-그린 배포와 Flyway 원칙](#블루-그린-배포와-flyway-원칙) |
+| 배포 후 Green 부팅이 Flyway validate 로 실패 | 미적용 마이그레이션 | [블루-그린 배포와 Flyway 원칙](#블루-그린-배포와-flyway-원칙) |
 | Mac mini 재부팅 후 서비스 안 뜸 | 자동 복구 미동작 | [Mac mini 재부팅 후 복구](#mac-mini-재부팅-후-복구) |
 | 메모리 부족 / 컨테이너 OOM | 리소스 고갈 | [장애 첫 3가지 체크](#장애-첫-3가지-체크) |
 | Grafana OTP 메일 안 옴 | CF Access 우회 필요 | [SSH 접근과 긴급 조치](#ssh-접근과-긴급-조치) |
@@ -99,11 +99,18 @@ GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직
 
 ## 블루-그린 배포와 Flyway 원칙
 
-### 동시 마이그레이션이 안전한 이유
+### prod 는 부팅 시 validate 만 합니다 (VALIDATE_ONLY)
 
-Spring 기동 시 Flyway 가 advisory lock 을 잡기 때문에, Blue 와 Green 이 동시에 migrate 를 시도해도 스키마가 손상되지 않습니다. 뒤에 온 쪽이 락 경쟁에서 지면 blocked 상태가 되어 health check 타임아웃이 나고, 그 컨테이너만 실패해요. 서비스 전체는 Blue 로 계속 서빙됩니다.
+[`ADR-033`](../../philosophy/adr-033-flyway-hybrid-policy.md) 의 Hybrid 정책에 따라 prod 는 `APP_FLYWAY_MODE=VALIDATE_ONLY` 가 기본입니다. Blue 와 Green 어느 쪽도 기동 시 migrate 를 실행하지 않아요. 부팅 시점의 Flyway 는 schema_history 와 classpath 의 정합만 검증하고, 실제 schema 변경은 운영자가 배포 전에 `tools/migrate-prod.sh` 로 직접 적용합니다.
 
-이 상황이 발생하면 대부분 재시도로 풀려요. 첫 쪽이 migrate 를 끝낸 뒤에 두 번째 시도가 진행되기 때문입니다.
+```bash
+# 새 V스크립트가 포함된 배포라면 — 배포 전에 먼저 schema 적용
+<repo> prod migrate <slug> V026__add_foo --dry-run    # SQL 미리보기
+<repo> prod migrate <slug> V026__add_foo              # 실제 적용
+# 그 다음 main push (또는 workflow_dispatch) 로 배포
+```
+
+migrate 를 빼먹고 배포하면 Green 부팅 시 validate 가 `Resolved migration not applied` 로 실패하고, health check 타임아웃으로 그 배포만 중단됩니다. 서비스는 Blue 가 계속 서빙하므로 장애는 아니에요. `migrate-prod.sh` 를 실행한 뒤 재배포하면 됩니다. 적용 절차와 validate 실패 대응의 전체 시나리오는 [`Flyway Runbook`](./flyway-runbook.md) 에 있어요.
 
 ### Expand/Contract 규율 (파괴적 DDL 금지)
 
@@ -117,14 +124,15 @@ Spring 기동 시 Flyway 가 advisory lock 을 잡기 때문에, Blue 와 Green 
 
 파괴적 DDL 이 필요하면 두 번의 배포로 나눠요. 첫 배포에서 코드와 신규 컬럼 추가 migration 을 함께 올린 뒤, 모든 요청이 신규 필드를 쓰는지 확인합니다. 그다음 배포에서 구 컬럼 삭제 migration 을 적용해요.
 
-### 수동 out-of-band 마이그레이션
+### 보조 경로 — 컨테이너 migrate-only 모드
 
-Green 기동 전에 migrate 만 미리 끝내고 싶을 때는 컨테이너를 `migrate-only` 모드로 한 번 돌립니다. 파괴적 DDL 을 포함한 배포에서 락 경쟁을 피하는 데 유용해요.
+표준 적용 경로는 위의 `migrate-prod.sh` 예요. 로컬에 psql 이 없는 등 그 경로를 쓸 수 없을 때는 배포 이미지를 `migrate-only` 모드로 한 번 돌려 migrate 만 수행할 수 있습니다. prod profile 은 VALIDATE_ONLY 가 기본이라 `APP_FLYWAY_MODE=AUTO` 를 함께 줘야 실제 migrate 가 실행돼요.
 
 ```bash
 ssh <deploy-ssh-user>@<tailscale-ip>
 docker pull ghcr.io/<owner>/<repo>:<tag>
-docker run --rm --env-file /path/to/prod.env ghcr.io/<owner>/<repo>:<tag> migrate-only
+docker run --rm --env-file /path/to/prod.env -e APP_FLYWAY_MODE=AUTO \
+    ghcr.io/<owner>/<repo>:<tag> migrate-only
 ```
 
 `migrate-only` 모드는 `docker-entrypoint.sh` 가 처리해요. web 서버 없이 Flyway 만 실행한 뒤 exit 0 으로 종료됩니다.
@@ -153,7 +161,7 @@ ssh <deploy-ssh-user>@<tailscale-ip> 'docker logs <container-id> -f'
 
 장기 로그나 trace 추적은 Grafana 의 Explore 에서 Loki 를 쿼리해요. `https://log.<도메인>` 으로 접속한 뒤 데이터 소스를 Loki 로 선택합니다.
 
-```
+```text
 {app="<slug>"} |= "ERROR"
 {app="<slug>"} | json | level="ERROR" | traceId != ""
 ```
@@ -248,11 +256,11 @@ docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 <repo> prod clear        # 'YES' 명시 confirm 후 진행
 ```
 
-`prod force-clear` 는 clear 의 모든 동작에 더해 데이터와 관측성까지 영구 삭제합니다. 슬러그를 지정하면 그 앱의 schema 와 bucket 만, 슬러그를 생략하면 모든 앱과 core 까지 전부 삭제돼요.
+`prod force-clear` 는 clear 의 모든 동작에 더해 데이터와 관측성까지 영구 삭제합니다. 슬러그를 지정하면 그 앱의 schema 와 bucket 만, 슬러그를 생략하면 모든 앱의 schema 와 bucket 을 전부 삭제해요.
 
 ```bash
 <repo> prod force-clear myapp   # 해당 앱만 (myapp schema + myapp-* bucket)
-<repo> prod force-clear         # 모든 앱 + core 전부 삭제
+<repo> prod force-clear         # 모든 앱 schema + bucket + 관측성 전부 삭제
 ```
 
 `force-clear` 는 5단계 confirm 을 차례로 거치고, 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 됩니다. 단계 순서는 DB 데이터, Storage 데이터, 관측성 데이터, 백업 의향, 최종 확인이에요. 백업 의향 단계에서 'y' 를 선택하면 manual 백업 명령을 출력하고 종료합니다. 자동 백업은 아직 개발 중이라 manual 절차만 안내돼요.
@@ -268,7 +276,7 @@ docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 
 ### 왜 clear 는 관측성을 보존하는가
 
-관측성 스택은 Grafana 대시보드, Loki 로그 스트림, Prometheus 메트릭으로 이뤄져 있고, 모든 슬러그가 공유하는 단일 인스턴스예요. 슬러그 하나만 정리하려는 운영자가 관측성까지 지우면 다른 슬러그의 모니터링 히스토리도 함께 잃게 됩니다. 그래서 `clear` 는 의도적으로 관측성을 건드리지 않아요. 데이터도 같은 이유로 보존합니다. DB 의 `core` schema 와 Object Storage 의 공통 bucket 을 여러 슬러그가 함께 쓰기 때문이에요.
+관측성 스택은 Grafana 대시보드, Loki 로그 스트림, Prometheus 메트릭으로 이뤄져 있고, 모든 슬러그가 공유하는 단일 인스턴스예요. 슬러그 하나만 정리하려는 운영자가 관측성까지 지우면 다른 슬러그의 모니터링 히스토리도 함께 잃게 됩니다. 그래서 `clear` 는 의도적으로 관측성을 건드리지 않아요. 데이터도 보존합니다 — schema 와 bucket 이 남아 있으면 재배포만으로 서비스가 그대로 복원되기 때문이에요. 공유 `core` schema 는 폐기돼 더는 존재하지 않고 ([`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)) 모든 데이터가 슬러그 단위 schema 와 bucket 에 있으므로, 삭제가 필요하면 `force-clear <slug>` 로 슬러그 단위로 정리합니다.
 
 `force-clear` 는 모든 슬러그를 한꺼번에 정리할 때를 위해 관측성까지 삭제하는 옵션을 제공해요. 슬러그를 지정하지 않은 `prod force-clear` 단독 호출이 그 시나리오에 해당합니다.
 
@@ -337,7 +345,7 @@ bucket 단위로 받으려면 `bb` 대신 `bb/<bucket-name>` 을 지정해요.
 - [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) — 파생 레포 최초 onboarding
 - [`CI / CD 전체 플로우`](./ci-cd-flow.md) — commit 부터 운영 반영까지의 전체 흐름
 - [`인프라 (Infrastructure)`](./infrastructure.md) — 전체 구성도
-- [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) — 인프라 결정 카드 (I-01~I-09)
+- [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) — 인프라 결정 카드 (I-01~I-14)
 
 ### 관측성과 보안
 

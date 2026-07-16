@@ -1,6 +1,6 @@
 # Feature Toggle — Lite 모드
 
-> **유형**: Runbook · **독자**: 운영자·템플릿 사용자 (Level 2.5) · **읽는 시간**: ~7분
+> **유형**: How-to · **독자**: 운영자·템플릿 사용자 (Level 2.5) · **읽는 시간**: ~7분
 
 이 문서는 도메인별 feature toggle 인 Lite 모드의 운영자 가이드예요. 결제를 안 받는 인디 앱이라면 payment·iap 같은 모듈을 꺼서 가볍게 부팅할 수 있어요. 설계 근거는 [`ADR-034 · Lite 모드 설계`](../../philosophy/adr-034-feature-toggle-lite-mode.md) 에 정리돼 있어요.
 

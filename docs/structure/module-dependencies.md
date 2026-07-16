@@ -2,11 +2,13 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~10분
 
+## 개요
+
 이 문서는 `template-spring` 의 모듈 간 의존 허용 매트릭스와, 그 규칙을 어떻게 기계적으로 강제하는지를 정리해요. 새 모듈의 `build.gradle` 을 쓰거나 의존 위반 에러를 만났을 때 찾아보는 참조 문서입니다.
 
 전체 의존 방향은 한 줄로 요약돼요. 아래쪽 레이어가 위쪽을 모르고, 위쪽만 아래쪽을 압니다.
 
-```
+```text
 common  →  core  →  apps  →  bootstrap
 (인프라)   (도메인)   (서비스)   (조립)
 ```
@@ -55,11 +57,11 @@ common  →  core  →  apps  →  bootstrap
 
 ---
 
-## core 모듈 12쌍
+## core 모듈 16도메인 · 31모듈
 
-`core/` 에는 12개 도메인이 각각 `-api` / `-impl` 한 쌍씩, 총 24개 모듈로 들어 있어요. api 는 [Port](../reference/glossary.md#아키텍처-용어) 인터페이스와 DTO 만 담고, impl 이 그 구현과 [JPA](../reference/glossary.md#데이터베이스) 엔티티를 담습니다. 분리 근거는 [ADR-003](../philosophy/adr-003-api-impl-split.md) 에 있어요.
+`core/` 에는 16개 도메인, 총 31개 모듈이 들어 있어요. 15개 도메인은 각각 `-api` / `-impl` 한 쌍이고, `admin` 만 `-impl` 단독입니다 (콘솔 컨트롤러가 다른 도메인의 Port 를 소비할 뿐 자기 Port 를 노출하지 않아서예요). api 는 [Port](../reference/glossary.md#아키텍처-용어) 인터페이스와 DTO 만 담고, impl 이 그 구현과 [JPA](../reference/glossary.md#데이터베이스) 엔티티를 담습니다. 분리 근거는 [ADR-003](../philosophy/adr-003-api-impl-split.md) 에 있어요.
 
-12개 도메인은 `auth`, `user`, `device`, `push`, `billing`, `iap`, `payment`, `storage`, `email`, `sms`, `phone-auth`, `audit` 입니다.
+16개 도메인은 `auth`, `user`, `device`, `push`, `billing`, `iap`, `payment`, `storage`, `email`, `sms`, `phone-auth`, `audit`, `admin`, `analytics`, `attachment`, `content` 입니다.
 
 한 impl 은 자기 짝 api 를 구현하면서, 필요하면 다른 도메인의 api 도 의존해요. 예를 들어 `core-auth-impl` 은 `core-auth-api` 외에 `core-user-api`·`core-email-api` 까지 의존합니다. 인증이 유저 조회와 메일 발송을 [Port](../reference/glossary.md#아키텍처-용어) 로 호출하기 때문이에요. 반대로 다른 impl 을 직접 의존하는 건 빌드 시점에 막힙니다.
 
@@ -200,7 +202,7 @@ dependencies {
 
 **Gradle configuration 단계**:
 
-```
+```text
 [factory] Dependency rule violation
   module : :apps:app-sumtally
   config : implementation
@@ -215,7 +217,7 @@ See docs/conventions/module-dependencies.md
 
 **ArchUnit 단계**:
 
-```
+```text
 Rule 'r9: core-*-api must not depend on JPA/Hibernate' was violated (1 time):
   Class <com.factory.core.auth.api.SomeDto> depends on class
   <jakarta.persistence.Entity> in (SomeDto.java:0)

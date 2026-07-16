@@ -150,7 +150,7 @@ dev-server 와 prod 는 같은 Mac mini 한 대 위에서 돕니다. Kamal 의 s
 | GHCR 이미지 태그 | `:<sha>` | `:dev-<sha>` (cleanup 시 prod 와 격리) | — |
 | Spring profile | `prod` | `dev` | — |
 | DB | Supabase prod 계정 | 별도 Supabase dev 계정 | `DB_URL_DEV` · `DB_USER_DEV` · `DB_PASSWORD_DEV` |
-| MinIO bucket | `<slug>-uploads` | `<slug>-uploads-dev` | `APP_STORAGE_MINIO_BUCKETS_0_DEV` |
+| MinIO bucket | `<slug>-uploads` | `dev-<slug>-uploads` (`init-dev.sh` 가 `dev-` prefix 강제) | `APP_STORAGE_MINIO_BUCKETS_0_DEV` |
 | MinIO endpoint·key | 운영값 | 별도 dev 값 | `APP_STORAGE_MINIO_ENDPOINT_DEV` 등 |
 | 관측성 (Loki·Grafana) | 공유 인스턴스, label `env=prod` | 공유 인스턴스, label `env=dev` | `LOKI_URL_DEV` |
 

@@ -131,6 +131,7 @@ claims 전체 목록:
 | `email` | 사용자 이메일 | 로깅·감사 편의 |
 | `appSlug` | 앱 슬러그 (단일) | [`ADR-012`](./adr-012-per-app-user-model.md) 의 경계 강제 |
 | `role` | 유저 role ("USER", "ADMIN") | Spring Security 권한 부여 |
+| `permissions` | `PERM_*` authority 목록 (비면 미포함 — admin 콘솔 토큰용) | 콘솔 RBAC 권한 부여 ([`ADR-039`](./adr-039-admin-module.md)) |
 | `iss` | `JWT_ISSUER` 환경변수 | 발급처 검증 |
 | `iat` | 발급 시각 | 표준 |
 | `exp` | 만료 시각 | 표준 |
@@ -292,7 +293,7 @@ secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 ## Code References
 
 **JWT 발급·검증**:
-- [`JwtService.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtService.java) — `issueAccessToken()` L42-56, `validateAccessToken()` L65-85
+- [`JwtService.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtService.java) — `issueAccessToken()` · `validateAccessToken()`
 - [`JwtProperties.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtProperties.java) — compact constructor 에서 32자 검증
 - [`JwtAuthFilter.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/jwt/JwtAuthFilter.java) — Bearer 파싱 + 검증 + SecurityContext 주입
 
@@ -306,10 +307,10 @@ secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 **로테이션 가이드**:
 - [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) — 6개월 주기, 교체 절차
 
-**부재 확인 (HS256 only 검증)**:
-- `grep -r "RS256"` 결과: core-auth-impl (Apple JWKS) 외 없음
-- `PrivateKey` / `PublicKey` 사용: 없음
-- JWKS endpoint 노출: 없음
+**부재 확인 (자체 발급 토큰 = HS256 only)**:
+- 자체 access/refresh token 서명은 `JwtService` 의 `Jwts.SIG.HS256` 하나뿐 — 다른 서명 알고리즘으로 발급하는 곳 없음
+- RS256 / `PublicKey` 는 **외부 토큰 검증** 에만 등장 — core-auth-impl (Apple JWKS 로그인 id_token), core-iap-impl (Apple App Store JWS 알림 · Google Pub/Sub OIDC 토큰 검증)
+- 자체 JWKS endpoint 노출: 없음 (공개키를 발급하지 않는 대칭키 구조)
 
 **관련 ADR**:
 - [`ADR-001 · 모듈러 모놀리스`](./adr-001-modular-monolith.md) — 단일 JVM 전제
