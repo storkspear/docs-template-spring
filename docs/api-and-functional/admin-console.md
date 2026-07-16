@@ -88,7 +88,7 @@ sequenceDiagram
 
 ## 3. 엔드포인트 카탈로그
 
-`ApiEndpoints.Admin` + `core-admin-impl` 컨트롤러 12개 기준 실측 **38개 매핑**이에요(2026-07). "권한" 열은 `SecurityConfig` 의 `hasAuthority(PERM_*)` 게이트입니다 — `public` 은 무인증, `인증` 은 유효한 콘솔 토큰이면 충분. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
+`ApiEndpoints.Admin` + `core-admin-impl` 컨트롤러 12개 기준 실측 **41개 매핑**이에요(2026-07). "권한" 열은 `SecurityConfig` 의 `hasAuthority(PERM_*)` 게이트입니다 — `public` 은 무인증, `인증` 은 유효한 콘솔 토큰이면 충분. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
 
 | # | 메서드 · 경로 | 권한 | 데이터 소스 / 비고 |
 |---|---|---|---|
@@ -130,6 +130,9 @@ sequenceDiagram
 | 36 | `POST /api/admin/me/password` | 인증 | 본인 비밀번호 변경 — 모든 콘솔 계정 (write) |
 | 37 | `GET /api/admin/roles/permissions` | `ADMIN_MANAGE` | 역할×권한 매트릭스 조회 (`admin.role_permissions`) |
 | 38 | `PUT /api/admin/roles/permissions` | `ADMIN_MANAGE` | 매트릭스 편집 — `PermissionCatalog` 가 편집 범위·의존 강제 (write) |
+| 39 | `POST /api/admin/apps/{slug}/content` | `CONTENT_WRITE` | 운영 게시물 작성(`authorType=ADMIN`, write) — markdown 본문(`attachment://` 참조) + 선업로드 첨부 연관 확정. `board` 는 콘솔에선 선택값(미선택 = `''` 미분류, 앱 유저용 posts 계약은 여전히 필수) |
+| 40 | `PUT /api/admin/apps/{slug}/content/{id}` | `CONTENT_WRITE` | 게시물 수정 + 첨부 재연관(write) — 작성자·상태 불변 |
+| 41 | `POST /api/admin/apps/{slug}/content/uploads` | `CONTENT_WRITE` | 본문 이미지 업로드 URL 발급(write) — 미연관 첨부 선등록 + presigned PUT/GET 쌍(`<slug>-uploads` bucket) |
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
 
 `USERS_UNMASK`/`FILES_UNMASK` 권한은 별도 엔드포인트가 아니라 목록·상세(#9~10, #19) 응답의 **PII 마스킹 해제**를 결정해요 — 권한이 없으면 같은 엔드포인트가 마스킹(`●●●●`)된 값을 돌려줍니다. 마스킹 티어를 위한 단건 원본 열람이 `reveal`(#11, #20)이고, 열람 사실은 `user_read_history` 에 남아요.
@@ -546,7 +549,7 @@ IAP 결제 환불 시도 응답:
 
 ---
 
-## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_022`
+## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_023`
 
 | 코드 | HTTP | 발생 상황 |
 |---|---|---|
@@ -572,6 +575,7 @@ IAP 결제 환불 시도 응답:
 | `ADMIN_020` REFUND_AMOUNT_INVALID | 400 | 환불 금액이 환불 가능 잔액을 벗어남(부분환불, v1.9) |
 | `ADMIN_021` REFUND_NOT_ALLOWED | 400 | 이미 전액 환불됐거나 결제완료 상태가 아닌 결제의 환불 시도(v1.9) |
 | `ADMIN_022` CONTENT_NOT_FOUND | 404 | `/apps/{slug}/content/{id}` 모더레이션 대상 게시물 없음(v1.10) |
+| `ADMIN_023` ATTACHMENT_ASSOCIATION_FAILED | 400 | 게시물 작성/수정(#39~#40) 시 `attachmentIds` 연관 확정 실패 — 첨부 부재·slug 불일치·비 ACTIVE·이미 타 게시물에 연관(탈취 시도) |
 
 에러 응답은 다른 모든 API 와 동일한 `ApiResponse` 래퍼를 씁니다.
 
