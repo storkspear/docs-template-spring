@@ -37,6 +37,7 @@
 | Audit | `audit_logs_archive` | 감사로그 콜드 보관 (핫 90일 경과분) | V021 |
 | Activity | `user_activity_days` | 유저 활동일 기록 (DAU/MAU 원천) | V017 |
 | Content | `posts` | 공유(공개) 게시물 + 모더레이션 상태 | V024 |
+| Storage | `attachment_file` | 업로드 파일 메타 + 검역/삭제 상태 (polymorphic 연관) | V018 |
 | Analytics | `analytics_events` | 제품 이벤트 원본 (append, 내용 없음) | V025 |
 | Analytics | `analytics_daily` | 이벤트 일별 집계 (롤업 산물) | V025 |
 
