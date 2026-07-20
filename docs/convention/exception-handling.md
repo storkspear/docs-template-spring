@@ -34,7 +34,7 @@ ErrorInfo (인터페이스)
     ├── IapError         ← IAP_001 ~ IAP_007 (Apple·Google IAP — ADR-022)
     ├── PaymentError     ← PAY_001 ~ PAY_009 (PortOne PG — ADR-019)
     ├── StorageError     ← STG_001 ~ STG_011 (오브젝트 스토리지)
-    └── AdminError       ← ADMIN_001 ~ ADMIN_022 (운영 콘솔 — core-admin-impl)
+    └── AdminError       ← ADMIN_001 ~ ADMIN_023 (운영 콘솔 — core-admin-impl)
 
 BaseException (부모)
     ├── CommonException      ← 공통 예외 (NOT_FOUND, FORBIDDEN, JWT 토큰 등)
@@ -215,7 +215,33 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 
 ### AdminError (ADMIN)
 
-운영 콘솔 (core-admin-impl) 전용 에러 ADMIN_001 ~ ADMIN_022 는 `/api/admin` API 에서만 사용됩니다. 앱 클라이언트가 분기할 일이 없어서 여기서는 목록을 생략해요 — 전체 코드는 `core-admin-impl/.../exception/AdminError.java` 를 참조하세요.
+운영 콘솔 (core-admin-impl) 전용 — `/api/admin` API 에서만 사용됩니다 (앱 클라이언트는 분기할 일 없음).
+
+| 코드 | HTTP | enum 값 | 설명 |
+|---|---|---|---|
+| ADMIN_001 | 401 | INVALID_CREDENTIALS | 콘솔 로그인 이메일·비밀번호 불일치 |
+| ADMIN_002 | 400 | UNSUPPORTED_METRIC | 지원하지 않는 분석 지표 |
+| ADMIN_003 | 404 | UNKNOWN_SLUG | 알 수 없는 앱 슬러그 |
+| ADMIN_004 | 400 | INVALID_DATE_RANGE | 날짜 형식/범위 파싱 실패 |
+| ADMIN_005 | 404 | USER_NOT_FOUND | 대상 사용자 미발견 |
+| ADMIN_006 | 400 | PG_REFUND_ONLY | PG 결제만 콘솔 환불 가능 (IAP 불가) |
+| ADMIN_007 | 404 | PAYMENT_NOT_FOUND | 결제 내역 미발견 |
+| ADMIN_008 | 400 | FILE_ALREADY_QUARANTINED | 이미 검역된 파일 |
+| ADMIN_009 | 400 | FILE_NOT_QUARANTINED | 검역되지 않은 파일의 복원 시도 |
+| ADMIN_010 | 404 | FILE_NOT_FOUND | 파일 미발견 |
+| ADMIN_011 | 409 | ADMIN_EMAIL_EXISTS | 관리자 계정 이메일 중복 |
+| ADMIN_012 | 404 | ADMIN_ACCOUNT_NOT_FOUND | 관리자 계정 미발견 |
+| ADMIN_013 | 400 | ADMIN_INVALID_ROLE | 알 수 없는 역할 |
+| ADMIN_014 | 400 | ADMIN_CANNOT_MODIFY_SELF | 본인 계정 삭제/역할 변경 불가 |
+| ADMIN_015 | 400 | ADMIN_LAST_MASTER | 마지막 마스터 계정 삭제/강등 불가 |
+| ADMIN_016 | 400 | ADMIN_WRONG_PASSWORD | 현재 비밀번호 불일치 |
+| ADMIN_017 | 403 | ADMIN_ROLE_EDIT_FORBIDDEN | 상급자·본인 티어 권한/계정 편집 불가 |
+| ADMIN_018 | 400 | ADMIN_PERM_NOT_EDITABLE | 편집 불가 권한 (고정 grant) |
+| ADMIN_019 | 400 | ADMIN_PERM_DEPENDENCY | 원본 열람·쓰기는 조회 권한 선행 필요 |
+| ADMIN_020 | 400 | ADMIN_REFUND_AMOUNT_INVALID | 환불 금액이 가능 잔액 초과 |
+| ADMIN_021 | 400 | ADMIN_REFUND_NOT_ALLOWED | 환불 불가 결제 (전액 환불됨/미완료) |
+| ADMIN_022 | 404 | ADMIN_CONTENT_NOT_FOUND | 대상 게시물 미발견 |
+| ADMIN_023 | 400 | ATTACHMENT_ASSOCIATION_FAILED | 첨부 연관 확정 실패 (부재·slug 불일치·타 게시물 소유) |
 
 ### graceful 503 패턴
 
