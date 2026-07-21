@@ -88,7 +88,7 @@ sequenceDiagram
 
 ## 3. 엔드포인트 카탈로그
 
-`ApiEndpoints.Admin` + `core-admin-impl` 컨트롤러 12개 기준 실측 **41개 매핑**이에요(2026-07). "권한" 열은 `SecurityConfig` 의 `hasAuthority(PERM_*)` 게이트입니다 — `public` 은 무인증, `인증` 은 유효한 콘솔 토큰이면 충분. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
+`ApiEndpoints.Admin` + `core-admin-impl` 컨트롤러 12개 기준 실측 **43개 매핑**이에요(2026-07). "권한" 열은 `SecurityConfig` 의 `hasAuthority(PERM_*)` 게이트입니다 — `public` 은 무인증, `인증` 은 유효한 콘솔 토큰이면 충분. 활동 ping 만 소유가 다른 도메인(user)이라 별도로 표시했어요.
 
 | # | 메서드 · 경로 | 권한 | 데이터 소스 / 비고 |
 |---|---|---|---|
@@ -133,9 +133,11 @@ sequenceDiagram
 | 39 | `POST /api/admin/apps/{slug}/content` | `CONTENT_WRITE` | 운영 게시물 작성(`authorType=ADMIN`, write) — markdown 본문(`attachment://` 참조) + 선업로드 첨부 연관 확정. `board` 는 콘솔에선 선택값(미선택 = `''` 미분류, 앱 유저용 posts 계약은 여전히 필수) |
 | 40 | `PUT /api/admin/apps/{slug}/content/{id}` | `CONTENT_WRITE` | 게시물 수정 + 첨부 재연관(write) — 작성자·상태 불변 |
 | 41 | `POST /api/admin/apps/{slug}/content/uploads` | `CONTENT_WRITE` | 본문 이미지 업로드 URL 발급(write) — 미연관 첨부 선등록 + presigned PUT/GET 쌍(`<slug>-uploads` bucket) |
+| 42 | `GET /api/admin/apps/{slug}/users/{userId}/export` | `USERS_UNMASK` | 단일 슬러그 — GDPR 개인정보 전수 export(JSON 번들). 전 PII 원본이라 UNMASK 게이팅, `user_read_history` 에 `EXPORT` 기록 (v1.11) |
+| 43 | `DELETE /api/admin/apps/{slug}/users/{userId}` | `USERS_WRITE` | 단일 슬러그 — 콘솔 탈퇴(soft-delete + refresh token 전체 revoke, write). 30일 유예 후 `UserErasureScheduler` 가 익명화 (v1.11) |
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
 
-`USERS_UNMASK`/`FILES_UNMASK` 권한은 별도 엔드포인트가 아니라 목록·상세(#9~10, #19) 응답의 **PII 마스킹 해제**를 결정해요 — 권한이 없으면 같은 엔드포인트가 마스킹(`●●●●`)된 값을 돌려줍니다. 마스킹 티어를 위한 단건 원본 열람이 `reveal`(#11, #20)이고, 열람 사실은 `user_read_history` 에 남아요.
+`USERS_UNMASK`/`FILES_UNMASK` 권한은 별도 엔드포인트가 아니라 목록·상세(#9~10, #19) 응답의 **PII 마스킹 해제**를 결정해요 — 권한이 없으면 같은 엔드포인트가 마스킹(`●●●●`)된 값을 돌려줍니다. 마스킹 티어를 위한 단건 원본 열람이 `reveal`(#11, #20)이고, 열람 사실은 `user_read_history` 에 남아요. 예외로 GDPR **export(#42)** 는 전 PII 원본 번들을 반환하는 전용 엔드포인트라 `USERS_UNMASK` 로 게이팅해요(READ 만으로는 403). **탈퇴(#43)** 는 쓰기 권한 `USERS_WRITE`(신규) 로, UNMASK 만으로는 삭제되지 않아요.
 
 ---
 
@@ -241,6 +243,34 @@ sequenceDiagram
   "error": null
 }
 ```
+
+### 4-5-1. `GET /api/admin/apps/{slug}/users/{userId}/export` — GDPR 개인정보 export (v1.11)
+
+GDPR 열람권(Art.15)·개인정보보호법 대응을 위해 한 사용자의 연관 데이터를 **JSON 번들 1개**로 반환해요. 전 PII 원본을 노출하므로 `USERS_UNMASK` 로 게이팅(READ 만으로는 403)하고, 발급 사실은 `user_read_history` 에 `resource_type='EXPORT'` 로 남습니다(`@Audited` 감사로그도 자동). 번들은 `user` 원본 + `socialProviders`(provider 목록) + `devices` + `subscriptions` + `payments`(전체, 상세의 최근 10건 제한 없음) + `notificationSettings` + `activityDays` + `posts`(메타) + `attachments`(메타)를 담아요. 첨부 **파일 실체는 미포함** — `storageKey` 메타만 담고 개별 다운로드는 파일 화면(#19~20)에서 합니다. 존재하지 않는 `userId` 는 404 `ADMIN_005`, 이미 익명화된 사용자는 410 `ADMIN_025`.
+
+```json
+{
+  "data": {
+    "exportedAt": "2026-07-21T09:00:00Z", "slug": "gymlog",
+    "user": { "id": 1, "email": "user@example.com", "displayName": "홍길동", "nickname": "gil", "role": "user", "isPremium": true, "emailVerified": true, "createdAt": "2026-01-15T03:20:00Z", "deletedAt": null, "updatedAt": "2026-06-01T00:00:00Z" },
+    "socialProviders": ["google"],
+    "devices": [ { "id": 9, "platform": "ANDROID", "deviceName": "Pixel 8", "lastSeenAt": "2026-07-06T22:00:00Z", "createdAt": "2026-01-15T03:21:00Z" } ],
+    "subscriptions": [ { "id": 3, "planId": 2, "status": "ACTIVE", "startedAt": "2026-06-01T00:00:00Z", "expiresAt": "2026-07-01T00:00:00Z", "cancelledAt": null, "cancelReason": null } ],
+    "payments": [ { "id": 11, "channel": "PG", "amount": 9900, "currency": "KRW", "status": "PAID", "paidAt": "2026-06-01T00:00:00Z", "refundedAt": null } ],
+    "notificationSettings": [ { "kind": "MARKETING", "pushEnabled": true, "emailEnabled": false } ],
+    "activityDays": ["2026-07-01", "2026-07-02"],
+    "posts": [ { "id": 5, "board": "free", "title": "내 글", "status": "ACTIVE", "createdAt": "2026-06-10T00:00:00Z" } ],
+    "attachments": [ { "id": 8, "storageKey": "…", "originalFilename": "a.png", "sizeBytes": 1024, "status": "ACTIVE", "createdAt": "2026-06-10T00:00:00Z" } ]
+  },
+  "error": null
+}
+```
+
+### 4-5-2. `DELETE /api/admin/apps/{slug}/users/{userId}` — 콘솔 탈퇴 (soft-delete, v1.11)
+
+GDPR 삭제권(Art.17) 대응의 접수 단계예요. 앱 유저 `withdraw`(auth) 와 동일 시맨틱(`deleted_at` 세팅 + 해당 유저의 refresh token 전체 revoke)을 콘솔 경로로 노출하고, 쓰기 권한 `USERS_WRITE` 로 게이팅합니다(신규 권한 — 재로그인 시 JWT claim 반영). 본문 없는 성공은 `ApiResponse.empty()`. 이미 탈퇴된 사용자는 400 `ADMIN_024`, 이미 익명화된 사용자는 410 `ADMIN_025`, 미존재는 404 `ADMIN_005`.
+
+soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:00, `app.user.erasure.enabled=true` 일 때만 활성)가 도메인별 처리표대로 완전삭제/익명화합니다 — auth 토큰·소셜·기기·알림설정·활동일·인증코드는 **hard delete**, `users`(email 을 `deleted-{id}@erased.invalid` 마커로 + PII 소거)·`payment_history`(`raw_response`/`customer_uid` 만 제거)·`posts`(`author_nickname`)·`analytics_events`(`user_id` NULL)는 **익명화**, 결제·구독·감사 원장은 **법정 보존**(GDPR Art.17(3)(b) 예외), 첨부는 `AttachmentPort.softDelete` 로 전환해 기존 `AttachmentPurgeScheduler` 가 스토리지까지 낙수 삭제해요. 유예기간은 `app.user.erasure.grace-days`(기본 30). ACTIVE 구독이 남은 사용자는 스킵(운영자가 정리 후 다음 sweep 처리). 상세 절차는 [`gdpr-request-runbook.md`](../production/gdpr-request-runbook.md).
 
 ### 4-6. `GET /api/admin/apps/{slug}/billing` — 빌링 요약
 
@@ -576,6 +606,8 @@ IAP 결제 환불 시도 응답:
 | `ADMIN_021` REFUND_NOT_ALLOWED | 400 | 이미 전액 환불됐거나 결제완료 상태가 아닌 결제의 환불 시도(v1.9) |
 | `ADMIN_022` CONTENT_NOT_FOUND | 404 | `/apps/{slug}/content/{id}` 모더레이션 대상 게시물 없음(v1.10) |
 | `ADMIN_023` ATTACHMENT_ASSOCIATION_FAILED | 400 | 게시물 작성/수정(#39~#40) 시 `attachmentIds` 연관 확정 실패 — 첨부 부재·slug 불일치·비 ACTIVE·이미 타 게시물에 연관(탈취 시도) |
+| `ADMIN_024` USER_ALREADY_DELETED | 400 | 이미 탈퇴 처리(soft-delete)된 사용자를 콘솔 삭제(#43) 재호출 |
+| `ADMIN_025` USER_ERASED | 410 | 완전삭제(익명화)된 사용자에 export(#42)/삭제(#43) 시도 |
 
 에러 응답은 다른 모든 API 와 동일한 `ApiResponse` 래퍼를 씁니다.
 
