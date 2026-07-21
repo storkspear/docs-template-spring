@@ -284,14 +284,14 @@ Dockerfile.runtime 으로 buildx (arm64) → GHCR push (ghcr.io/<owner>/<repo>:<
    ↓
 kamal deploy --skip-push --version=<sha>   ← kamal 은 빌드 없이 swap 만
    ↓
-옛 GHCR 이미지 cleanup (최신 2개만 유지)
+옛 GHCR 이미지 cleanup (공유 패키지 최신 10개 버전 유지)
 ```
 
 여기서 중요한 설계 결정이 있어요. **CI 와 deploy 가 각각 따로 빌드합니다.** CI 의 `./gradlew build` 는 test / spotless / OWASP 를 검증할 뿐, 그 jar 를 artifact 로 넘기지 않아요. deploy job 이 같은 SHA 를 다시 체크아웃해서 `bootstrap:bootJar -x test` 로 직접 빌드합니다. 빌드를 한 번 더 도는 비용 (deploy 시간 +4~7분, test 는 빼서 빠름) 을 감수하는 이유는 artifact storage 때문이에요. bootstrap jar (~80MB) 가 main push 마다 누적되면 Actions storage 무료 한도 (500MB) 를 단기간에 소진하거든요. retention 을 1일로 둬도 GitHub GC 지연으로 누적되므로, 아예 artifact 를 안 쓰고 deploy 가 직접 빌드하는 쪽을 택했습니다.
 
 이미지 패키징은 [`Dockerfile.runtime`](../../../Dockerfile.runtime) 이 맡아요. 미리 빌드된 `app.jar` 를 `eclipse-temurin:21-jre-alpine` 에 얹어 GHCR 에 push 하고, `kamal deploy --skip-push` 는 그 이미지를 Mac mini 가 pull 해서 swap 만 해요. kamal 이 직접 빌드하지 않아 배포가 가벼워요. 첫 배포면 kamal 이 자동으로 setup (kamal-proxy 기동) 도 함께 수행합니다.
 
-옛 GHCR 이미지는 매 배포 끝에 cleanup 돼요. 최신 2개 (현재 + rollback 1단계) 만 남겨 500MB packages 한도 안에서 운영합니다.
+옛 GHCR 이미지는 매 배포 끝에 cleanup 돼요. 최신 10개 package version 만 남겨 500MB packages 한도 안에서 운영합니다. dev 와 prod 가 같은 GHCR 패키지를 공유하는데 cleanup 액션 (`actions/delete-package-versions`) 이 태그 필터를 지원하지 않아, 환경별 세대 보존 (예: "prod 직전 이미지 항상 유지") 은 보장되지 않아요 — 상세는 [`runbook.md`](./runbook.md) 롤백 절 참고.
 
 ### 수동 흐름 (factory wrapper, 로컬)
 
