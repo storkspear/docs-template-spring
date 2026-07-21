@@ -75,8 +75,9 @@
 | POST | `/api/apps/{appSlug}/auth/password-reset/request` | 불필요 | 재설정 메일 발송 (204) |
 | POST | `/api/apps/{appSlug}/auth/password-reset/confirm` | 불필요 | 토큰으로 재설정 (204) |
 | PATCH | `/api/apps/{appSlug}/auth/password` | 필요 | 비밀번호 변경 (204) |
+| POST | `/api/apps/{appSlug}/auth/me/2fa/backup-codes/regenerate` | 필요 | 2FA 백업코드 재발급 — 기존 8개 무효화 + 새 8개 반환 |
 
-인증 불필요 경로는 `SecurityConfig` 가 `ApiEndpoints.Auth.PUBLIC_PATTERNS` 를 읽어 등록하므로 JWT 없이 호출됩니다. `2fa/login` 과 `phone/**` 은 로그인 전 단계라 함께 public 으로 열려 있어요. 2FA 의 setup·verify·disable 은 이미 로그인한 유저만 호출하므로 access token 이 필요합니다.
+인증 불필요 경로는 `SecurityConfig` 가 `ApiEndpoints.Auth.PUBLIC_PATTERNS` 를 읽어 등록하므로 JWT 없이 호출됩니다. `2fa/login` 과 `phone/**` 은 로그인 전 단계라 함께 public 으로 열려 있어요. 2FA 의 setup·verify·disable·backup-codes/regenerate 는 이미 로그인한 유저만 호출하므로 access token 이 필요합니다.
 
 ### 템플릿 상태에서의 노출 여부
 

@@ -48,6 +48,7 @@
 | **Secret 인코딩** | Base32 (RFC 4648) — TOTP 앱 호환 |
 | **Clock skew** | ±1 window (90초 허용) |
 | **Backup codes** | 8자리 alphanumeric × 8개 (BCrypt 해시 저장, 1회용) |
+| **Backup 재발급** | 셀프 재발급 — 비밀번호 + TOTP/backup 코드 재확인 후 기존 8개 전량 무효화 + 새 8개 발급 (관리자 개입 불필요) |
 | **활성화 모드** | OPT-IN — 사용자가 자기 설정에서 ON/OFF |
 | **로그인 흐름 변경** | totp_enabled=true 사용자만 추가 step. 1단계 통과 후 임시 token 5분 TTL |
 | **임시 token** | JWT type="2fa_pending" — 정상 access token 과 type 으로 구분 |
@@ -94,7 +95,21 @@
 
 - TOTP 앱을 볼 수 없을 때, 즉 디바이스 분실이나 시계 어긋남 상황에서 backup code 를 입력해요
 - 8자리 alphanumeric (예: "ABCD1234")
-- 1회용 — 사용 시 DB 의 hash 가 제거돼요. 8개를 다 쓰면 disable 후 setup 을 재진행해요.
+- 1회용 — 사용 시 DB 의 hash 가 제거돼요. 8개를 다 쓰기 전에 아래 재발급으로 새 8개를 받아요 (disable 불필요).
+
+### Backup code 재발급 (사용자 본인)
+
+```
+POST /auth/me/2fa/backup-codes/regenerate { password, totpCode }   (인증)
+  → 현재 비밀번호 검증 (디바이스 도난 대비)
+  → TOTP/backup 코드 검증 (현재 사용자 본인 확인)
+  → 둘 다 통과 시 기존 8개 전량 무효화 + 새 8개 발급
+  → 응답: { backupCodes: ["WXYZ5678", ...] }   // 1회 표시, 옛 코드는 즉시 거부
+```
+
+- 재확인 강도는 disable 과 동일(비밀번호 + 코드)이지만 2FA 를 끄지 않고 backup code 만 교체해요. 8개 소진 임박 시 관리자 개입 없이 셀프 복구합니다.
+- 무효화는 부분이 아닌 **전량 교체** — 남은 코드가 있든 없든 새 8개로 갈아엎어요. 반환 구조는 verify 응답과 동일한 `{ backupCodes }` 예요.
+- 계정 잠금(`LoginLockoutService`)은 적용하지 않아요 — 유효 access token 을 이미 가진 인증 세션에서만 호출되므로 로그인 브루트포스(익명 공격) 위협 모델과 결이 다르고, 재확인 실패를 로그인 카운터에 넣으면 세션이 로그인 자체를 잠그는 self-lockout 이 돼요 (`changePassword`·`disable` 과 동일한 무-잠금 정책).
 
 ### Disable (사용자 본인)
 
@@ -149,7 +164,7 @@ T = 1111111109 (window=37037036) → expected: "081804"
 - raw 코드는 verify 응답에 1회 표시 후 **다시 표시 X** — 사용자 책임 보관
 - DB 에 BCrypt 해시만 저장 (raw 미저장)
 - 사용 시: 입력 코드 → 모든 hash 와 BCrypt match → 매칭된 hash 제거
-- 8개 다 사용 시 → disable + setup 재진행 (운영 시 알림)
+- 소진 임박 시 → `backup-codes/regenerate` 로 셀프 재발급 (기존 전량 무효화 + 새 8개, disable 불필요)
 
 **왜 BCrypt?** 비밀번호와 동일한 password-equivalent 자산이라서요. salt + slow hash 로 brute-force 를 차단합니다.
 
@@ -170,13 +185,14 @@ T = 1111111109 (window=37037036) → expected: "081804"
 
 ---
 
-## 적용 — Endpoint 4개
+## 적용 — Endpoint 5개
 
 ```
-POST /api/apps/<slug>/auth/me/2fa/setup           (인증)
-POST /api/apps/<slug>/auth/me/2fa/verify          (인증)
-POST /api/apps/<slug>/auth/me/2fa/disable         (인증)
-POST /api/apps/<slug>/auth/2fa/login              (공개)
+POST /api/apps/<slug>/auth/me/2fa/setup                    (인증)
+POST /api/apps/<slug>/auth/me/2fa/verify                   (인증)
+POST /api/apps/<slug>/auth/me/2fa/disable                  (인증)
+POST /api/apps/<slug>/auth/me/2fa/backup-codes/regenerate  (인증)
+POST /api/apps/<slug>/auth/2fa/login                       (공개)
 ```
 
 core 공유 `AuthController` (`AuthAutoConfiguration` 등록) 에 포함돼요 (ADR-013 B).
@@ -221,7 +237,7 @@ core 공유 `AuthController` (`AuthAutoConfiguration` 등록) 에 포함돼요 (
 - **2FA 강제 모드** — admin 권한자는 2FA 의무화
 - **Trusted device** — "이 디바이스 30일 기억" 옵션
 - **2FA 활성화 알림** — email 통지 (security event)
-- **Recovery 흐름** — backup codes 8개 다 분실 시 admin 가 disable 후 사용자 재가입 안내
+- **Recovery 흐름** — backup codes 8개를 다 쓰기 전 셀프 재발급(`backup-codes/regenerate`)은 baseline 에 포함. 단 backup 도 TOTP 도 모두 접근 불가한 완전 lockout 은 여전히 admin 가 disable 후 사용자 재가입 안내
 - **TwoFactorService Contract test** — 실 DB + AuthPort 통합 검증
 
 ---
@@ -230,15 +246,16 @@ core 공유 `AuthController` (`AuthAutoConfiguration` 등록) 에 포함돼요 (
 
 신규:
 - `tools/new-app/new-app.sh` — V013 마이그레이션 heredoc
-- `core/core-auth-impl/.../controller/AuthController.java` — TOTP 4개 endpoint (공유 컨트롤러, ADR-013 B — 앱별 heredoc 미생성) + ApiEndpoints.Auth.TOTP_*
+- `core/core-auth-impl/.../controller/AuthController.java` — TOTP 5개 endpoint (공유 컨트롤러, ADR-013 B — 앱별 heredoc 미생성) + ApiEndpoints.Auth.TOTP_*
 - `core/core-auth-impl/.../totp/TotpService.java` — RFC 6238 알고리즘
-- `core/core-auth-impl/.../totp/TwoFactorService.java` — 비즈로직 (setup/verify/disable/loginWith2fa)
+- `core/core-auth-impl/.../totp/TwoFactorService.java` — 비즈로직 (setup/verify/disable/loginWith2fa/regenerateBackupCodes)
 - `core/core-auth-impl/src/test/.../totp/TotpServiceTest.java` — 11건
 - `core/core-auth-api/.../dto/TotpSetupResponse.java`
 - `core/core-auth-api/.../dto/TotpVerifySetupRequest.java`
 - `core/core-auth-api/.../dto/TotpVerifySetupResponse.java`
 - `core/core-auth-api/.../dto/TotpDisableRequest.java`
 - `core/core-auth-api/.../dto/TotpLoginRequest.java`
+- `core/core-auth-api/.../dto/RegenerateBackupCodesRequest.java` — backup code 재발급 요청 (password + totpCode)
 - `core/core-user-api/.../dto/TotpInfo.java`
 
 수정:
@@ -246,7 +263,7 @@ core 공유 `AuthController` (`AuthAutoConfiguration` 등록) 에 포함돼요 (
 - `core/core-user-api/.../UserPort.java` — totp 5개 메소드
 - `core/core-user-impl/.../entity/User.java` — totp 필드 + domain methods
 - `core/core-user-impl/.../UserServiceImpl.java` — UserPort 구현 확장
-- `core/core-auth-api/.../AuthPort.java` — 4개 totp 메소드
+- `core/core-auth-api/.../AuthPort.java` — 5개 totp 메소드 (setup/verify/disable/loginWith2fa/regenerateBackupCodes)
 - `core/core-auth-api/.../dto/AuthResponse.java` — twoFactorToken 필드 + requires2fa() 정적 팩토리
 - `core/core-auth-api/.../exception/AuthError.java` — 4개 신규 코드 (ATH_007~010)
 - `core/core-auth-impl/.../AuthServiceImpl.java` — signInWithEmail 흐름 변경 + 4개 totp 메소드 구현
