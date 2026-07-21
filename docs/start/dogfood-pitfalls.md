@@ -47,6 +47,8 @@
 | **15** | Loki 로그 | Grafana 로그 0, `loki4j ... ConnectException` 반복 | 앱이 Loki 보다 먼저 떠 appender 가 영구 fail | observability 를 첫 배포 전 기동, 또는 앱 컨테이너 restart | post-deploy 보강 |
 
 > 위 표의 "원인 한 줄"·"해결 한 줄" 칸은 빠르게 훑는 reference 라 의도적으로 명사구로 압축했어요. 표 안 명사구 허용 규정은 [`STYLE_GUIDE §3`](../reference/STYLE_GUIDE.md) 에 있어요.
+>
+> "관련 commit" 칸의 SHA 는 도그푸딩 당시 히스토리 기준이에요. 이후 히스토리 정리로 현재 레포에서는 그 SHA 가 조회되지 않고, 같은 수정이 다른 SHA 로 남아 있어요 (예: #1·#2 의 수정은 현재 히스토리의 `6e2b825`). 수정 내용 자체는 코드에 그대로 반영돼 있어요.
 
 ---
 

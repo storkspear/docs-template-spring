@@ -20,9 +20,9 @@
 
 QuickStart 는 다음 세 가지를 해요.
 
-- 로컬 dev 환경 부팅 (`tools/init-local.sh`)
-- Spring 첫 기동 확인
-- 첫 앱 모듈 생성 (`tools/new-app/new-app.sh`)
+- 로컬 dev 환경 부팅 (`./factory install` → `<repo> init`)
+- Spring 첫 기동 확인 (`<repo> test`)
+- 첫 앱 모듈 생성 (`<repo> new <slug>`)
 
 이 책은 QuickStart 가 끝났다는 가정에서 시작해요.
 
@@ -172,15 +172,15 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 
 | 그룹 | Level | 시간 | 무엇을 찾을 수 있나 |
 |---|---|---|---|
-| 📚 입문 | 0 | 3~10분 | [`Level 0 진입점`](./getting-started.md) · [`5분 투어`](./five-minute-tour.md) · 용어 사전 · 첫 실행·수정·배포 맛보기 |
+| 📚 입문 | 0 | 3~10분 | [`Level 0 진입점`](./getting-started.md) · [`5분 투어`](./five-minute-tour.md) · 첫 실행·수정·배포 맛보기 |
 | 🏃 시작하기 | 1 | 1~2시간 | [`Onboarding`](../start/onboarding.md) · 소셜 로그인 · 앱 스캐폴딩 · 도그푸딩 · Cherry-pick |
 | 🏗️ 구조 이해하기 | 2 | 1시간 | [`Architecture`](../structure/architecture.md) · 모듈 의존 · ArchUnit 규칙 · 멀티테넌시 · JWT 인증 |
 | 📖 프로젝트 철학 | 3 | 2~3시간 | [`39 ADR 인덱스`](../philosophy/README.md) · 테마 1~8 |
 | 📝 코딩 규약 | 2 | 1시간 | 설계 원칙 · 네이밍 · DTO · 예외 처리 · Git 워크플로 |
 | 🔌 API 및 기능 | 2 | 필요 시 | API 응답 · 푸시 · 이메일 · 스토리지 · 마이그레이션 · 관측성 |
-| ✅ 테스팅 | 2 | 필요 시 | [`Testing Strategy`](../production/test/testing-strategy.md) · 계약 테스트 |
-| 🛠️ 운영 | 2.5+ | 운영자용 | 인프라 · CI/CD · 배포 · [`Runbook`](../production/deploy/runbook.md) · 엣지 케이스 · 키 교체 |
-| 📚 참고 | — | — | 앱 스캐폴딩 · 백로그 · [`STYLE_GUIDE`](../reference/STYLE_GUIDE.md) (저자용) |
+| 🛠️ 운영 (Production) | 2.5+ | 운영자용 | 인프라 · CI/CD · 배포 · [`Runbook`](../production/deploy/runbook.md) · 키 교체 · [`Testing Strategy`](../production/test/testing-strategy.md) · 계약 테스트 |
+| 📚 참고 (Reference) | — | — | 용어 사전 · 데이터 모델 · API 레퍼런스 · 엣지 케이스 · [`STYLE_GUIDE`](../reference/STYLE_GUIDE.md) (저자용) |
+| 🗂️ 계획 (Planned) | — | — | [`Backlog`](../planned/backlog.md) — 개발 예정 항목 |
 
 8개 테마의 주제는 차례로 레포 구조의 기반, 모듈 내부 설계, 데이터·멀티테넌시, 인증·보안, 운영·개발 방법론, 결제·구독 도메인, 보안·감사·알림 도메인, 운영 정책·Lite 모드·SSRF 예요.
 

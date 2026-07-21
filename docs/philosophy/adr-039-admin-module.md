@@ -1,6 +1,6 @@
 # ADR-039 · admin 모듈 — cross-app 운영 콘솔 (superadmin + admin 스키마 + in-process fan-out)
 
-**Status**: Accepted. `core/core-admin-impl` 모듈로 구현 완료(`feat/admin-module`, 도그푸딩까지 완료). `admin` 스키마 + 슬러그 fan-out(`AdminSlugRegistry`) + 활동 추적(`user_activity_days`, V017)으로 `/api/admin/*` 콘솔을 제공합니다 — 현재 컨트롤러 12개·매핑 38개(2026-07-15 실측). 이 ADR 이 신설한 `ROLE_SUPERADMIN` 단일 권한은 이후 viewer/support/admin/master 4티어 + 리소스별 `PERM_*` 권한 RBAC 로 확장됐어요(§결정 1 의 갱신 참고).
+**Status**: Accepted. `core/core-admin-impl` 모듈로 구현 완료(`feat/admin-module`, 도그푸딩까지 완료). `admin` 스키마 + 슬러그 fan-out(`AdminSlugRegistry`) + 활동 추적(`user_activity_days`, V017)으로 `/api/admin/*` 콘솔을 제공합니다 — 현재 컨트롤러 12개·매핑 41개(2026-07-21 실측). 이 ADR 이 신설한 `ROLE_SUPERADMIN` 단일 권한은 이후 viewer/support/admin/master 4티어 + 리소스별 `PERM_*` 권한 RBAC 로 확장됐어요(§결정 1 의 갱신 참고).
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~10분
 
@@ -121,7 +121,7 @@ private static final String UPSERT =
 
 ### 긍정적 결과
 
-- **콘솔 전체가 mock 이 아닌 실 데이터로 동작** — v1 의 login/health/apps/dashboard/metrics/users/userDetail/billing/audit-logs 9개에서 출발해, analytics·ops(갱신 실패율·webhook 처리·리텐션)·활동 ping·RBAC 계정 관리·파일·콘텐츠 모더레이션 등으로 확장. 현재 컨트롤러 12개·매핑 38개(2026-07-15 실측).
+- **콘솔 전체가 mock 이 아닌 실 데이터로 동작** — v1 의 login/health/apps/dashboard/metrics/users/userDetail/billing/audit-logs 9개에서 출발해, analytics·ops(갱신 실패율·webhook 처리·리텐션)·활동 ping·RBAC 계정 관리·파일·콘텐츠 모더레이션 등으로 확장. 현재 컨트롤러 12개·매핑 41개(2026-07-21 실측).
 - **React 계약의 진실화** — 조회 불가능했던 필드를 없애는 대신, DAU/MAU 처럼 실제로 유용한 지표는 데이터 소스를 새로 만들어 계약을 지켰습니다. "라벨은 유지, 값은 진짜로" 원칙.
 - **gross 매출 시맨틱 정합** — `payment_history.status` 가 환불 시 `PAID`→`REFUNDED` 로 *덮어써지는* 구조라, gross(수금총액)를 `status='PAID'` 로만 집계하면 환불건이 gross 에서도 빠지고 `gross - refunded` 로 다시 한 번 차감되는 이중차감 버그가 있었습니다. `status IN ('PAID','REFUNDED')` 로 정정해 "환불 여부와 무관하게 한 번이라도 수금된 금액의 총합" 이라는 시맨틱을 대시보드/앱 metrics/billing/analytics 4곳 모두에 일관 적용했습니다. *(후속: 부분환불 도입으로 gross 필터에 `PARTIALLY_REFUNDED` 를 추가하고, `refunded` 는 `payment_refunds` 원장의 건별 합으로 이관 — 현행 시맨틱은 [`admin-console.md §5-1`](../api-and-functional/admin-console.md) 참고.)*
 - **네트워크 홉 0** — MSA 였다면 필요했을 서비스 간 호출·분산 트랜잭션 없이, 슬러그별 JdbcTemplate 순회만으로 cross-app 집계가 끝납니다.

@@ -431,7 +431,7 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 | `core-payment-api/.../exception/PaymentError.java` | PG 결제 에러 enum (PAY_001~009) |
 | `core-payment-api/.../exception/PaymentException.java` | PG 결제 예외 |
 | `core-storage-api/.../exception/StorageError.java` | 스토리지 에러 enum (STG_001~011) |
-| `core-admin-impl/.../exception/AdminError.java` | 운영 콘솔 에러 enum (ADMIN_001~022) |
+| `core-admin-impl/.../exception/AdminError.java` | 운영 콘솔 에러 enum (ADMIN_001~023) |
 | `core-admin-impl/.../exception/Admin*Exception.java` | 운영 콘솔 예외 (AdminAuthException 등 다수) |
 
 ---

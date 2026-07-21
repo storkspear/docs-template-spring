@@ -242,7 +242,7 @@ gh secret set DISCORD_WEBHOOK_URL --body 'https://discord.com/api/webhooks/...'
 
 Tailscale OAuth client 는 Tailscale admin → Settings → OAuth clients → `Generate` 로 발급해요. scope 는 `Devices → Core → Write` 와 `Keys → Auth Keys → Write` **두 개를 모두** 체크하고 각각 `tag:ci` 를 부여합니다 — 하나라도 빠지면 배포 시 403 이 나요 ([`decisions-infra.md I-14`](./decisions-infra.md) · [`dogfood-setup §3.2`](../../start/dogfood-setup.md)).
 
-**GHCR 토큰** — `secrets.GITHUB_TOKEN` 자동 주입만으론 부족합니다. 첫 GHCR 패키지 push 시 repo 와 package 가 자동 연결되지 않아 403 이 나거든요. `repo` + `write:packages` scope 의 Classic PAT 를 발급해 `GHCR_TOKEN` secret 으로 등록해야 합니다. `init-prod.sh` 가 `.env.prod` 의 `GHCR_TOKEN` 을 GitHub Secrets 로 자동 push 하므로, 운영자는 PAT 발급과 `.env.prod` 채우기만 하면 끝이에요. 자세한 배경은 [`decisions-infra.md I-10`](./decisions-infra.md) 과 [`dogfood-pitfalls.md #7`](../../start/dogfood-pitfalls.md) 의 함정 사례를 참고하세요.
+**GHCR 토큰** — `secrets.GITHUB_TOKEN` 자동 주입만으론 부족합니다. 첫 GHCR 패키지 push 시 repo 와 package 가 자동 연결되지 않아 403 이 나거든요. `write:packages`·`read:packages`·`delete:packages`·`repo` 네 scope 의 Classic PAT 를 발급해 `GHCR_TOKEN` secret 으로 등록해야 합니다 (`delete:packages` 는 배포 끝의 이미지 cleanup step 에 필요해요). `init-prod.sh` 가 `.env.prod` 의 `GHCR_TOKEN` 을 GitHub Secrets 로 자동 push 하므로, 운영자는 PAT 발급과 `.env.prod` 채우기만 하면 끝이에요. 자세한 배경은 [`decisions-infra.md I-10`](./decisions-infra.md) 과 [`dogfood-pitfalls.md #7`](../../start/dogfood-pitfalls.md) 의 함정 사례를 참고하세요.
 
 ---
 
@@ -329,7 +329,7 @@ prod 셋업 완료 후, 같은 Mac mini 에 `dev-server.<도메인>` 을 격리 
 
 ### 추가 셋업 (1회)
 
-1. `.env.dev` 를 채워요 — `.env.dev.example` 참고. REQUIRED 키는 `BASE_DOMAIN`, `SUBDOMAIN`, `DB_URL` (별도 Supabase dev 계정), `DB_USER`, `DB_PASSWORD`, `APP_STORAGE_MINIO_BUCKETS_0` (같은 MinIO 인스턴스의 dev 전용 bucket) 이에요.
+1. `.env.dev` 를 채워요 — `.env.dev.example` 참고. 직접 채울 dev 전용 값은 `BASE_DOMAIN`, `SUBDOMAIN`, `DB_URL` (별도 Supabase dev 계정), `DB_USER`, `DB_PASSWORD` 예요. storage 를 쓰면 `APP_STORAGE_MINIO_BUCKETS_0` (같은 MinIO 인스턴스의 dev 전용 bucket) 도 채워요 — 이 키는 OPTIONAL 그룹이라 비워도 부팅은 됩니다 (InMemory fallback).
    `.env.dev` 안의 키 이름은 `.env.prod` 와 동일해요 (suffix 없음). `init-dev.sh` 가 GitHub Secrets/Variables 로 push 할 때만 `_DEV` suffix 를 자동으로 붙여요.
    공유 인프라 자격 (Cloudflare · TS_OAUTH · SSH · GHCR · DEPLOY_HOST) 은 `.env.dev` 가 비어 있으면 `.env.prod` 에서 자동 fallback 합니다.
 

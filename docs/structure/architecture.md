@@ -32,7 +32,7 @@
 | 영역 | 기술 | 근거 ADR |
 |---|---|---|
 | 언어/런타임 | Spring Boot 3.5.13, Java 21~25 (toolchain 21 컴파일) | — |
-| 빌드 | Gradle 8.12 멀티모듈 + convention plugins | [`ADR-004`](../philosophy/adr-004-gradle-archunit.md) |
+| 빌드 | Gradle 8.12.1 멀티모듈 + convention plugins | [`ADR-004`](../philosophy/adr-004-gradle-archunit.md) |
 | 데이터 액세스 | Spring Data JPA, Hibernate, QueryDsl 5.1.0 (Jakarta) | [`ADR-009`](../philosophy/adr-009-base-entity.md), [`ADR-010`](../philosophy/adr-010-search-condition.md) |
 | DB | PostgreSQL 16 (로컬 Docker, 운영 Supabase Seoul) | [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) |
 | 인증 | jjwt 0.13 (HS256), Spring Security stateless, BCrypt | [`ADR-006`](../philosophy/adr-006-hs256-jwt.md) |
@@ -195,6 +195,9 @@ template-spring/
 │   └── reference/                     # 참조 사전
 │       ├── glossary.md
 │       ├── environment.md
+│       ├── environment-ui.md          # 기술 스택 다이어그램 (docs 뷰어 전용)
+│       ├── data-model.md              # 코어 테이블 카탈로그
+│       ├── api/README.md              # 코어 REST API 카탈로그
 │       ├── STYLE_GUIDE.md
 │       └── edge-cases.md
 │
@@ -270,18 +273,17 @@ template-spring/
 │   │
 │   ├── core-user-impl/                # 유저 구현
 │   │   └── src/
-│   │       ├── main/java/com/factory/core/user/impl/
-│   │       │   ├── UserServiceImpl.java           # UserPort 구현
-│   │       │   ├── entity/
-│   │       │   │   ├── User.java                  # toSummary/toProfile/toAccount (ADR-016)
-│   │       │   │   ├── AuthSocialIdentity.java
-│   │       │   │   └── AuthSocialIdentityId.java      # 복합키
-│   │       │   ├── repository/
-│   │       │   ├── controller/UserController.java # 공유 런타임 빈 (UserAutoConfiguration 이 등록)
-│   │       │   └── UserAutoConfiguration.java
-│   │       └── resources/db/migration/core/
-│   │           ├── V001__init_users.sql           # 템플릿 기준선 (users + totp + email index)
-│   │           └── V002__init_auth_social_identities.sql
+│   │       └── main/java/com/factory/core/user/impl/
+│   │           ├── UserServiceImpl.java           # UserPort 구현
+│   │           ├── entity/
+│   │           │   ├── User.java                  # toSummary/toProfile/toAccount (ADR-016)
+│   │           │   ├── AuthSocialIdentity.java
+│   │           │   └── AuthSocialIdentityId.java      # 복합키
+│   │           ├── repository/
+│   │           ├── controller/UserController.java # 공유 런타임 빈 (UserAutoConfiguration 이 등록)
+│   │           └── UserAutoConfiguration.java
+│   │       # users 등 테이블 마이그레이션은 core 에 없음 — new-app.sh 가
+│   │       # 앱별 db/migration/<slug>/ 로 생성 (ADR-037, core schema 폐기)
 │   │
 │   ├── core-auth-api/                 # 인증 포트 (signup/signin/2FA/refresh/withdraw)
 │   │   └── src/main/java/com/factory/core/auth/api/
@@ -297,6 +299,8 @@ template-spring/
 │   │       │   ├── AppleSignInService.java        # Apple identity token 검증 (RS256)
 │   │       │   ├── AppleJwksClient.java           # Apple JWKS 조회 + 캐시
 │   │       │   ├── GoogleSignInService.java       # Google id token 검증
+│   │       │   ├── KakaoSignInService.java        # Kakao access token 검증
+│   │       │   ├── NaverSignInService.java        # Naver access token 검증
 │   │       │   ├── RefreshTokenService.java       # 회전 + 탈취 감지
 │   │       │   ├── EmailVerificationService.java  # core-email-api 의 EmailPort 사용 (ADR-024)
 │   │       │   ├── PasswordResetService.java
@@ -343,7 +347,7 @@ template-spring/
 │   ├── core-sms-impl/                 # SMS 발송 구현 (CoolSMS/SOLAPI)
 │   │   └── src/main/java/com/factory/core/sms/impl/
 │   │       ├── CoolSmsAdapter.java                # SmsPort 구현 (SOLAPI HMAC-SHA256 실발송, 국내형 번호 변환)
-│   │       ├── LoggingSmsAdapter.java             # dev/dev-server fallback (콘솔 OTP 캡처 + dev 응답 노출)
+│   │       ├── LoggingSmsAdapter.java             # non-prod(local·dev) fallback (콘솔 OTP 캡처 + dev 응답 노출)
 │   │       ├── CoolSmsProperties.java             # COOLSMS_API_KEY / COOLSMS_API_SECRET / COOLSMS_FROM / api-url
 │   │       └── SmsAutoConfiguration.java          # key 유무로 real/fallback 토글 (email 과 동일 패턴)
 │   │
@@ -377,7 +381,7 @@ template-spring/
 │   ├── core-email-impl/               # 이메일 발송 구현 (Resend)
 │   │   └── src/main/java/com/factory/core/email/impl/
 │   │       ├── ResendEmailAdapter.java            # EmailPort 구현 (Resend HTTP API)
-│   │       ├── LoggingEmailAdapter.java           # dev fallback (콘솔 + raw token 노출)
+│   │       ├── LoggingEmailAdapter.java           # local 전용 fallback (콘솔 + raw token 노출 — dev/prod 는 키 필수)
 │   │       ├── ResendProperties.java              # RESEND_API_KEY / RESEND_FROM_ADDRESS / RESEND_FROM_NAME
 │   │       └── EmailAutoConfiguration.java
 │   │
@@ -457,7 +461,7 @@ template-spring/
 │   └── core-admin-impl/               # cross-app 운영 콘솔 (ADR-039, -impl 단독 — api 쌍 없음)
 │       ├── controller/                            # /api/admin — Auth/Dashboard/Apps/Users/Payments/Files/Content/Analytics/Audit/Accounts/Roles/Metrics
 │       ├── rbac/                                  # AdminRole (viewer/support/admin/master 4티어) + RolePermissionService
-│       ├── exception/AdminError.java              # ADMIN_001~ADMIN_022
+│       ├── exception/AdminError.java              # ADMIN_001~ADMIN_023
 │       └── src/main/resources/db/migration/admin/ # V001 admin_users, V002 role, V003 role_permissions
 │
 ├── apps/                              # 앱별 도메인 모듈

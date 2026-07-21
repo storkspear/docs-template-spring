@@ -58,7 +58,7 @@
 - `apps/` 는 각 앱의 실제 제품이에요. 가계부면 가계부, 운동 기록이면 운동 기록의 도메인 코드가 들어가요.
 - `bootstrap/` 은 이것들을 다 담아 배송하는 상자예요. 전부 조립해 단일 [fat JAR](../reference/glossary.md#프레임워크--빌드) 하나로 빌드돼요.
 
-`core/` 의 모듈은 모두 `-api` 와 `-impl` 두 짝으로 쪼개져 있어요. 예를 들어 `core-auth` 는 인터페이스만 담은 `core-auth-api` 와 실제 구현을 담은 `core-auth-impl` 로 나뉘어요. 왜 이렇게 나누는지는 [`ADR-003 · -api / -impl 분리`](../philosophy/adr-003-api-impl-split.md) 가 답해요. 한 줄로 말하면 나중에 한 기능을 따로 떼어낼 수 있게 미리 그어둔 경계예요.
+`core/` 의 모듈은 `-api` 와 `-impl` 두 짝으로 쪼개져 있어요. 예를 들어 `core-auth` 는 인터페이스만 담은 `core-auth-api` 와 실제 구현을 담은 `core-auth-impl` 로 나뉘어요. 예외는 하나, 운영 콘솔인 `core-admin` 은 `-api` 쌍 없이 `core-admin-impl` 단독이에요. 왜 이렇게 나누는지는 [`ADR-003 · -api / -impl 분리`](../philosophy/adr-003-api-impl-split.md) 가 답해요. 한 줄로 말하면 나중에 한 기능을 따로 떼어낼 수 있게 미리 그어둔 경계예요.
 
 ## 2. 앱 하나를 추가한다는 것
 

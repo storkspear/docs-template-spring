@@ -7,7 +7,7 @@
 핵심을 먼저 짚으면 이래요.
 
 - **노출 경로** — Swagger UI 는 `/swagger-ui.html`, OpenAPI JSON 은 `/v3/api-docs` (둘 다 base `application.yml` 의 `springdoc` 설정).
-- **프로파일별 정책** — `local` 에서만 켜져 있고, `dev`·`prod` 는 기본으로 꺼 둡니다 (OWASP A05.1, 외부 노출 차단).
+- **프로파일별 정책** — `local` 과 `dev` 는 기본으로 켜져 있고, `prod` 만 꺼 둡니다 (OWASP A05.1). dev 는 `SPRINGDOC_SWAGGER_UI_ENABLED=false` 환경변수로 끌 수 있어요.
 - **인증** — `OpenApiConfig` 가 Bearer JWT 보안 스킴을 글로벌 등록해서 "Authorize" 버튼 한 번으로 모든 호출에 토큰이 붙습니다.
 
 ## 접근 URL
@@ -17,8 +17,8 @@
 | 프로파일 | 환경 | Swagger UI | OpenAPI JSON |
 |---|---|---|---|
 | `local` | 로컬 (`<repo> init` / `<repo> start`) | `http://localhost:8081/swagger-ui.html` ✅ | `http://localhost:8081/v3/api-docs` ✅ |
-| `dev` | dev 서버 (`<repo> dev deploy`) | 404 (기본 비활성) | 404 (기본 비활성) |
-| `prod` | 운영 (`<repo> prod deploy`) | 404 (기본 비활성) | 404 (기본 비활성) |
+| `dev` | dev 서버 (`<repo> dev deploy`) | ✅ 기본 활성 (`SPRINGDOC_SWAGGER_UI_ENABLED=false` 로 차단) | ✅ 기본 활성 (`SPRINGDOC_API_DOCS_ENABLED=false` 로 차단) |
+| `prod` | 운영 (`<repo> prod deploy`) | 404 (비활성) | 404 (비활성) |
 
 로컬 port 8081 은 base `application.yml` 의 `server.port` 기본값이에요. dev·prod 컨테이너는 `SERVER_PORT=8080` 으로 override 하고 (`config/deploy.yml`, Dockerfile `EXPOSE 8080` 과 일치), 외부 접근은 Cloudflare Tunnel 과 kamal-proxy 를 거쳐 443 으로 통합돼요.
 
@@ -40,10 +40,12 @@
 |---|---|---|---|
 | `<Slug>HealthController` | `apps/app-<slug>` (생성됨) | `/api/apps/<slug>` | `<slug>` |
 | `AuthController` | `core-auth-impl` (공유) | `/api/apps/{appSlug}/auth` | `auth` |
+| `PhoneAuthController` | `core-phone-auth-impl` (공유) | `/api/apps/{appSlug}/auth` | `phone-auth` |
 | `UserController` | `core-user-impl` (공유) | `/api/apps/{appSlug}/users` | `core-user` |
 | `DeviceController` | `core-device-impl` (공유) | `/api/apps/{appSlug}/devices` | `core-device` |
 | `PaymentController` | `core-billing-impl` (공유) | `/api/apps/{appSlug}/payment` | `payment` |
 | `IapController` | `core-billing-impl` (공유) | `/api/apps/{appSlug}/iap` | `iap` |
+| `NotificationSettingController` | `core-billing-impl` (공유) | `/api/apps/{appSlug}/me/notification-settings` | `notification-settings` |
 
 Swagger UI 에서 슬러그별 그룹은 `<slug>` 태그(헬스체크)로만 보이고, 인증·유저·결제 그룹은 공유 태그(`auth`·`core-user`·`payment`·`iap` 등) 아래에 `{appSlug}` path 변수 형태로 나타나요.
 
@@ -64,10 +66,10 @@ Swagger UI 에서 슬러그별 그룹은 `<slug>` 태그(헬스체크)로만 보
 
 ## 운영 환경의 Swagger 노출 정책
 
-본 템플릿은 `dev`·`prod` 에서 Swagger UI 와 OpenAPI 명세를 **기본으로 차단**합니다. API 구조 노출을 줄여 공격 표면을 좁히는 fail-secure 기본값이에요 (OWASP A05.1 — Security Misconfiguration).
+본 템플릿은 `prod` 에서 Swagger UI 와 OpenAPI 명세를 **차단**합니다. API 구조 노출을 줄여 공격 표면을 좁히는 fail-secure 기본값이에요 (OWASP A05.1 — Security Misconfiguration).
 
 ```yaml
-# application-prod.yml / application-dev.yml 공통
+# application-prod.yml
 springdoc:
   swagger-ui:
     enabled: false
@@ -75,15 +77,15 @@ springdoc:
     enabled: false
 ```
 
-이 설정으로 `/swagger-ui.html` 과 `/v3/api-docs` 둘 다 404 가 됩니다. dev 가 Cloudflare Tunnel 로 외부에 노출되는 점을 고려해 dev 도 prod 와 같은 정책을 따라요.
+이 설정으로 `/swagger-ui.html` 과 `/v3/api-docs` 둘 다 404 가 됩니다. 반면 dev 는 API 탐색 편의를 위해 기본 활성이에요 — `application-dev.yml` 이 `${SPRINGDOC_SWAGGER_UI_ENABLED:true}` / `${SPRINGDOC_API_DOCS_ENABLED:true}` 로 환경변수 override 를 열어 두므로, 노출을 줄이고 싶으면 두 값을 `false` 로 주입하세요.
 
-| 환경 | 기본값 | 켜는 법 |
+| 환경 | 기본값 | 바꾸는 법 |
 |---|---|---|
 | `local` | 노출 (개발 편의) | 별도 설정 없음 — base `application.yml` 그대로 |
-| `dev` | 차단 | `SPRINGDOC_SWAGGER_UI_ENABLED=true` 환경변수로 일시 override |
-| `prod` | 차단 | 권장하지 않음. 필요하면 stage·internal 전용 yml 로만 제한적 활성화 |
+| `dev` | 노출 | `SPRINGDOC_SWAGGER_UI_ENABLED=false`·`SPRINGDOC_API_DOCS_ENABLED=false` 환경변수로 차단 |
+| `prod` | 차단 (yml 고정) | 권장하지 않음. 필요하면 stage·internal 전용 yml 로만 제한적 활성화 |
 
-운영에서 잠깐 탐색이 필요하면 환경변수로 켜되, 끝나면 다시 끄는 흐름을 권장합니다. 상시 공개가 필요한 조직 도메인이라면 Spring Security 로 `/swagger-ui/**` 와 `/v3/api-docs/**` 경로를 인증 뒤로 두는 방식이 더 안전해요.
+dev 는 환경변수로 켜고 끌 수 있지만 prod 는 yml 에 `false` 로 고정돼 있어요. 운영에서 상시 공개가 필요한 조직 도메인이라면 Spring Security 로 `/swagger-ui/**` 와 `/v3/api-docs/**` 경로를 인증 뒤로 두는 방식이 더 안전해요.
 
 ## 관련 문서
 

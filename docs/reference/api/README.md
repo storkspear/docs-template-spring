@@ -23,7 +23,7 @@
 
 ### IAP dev-mock (ADR-034 후속)
 
-- `APP_IAP_APPLE_DEV_MOCK=true` 시 `AppleJwsVerifier` 가 cert chain + ES256 검증 우회. WireMock self-signed payload 검증용. **prod 절대 금지** — `.env.prod` 강제 false.
+- `APP_IAP_APPLE_DEV_MOCK=true` 시 `AppleJwsVerifier` 가 cert chain + ES256 검증 우회. WireMock self-signed payload 검증용. **prod 절대 금지** — `.env.prod` 에는 이 키를 두지 않아요 (코드 default false).
 - Google RTDN 은 `APP_IAP_GOOGLE_WEBHOOK_VERIFY_TOKEN=false` (default) 이 dev-mock 동등.
 
 ---
@@ -68,7 +68,7 @@
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
 | GET | `/users/me` | O | 현재 유저 프로필 조회 |
-| PATCH | `/users/me` | O | 프로필 수정 (displayName — null 필드는 유지, PATCH semantics) |
+| PATCH | `/users/me` | O | 프로필 수정 (displayName·nickname — null 필드는 유지, PATCH semantics) |
 | POST | `/users/me/activity` | O | 활동 ping (204) — 본문 로직 없음, `UserActivityTrackingFilter` 가 (user, 오늘) 활동 기록 |
 
 ---

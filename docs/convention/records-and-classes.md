@@ -118,7 +118,7 @@ public record UserProfile(long id, String email, String displayName /* ... */) {
 
 ### JPA Entity 에는 못 써요
 
-`@Entity` 는 인자 없는 생성자와 setter 를 기대합니다. record 는 생성자가 고정이라 이 요구를 맞출 수 없어요. 그래서 Entity 는 반드시 class 로 작성하고, JPA 용 기본 생성자를 `protected` 로 둡니다. `User`·`RefreshToken` 엔티티가 그 형태예요.
+`@Entity` 는 인자 없는 생성자와 setter 를 기대합니다. record 는 생성자가 고정이라 이 요구를 맞출 수 없어요. 그래서 Entity 는 반드시 class 로 작성하고, JPA 용 기본 생성자를 `protected` 로 둡니다. `User`·`AuthRefreshToken` 엔티티가 그 형태예요.
 
 ### `@JsonProperty` 는 최후의 수단
 

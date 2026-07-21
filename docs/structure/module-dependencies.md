@@ -122,7 +122,7 @@ plugins {
 dependencies {
     // 고유 의존만 작성. java-library 와 검증은 plugin 이 처리.
     compileOnly 'org.springframework.boot:spring-boot-autoconfigure'
-    implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
+    implementation libs.logstash.logback.encoder   // 버전은 gradle/libs.versions.toml
 }
 ```
 
@@ -208,10 +208,10 @@ dependencies {
   config : implementation
   depends: :core:core-auth-impl
   reason : forbidden pattern
-See docs/conventions/module-dependencies.md
+See docs/structure/module-dependencies.md
 ```
 
-`reason` 은 두 가지로 나뉘어요. 금지 패턴에 걸리면 `forbidden pattern`, 허용 목록에 없으면 `not in allowlist` 입니다. 마지막 줄이 가리키는 실제 문서는 지금 보고 있는 이 파일(`docs/structure/module-dependencies.md`)이에요.
+`reason` 은 두 가지로 나뉘어요. 금지 패턴에 걸리면 `forbidden pattern`, 허용 목록에 없으면 `not in allowlist` 입니다. 마지막 줄이 가리키는 문서가 지금 보고 있는 이 파일이에요.
 
 해결은 `project(':core:core-auth-impl')` 을 `project(':core:core-auth-api')` 로 바꾸는 거예요. 앱은 impl 의 내부 구현이 아니라 api 의 [Port](../reference/glossary.md#아키텍처-용어) 계약만 알아야 합니다.
 
