@@ -214,7 +214,7 @@ Started FactoryApplication in 4.xxx seconds
 - AutoConfiguration 등록 + `settings.gradle` / `bootstrap/build.gradle` 에 의존성 추가
 - 모듈 README 생성
 
-`new app` 이 깔아 주는 공통 마이그레이션은 V001~V025 (V007 제외 24개) 로, 모든 앱이 똑같이 받는 인증·결제·알림·운영 기반이에요.
+`new app` 이 깔아 주는 공통 마이그레이션은 V001~V026 (V007 제외 25개) 으로, 모든 앱이 똑같이 받는 인증·결제·알림·운영 기반이에요.
 
 | 버전 | 내용 | 비고 |
 |---|---|---|
@@ -228,8 +228,9 @@ Started FactoryApplication in 4.xxx seconds
 | **V018 ~ V021** | attachment_file · user_read_history · message_send_history · audit_logs_archive | 첨부파일·열람이력·발송이력·감사 아카이브 |
 | **V022 ~ V023** | payment 환불 컬럼 · payment_refunds | |
 | **V024 ~ V025** | posts · analytics | |
+| **V026** | auth_email_verification_tokens.attempts (이메일 인증 무차별 대입 방어) | |
 
-본인 도메인 테이블은 그다음 빈 번호(현재 **V026**)부터 직접 작성하면 돼요. V001~V025 가 이미 차 있고, V007 은 도메인이 아니라 `--seed-admin` 전용 관리자 시드 자리예요.
+본인 도메인 테이블은 그다음 빈 번호(현재 **V027**)부터 직접 작성하면 돼요. V001~V026 이 이미 차 있고, V007 은 도메인이 아니라 `--seed-admin` 전용 관리자 시드 자리예요.
 
 ### 3.2 환경 채우기 (대부분 자동)
 
@@ -384,7 +385,7 @@ cd <repo>
 
 `<repo> init` 은 settings.gradle rename 이 끝났고 `PROJECT_README_TEMPLATE.md` 가 없으면 — 즉 **이미 셋업된 레포면** — rename 과 README 교체(첫 작업자가 이미 한 일)를 자동으로 건너뛰고, `.env` 생성 + 로컬 docker 기동 + 검증 + symlink 만 진행해요. 이 판단은 레포에 커밋된 상태(rename·README)만 보고, `.env.prod` 같은 머신마다 다른 파일은 보지 않아요. 그래서 운영을 아직 안 띄운 솔로 작업자나 두 번째 노트북이나 똑같이 매끄럽게 동작해요.
 
-핵심은 **두 번째 노트북은 외부 DB 자격이 전혀 필요 없다** 는 점이에요. 로컬 docker postgres 만 쓰고, 앱 schema 는 `<repo> new <slug>` 가 결정적 Flyway 마이그레이션(V001~V025)으로 동일하게 재생성해요. `.env` 는 `.gitignore` 라 머신마다 각자 생성되니 자격 충돌도 없어요.
+핵심은 **두 번째 노트북은 외부 DB 자격이 전혀 필요 없다** 는 점이에요. 로컬 docker postgres 만 쓰고, 앱 schema 는 `<repo> new <slug>` 가 결정적 Flyway 마이그레이션(V001~V026)으로 동일하게 재생성해요. `.env` 는 `.gitignore` 라 머신마다 각자 생성되니 자격 충돌도 없어요.
 
 > `.env.prod` 는 커밋되지 않으므로(secret 보호) 두 번째 노트북엔 없어요. 로컬 개발엔 불필요하고, 운영 변경(`prod init` / Secrets 갱신)은 **첫 작업자(운영자) 한 명** 이 맡는 걸 권장해요. 만약 두 번째 개발자가 `prod init` 을 돌려도, `.env.prod` 가 없는 머신에서는 운영 secret 을 GitHub 에 push 하는 단계가 자동으로 건너뛰어져 운영자의 secret 을 덮어쓰지 않아요. 바로 이 `.env.prod` 유무가 운영 secret push 의 안전장치예요(로컬 셋업 모드 판별과는 별개).
 

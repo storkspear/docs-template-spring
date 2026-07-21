@@ -72,6 +72,21 @@ GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직
 <repo> prod logs        # kamal app logs -f 래퍼
 ```
 
+### 이미지 서명 검증 (cosign)
+
+GHA 경로 (`deploy.yml` / `deploy-dev.yml`) 는 GHCR push 직후 이미지 digest 에 **cosign keyless 서명** 을 남깁니다. GitHub OIDC 기반이라 별도 키 관리가 없고, 서명 기록은 Sigstore Rekor 투명성 로그에 남아요. "GHCR 의 이 이미지가 진짜 우리 CI 워크플로에서 나왔는지" 를 배포 전에 확인할 수 있습니다.
+
+수동 검증은 다음 한 줄이에요 (`<owner>/<repo>` 는 본인 레포로 치환).
+
+```bash
+cosign verify \
+  --certificate-identity-regexp "^https://github.com/<owner>/<repo>/\.github/workflows/deploy(-dev)?\.yml@.*$" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  ghcr.io/<owner>/<repo>:<sha>
+```
+
+로컬 수동 배포 (`tools/deploy.sh`) 는 배포 확정 직후 이 검증을 자동 수행하되 **soft 모드** 로 동작해요 — cosign 미설치 (`brew install cosign`), 이미지 미존재 (로컬 kamal 빌드 경로), 서명 없음 모두 warn 후 계속 진행합니다. CI 서명 배포가 안정화되면 `tools/deploy.sh` 의 해당 warn 을 fail 로 바꿔 차단 모드로 전환하세요 (스크립트 주석에 안내).
+
 ---
 
 ## 롤백
