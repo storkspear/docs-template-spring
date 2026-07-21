@@ -42,17 +42,14 @@
 ### 보안 / 자격증명
 
 - [ ] [Security] TLS/HTTPS 내부 구간 검토 — CF 가 edge 처리 OK, 맥미니 ↔ NAS 내부 통신은? (2026-04-18)
-- [x] [Security] 로그인 실패 계정 잠금 — **구현 완료 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-account-lockout.md` (5회/15분·backoff 자동·ATH_014/429·V027·flutter 계약 동기). EmailAuthService.signIn(1단계) + TwoFactorService.loginWith2fa(2단계) 동일 카운터, 실패 기록 REQUIRES_NEW, 비밀번호 재설정 성공 시 즉시 해제. RateLimitFilter 에 TOTP_LOGIN strict 편입 동반. (owasp A07.1) (생성일: 2026-05-06)
 - [ ] [Security] 배포 경로 이미지 서명 검증 — **저우선 보류**: 로컬 빌드는 Actions 과금 회피를 위한 의도된 결정(2026-07-21 확인)이라 CI 빌드 의존 전환은 부적합. 실효 위협은 서버의 re-pull/rollback 경로(레지스트리에서 기존 이미지를 다시 받을 때 변조 가능성)뿐 — 대안: 로컬 키(cosign key pair) 서명 + pull 시 검증, 또는 self-hosted runner. 재평가 트리거: GHCR 토큰 사고·다중 운영자·Actions 과금 정책 변화. 태그 기반 GHCR cleanup 액션 교체는 별도 소형 후보 (재정의: 2026-07-21)
 - [ ] [Security] 이메일 verify 표적 DoS 완화 (쿨다운) — email 스코프 계약(집단 DoS 제거 + 6자리 브루트포스 방어)은 이미 적용됨. **잔여: 표적 DoS** (공격자가 피해자 email 로 5회 오답 → 피해자 활성 토큰이 `markUsed` 로 영구 소진, 재발송으로만 복구). 계정 잠금 사이클(2026-07-21)에서 완화(5회 도달 시 즉시 폐기 대신 쿨다운) 검토했으나 **이번엔 보류** — `auth_email_verification_tokens` 에 별도 신규 마이그레이션 + 6 fixture 동기 + 쿨다운 리셋 동시성 처리가 필요해 계정 잠금 변경(이미 대규모)과 분리하는 게 리뷰 가능성상 낫다고 판단. 근거·트레이드오프는 `EmailVerificationService.verify` javadoc("보안 경계")에 잔존 명시. 후속 소형 사이클 후보. (재정의: 2026-07-21)
-- [ ] [Security] 2FA flutter 표면 전체 사이클 — **승인됨 (2026-07-21)**: ①로그인 2단계 수리 (twoFactorToken 감지→TOTP 입력 — 현재 2FA 유저는 앱 로그인 불가, 감사 후보 확정) ②설정>보안: 활성화(QR+백업코드 8개)·해제 ③백업코드 셀프 재발급 API+화면 (비번+TOTP 재확인, 최악 케이스는 이메일 OTP 로 해제→재등록) ④config 플래그로 노출 통제 (2FA 불요 앱은 흔적 제거). spring+flutter, 계정잠금과 auth 묶음. ADR-030 보강 (owasp A07.4) (재정의: 2026-07-21)
 - [ ] [Security] 무로깅 보안 이벤트에 WARN 심기 — security-logging.md 실측 결과 로그인 실패·권한 거부·Apple/PortOne webhook 서명 실패·비밀번호 변경이 무로깅, 콘솔 계정 변경은 audit_logs 미기록(@Audited 미부착). 문서의 인벤토리 표를 스펙 삼아 소형 사이클로 (생성일: 2026-07-21)
 
 ### 데이터 / DB
 
 - [ ] [Data] 백업 실행 (pg_dump 주기, NAS 보관, retention) — `backup-to-nas.sh.example` 은 placeholder (2026-04-18)
 - [ ] [Data] 복구 drill — "edge-cases 3-1: 1~2 시간 내 복구" 주장 실측 (2026-04-18)
-- [ ] [Data] GDPR export·delete — **승인·plan 확정 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-gdpr-export-delete.md` (운영자 절차형 P1 — admin export 버튼+본인확인 2단계 runbook+30일 유예 익명화 배치, 셀프서비스 UI 폐기 결정). **spring 백엔드 구현 완료 (2026-07-21)**: export/delete API + `PERM_USERS_WRITE` + `UserErasureScheduler`/`AdminUserErasureService` + `docs/production/gdpr-request-runbook.md`. **잔여: react-admin 버튼(export/삭제) — 후속 에이전트** (2026-04-18)
 - [ ] [Data] Supabase Free → Pro 전환 절차 문단 — 기준(MAU 1K)은 decisions-infra.md 에 기존재, 절차만 부재. **트리거: MAU 1K 접근 시** (2026-07-21 보류 결정) (2026-04-18)
 
 ### 관측성 / 운영
@@ -65,8 +62,6 @@
 
 - [ ] [Feature] IAP 실기기 E2E 검증 (Apple sandbox / Google 내부 테스트 트랙) — 서버 측은 stub 이 아니라 완전 구현 상태 (AppleAppStoreAdapter · GooglePlayAdapter · RTDN/ASSN webhook, ADR-019~022). 남은 것은 실 스토어 계정 + 실기기 구매 flow 1회 검증 (2026-04-18, 재정의: 2026-07-15 — 원래 "Billing 실제 구현, 현재 Stub" 이었으나 구현 완료로 범위 재정의)
 - [ ] [Feature] i18n 구현 — **트리거: 첫 글로벌 타깃 앱 파생 시** (한국 시장만인 동안 실익 0 — 2026-07-21 결정). 전략은 plan 확정: 에러코드 기반 클라 번역+서버 message fallback 하이브리드 (`docs/superpowers/plans/2026-07-21-i18n-strategy.md`). 발견 결함(영어 폰에 서버 한국어 노출)도 같은 트리거에 묶음 (재정의: 2026-07-21)
-- [ ] [Feature] N일 경과 미연관 POST 첨부 스윕 — 콘솔 게시물 작성 중 업로드만 하고 글 저장을 안 한 미연관(associated_id IS NULL, associated_type='POST') 첨부가 orphan 으로 남음. `AttachmentPurgeScheduler` 에 스윕 추가 — **앱 파일 API 사이클에 편입 (2026-07-21 결정)**: plan `2026-07-21-app-file-api.md` 구현 시 함께 (생성일: 2026-07-16)
-- [ ] [Feature] 앱 클라이언트용 파일 업로드·조회 API — **승인·plan 확정 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-app-file-api.md` (storageKey 단일 계약·마이그레이션 0건·flutter file_kit 신설·미연관 첨부 스윕 편입). spring+flutter 3면 동기, 구현 대기열 3순위 (생성일: 2026-07-21)
 
 ### 개발자 경험 / 툴링 (DX)
 
