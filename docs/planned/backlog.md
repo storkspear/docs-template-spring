@@ -38,7 +38,6 @@
 
 ### 운영 배포 / 파이프라인 (Item Ops-1 — 파생레포/호스트 작업)
 
-- [ ] [Ops] Secrets management 체계 선택 (1Password CLI / sops / Vault / AWS Parameter Store) — `.env` 수기 관리 탈피 (2026-04-18)
 
 ### 보안 / 자격증명
 
@@ -76,7 +75,7 @@
 
 - [ ] [DX] Inventory 기계 추출 파일 `docs/.inventory.yml` — Item 9 plan 의 embed 인벤토리 drift 방지 (2026-04-18)
 - [ ] [DX] Multi-app 로컬 병렬 개발 가이드 (포트 충돌, IntelliJ run config 공유) — 여러 앱 동시 기동 (2026-04-18)
-- [ ] [DX] `<repo> prod db-backup [slug]` / `<repo> prod storage-backup [slug]` 명령 — `prod force-clear` (이번 사이클 추가) 의 Step 3 백업 안내가 manual `pg_dump` / `mc cp` 로 출력. 자동화 시 일관된 백업 위치 + tar.gz 압축 + retention 정책 가능. force-clear 와 짝 (clear/init 의 symmetry 와 같이). 본 사이클은 force-clear 만 추가 — 백업 자동화는 별도 사이클 (2026-05-02)
+- [ ] [DX] `<repo> prod db-backup [slug]` / `storage-backup` 명령 + force-clear 백업 선행 강제 — 백업 자동화(위치·tar.gz·retention)와 `prod force-clear` 의 최근 백업 존재 확인 선행(없으면 차단)을 한 사이클로 설계. **실행 시점: bluepig prod 가동 시** (재정의: 2026-07-21)
 - [ ] [DX] `<repo> prod force-clear <slug>` 의 관측성 데이터 처리 — 현재 슬러그 지정 시에도 `[3/5]` 단계가 *모든 관측성 데이터* (Grafana / Loki / Prometheus / Alertmanager) 삭제 confirm 을 묻는다. 관측성 스택은 모든 슬러그가 공유하므로 *특정 슬러그 정리 시* 보존이 자연스러움. slug 지정 케이스에선 `[3/5]` 자동 skip + 안내 또는 *해당 슬러그의 dashboard / log stream 만 분리 정리* 가 정확. 현재 운영자가 실수로 'y' 입력 시 *전체 모니터링 히스토리* 손실 가능. force-clear 와 함께 들어간 사이클에 후속 보강 권장 (2026-05-03)
 - [ ] [DX] `factory install` 의 alias 이름 입력 단계에 *bash 빌트인·예약어 충돌 검증* — 운영자가 `test` 같은 빌트인 명령을 입력하면 `~/.local/bin/test` symlink 가 등록되어도 bash 가 빌트인을 우선해 `test init` 이 no-op 으로 동작 (조건 검사로 해석되어 0 exit). 차단 대상 후보: `test`, `[`, `[[`, `true`, `false`, `cd`, `pwd`, `echo`, `set`, `eval`, `source`, `.`, `:`, `command`, `type`, `which`, `time`, `exec`, `exit`, `kill`, `jobs`, `bg`, `fg`, `wait`, `read`, `local`, `export`, `unset`, `alias`, `unalias`, `history`, `let`, `printf`. 입력 후 `compgen -b <name>` 또는 hardcoded 목록으로 검증 → 매치 시 *재입력 요구*. 도그푸딩 사이클에서 `test` 입력으로 발견됨 (2026-05-03)
 - [ ] [ADR-037 후속] runtime DataSource 의 transaction-mode 전환 설계 — Flyway/session 분리 자체는 구현 완료(`AbstractAppDataSourceConfig.buildFlyway` 별도 session DataSource + `deriveFlywayUrl` 6543→5432). 남은 본체: transaction pooler 는 `currentSchema` 기반 라우팅과 비호환(2026-07 실측 — startup 파라미터 미적용으로 전 앱 misroute) → per-transaction `SET LOCAL search_path` 주입 또는 per-slug role/DB 로 라우팅 재설계 필요 (생성일: 2026-05-26, 재정의: 2026-07-21)

@@ -73,7 +73,7 @@
 
 | verb | local | 비고 |
 |---|---|---|
-| **new app** `[slug]` | 새 앱 모듈 (schema + 공통 마이그레이션 V001~V025 24개 + 검증). admin 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼요 (비밀번호 랜덤·1회 출력). `slug` 생략 시 prompt | `tools/new-app/new-app.sh` |
+| **new app** `[slug]` | 새 앱 모듈 (schema + 공통 마이그레이션 V001~V026 25개 + 검증). admin 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼요 (비밀번호 랜덤·1회 출력). `slug` 생략 시 prompt | `tools/new-app/new-app.sh` |
 | **remove app** `<slug>` | 앱 모듈 완전 제거 (코드 + .env + local/dev schema·role). prod 미지원 | `tools/new-app/remove-app.sh` |
 | **app list** | 등록된 앱 모듈(slug) 목록 + settings.gradle 등록 여부 | env 무관 — 로컬 코드 기준 |
 | **feature list** | Lite 모드 토글 가능 모듈 + 현재 상태 (ADR-034) | `local feature` 만 |
@@ -125,7 +125,7 @@
 
 # 3) (선택) 새 앱 추가
 <repo> new myapp
-   → apps/app-myapp + schema + 공통 마이그레이션 V001~V025 (admin 시드 V007 은 --seed-admin opt-in)
+   → apps/app-myapp + schema + 공통 마이그레이션 V001~V026 (admin 시드 V007 은 --seed-admin opt-in)
    → 도메인 테이블은 다음 빈 번호(현재 V026)부터 직접 작성
    → 끝나면: <repo> local restart   (새 코드 반영)
 ```

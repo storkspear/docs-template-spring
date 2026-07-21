@@ -76,8 +76,8 @@
      - GymlogHealthController (앱 모듈 유일한 컨트롤러 — 인증/유저/결제는 core 공유 컨트롤러가 처리)
      - GymlogDataSourceConfig (gymlog schema 전용)
      - GymlogAppAutoConfiguration
-     - V001~V025 마이그레이션 (users, auth_social_identities, auth_refresh_tokens 등.
-       V007 admin 시드는 --seed-admin opt-in 시에만 생성, 도메인 테이블은 V026 부터)
+     - V001~V026 마이그레이션 (users, auth_social_identities, auth_refresh_tokens 등.
+       V007 admin 시드는 --seed-admin opt-in 시에만 생성, 도메인 테이블은 V027 부터)
      - build.gradle
 3. 도메인 코드 작성 (controller / service / entity / repository / Flyway)
 4. core-* 는 건드리지 않음 — 새 기능이 core 에 필요하면 별도 ADR
