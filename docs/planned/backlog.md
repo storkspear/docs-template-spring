@@ -52,7 +52,7 @@
 
 - [ ] [Data] 백업 실행 (pg_dump 주기, NAS 보관, retention) — `backup-to-nas.sh.example` 은 placeholder (2026-04-18)
 - [ ] [Data] 복구 drill — "edge-cases 3-1: 1~2 시간 내 복구" 주장 실측 (2026-04-18)
-- [ ] [Data] GDPR export·delete — **승인·plan 확정 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-gdpr-export-delete.md` (운영자 절차형 P1 — admin export 버튼+본인확인 2단계 runbook+30일 유예 익명화 배치, 셀프서비스 UI 폐기 결정). spring+react-admin, 구현 대기열 2순위 (2026-04-18)
+- [ ] [Data] GDPR export·delete — **승인·plan 확정 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-gdpr-export-delete.md` (운영자 절차형 P1 — admin export 버튼+본인확인 2단계 runbook+30일 유예 익명화 배치, 셀프서비스 UI 폐기 결정). **spring 백엔드 구현 완료 (2026-07-21)**: export/delete API + `PERM_USERS_WRITE` + `UserErasureScheduler`/`AdminUserErasureService` + `docs/production/gdpr-request-runbook.md`. **잔여: react-admin 버튼(export/삭제) — 후속 에이전트** (2026-04-18)
 - [ ] [Data] Supabase Free → Pro 전환 절차 문단 — 기준(MAU 1K)은 decisions-infra.md 에 기존재, 절차만 부재. **트리거: MAU 1K 접근 시** (2026-07-21 보류 결정) (2026-04-18)
 
 ### 관측성 / 운영

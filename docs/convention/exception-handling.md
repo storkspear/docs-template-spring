@@ -34,7 +34,7 @@ ErrorInfo (인터페이스)
     ├── IapError         ← IAP_001 ~ IAP_007 (Apple·Google IAP — ADR-022)
     ├── PaymentError     ← PAY_001 ~ PAY_009 (PortOne PG — ADR-019)
     ├── StorageError     ← STG_001 ~ STG_011 (오브젝트 스토리지)
-    └── AdminError       ← ADMIN_001 ~ ADMIN_023 (운영 콘솔 — core-admin-impl)
+    └── AdminError       ← ADMIN_001 ~ ADMIN_025 (운영 콘솔 — core-admin-impl)
 
 BaseException (부모)
     ├── CommonException      ← 공통 예외 (NOT_FOUND, FORBIDDEN, JWT 토큰 등)
@@ -243,6 +243,8 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | ADMIN_021 | 400 | ADMIN_REFUND_NOT_ALLOWED | 환불 불가 결제 (전액 환불됨/미완료) |
 | ADMIN_022 | 404 | ADMIN_CONTENT_NOT_FOUND | 대상 게시물 미발견 |
 | ADMIN_023 | 400 | ATTACHMENT_ASSOCIATION_FAILED | 첨부 연관 확정 실패 (부재·slug 불일치·타 게시물 소유) |
+| ADMIN_024 | 400 | USER_ALREADY_DELETED | 이미 탈퇴 처리된 사용자 (콘솔 삭제 재호출) |
+| ADMIN_025 | 410 | USER_ERASED | 완전삭제(익명화)된 사용자 (export/삭제 시도) |
 
 ### graceful 503 패턴
 
