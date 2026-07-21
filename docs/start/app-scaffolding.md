@@ -251,7 +251,7 @@ public class <SlugPascal>DataSourceConfig extends AbstractAppDataSourceConfig {
 
 Repository scan 을 `apps.<slugPackage>.repository` 로만 한정하는 건, `core-*` 레포지토리가 이미 자기 AutoConfiguration 의 `@EnableJpaRepositories` 로 default EMF 에 등록됐기 때문이에요. 여기서 코어 패키지를 다시 스캔하면 `BeanDefinitionOverrideException` 이 나요.
 
-### 3.5 Flyway Migration — 공통 V001~V025
+### 3.5 Flyway Migration — 공통 V001~V026
 
 ```
 apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/
@@ -281,7 +281,7 @@ apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/
 └── V025__add_analytics.sql
 ```
 
-`new-app.sh` 가 깔아 주는 공통 마이그레이션은 V001~V025 (V007 제외 24개) 로, 모든 앱이 똑같이 받는 인증·결제·알림·운영 기반이에요. 어떤 버전이 무엇을 담는지는 아래와 같아요.
+`new-app.sh` 가 깔아 주는 공통 마이그레이션은 V001~V026 (V007 제외 25개) 으로, 모든 앱이 똑같이 받는 인증·결제·알림·운영 기반이에요. 어떤 버전이 무엇을 담는지는 아래와 같아요.
 
 | 버전 | 내용 | 비고 |
 |---|---|---|
@@ -295,8 +295,9 @@ apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/
 | **V018 ~ V021** | attachment_file · user_read_history · message_send_history · audit_logs_archive | 첨부파일·열람이력·발송이력·감사 아카이브 |
 | **V022 ~ V023** | payment 환불 컬럼 · payment_refunds | |
 | **V024 ~ V025** | posts · analytics | |
+| **V026** | auth_email_verification_tokens.attempts (이메일 인증 무차별 대입 방어 카운터) | |
 
-여기서 V007 만 위 디렉토리 목록에 없는 걸 눈치챘을 거예요. `V007__seed_admin_user.sql` 은 `--seed-admin` 을 붙였을 때만, DB provisioning 이 끝난 뒤 별도 단계에서 생성돼요 (§5.2). 본인 도메인 테이블은 그다음 빈 번호(현재 **V026**)부터 직접 작성하면 돼요 (§7).
+여기서 V007 만 위 디렉토리 목록에 없는 걸 눈치챘을 거예요. `V007__seed_admin_user.sql` 은 `--seed-admin` 을 붙였을 때만, DB provisioning 이 끝난 뒤 별도 단계에서 생성돼요 (§5.2). 본인 도메인 테이블은 그다음 빈 번호(현재 **V027**)부터 직접 작성하면 돼요 (§7).
 
 마이그레이션 경로가 `db/migration/<slugPackage>/` 처럼 하이픈을 뺀 패키지명으로 격리돼 있어서, 각 앱 DataSource 의 Flyway 가 자기 디렉토리만 읽어요.
 
@@ -409,7 +410,7 @@ users 테이블 SELECT 검증 (Step 17)          ← --seed-admin 시엔 시드 
 
 `V007__seed_admin_user.sql` 은 기본 실행에서는 만들어지지 않아요. `--seed-admin` 을 붙였을 때만 관리자 계정(`admin@<slug>.local`) 1명을 시드하는데, 비밀번호는 앱별로 랜덤 생성돼 bcrypt 해시로만 저장되고 **평문은 완료 안내에서 딱 1회만 출력돼요**. 안전한 곳에 보관하고 첫 로그인 후 변경하는 걸 권장해요.
 
-Step 16 은 web server 를 띄우지 않는 migrate-only 모드로 Flyway 를 돌려 공통 마이그레이션(V001~V025)을 적용하고, Step 17 은 `flyway_schema_history` 와 `users` 테이블을 직접 조회해 마이그레이션이 실제로 반영됐는지 확인해요. 그래서 `new` 가 정상 종료했다면 DB 는 이미 준비된 상태예요.
+Step 16 은 web server 를 띄우지 않는 migrate-only 모드로 Flyway 를 돌려 공통 마이그레이션(V001~V026)을 적용하고, Step 17 은 `flyway_schema_history` 와 `users` 테이블을 직접 조회해 마이그레이션이 실제로 반영됐는지 확인해요. 그래서 `new` 가 정상 종료했다면 DB 는 이미 준비된 상태예요.
 
 ### 5.3 로컬 docker 에 provision 하는 경우
 
@@ -577,7 +578,7 @@ curl -s http://localhost:8081/actuator/health | jq '.components.db.components | 
 
 ### 7.2 도메인 테이블은 다음 빈 번호부터 (현재 V026)
 
-본인 비즈니스 로직 테이블은 그다음 빈 번호 — 현재 `V026__init_<your-domain>.sql` — 부터 작성해요. V001~V025 가 이미 차 있고, V007 은 도메인이 아니라 `--seed-admin` 전용 관리자 시드 자리예요.
+본인 비즈니스 로직 테이블은 그다음 빈 번호 — 현재 `V027__init_<your-domain>.sql` — 부터 작성해요. V001~V026 이 이미 차 있고, V007 은 도메인이 아니라 `--seed-admin` 전용 관리자 시드 자리예요.
 
 ### 7.3 `--skip-provision-db` 로 돌렸다면
 
@@ -605,7 +606,7 @@ rm -rf apps/app-<slug>
 
 ### 8.2 Flyway checksum mismatch
 
-공통 마이그레이션(V001~V025)의 체크섬이 맞지 않으면 Flyway 가 거부해요. 공통 마이그레이션을 수정하지 않았다면 원인은 대개 DB 에 남은 이전 실행 흔적이에요. 로컬에서만 schema 를 drop 하고 재생성하세요. 운영에서는 이 방법을 쓰면 안 되고 `flyway repair` 또는 새 번호로 해결해요.
+공통 마이그레이션(V001~V026)의 체크섬이 맞지 않으면 Flyway 가 거부해요. 공통 마이그레이션을 수정하지 않았다면 원인은 대개 DB 에 남은 이전 실행 흔적이에요. 로컬에서만 schema 를 drop 하고 재생성하세요. 운영에서는 이 방법을 쓰면 안 되고 `flyway repair` 또는 새 번호로 해결해요.
 
 ```sql
 DROP SCHEMA <slugPackage> CASCADE;
@@ -630,7 +631,7 @@ slug 자체는 하이픈을 허용하지만, schema·role 이름에는 `SLUG_PAC
 | **최소 명령** | `<repo> new <slug>` — DB provisioning 이 기본 |
 | **DB 끄기** | `--skip-provision-db` 로 코드만 생성 |
 | **slug 규칙** | `^[a-z][a-z0-9-]*$`, 내부 4종 변형 전개 |
-| **생성되는 것** | Gradle 모듈 · HealthController 1개(auth·payment·iap 는 core 공유) · ApiEndpoints · AutoConfiguration · DataSource · Flyway V001~V025 (V007 제외) · README · settings.gradle / bootstrap.gradle 업데이트 |
+| **생성되는 것** | Gradle 모듈 · HealthController 1개(auth·payment·iap 는 core 공유) · ApiEndpoints · AutoConfiguration · DataSource · Flyway V001~V026 (V007 제외) · README · settings.gradle / bootstrap.gradle 업데이트 |
 | **`.env` 주입** | DB 3종 · MinIO `<slug>-uploads` · 소셜·IAP·FCM credentials placeholder |
 | **provisioning** | schema + role + grant 생성, 비밀번호 랜덤 생성 후 `.env` 치환 |
 | **검증** | 공통 마이그레이션 Flyway 적용 → users SELECT 확인 (`--seed-admin` 시 V007 시드 생성·검증) |

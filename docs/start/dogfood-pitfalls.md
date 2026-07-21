@@ -298,9 +298,9 @@ ERROR: target failed to become healthy within configured timeout (30s)
 
 앱 컨테이너 로그를 보면 죽기 직전까지 Flyway 가 `Migrating schema "<slug>" to version "00X"` 를 정상 진행 중이었어요. 재시도하면 더 높은 버전까지 갔다가 또 죽고요.
 
-원인은 첫 배포가 빈 schema 라는 데 있어요. 새 앱이 받는 공통 마이그레이션은 `new-app.sh` 가 생성하는 V001~V025 세트예요(V001~V006 인증, V008~V012 결제·audit, V013 2FA, V014 알림, V015 점유인증, V016 이메일 소유확인 코드, V017 유저 활동 추적, V018~V021 첨부파일·열람이력·발송이력·감사 아카이브, V022~V023 환불, V024~V025 게시글·분석 — V007 admin 시드는 `--seed-admin` opt-in). 첫 기동에서는 Spring 이 이 전체를 다 migrate 한 뒤에야 `/actuator/health/liveness` 가 200 을 줘요. DB 가 배포 호스트와 멀거나(예: Supabase 가 Mac mini 와 다른 리전 — 시드니 대 서울) 콜드 상태면 쿼리 왕복 지연이 커져서, 마이그레이션이 kamal-proxy 의 기본 `deploy-timeout` 30초를 넘겨요. 그러면 컨테이너가 kill 되고 배포가 실패 루프에 빠져요. dev 는 같은 리전이라 통과하는데 prod 만 실패한다면 이걸 의심하세요.
+원인은 첫 배포가 빈 schema 라는 데 있어요. 새 앱이 받는 공통 마이그레이션은 `new-app.sh` 가 생성하는 V001~V026 세트예요(V001~V006 인증, V008~V012 결제·audit, V013 2FA, V014 알림, V015 점유인증, V016 이메일 소유확인 코드, V017 유저 활동 추적, V018~V021 첨부파일·열람이력·발송이력·감사 아카이브, V022~V023 환불, V024~V025 게시글·분석 — V007 admin 시드는 `--seed-admin` opt-in). 첫 기동에서는 Spring 이 이 전체를 다 migrate 한 뒤에야 `/actuator/health/liveness` 가 200 을 줘요. DB 가 배포 호스트와 멀거나(예: Supabase 가 Mac mini 와 다른 리전 — 시드니 대 서울) 콜드 상태면 쿼리 왕복 지연이 커져서, 마이그레이션이 kamal-proxy 의 기본 `deploy-timeout` 30초를 넘겨요. 그러면 컨테이너가 kill 되고 배포가 실패 루프에 빠져요. dev 는 같은 리전이라 통과하는데 prod 만 실패한다면 이걸 의심하세요.
 
-> 도메인 테이블은 다음 빈 번호(현재 V026)부터 작성해요. V001~V025 가 이미 차 있고, V007 은 도메인이 아니라 `--seed-admin` 전용 admin 시드 자리예요.
+> 도메인 테이블은 다음 빈 번호(현재 V027)부터 작성해요. V001~V026 이 이미 차 있고, V007 은 도메인이 아니라 `--seed-admin` 전용 admin 시드 자리예요.
 
 해결은 `config/deploy.yml` 루트에 `deploy_timeout: 120` 을 두는 거예요(이제 템플릿 default). kamal 은 로컬 config 를 deploy 설정으로 읽으니(이미지는 origin SHA) 커밋 전이라도 적용돼요. 평시 재배포는 schema 가 이미 최신이라 마이그레이션 없이 빠르게 부팅해요. 매 재시도가 마이그레이션을 버전별로 누적 진행해서 끝내 수렴하긴 하지만, timeout 을 키우는 게 정석이에요. `config/deploy.yml` 과 `config/deploy-dev.yml` 모두 `deploy_timeout: 120` 으로 반영돼 있어요.
 

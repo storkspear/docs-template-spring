@@ -55,7 +55,7 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 
 ### 2-2. 마이그레이션 매핑
 
-`new app` (`tools/new-app/new-app.sh`) 이 새 앱마다 기본 24개 (V001~V025, V007 제외) 를 자동 생성합니다. V007 admin 시드는 `--seed-admin` 을 붙일 때만 만들어져요 (opt-in). 전부 슬러그 schema 안에 만들어지고, 내용은 모든 앱이 동일해요.
+`new app` (`tools/new-app/new-app.sh`) 이 새 앱마다 기본 25개 (V001~V026, V007 제외) 를 자동 생성합니다. V007 admin 시드는 `--seed-admin` 을 붙일 때만 만들어져요 (opt-in). 전부 슬러그 schema 안에 만들어지고, 내용은 모든 앱이 동일해요.
 
 | 버전 | 테이블 / 내용 | 비고 |
 |---|---|---|
@@ -71,7 +71,7 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 | V024 ~ V025 | 콘텐츠·분석 (posts · analytics) | 공통 |
 | **V026 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
 
-V001~V025 가 이미 차 있으므로 본인 도메인 테이블은 V026 부터 시작합니다. V007 을 생성하지 않았어도 그 번호는 시드용으로 비워 둬요. 마이그레이션 세트는 계속 늘어나니, 정확한 다음 번호는 앱 생성 직후 `new-app.sh` 의 안내 메시지와 마이그레이션 디렉토리에서 확인하세요. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.
+V001~V026 이 이미 차 있으므로 본인 도메인 테이블은 V027 부터 시작합니다. V007 을 생성하지 않았어도 그 번호는 시드용으로 비워 둬요. 마이그레이션 세트는 계속 늘어나니, 정확한 다음 번호는 앱 생성 직후 `new-app.sh` 의 안내 메시지와 마이그레이션 디렉토리에서 확인하세요. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.
 
 ---
 

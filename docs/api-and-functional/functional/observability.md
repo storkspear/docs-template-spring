@@ -135,3 +135,4 @@ dev 와 prod 의 actuator endpoint 는 앱 포트 (`:8080`) 와 공유합니다.
 
 - [`운영 모니터링 셋업 가이드`](../../production/setup/monitoring-setup.md) — 운영 관측성 스택 배포 절차
 - [`Rate Limit 규약`](./rate-limiting.md) — 버킷 키에 `appSlug` 가 들어가는 rate limit 정책
+- [`보안 이벤트 로그 정책`](../../production/operations/security-logging.md) — 보안 이벤트(로그인 실패·권한 거부·webhook 서명 실패 등)의 실측 로그 인벤토리와 레벨·형식 정책

@@ -54,6 +54,14 @@
 자동화가 1순위예요. 가능한 한 IDE, 빌드, CI 가 규약을 강제하도록 만듭니다.
 
 - **Gradle 빌드** — 모듈 의존 관계를 강제합니다.
+- **Gradle dependency verification** — `gradle/verification-metadata.xml` 이 모든 의존성 jar 의 sha256 checksum 을 잠급니다. Maven Central 에서 받은 artifact 가 변조되면 (supply-chain 공격) 빌드가 즉시 실패해요. **의존성을 추가·갱신하면 metadata 재생성이 필수** — 안 하면 로컬/CI 빌드가 checksum 오류로 깨집니다:
+
+  ```bash
+  ./gradlew --write-verification-metadata sha256 build   # 전체 task graph 기준 재생성
+  ./gradlew clean build                                  # 검증 활성 상태로 그린 확인
+  ```
+
+  재생성은 기존 항목을 지우지 않고 추가만 하므로, 의존성 제거 후엔 분기 audit 때 파일을 새로 만들어 정리해요. pitest 같은 build 밖 task 의존성이 걸리면 해당 task 를 write 모드로 1회 실행해 추가합니다 (예: `./gradlew --write-verification-metadata sha256 :core:core-audit-impl:pitest`).
 - **ArchUnit 테스트** — 패키지 구조와 네이밍을 강제합니다. 전체 22개 규칙 r1~r22(r12 는 예약 번호라 활성 규칙은 21개)의 목록은 [`Architecture Rules (ArchUnit)`](../structure/architecture-rules.md) 에 있어요.
 - **spotless** — google-java-format(4-space)을 커밋 전에 적용합니다.
 - **commitlint + husky** — 커밋 메시지를 Conventional Commits 형식으로 강제합니다.

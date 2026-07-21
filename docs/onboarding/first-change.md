@@ -75,7 +75,7 @@ CREATE TABLE users (
 ALTER TABLE users ADD COLUMN bio VARCHAR(200);
 ```
 
-`new-app.sh` 가 깔아 주는 번호는 V001~V025 까지 차 있어요 (V007 은 `--seed-admin` 을 붙였을 때만 생성되는 admin 시드 자리예요). 정확한 번호 배치는 [`Onboarding §3.1`](../start/onboarding.md#31-코드-골격-자동) 의 마이그레이션 표를 보세요. 본인 컬럼은 보통 **그다음 비어 있는 번호**(현재 V026)로 더하면 돼요.
+`new-app.sh` 가 깔아 주는 번호는 V001~V026 까지 차 있어요 (V007 은 `--seed-admin` 을 붙였을 때만 생성되는 admin 시드 자리예요). 정확한 번호 배치는 [`Onboarding §3.1`](../start/onboarding.md#31-코드-골격-자동) 의 마이그레이션 표를 보세요. 본인 컬럼은 보통 **그다음 비어 있는 번호**(현재 V027)로 더하면 돼요.
 
 > **왜 `NOT NULL` 을 함부로 못 붙이나** — 운영 DB에는 이미 가입한 사용자 레코드가 있어요. 새 필수 컬럼을 한 번에 강제하면 기존 레코드가 위반돼 마이그레이션이 깨져요. 그래서 "먼저 nullable 로 추가 → 값 채우기 → 나중에 NOT NULL" 의 단계적 배포를 써요. 자세한 규율은 [`운영 런북`](../production/deploy/runbook.md) 에 있어요.
 
