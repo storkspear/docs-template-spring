@@ -42,9 +42,9 @@
 ### 보안 / 자격증명
 
 - [ ] [Security] TLS/HTTPS 내부 구간 검토 — CF 가 edge 처리 OK, 맥미니 ↔ NAS 내부 통신은? (2026-04-18)
-- [ ] [Security] 로그인 실패 계정 잠금 — **승인·plan 확정 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-account-lockout.md` (5회/15분·backoff 자동·ATH_014/429·V027·flutter 계약 동기). 2FA 표면과 auth 묶음으로 구현 대기열 1순위 (owasp A07.1) (생성일: 2026-05-06)
+- [x] [Security] 로그인 실패 계정 잠금 — **구현 완료 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-account-lockout.md` (5회/15분·backoff 자동·ATH_014/429·V027·flutter 계약 동기). EmailAuthService.signIn(1단계) + TwoFactorService.loginWith2fa(2단계) 동일 카운터, 실패 기록 REQUIRES_NEW, 비밀번호 재설정 성공 시 즉시 해제. RateLimitFilter 에 TOTP_LOGIN strict 편입 동반. (owasp A07.1) (생성일: 2026-05-06)
 - [ ] [Security] 배포 경로 이미지 서명 검증 — **저우선 보류**: 로컬 빌드는 Actions 과금 회피를 위한 의도된 결정(2026-07-21 확인)이라 CI 빌드 의존 전환은 부적합. 실효 위협은 서버의 re-pull/rollback 경로(레지스트리에서 기존 이미지를 다시 받을 때 변조 가능성)뿐 — 대안: 로컬 키(cosign key pair) 서명 + pull 시 검증, 또는 self-hosted runner. 재평가 트리거: GHCR 토큰 사고·다중 운영자·Actions 과금 정책 변화. 태그 기반 GHCR cleanup 액션 교체는 별도 소형 후보 (재정의: 2026-07-21)
-- [ ] [Security] 이메일 verify 무차별 대입 방어 — verify 입력이 코드 하나뿐이라 per-subject 계상 불가, 전역 계상은 교차 사용자 DoS 로 기각(2026-07-21 리뷰). email 스코프 계약 변경(요청에 email 추가, 3레포 동기) 설계 필요 — 계정 잠금 사이클과 병합 검토. V026 attempts 컬럼은 예약됨 (재정의: 2026-07-21)
+- [ ] [Security] 이메일 verify 표적 DoS 완화 (쿨다운) — email 스코프 계약(집단 DoS 제거 + 6자리 브루트포스 방어)은 이미 적용됨. **잔여: 표적 DoS** (공격자가 피해자 email 로 5회 오답 → 피해자 활성 토큰이 `markUsed` 로 영구 소진, 재발송으로만 복구). 계정 잠금 사이클(2026-07-21)에서 완화(5회 도달 시 즉시 폐기 대신 쿨다운) 검토했으나 **이번엔 보류** — `auth_email_verification_tokens` 에 별도 신규 마이그레이션 + 6 fixture 동기 + 쿨다운 리셋 동시성 처리가 필요해 계정 잠금 변경(이미 대규모)과 분리하는 게 리뷰 가능성상 낫다고 판단. 근거·트레이드오프는 `EmailVerificationService.verify` javadoc("보안 경계")에 잔존 명시. 후속 소형 사이클 후보. (재정의: 2026-07-21)
 - [ ] [Security] 2FA flutter 표면 전체 사이클 — **승인됨 (2026-07-21)**: ①로그인 2단계 수리 (twoFactorToken 감지→TOTP 입력 — 현재 2FA 유저는 앱 로그인 불가, 감사 후보 확정) ②설정>보안: 활성화(QR+백업코드 8개)·해제 ③백업코드 셀프 재발급 API+화면 (비번+TOTP 재확인, 최악 케이스는 이메일 OTP 로 해제→재등록) ④config 플래그로 노출 통제 (2FA 불요 앱은 흔적 제거). spring+flutter, 계정잠금과 auth 묶음. ADR-030 보강 (owasp A07.4) (재정의: 2026-07-21)
 - [ ] [Security] 무로깅 보안 이벤트에 WARN 심기 — security-logging.md 실측 결과 로그인 실패·권한 거부·Apple/PortOne webhook 서명 실패·비밀번호 변경이 무로깅, 콘솔 계정 변경은 audit_logs 미기록(@Audited 미부착). 문서의 인벤토리 표를 스펙 삼아 소형 사이클로 (생성일: 2026-07-21)
 

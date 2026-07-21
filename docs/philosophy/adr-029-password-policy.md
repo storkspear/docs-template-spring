@@ -184,7 +184,7 @@ String password
 
 ## 안 다루는 범위 (다음 사이클)
 
-- **로그인 실패 카운터** — N회 실패 시 일시 lock (brute-force 방지). 별도 mechanism (Redis·DB) 가 필요해요.
+- ~~**로그인 실패 카운터** — N회 실패 시 일시 lock (brute-force 방지). 별도 mechanism (Redis·DB) 가 필요해요.~~ → **완료 (2026-07-21, 본 사이클 후속)**: DB 컬럼 방식으로 구현 (V027 `failed_attempts`·`last_failed_at`·`locked_until`). `app.security.lockout.*` 로 정책 조정 (기본 5회/**6시간 윈도우**/15분 잠금·점증 backoff cap 24h), `ATH_014`/429. 윈도우는 잠금 시간(15m→30m→60m→2h)보다 충분히 길어야 escalation 이 실동해요 — window==baseDuration 이면 잠금 만료 직후 카운터가 리셋돼 점증이 사문화되므로 6h 로 둡니다 (트레이드오프: 오래된 실패가 윈도우에 잔존, 단 성공 시 즉시 리셋으로 완화). Redis 는 1인 운영 제약(ADR-007)상 기각, in-memory 는 재시작·다중 인스턴스 불일치라 DB 채택. plan: `docs/superpowers/plans/2026-07-21-account-lockout.md`.
 - **비밀번호 만료** — 90일 후 강제 변경. NIST 는 만료를 비권장합니다 (사용자가 약한 패턴을 양산해요). 환경별 결정에 맡겨요.
 - **비밀번호 재사용 차단** — 직전 N개 hash 보존 + 매칭. DB 변경 + 비즈니스 가치 검토 후 진행해요.
 - **2FA (TOTP)** — 다음 사이클로 미뤄요. 비밀번호 강화와 분리합니다.

@@ -405,8 +405,15 @@ Flutter 가 자주 받게 될 조합만 추렸어요.
 | 2FA 필요 | 401 | `ATH_010` |
 | 이메일 발송 실패 | 502 | `EMAIL_001` |
 | Rate limit 초과 | 429 | `CMN_429` (Retry-After 헤더 포함) |
+| 로그인 실패 계정 잠금 | 429 | `ATH_014` (Retry-After 헤더 + `details.retryAfterSeconds`) |
 
 전체 매핑과 근거는 [`API Response Format`](./api-response.md) 과 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리합니다.
+
+### `ATH_014` (계정 잠금) 처리
+
+`/auth/email/signin`(1단계) 과 `/auth/2fa/login`(2단계) 은 실패가 누적되면(기본 5회/15분) 계정을 일시 잠급니다. 잠금 중 요청은 요청 비밀번호·코드의 정오답과 무관하게 **429 + `ATH_014`** 를 반환하고, 응답 body 의 `error.details.retryAfterSeconds` (또는 `Retry-After` 헤더) 로 남은 시간을 알려줍니다. Flutter 는 이 값으로 카운트다운을 표시하고 재시도 버튼을 그동안 비활성화하는 걸 권장해요. 성공 시 카운터는 초기화되고, 비밀번호 재설정을 완료하면 잠금이 즉시 해제됩니다.
+
+미처리 시에도 기존 429 공통 처리로 안전하게 degrade 하므로(요청/응답 스키마는 불변), 클라이언트 코드 변경은 선택 사항이에요.
 
 ---
 
