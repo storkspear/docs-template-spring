@@ -59,7 +59,7 @@ APP_DOMAIN=https://server.<도메인>
 RESEND_API_KEY=re_<prod>
 RESEND_FROM_ADDRESS=noreply@<도메인>
 RESEND_FROM_NAME=<서비스 이름>
-APP_STORAGE_MINIO_ENDPOINT=http://192.168.X.X:9000
+APP_STORAGE_MINIO_ENDPOINT=http://100.X.X.X:9000   # NAS tailnet IP — WireGuard 암호화 구간
 APP_STORAGE_MINIO_ACCESS_KEY=<nas-minio-key>
 APP_STORAGE_MINIO_SECRET_KEY=<nas-minio-secret>
 LOKI_URL=http://loki:3100/loki/api/v1/push   # Mac mini prod 에선 kamal 네트워크의 loki container name
@@ -233,7 +233,7 @@ gh secret set APP_DOMAIN --body 'https://server.<도메인>'
 gh secret set RESEND_API_KEY --body 're_...'
 gh secret set RESEND_FROM_ADDRESS --body 'noreply@<도메인>'
 gh secret set RESEND_FROM_NAME --body '<서비스 이름>'
-gh secret set APP_STORAGE_MINIO_ENDPOINT --body 'http://192.168.X.X:9000'
+gh secret set APP_STORAGE_MINIO_ENDPOINT --body 'http://100.X.X.X:9000'   # NAS tailnet IP
 gh secret set APP_STORAGE_MINIO_ACCESS_KEY --body '<nas-minio-key>'
 gh secret set APP_STORAGE_MINIO_SECRET_KEY --body '<nas-minio-secret>'
 gh secret set LOKI_URL --body 'http://loki:3100/loki/api/v1/push'

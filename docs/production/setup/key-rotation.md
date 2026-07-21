@@ -34,6 +34,7 @@
 | **DB password (`DB_PASSWORD`)** | 6개월 또는 노출 시 | 노출, DB password 정책 변경 |
 | **`JWT_SECRET`** | 6개월 또는 노출 시 | 노출, 발급된 access token 전면 무효화가 필요할 때 |
 | **PortOne webhook secret** | 노출 시 | 노출, PortOne 콘솔에서 secret 재설정 시 |
+| **cosign 서명 키 (`COSIGN_KEY_PATH`)** | 1년 (연 1회 권장) | 노출, 키 파일 분실 시 |
 
 > `JWT_SECRET` 은 dev·prod 가 각각 별도 값입니다. prod 는 `JWT_SECRET`, dev 는 `JWT_SECRET_DEV` 로 GitHub Secrets 에 분리 저장돼요 ([`Secret Chain 4-Stage §3`](./secret-chain-4stage.md)). 한쪽을 교체해도 다른 쪽은 그대로입니다.
 
@@ -151,6 +152,25 @@ openssl rand -base64 32 | tr -d '\n=+/' | head -c 32
 2. `<repo> prod init` 실행
 
 ⚠️ PortOne 키는 *전부 아니면 전무* 규칙이에요. `APP_PAYMENT_PORTONE_API_V1_KEY`·`_API_V1_SECRET`·`_WEBHOOK_SECRET` 중 하나만 채워진 채로 두면 `PortOneProdConfigGuard` 가 부팅을 차단합니다 ([`Secret Chain 4-Stage §4`](./secret-chain-4stage.md#4-자주-누락되는-케이스)). 셋을 함께 다뤄요.
+
+### 7. cosign 서명 키 (`COSIGN_KEY_PATH`)
+
+**폐기**: 외부 콘솔 폐기가 없어요 — 신뢰의 기준이 레포에 커밋된 `cosign.pub` 이라, **공개키를 새 것으로 교체 커밋하는 순간 옛 키의 서명은 검증에서 자동으로 불신**됩니다. 옛 키 파일은 백업 폴더로 옮기거나 삭제해요.
+
+**재발급**: [`키 발급 통합 §3.3`](./key-issuance.md#33-cosign-이미지-서명-키쌍-선택--로컬-배포-서명-opt-in) 과 동일한 절차로 새 키쌍을 만들어요.
+
+```bash
+cd ~/.factory
+mv cosign.key cosign.key.retired-$(date +%Y%m%d) && mv cosign.pub cosign.pub.retired-$(date +%Y%m%d)
+cosign generate-key-pair      # 새 암호 입력 → 새 cosign.key + cosign.pub
+```
+
+**적용**:
+1. 새 `cosign.pub` 을 레포 루트에 덮어써 커밋 (`cp ~/.factory/cosign.pub <repo-root>/cosign.pub`)
+2. `.env.prod` 의 `COSIGN_PASSWORD` 를 새 암호로 갱신 (경로가 그대로면 `COSIGN_KEY_PATH` 는 불변)
+3. 다음 `<repo> prod deploy` 부터 새 키로 서명
+
+**주의 — 교체 직후의 rollback**: 옛 키로 서명된 기존 GHCR 이미지는 새 `cosign.pub` 검증에 실패해 rollback 이 차단돼요. 교체 직후 known-good 이미지 하나를 새 키로 재서명해 두거나 (`cosign sign --key ~/.factory/cosign.key ghcr.io/<owner>/<repo>@<digest>`), 재배포 1회로 서명 세대를 갱신하세요. 긴급 상황에서는 `<repo> prod rollback <sha> --no-verify` 로 우회하되 이미지 신뢰를 별도로 확인해야 합니다.
 
 ---
 

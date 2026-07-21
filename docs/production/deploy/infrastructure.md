@@ -25,7 +25,7 @@
 | 컴포넌트 | Status | 메모 |
 |---|---|---|
 | Supabase (운영 DB) | `provisioned` | aws-1-ap-northeast-2, Supavisor pooler `:6543`. 계정과 연결 테스트는 완료. CI Secrets 등록은 파생 레포 몫 |
-| NAS MinIO (오브젝트 스토리지) | `provisioned` | `192.168.X.X:9000`, LAN 전용. template 관리자의 홈 네트워크에서만 접근 |
+| NAS MinIO (오브젝트 스토리지) | `provisioned` | `100.X.X.X:9000` — Tailscale tailnet 경유가 접속 표준 (WireGuard 암호화). template 관리자의 tailnet 에서만 접근 |
 | 맥미니 (운영 호스트) | `hardware-acquired` | 물리 보유. Kamal 초기 셋업은 파생 레포가 `kamal setup` 한 번 |
 | Cloudflare Tunnel | `template-ready` | cloudflared 설치는 파생 레포 개발자 몫. ingress 샘플은 `§4.2`, 상세는 `deployment.md` |
 | 배포 파이프라인 (Kamal + GHA) | `template-ready` | `config/deploy.yml` 과 `.github/workflows/deploy.yml` 가 커밋돼 있어요. 파생 레포가 env 와 Secrets 만 채우면 바로 동작. 결정 I-09 |
@@ -121,8 +121,8 @@ docker compose -f infra/docker-compose.local.yml up -d postgres minio
        │             │     - <slug> schema (apps/app-<slug> 소유 — users/auth/devices/도메인 테이블)
        │             │     - ADR-037: core schema 는 unused (coreDataSource Bean 폐기)
        │             │
-       │             └─→ S3 API (Tailscale) → [시놀로지 NAS MinIO]
-       │                   192.168.X.X:9000 / 9001  (LAN 직접 접근)
+       │             └─→ S3 API (Tailscale 100.x — WireGuard 암호화) → [시놀로지 NAS MinIO]
+       │                   100.X.X.X:9000 / 9001  (tailnet 경유)
        │
        └─→ 관측성 스택  (infra/docker-compose.observability.yml — 별도 기동)
            prometheus :9090  (docker_sd 로 Spring actuator :8080 scrape, retention 7일)
@@ -145,8 +145,8 @@ docker compose -f infra/docker-compose.local.yml up -d postgres minio
 | Spring 비즈니스 | `server.<domain>` (CF Tunnel → kamal-proxy :80) | 컨테이너 :8080, 호스트 Blue/Green 포트는 Kamal 할당 | 공개 |
 | Spring actuator (management) | `server.<domain>/actuator/{health,info,prometheus}` (app port 공유) | 컨테이너 :8080 공유 | `exposure.include` 로 health/info/prometheus 만 노출, 나머지 차단 |
 | Grafana | `log.<domain>` (CF Tunnel + CF Access) | :3000 | 관리자만 (이메일 OTP) |
-| Prometheus | ❌ | :9090 | 내부 전용 |
-| Loki | ❌ | :3100 | Spring logback-loki push endpoint |
+| Prometheus | ❌ | :9090 | cloudflared 미노출. 단 호스트 0.0.0.0 바인딩이라 LAN·tailnet 에서 접근 가능 — 127.0.0.1 바인딩 전환은 후속 과제 |
+| Loki | ❌ | :3100 | Spring logback-loki push endpoint. cloudflared 미노출 — 단 호스트 0.0.0.0 바인딩이라 LAN·tailnet 에서 접근 가능 (127.0.0.1 바인딩 전환은 후속 과제) |
 | Alertmanager | ❌ | 127.0.0.1:9093 | 내부 전용 |
 | cloudflared | — | outbound only | — |
 | kamal-proxy | ← cloudflared 경유 | :80 (호스트) | 내부 전용 (CF Tunnel 만 접근) |
@@ -244,7 +244,8 @@ ingress:
 - **외부 노출** — Cloudflare Tunnel 경유 호스트명. `server.<domain>` 은 Spring, `log.<domain>` 은 Grafana (CF Access 게이팅)
 - **Spring actuator** — app port (:8080) 와 공유합니다. `management.endpoints.web.exposure.include` 로 `health, info, prometheus` 만 열고 나머지 경로는 차단해요. 더 엄격한 격리가 필요해지면 `management.server.port` 를 별도 포트로 분리하고 kamal-proxy healthcheck 를 main-port 의 가벼운 엔드포인트로 교체하는 후속 과제가 있어요.
 - **내부 전용 포트** — Prometheus :9090, Loki :3100, Alertmanager 127.0.0.1:9093 은 kamal 네트워크 내부와 loopback 에만 두고, 어느 것도 cloudflared ingress 에 노출하지 않아요
-- **NAS MinIO 외부 접근** — Tailscale, Cloudflare Tunnel, DDNS + 포트포워딩 중 무엇을 쓸지는 Phase 2 에서 결정합니다 (backlog 참조)
+- **NAS MinIO 외부 접근** — 서버·개발자 접근은 Tailscale (tailnet 100.x, WireGuard 암호화) 로 확정. 엔드유저 대상 공개 노출만 Phase 2 에서 결정합니다 — Cloudflare Tunnel 또는 R2 이관 (backlog 참조)
+  - Tailscale 표준의 유의점 2가지 — ① tailscaled 데몬 다운이 곧 스토리지 경로 다운으로 결합돼, MinIO down 알림의 원인 분별력이 완화돼요 (MinIO 자체 장애가 아닐 수 있음). ② NAS 쪽 WireGuard 암·복호화 CPU 오버헤드가 대용량 전송 시 상주해요
 
 ### 8.3 시크릿 보관
 - **로컬** — `.env` (gitignored)

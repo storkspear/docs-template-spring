@@ -42,18 +42,18 @@
 ### 보안 / 자격증명
 
 - [ ] [Security] TLS/HTTPS 내부 구간 검토 — CF 가 edge 처리 OK, 맥미니 ↔ NAS 내부 통신은? (2026-04-18)
-- [ ] [Security] 로그인 실패 계정 잠금 정책 — N회 실패 후 계정 lockout. 현재 rate limit (요청 횟수) 만 있고 brute-force 방어로 부족. ADR-029 line 187 에 등재된 항목 (owasp A07.1) (생성일: 2026-05-06)
-- [ ] [Security] 배포 경로 이미지 서명 검증 — CI keyless 서명은 2026-07-21 도입 완료. 배포측 검증은 현 로컬 빌드 모델과 부정합(TOCTOU)이라 철회 — kamal `--skip-push`(CI 이미지 pull 배포) 전환 설계와 함께 도입. 태그 기반 GHCR cleanup 액션 교체(dataaxiom/ghcr-cleanup-action 류)도 이 사이클에 (재정의: 2026-07-21)
+- [ ] [Security] 로그인 실패 계정 잠금 — **승인·plan 확정 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-account-lockout.md` (5회/15분·backoff 자동·ATH_014/429·V027·flutter 계약 동기). 2FA 표면과 auth 묶음으로 구현 대기열 1순위 (owasp A07.1) (생성일: 2026-05-06)
+- [ ] [Security] 배포 경로 이미지 서명 검증 — **저우선 보류**: 로컬 빌드는 Actions 과금 회피를 위한 의도된 결정(2026-07-21 확인)이라 CI 빌드 의존 전환은 부적합. 실효 위협은 서버의 re-pull/rollback 경로(레지스트리에서 기존 이미지를 다시 받을 때 변조 가능성)뿐 — 대안: 로컬 키(cosign key pair) 서명 + pull 시 검증, 또는 self-hosted runner. 재평가 트리거: GHCR 토큰 사고·다중 운영자·Actions 과금 정책 변화. 태그 기반 GHCR cleanup 액션 교체는 별도 소형 후보 (재정의: 2026-07-21)
 - [ ] [Security] 이메일 verify 무차별 대입 방어 — verify 입력이 코드 하나뿐이라 per-subject 계상 불가, 전역 계상은 교차 사용자 DoS 로 기각(2026-07-21 리뷰). email 스코프 계약 변경(요청에 email 추가, 3레포 동기) 설계 필요 — 계정 잠금 사이클과 병합 검토. V026 attempts 컬럼은 예약됨 (재정의: 2026-07-21)
-- [ ] [Security] 2FA backup codes 자동 복구 endpoint — 8개 다 소진 시 admin intervention 대신 recovery code 발급. ADR-030 보강 (owasp A07.4) (생성일: 2026-05-06)
+- [ ] [Security] 2FA flutter 표면 전체 사이클 — **승인됨 (2026-07-21)**: ①로그인 2단계 수리 (twoFactorToken 감지→TOTP 입력 — 현재 2FA 유저는 앱 로그인 불가, 감사 후보 확정) ②설정>보안: 활성화(QR+백업코드 8개)·해제 ③백업코드 셀프 재발급 API+화면 (비번+TOTP 재확인, 최악 케이스는 이메일 OTP 로 해제→재등록) ④config 플래그로 노출 통제 (2FA 불요 앱은 흔적 제거). spring+flutter, 계정잠금과 auth 묶음. ADR-030 보강 (owasp A07.4) (재정의: 2026-07-21)
 - [ ] [Security] 무로깅 보안 이벤트에 WARN 심기 — security-logging.md 실측 결과 로그인 실패·권한 거부·Apple/PortOne webhook 서명 실패·비밀번호 변경이 무로깅, 콘솔 계정 변경은 audit_logs 미기록(@Audited 미부착). 문서의 인벤토리 표를 스펙 삼아 소형 사이클로 (생성일: 2026-07-21)
 
 ### 데이터 / DB
 
 - [ ] [Data] 백업 실행 (pg_dump 주기, NAS 보관, retention) — `backup-to-nas.sh.example` 은 placeholder (2026-04-18)
 - [ ] [Data] 복구 drill — "edge-cases 3-1: 1~2 시간 내 복구" 주장 실측 (2026-04-18)
-- [ ] [Data] GDPR / 개인정보 export/delete 요청 대응 절차 — 법적 대비 (2026-04-18)
-- [ ] [Data] Supabase Free → Pro 전환 기준 + 절차 — MAU 1K 도달 대비 (2026-04-18)
+- [ ] [Data] GDPR export·delete — **승인·plan 확정 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-gdpr-export-delete.md` (운영자 절차형 P1 — admin export 버튼+본인확인 2단계 runbook+30일 유예 익명화 배치, 셀프서비스 UI 폐기 결정). spring+react-admin, 구현 대기열 2순위 (2026-04-18)
+- [ ] [Data] Supabase Free → Pro 전환 절차 문단 — 기준(MAU 1K)은 decisions-infra.md 에 기존재, 절차만 부재. **트리거: MAU 1K 접근 시** (2026-07-21 보류 결정) (2026-04-18)
 
 ### 관측성 / 운영
 
@@ -64,14 +64,14 @@
 ### 앱 기능 (Phase 1+)
 
 - [ ] [Feature] IAP 실기기 E2E 검증 (Apple sandbox / Google 내부 테스트 트랙) — 서버 측은 stub 이 아니라 완전 구현 상태 (AppleAppStoreAdapter · GooglePlayAdapter · RTDN/ASSN webhook, ADR-019~022). 남은 것은 실 스토어 계정 + 실기기 구매 flow 1회 검증 (2026-04-18, 재정의: 2026-07-15 — 원래 "Billing 실제 구현, 현재 Stub" 이었으나 구현 완료로 범위 재정의)
-- [ ] [Feature] i18n / 다국어 지원 전략 — 모바일 클라이언트와 계약 (2026-04-18)
-- [ ] [Feature] N일 경과 미연관 POST 첨부 스윕 — 콘솔 게시물 작성 중 업로드만 하고 글 저장을 안 한 미연관(associated_id IS NULL, associated_type='POST') 첨부가 orphan 으로 남음. `AttachmentPurgeScheduler` 에 스윕 추가 (생성일: 2026-07-16)
-- [ ] [Feature] 앱 클라이언트용 파일 업로드·조회 API — 현재 attachment 표면은 관리자 콘솔 전용(`POST /api/admin/apps/{slug}/content/uploads` 티켓 → presigned PUT)이고, 앱측은 `PostCreateRequest` 에 첨부 필드가 없으며 flutter `api_endpoints.dart` 에도 upload/file 항목 0건. 유저 업로드가 필요한 파생 앱을 위해 앱 스코프 업로드 티켓·presigned GET 표면 + flutter 계약 추가 필요. AttachmentPort/StoragePort 는 재사용 (생성일: 2026-07-21)
+- [ ] [Feature] i18n 구현 — **트리거: 첫 글로벌 타깃 앱 파생 시** (한국 시장만인 동안 실익 0 — 2026-07-21 결정). 전략은 plan 확정: 에러코드 기반 클라 번역+서버 message fallback 하이브리드 (`docs/superpowers/plans/2026-07-21-i18n-strategy.md`). 발견 결함(영어 폰에 서버 한국어 노출)도 같은 트리거에 묶음 (재정의: 2026-07-21)
+- [ ] [Feature] N일 경과 미연관 POST 첨부 스윕 — 콘솔 게시물 작성 중 업로드만 하고 글 저장을 안 한 미연관(associated_id IS NULL, associated_type='POST') 첨부가 orphan 으로 남음. `AttachmentPurgeScheduler` 에 스윕 추가 — **앱 파일 API 사이클에 편입 (2026-07-21 결정)**: plan `2026-07-21-app-file-api.md` 구현 시 함께 (생성일: 2026-07-16)
+- [ ] [Feature] 앱 클라이언트용 파일 업로드·조회 API — **승인·plan 확정 (2026-07-21)**: `docs/superpowers/plans/2026-07-21-app-file-api.md` (storageKey 단일 계약·마이그레이션 0건·flutter file_kit 신설·미연관 첨부 스윕 편입). spring+flutter 3면 동기, 구현 대기열 3순위 (생성일: 2026-07-21)
 
 ### 개발자 경험 / 툴링 (DX)
 
 - [ ] [DX] Inventory 기계 추출 파일 `docs/.inventory.yml` — Item 9 plan 의 embed 인벤토리 drift 방지 (2026-04-18)
-- [ ] [DX] Multi-app 로컬 병렬 개발 가이드 (포트 충돌, IntelliJ run config 공유) — 여러 앱 동시 기동 (2026-04-18)
+- [ ] [DX] Multi-app 로컬 병렬 개발 가이드 — **트리거: 두 번째 앱 병렬 개발 시작 시** (2026-07-21 보류 결정). 포트 충돌·run config 공유 (2026-04-18)
 - [ ] [DX] `<repo> prod db-backup [slug]` / `storage-backup` 명령 + force-clear 백업 선행 강제 — 백업 자동화(위치·tar.gz·retention)와 `prod force-clear` 의 최근 백업 존재 확인 선행(없으면 차단)을 한 사이클로 설계. **실행 시점: bluepig prod 가동 시** (재정의: 2026-07-21)
 - [ ] [ADR-037 후속] runtime DataSource 의 transaction-mode 전환 설계 — Flyway/session 분리 자체는 구현 완료(`AbstractAppDataSourceConfig.buildFlyway` 별도 session DataSource + `deriveFlywayUrl` 6543→5432). 남은 본체: transaction pooler 는 `currentSchema` 기반 라우팅과 비호환(2026-07 실측 — startup 파라미터 미적용으로 전 앱 misroute) → per-transaction `SET LOCAL search_path` 주입 또는 per-slug role/DB 로 라우팅 재설계 필요 (생성일: 2026-05-26, 재정의: 2026-07-21)
 - [ ] [DX] PIT mutation threshold 확정 — weekly report-only 워크플로는 2026-07-21 도입 완료(pitest.yml). 첫 주간 측정 결과로 모듈별 baseline 확인 후 threshold 활성화 (재정의: 2026-07-21)

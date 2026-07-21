@@ -39,6 +39,7 @@
 |  | `APP_PAYMENT_PORTONE_*` | portone.io 콘솔 | `feature=payment` |
 |  | `APP_IAP_APPLE_*` | App Store Connect | `feature=iap` (iOS) |
 |  | `APP_IAP_GOOGLE_*` | Google Cloud Console | `feature=iap` (Android) |
+| 선택 — 배포 | `COSIGN_KEY_PATH`·`COSIGN_PASSWORD` | 로컬 `cosign generate-key-pair` | 로컬 배포 이미지 서명 opt-in 시 (§3.3) |
 
 선택 키는 비워두면 해당 기능이 자동으로 비활성화되며 Spring 부팅에는 영향을 주지 않습니다 ([`ADR-034 · Feature Toggle Lite mode`](../../philosophy/adr-034-feature-toggle-lite-mode.md) 참조). 단 PortOne 은 *일부만* 채우면 부팅이 막히는 예외가 있어요. 자세한 가드 규칙은 §4.7 에 있어요.
 
@@ -200,6 +201,43 @@ b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 
 **검증**. `verify-server.sh` Step 3 (SSH + Tailscale) 가 PASS 면 정상이에요.
 
+### 3.3 cosign 이미지 서명 키쌍 (선택 — 로컬 배포 서명 opt-in)
+
+**발급 목적**. 로컬 수동 배포 (`tools/deploy.sh`) 가 GHCR 에 push 한 이미지 digest 에 서명을 남기고, rollback 처럼 서버가 레지스트리에서 이미지를 **다시 받는** 경로에서 변조 여부를 검증하기 위한 키쌍이에요. GHA 의 CI keyless 서명과는 별개의 로컬 키입니다 ([`운영 런북 cosign 절`](../deploy/runbook.md#이미지-서명-검증-cosign) 참조). opt-in 이라 발급 전에는 서명·검증 모두 warn 후 skip 되고 배포에 영향이 없어요.
+
+**발급 절차**.
+1. cosign 을 설치해요.
+   ```bash
+   brew install cosign
+   ```
+2. **레포 밖** 디렉토리에서 키쌍을 생성해요. `COSIGN_PASSWORD` 를 미리 export 하면 프롬프트 없이 생성되고, 이 암호로 private key 파일이 암호화돼요.
+   ```bash
+   mkdir -p ~/.factory && cd ~/.factory
+   cosign generate-key-pair      # 프롬프트에 키 암호 입력 → cosign.key + cosign.pub 생성
+   ```
+3. `cosign.key` (private) 는 **레포 밖 보관이 원칙**이에요 — `.env` 백업과 동일 취급. `deploy.sh` 의 기본 참조 경로가 `$HOME/.factory/cosign.key` 라서 위 위치 그대로 두면 추가 설정이 없어요. 다른 경로에 두면 `.env.prod` 의 `COSIGN_KEY_PATH` 로 지정해요. `.gitignore` 에 `cosign.key` 가 등재되어 있어 실수 커밋은 차단되지만, 애초에 워킹트리 안에 두지 마세요. 백업은 `_env-backup-*` 폴더 관행처럼 레포 밖 백업 폴더에 사본으로 보관해요 (분실 시 재발급 + `cosign.pub` 재커밋이 필요할 뿐, 기존 서명이 깨지지는 않아요).
+4. `cosign.pub` (public) 은 **레포 루트에 커밋**해요. `deploy.sh` 의 rollback 검증이 이 경로를 참조합니다. 공개키라 커밋해도 안전해요. (템플릿 레포에는 placeholder 를 커밋하지 않아요 — 파생 레포에서 본인 키를 생성해 커밋하는 파일이에요.)
+   ```bash
+   cp ~/.factory/cosign.pub <repo-root>/cosign.pub
+   git add cosign.pub && git commit -m "chore(deploy): cosign 서명 공개키 등록"
+   ```
+
+**`.env.prod` 채울 위치** (둘 다 optional — 주석 해제 후 사용):
+```bash
+# 기본 경로($HOME/.factory/cosign.key)를 쓰면 COSIGN_KEY_PATH 는 생략 가능
+COSIGN_KEY_PATH=<cosign.key 절대경로>
+COSIGN_PASSWORD=<generate-key-pair 때 설정한 키 암호>
+```
+
+`COSIGN_PASSWORD` 를 비워두면 서명 시점에 cosign 이 대화형으로 물어봐요. `deploy.sh` 는 원래 대화형 스크립트라 그대로 둬도 됩니다. 두 값 모두 컨테이너 ENV 로 주입되지 않고 GitHub Secrets push 대상도 아니에요 — 로컬 배포 머신에서만 쓰는 값이에요.
+
+**검증**. 서명이 붙은 배포를 1회 실행한 뒤 (`<repo> prod deploy` 출력에 `cosign 서명 완료` 확인), 다음 명령이 PASS 하면 정상이에요.
+```bash
+cosign verify --key cosign.pub ghcr.io/<owner>/<repo>:<배포 SHA>
+```
+
+교체 주기는 연 1회를 권장해요 — [`키 교체 절차`](./key-rotation.md) 의 cosign 절 참조.
+
 ---
 
 ## 4. 선택 — 기능별 자격 증명
@@ -222,7 +260,7 @@ b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 
 **`.env.prod` 채울 위치**:
 ```bash
-APP_STORAGE_MINIO_ENDPOINT=https://<minio-host>:9000
+APP_STORAGE_MINIO_ENDPOINT=http://<NAS_TAILSCALE_IP>:9000   # http — TLS 는 tailnet WireGuard 암호화가 대체
 APP_STORAGE_MINIO_ACCESS_KEY=<발급한 access key>
 APP_STORAGE_MINIO_SECRET_KEY=<발급한 secret key>
 APP_STORAGE_MINIO_BUCKETS_0=<bucket 이름 (예: server-factory-default)>

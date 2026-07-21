@@ -246,8 +246,8 @@ public record VerifyEmailCodeRequest(
     @NotBlank String code
 ) {}
 
-// 이메일 인증 (토큰 링크 방식 — resend-verification 이 발급)
-public record VerifyEmailRequest(@NotBlank String token) {}
+// 이메일 인증 (resend-verification 이 발급한 6자리 코드 검증 — email 은 per-subject 시도 계상 스코프 키)
+public record VerifyEmailRequest(@Email @NotBlank String email, @NotBlank String token) {}
 
 // 비밀번호 재설정 요청 (이메일)
 public record PasswordResetRequest(@Email @NotBlank String email) {}
