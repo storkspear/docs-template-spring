@@ -164,6 +164,7 @@
     "SendEmailVerificationRequest": ["email"],
     "SignInRequest": ["email", "password"],
     "SignUpRequest": ["email", "password", "displayName", "proofToken"],
-    "VerifyEmailCodeRequest": ["email", "code"]
+    "VerifyEmailCodeRequest": ["email", "code"],
+    "VerifyEmailRequest": ["email", "token"]
   }
 }

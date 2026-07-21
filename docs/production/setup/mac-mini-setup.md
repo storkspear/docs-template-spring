@@ -108,7 +108,7 @@
 | 자원 | 위치 | 역할 |
 |---|---|---|
 | [Supabase](../../reference/glossary.md#데이터베이스) Postgres | `aws-1-<region>.pooler.supabase.com` | 운영 DB. pooler 경유 관리형 Postgres |
-| NAS MinIO | `192.168.X.X:9000`, LAN | S3 호환 오브젝트 스토리지. Tailscale 없이도 가정 LAN 안에서 접근 |
+| NAS MinIO | `100.X.X.X:9000` (tailnet) | S3 호환 오브젝트 스토리지. Tailscale tailnet 경유 접속이 표준 (WireGuard 암호화) |
 
 ### 관측성 — Mac mini 셀프 호스트
 | 구성 | 도구 | 포트 | retention | 목적 |
@@ -169,9 +169,9 @@
                            │
         ┌──────────────────┼────────────────────────┐
         │                  │                         │
-        ▼ JDBC             ▼ S3 API (LAN)            ▼ logback-loki
+        ▼ JDBC             ▼ S3 API (tailnet)        ▼ logback-loki
   Supabase Postgres    NAS MinIO                  Loki 컨테이너
-  (Seoul pooler)       192.168.X.X:9000        (같은 kamal 네트워크)
+  (Seoul pooler)       100.X.X.X:9000          (같은 kamal 네트워크)
 
 [관리 접근 별도 경로]
    개발자 laptop ──Tailscale──▶ Mac mini (100.X.X.X)
@@ -180,7 +180,7 @@
                                shell + docker + kamal CLI
 ```
 
-세 가지 경로가 핵심이에요. 공개 트래픽은 전부 Cloudflare 엣지를 거쳐 Tunnel 로 들어오므로 집 ISP 의 공인 IP 가 전혀 노출되지 않아요. 관리 접근은 별도 VPN 인 Tailscale 로만 열려서 공인 IP 가 필요 없어요. 내부 LAN 자원인 NAS MinIO 는 외부 노출 없이 가정 LAN 안에서 직접 접근해요.
+세 가지 경로가 핵심이에요. 공개 트래픽은 전부 Cloudflare 엣지를 거쳐 Tunnel 로 들어오므로 집 ISP 의 공인 IP 가 전혀 노출되지 않아요. 관리 접근은 별도 VPN 인 Tailscale 로만 열려서 공인 IP 가 필요 없어요. NAS MinIO 도 외부 노출 없이 Tailscale tailnet (WireGuard 암호화) 경유 접속이 표준이에요.
 
 ---
 
@@ -283,14 +283,14 @@
 │    └─ gha_deploy@<파생레포>  (GHA 배포 전용)                      │
 └────────────────────────────────────────────────────────────────┘
        │              │                    │
-       │ JDBC :6543  │ S3 API :9000 (LAN) │ Tailscale
+       │ JDBC :6543  │ S3 API :9000 (tailnet) │ Tailscale
        ▼              ▼                    ▼
 ┌──────────────┐ ┌──────────────────┐ ┌──────────────────┐
 │  Supabase    │ │  시놀로지 NAS      │ │  Tailscale 기기들 │
-│  Postgres    │ │  192.168.X.X    │ │  - home-macbook   │
+│  Postgres    │ │  100.X.X.X      │ │  - home-macbook   │
 │  Seoul       │ │  (MinIO 컨테이너) │ │  - bluebirds     │
 │  pooler      │ │                   │ │  - ipad-air      │
-│              │ │  * LAN 내 + tailnet │ │  - phone-galaxy   │
+│              │ │  * tailnet 경유 표준 │ │  - phone-galaxy   │
 │              │ │    (외부 노출 X)  │ │  (총 7개 노드)     │
 └──────────────┘ └──────────────────┘ └──────────────────┘
 
@@ -773,11 +773,11 @@ Prometheus 컨테이너는 `/var/run/docker.sock:ro` 로 호스트 소켓을 읽
 
 ### 16.1 위치
 
-가정 LAN 의 `192.168.X.X` 에 있어요. S3 API 는 `:9000`, 웹 콘솔은 `:9001` 이에요. 외부 개발자와 공유할 때는 Tailscale 로도 접근할 수 있어요.
+Tailscale tailnet 의 `100.X.X.X` 로 접근하는 것이 표준이에요 (WireGuard 암호화 구간). S3 API 는 `:9000`, 웹 콘솔은 `:9001` 이에요. 물리적으로는 가정 LAN 의 시놀로지 NAS 에 있고 (인벤토리는 §2), 외부 개발자와 공유할 때도 tailnet 노드 추가로 확장해요.
 
 ### 16.2 Spring 이 읽는 env vars
 ```
-APP_STORAGE_MINIO_ENDPOINT=http://192.168.X.X:9000
+APP_STORAGE_MINIO_ENDPOINT=http://100.X.X.X:9000   # NAS tailnet IP
 APP_STORAGE_MINIO_ACCESS_KEY=<key>
 APP_STORAGE_MINIO_SECRET_KEY=<secret>
 ```
