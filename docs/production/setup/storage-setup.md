@@ -72,7 +72,7 @@ services:
 
 포트별로 접근 대상을 좁혀요.
 
-- 9000 (S3 API) — 백엔드 서버 IP 만 허용
+- 9000 (S3 API) — 백엔드 서버 IP 만 허용. 접속 표준이 Tailscale 인 만큼 9000 접근 제어는 tailnet ACL (Tailscale admin → Access Controls) 로 관리해요
 - 9001 (웹 콘솔) — 관리자 IP 만 허용, 또는 [`Tailscale`](../../reference/glossary.md#운영--인프라) 경유
 
 ### 3. 맥북 백엔드에서 연결
@@ -81,7 +81,7 @@ services:
 
 ```bash
 # .env (prod)
-APP_STORAGE_MINIO_ENDPOINT=http://<NAS_IP_OR_TAILSCALE>:9000
+APP_STORAGE_MINIO_ENDPOINT=http://<NAS_TAILSCALE_IP>:9000
 APP_STORAGE_MINIO_ACCESS_KEY=<1번에서 설정>
 APP_STORAGE_MINIO_SECRET_KEY=<1번에서 설정>
 APP_STORAGE_MINIO_REGION=us-east-1

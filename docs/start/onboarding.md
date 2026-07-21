@@ -430,7 +430,7 @@ docker compose -f infra/docker-compose.local.yml up -d postgres
 
 ### 6.4 MinIO 접속 불가
 
-원인 — `.env` 의 `APP_STORAGE_MINIO_ENDPOINT` 가 템플릿 관리자의 LAN 주소(예: `192.168.x.x`)라 본인 네트워크에서 닿지 않아요.
+원인 — `.env` 의 `APP_STORAGE_MINIO_ENDPOINT` 가 템플릿 관리자의 tailnet 주소(예: `100.x.x.x`, 표준) 또는 사설 LAN 주소라 본인 네트워크·tailnet 에서 닿지 않아요.
 
 해결 — 셋 중 하나를 고르세요.
 

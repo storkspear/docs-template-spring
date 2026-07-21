@@ -74,9 +74,19 @@ GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직
 
 ### 이미지 서명 검증 (cosign)
 
-GHA 경로 (`deploy.yml` / `deploy-dev.yml`) 는 GHCR push 직후 이미지 digest 에 **cosign keyless 서명** 을 남깁니다. GitHub OIDC 기반이라 별도 키 관리가 없고, 서명 기록은 Sigstore Rekor 투명성 로그에 남아요. 서명 step 은 `continue-on-error` 라 Sigstore 장애가 배포를 막지는 않으며, 서명 누락 여부는 해당 워크플로 run 의 로그에서 확인합니다.
+서명 체계는 두 갈래예요 — **로컬 키 (실사용)** 와 **CI keyless (참고용, dormant)**. 배포가 로컬 빌드 경로 (`tools/deploy.sh`, Actions 과금 회피 — 의도된 결정) 로 돌아가는 현재 구성에서 실제로 동작하는 것은 로컬 키 쪽입니다. 위협 모델은 "빌드 시점의 변조" 가 아니라 서버가 레지스트리에서 이미지를 **다시 받는 경로** (rollback, 이미지 소실 후 re-pull) 에서의 변조예요.
 
-**수동 검증 명령** — 운영자가 "GHCR 의 이 이미지가 진짜 우리 CI 워크플로에서 나왔는지" 직접 확인할 때 사용해요 (`<owner>/<repo>` 는 본인 레포로 치환, dev 이미지는 태그가 `dev-<sha>`).
+**로컬 키 (실사용)** — 키쌍은 운영자가 로컬에서 발급하고 (opt-in, [`키 발급 통합 §3.3`](../setup/key-issuance.md#33-cosign-이미지-서명-키쌍-선택--로컬-배포-서명-opt-in)), private key 는 레포 밖에 보관하며 `cosign.pub` 만 레포 루트에 커밋합니다.
+
+- **서명 — 배포 시 자동**. `<repo> prod deploy` 가 kamal push 성공 직후 푸시된 이미지의 digest 를 조회해 `cosign sign --key` 로 서명해요 (tag 가 아닌 digest 에 서명 — tag 재지정 공격 무력화). 키 파일이 없으면 warn 후 skip 하므로 미발급 상태에서도 배포는 그대로 됩니다.
+- **검증 — rollback 시 자동**. `<repo> prod rollback <sha>` 가 `kamal rollback` 실행 **전에** `cosign verify --key cosign.pub` 를 실행해요. `cosign.pub` 미커밋(키 미발급)이면 warn 후 skip, 검증 실패면 rollback 이 차단됩니다. 서명 도입 이전 이미지 등으로 의식적으로 우회해야 하면 `--no-verify` 를 붙여요.
+- **수동 검증 명령** — 아무 때나 현재 GHCR 이미지를 직접 확인할 때:
+
+```bash
+cosign verify --key cosign.pub ghcr.io/<owner>/<repo>:<sha>
+```
+
+**CI keyless (참고용 — dormant)** — GHA 경로 (`deploy.yml` / `deploy-dev.yml`) 는 GHCR push 직후 이미지 digest 에 GitHub OIDC 기반 keyless 서명을 남기고, 기록은 Sigstore Rekor 투명성 로그에 남아요. 다만 배포가 로컬 빌드 경로로 돌아가는 동안 이 서명은 만들어질 일이 없어 dormant 입니다. GHA 자동 배포를 다시 켜면 (서명 step 은 `continue-on-error`) 다음 명령으로 검증해요 (`<owner>/<repo>` 치환, dev 이미지는 태그가 `dev-<sha>`).
 
 ```bash
 cosign verify \
@@ -85,7 +95,7 @@ cosign verify \
   ghcr.io/<owner>/<repo>:<sha>        # dev 이미지는 :dev-<sha>
 ```
 
-로컬 수동 배포 (`tools/deploy.sh`) 경로에는 자동 검증이 **없습니다**. 이 경로는 kamal 이 로컬에서 이미지를 새로 빌드해 같은 태그로 push 하기 때문에, 배포 직전에 verify 를 하더라도 검증한 digest 와 실제 배포되는 digest 가 달라요 — 검증이 배포 이미지를 보증하지 못합니다. 배포 경로에 서명 검증을 통합하는 것은 로컬 경로를 `kamal deploy --skip-push` (CI 가 빌드·서명한 이미지를 pull 해서 배포) 로 전환하는 설계를 마친 뒤의 일입니다.
+**한계 — 재부팅 re-pull 에는 검증 훅이 없어요**. Mac mini 재부팅 후 컨테이너는 docker 데몬의 restart policy 가 자동으로 되살립니다 (로컬에 남은 이미지 그대로 — 이 경우 re-pull 자체가 없어요). 문제는 로컬 이미지가 사라진 상태의 복구예요 — `<repo> prod start` (kamal app boot) 나 데몬이 스스로 이미지를 pull 하는 경로는 배포 스크립트의 검증 지점을 거치지 않아 자동 검증이 불가능합니다. 이 경로가 의심되면 복구 후 위 **수동 검증 명령**으로 현재 떠 있는 버전 (`<repo> prod status` 로 확인) 을 사후 검증하세요.
 
 ---
 
