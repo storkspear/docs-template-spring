@@ -382,7 +382,7 @@ public class AuthEmailVerificationToken {
 
 ### 사용자가 6자리를 입력하면 검증 — verify-email
 
-사용자가 메일에서 받은 6자리 코드를 앱에 입력하면, 클라이언트가 `POST /api/apps/{appSlug}/auth/verify-email` 을 body `{"email": "user@example.com", "token": "042193"}` 으로 호출해요. `email` 은 필수예요 — 시도 횟수를 주체(사용자) 단위로 계상하기 위한 스코프 키입니다. 예전에는 token 하나만 받아 전역 hash 조회를 했는데, 그 구조에서는 오답을 특정 사용자에게 귀속시킬 수 없었어요 (전역 계상은 비인증 5회 요청으로 타인의 유효 토큰까지 무효화하는 교차 사용자 DoS 라 기각 — 2026-07-21 리뷰).
+사용자가 메일에서 받은 6자리 코드를 앱에 입력하면, 클라이언트가 `POST /api/apps/{appSlug}/auth/verify-email` 을 body `{"email": "user@example.com", "token": "042193"}` 으로 호출해요. `email` 은 필수예요 — 시도 횟수를 주체(사용자) 단위로 계상하기 위한 스코프 키입니다. 예전에는 token 하나만 받아 전역 hash 조회를 했는데, 그 구조에서는 오답을 특정 사용자에게 귀속시킬 수 없었어요 (전역 계상은 비인증 5회 요청으로 임의 피해자의 유효 토큰까지 무효화하는 **집단(collateral) DoS** 라 기각 — 2026-07-21 리뷰).
 
 ```java
 // core/core-auth-impl/.../service/EmailVerificationService.java 발췌
@@ -428,6 +428,8 @@ public long verify(String email, String rawToken) {
 검증은 요청의 `email` 로 사용자를 해석한 뒤 **그 사용자의 최신 활성 토큰만** 대조해요. 오답이면 그 토큰의 `attempts` 만 원자적 UPDATE(`incrementAttemptsIfBelow` — 휴대폰 OTP 와 동일 패턴)로 +1 하고, 5회 도달 시 토큰을 폐기합니다. 다른 사용자의 토큰은 어떤 경우에도 건드리지 않아요. 존재하지 않는 email 은 동일한 `INVALID_TOKEN` 으로 거부하고, 타이밍 채널도 가능한 균일하게 유지하려고 동일한 모양의 토큰 조회를 수행합니다 (계정 열거 방지). `noRollbackFor=AuthException` 은 오답 거부 시에도 attempts 증가가 rollback 되지 않게 하는 장치예요 — 진입점 `AuthServiceImpl.verifyEmail` 도 동일하게 선언합니다.
 
 검증에 성공하면 `markUsed()` 로 재사용을 막고 `userId` 를 반환합니다. 호출자인 `AuthServiceImpl.verifyEmail` 은 그 `userId` 로 `userPort.verifyEmail(userId)` 를 불러 실제 플래그를 세워요. 검증 로직과 유저 상태 변경이 모듈 경계를 따라 나뉘어 있는 거예요.
+
+> **보안 경계 (과장 금지).** 이 email 스코프 계약이 확보하는 건 두 가지예요 — **집단(collateral) DoS 제거**(비인증 요청이 임의 피해자의 토큰을 무효화하지 못함)와 **6자리 브루트포스 방어**. 다만 **표적(targeted) DoS 는 잔존해요** — 공격자가 피해자의 email 을 알면 오답 5회로 그 피해자의 활성 토큰을 소진시킬 수 있고(피해자가 재발송하면 새 토큰으로 복구), 이건 `EmailPreVerificationService` 의 가입 전 코드 검증과 동일하게 **수용된 트레이드오프**이지 "교차 사용자 DoS 근본 해결"이 아니에요. 표적 DoS 완화 옵션(5회 도달 시 즉시 폐기 대신 쿨다운, email 단위 throttle 등)은 계정 잠금과 동일 브루트포스 축이라 [계정 잠금 플랜](../../superpowers/plans/2026-07-21-account-lockout.md)에서 함께 검토해요.
 
 ### TTL
 
