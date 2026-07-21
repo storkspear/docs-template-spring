@@ -25,17 +25,15 @@
 Good — 인증 방식마다 책임이 분리돼 있어요.
 
 ```java
-// EmailAuthService: 이메일 로그인만 담당 (core-auth-impl)
-@Service
-class EmailAuthService {
-    AuthResponse signUpWithEmail(SignUpRequest request) { ... }
-    AuthResponse signInWithEmail(SignInRequest request) { ... }
+// EmailAuthService: 이메일 가입·로그인만 담당 (core-auth-impl)
+public class EmailAuthService {
+    public AuthResponse signUp(SignUpRequest request, String appSlug) { ... }
+    public AuthResponse signIn(SignInRequest request, String appSlug) { ... }
 }
 
-// AppleSignInService: Apple 로그인 검증만 담당 (core-auth-impl)
-@Service
-class AppleSignInService {
-    AppleIdentity verifyIdentityToken(String identityToken) { ... }
+// AppleSignInService: Apple identity token 검증·로그인만 담당 (core-auth-impl)
+public class AppleSignInService {
+    public AuthResponse signIn(AppleSignInRequest request, String appSlug) { ... }
 }
 ```
 
@@ -78,9 +76,8 @@ public interface EmailPort {
     void send(String to, String subject, String htmlBody);
 }
 
-// core-email-impl
-@Component
-class ResendEmailAdapter implements EmailPort {
+// core-email-impl — 빈 등록은 EmailAutoConfiguration 의 @Bean 으로
+public class ResendEmailAdapter implements EmailPort {
     public void send(String to, String subject, String htmlBody) {
         // Resend API 호출
     }
@@ -124,8 +121,7 @@ public interface EmailPort {
 }
 
 // core-email-impl
-@Component
-class ResendEmailAdapter implements EmailPort {
+public class ResendEmailAdapter implements EmailPort {
     public void send(String to, String subject, String htmlBody) {
         // 정상 호출: Resend API 로 발송
         // 발송 실패 시: RuntimeException (인터페이스 계약에 명시)
@@ -136,8 +132,7 @@ class ResendEmailAdapter implements EmailPort {
 Bad — 특정 도메인만 예외로 거절하면 계약을 위반해요.
 
 ```java
-@Component
-class BadEmailAdapter implements EmailPort {
+public class BadEmailAdapter implements EmailPort {
     public void send(String to, String subject, String htmlBody) {
         if (to.endsWith("@example.com")) {
             throw new IllegalArgumentException("example.com 은 지원하지 않음");

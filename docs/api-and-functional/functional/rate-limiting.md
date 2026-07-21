@@ -12,16 +12,17 @@
 
 ## 키 설계
 
-버킷 키는 두 조각을 콜론으로 이은 문자열이에요.
+버킷 키는 세 조각을 콜론으로 이은 문자열이에요.
 
 ```text
-{appSlug}:{principal}
+{appSlug}:{principal}:{rpm}
 ```
 
 - `appSlug` 는 URL `/api/apps/{appSlug}/...` 에서 뽑아내고, 못 뽑으면 `unknown` 으로 둡니다.
-- `principal` 은 인증 여부로 갈립니다. 인증된 요청은 `user:{userId}`, 미인증 요청은 `ip:{clientIp}` 가 돼요. 프록시 뒤에서는 `X-Forwarded-For` 의 첫 IP 를 쓰고, 없으면 `getRemoteAddr()` 로 떨어집니다.
+- `principal` 은 인증 여부로 갈립니다. 인증된 요청은 `user:{userId}`, 미인증 요청은 `ip:{clientIp}` 가 돼요. IP 는 신뢰 프록시(Cloudflare) 가 붙이는 헤더의 첫 IP 를 쓰고 (기본 `CF-Connecting-IP`, `app.rate-limit.trusted-client-ip-header` 로 변경), 없으면 `getRemoteAddr()` 로 떨어집니다. 클라이언트가 임의로 넣을 수 있는 `X-Forwarded-For` 는 신뢰하지 않아요 — 매 요청 헤더를 바꿔 새 버킷을 얻는 한도 우회를 막기 위해서예요.
+- `rpm` 은 그 경로에 적용된 한도 tier(strict 또는 default 의 rpm 값)예요. 이 조각이 없으면 민감·비민감 경로가 한 버킷을 공유해, 비민감 트래픽이 먼저 만든 default 버킷이 strict 한도를 무력화합니다.
 
-이렇게 앱과 유저가 키에 모두 들어가므로 버킷이 앱별·유저별로 독립합니다. 한 유저가 다른 유저의 할당량을 대신 소비할 수 없어요.
+이렇게 앱·유저·tier 가 키에 모두 들어가므로 버킷이 앱별·유저별·한도별로 독립합니다. 한 유저가 다른 유저의 할당량을 대신 소비할 수 없어요.
 
 ## 기본값
 

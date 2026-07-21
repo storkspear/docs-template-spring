@@ -44,7 +44,7 @@
 |---|---|---|
 | `/health` | 불필요 | 헬스 체크 |
 | `/version` | 불필요 | 버전 정보 |
-| `/actuator/**` | 불필요 | 운영 지표 (prod 에서는 별도 포트로 분리) |
+| `/actuator/**` | 불필요 | 운영 지표 (dev·prod 는 노출 endpoint 를 `health`·`info`·`prometheus` 로 제한, 앱 포트 공유) |
 | `/v3/api-docs/**` · `/swagger-ui/**` | 불필요 | Swagger 문서·UI |
 | `/api/apps/{appSlug}/users/me` | 필요 | 현재 유저 프로필 |
 

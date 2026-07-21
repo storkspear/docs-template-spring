@@ -266,7 +266,7 @@ $EDITOR .env.prod
 
 ### OPTIONAL 기능 — 켜고 싶으면 채워요
 
-비워두면 운영에서 해당 기능이 자동으로 꺼져요(Stub·InMemory·Logging fallback). 채우면 켜져요.
+비워두면 운영에서 해당 기능이 자동으로 꺼져요(결제 Stub·스토리지 InMemory fallback 등). 채우면 켜져요. 단 이메일은 예외예요 — `LoggingEmailAdapter` fallback 은 local 프로파일 전용이라, dev·prod 배포에서 메일 기능을 쓰려면 `RESEND_API_KEY` 를 채워야 해요.
 
 | 기능 | 키 |
 |---|---|

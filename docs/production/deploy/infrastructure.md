@@ -30,7 +30,7 @@
 | Cloudflare Tunnel | `template-ready` | cloudflared 설치는 파생 레포 개발자 몫. ingress 샘플은 `§4.2`, 상세는 `deployment.md` |
 | 배포 파이프라인 (Kamal + GHA) | `template-ready` | `config/deploy.yml` 과 `.github/workflows/deploy.yml` 가 커밋돼 있어요. 파생 레포가 env 와 Secrets 만 채우면 바로 동작. 결정 I-09 |
 | 알림 (Discord webhook) | `provisioned` | Alertmanager 컨테이너와 Discord receiver 구성 완료. `DISCORD_WEBHOOK_URL` env 로 즉시 동작. 알림 룰 8개 정의됨 (`infra/prometheus/rules.yml` — 에러율·지연·rate-limit·백엔드 다운·MinIO 다운/디스크 3단계) |
-| 운영 관측성 스택 | `template-ready` | `infra/docker-compose.observability.yml`, retention 7 일, `mem_limit` 명시. Mac mini 에서 `docker compose up -d` 한 번 |
+| 운영 관측성 스택 | `template-ready` | `infra/docker-compose.observability.yml`, retention Prometheus 7일·Loki 14일, `mem_limit` 명시. Mac mini 에서 `docker compose up -d` 한 번 |
 | 로컬 docker 관측성 | `not-applicable` | 로컬에서는 기동하지 않아요. 운영 전용 (I-06 노트) |
 | 2-tier bucket 정책 | `provisioned` (로컬 `dev-shared`) / `planned` (운영 `{slug}-{category}`) | `BucketProvisioner` 가 자동 생성. 상세는 `storage.md`, I-07 |
 

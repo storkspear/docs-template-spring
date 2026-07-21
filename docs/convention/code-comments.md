@@ -92,7 +92,7 @@ public ApiResponse<UserProfile> getMyProfile(@CurrentUser AuthenticatedUser user
 
 주석 내용은 자동으로 강제할 수 없지만, 형식은 빌드가 잡아 줍니다.
 
-- Spotless — `./gradlew spotlessCheck` 가 Javadoc 줄 폭과 들여쓰기를 정렬합니다. 포매터는 google-java-format 의 `.aosp()` 4-space 프로파일이에요.
+- Spotless — `./gradlew spotlessCheck` 가 Javadoc 줄 폭과 들여쓰기 위반을 검사합니다. 포매터는 google-java-format 의 `.aosp()` 4-space 프로파일이에요.
 - CI — `spotlessCheck` step 이 PR 단계에서 위반을 차단합니다.
 - 위반 시 — `./gradlew spotlessApply` 로 자동 정리합니다.
 

@@ -154,7 +154,7 @@
 | **force-clear 5단계 confirm** | [`runbook.md`](../production/deploy/runbook.md), [`cli-guide.md`](./cli-guide.md) — DB · Storage · 관측성 · 백업 · 최종 |
 | **Stub 503 graceful (IAP / Payment 동일)** | `core/core-iap-impl/.../impl/StubIapAdapter.java` + `core/core-payment-impl/.../impl/StubPaymentAdapter.java` |
 | **`PortOneProdConfigGuard` 부팅 검증** | `core/core-payment-impl/.../impl/PaymentAutoConfiguration.java` — prod / dev 에서 v1 키 + webhook secret 을 "셋 다 또는 셋 다 빔" 으로 강제 |
-| **factory wrapper alias 감지** | `factory:112`(`export FACTORY_ALIAS=$(basename "$0")`) + `tools/lib/common.sh:191` `detect_factory_alias()` |
+| **factory wrapper alias 감지** | `factory:112`(`export FACTORY_ALIAS=$(basename "$0")`) + `tools/lib/common.sh:193` `detect_factory_alias()` |
 | **Cloudflare NS polling** | `tools/lib/cloudflare.sh:118` `cloudflare_register_hostname` — propagation 검증 + 자동 record 재생성 |
 | **`APP_FLYWAY_MODE` 기본값 = AUTO** | `.env.prod.example` — 빈 schema 첫 deploy 시 부팅 fail 방지 |
 
