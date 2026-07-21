@@ -55,7 +55,7 @@
 
 사용자 계정의 루트 테이블입니다. 소셜 전용 가입은 `password_hash` 가 null 이에요.
 
-- **주요 컬럼**: `email` · `password_hash` (소셜은 null) · `display_name` · `nickname` · `email_verified` · `is_premium` · `role` (기본 `'user'`) · `deleted_at` (soft delete). V013 이 2FA 컬럼 `totp_secret` · `totp_enabled` · `totp_backup_codes` 를 추가합니다.
+- **주요 컬럼**: `email` · `password_hash` (소셜은 null) · `display_name` · `nickname` · `email_verified` · `is_premium` · `role` (기본 `'user'`) · `deleted_at` (soft delete). V013 이 2FA 컬럼 `totp_secret` · `totp_enabled` · `totp_backup_codes` 를, V027 이 로그인 실패 계정 잠금 컬럼 `failed_attempts` · `last_failed_at` · `locked_until` 을 추가합니다.
 - **FK**: 없음 (루트).
 - **인덱스**: `uk_users_email_active` — `email` UNIQUE 이되 `WHERE deleted_at IS NULL` 부분 인덱스라 soft-delete 후 같은 이메일 재가입을 허용해요. `idx_users_email`, `idx_users_totp_enabled` (`WHERE totp_enabled = true`, V013).
 - **관련 ADR**: [`ADR-012 · 앱별 독립 유저 모델`](../philosophy/adr-012-per-app-user-model.md), [`ADR-009 · BaseEntity`](../philosophy/adr-009-base-entity.md), [`ADR-029 · 비밀번호 정책`](../philosophy/adr-029-password-policy.md), [`ADR-030 · 2FA TOTP`](../philosophy/adr-030-2fa-totp.md).

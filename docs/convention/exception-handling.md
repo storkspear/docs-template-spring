@@ -25,7 +25,7 @@
 ```
 ErrorInfo (인터페이스)
     ├── CommonError      ← CMN_001 ~ CMN_010, CMN_429
-    ├── AuthError        ← ATH_001 ~ ATH_013 (ATH_006 결번 · 2FA — ADR-030 · 이메일 인증 코드)
+    ├── AuthError        ← ATH_001 ~ ATH_014 (ATH_006 결번 · 2FA — ADR-030 · 이메일 인증 코드 · 계정 잠금)
     ├── UserError        ← USR_001 ~ USR_002
     ├── BillingError     ← BIL_001 ~ BIL_010 (구독·결제·webhook — ADR-020)
     ├── EmailError       ← EMAIL_001 ~ EMAIL_002 (ADR-024)
@@ -119,6 +119,7 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | ATH_011 | 401 | INVALID_VERIFICATION_CODE | 가입 前 이메일 인증 코드 불일치·만료·시도초과·미존재 (verify-before-signup) |
 | ATH_012 | 401 | VERIFICATION_PROOF_INVALID | 가입 시 제출된 이메일 인증 증명 JWT 무효 |
 | ATH_013 | 429 | VERIFICATION_RATE_LIMITED | send-code 재발송 횟수 초과 (per-email rate limit) |
+| ATH_014 | 429 | ACCOUNT_LOCKED | 로그인 실패 누적으로 계정 일시 잠금 (brute-force 방어 · `Retry-After` 헤더 + `details.retryAfterSeconds`) |
 
 `ATH_002`·`ATH_003` 은 refresh·이메일 인증·비밀번호 재설정 토큰 전용이에요. JWT access token 의 만료·무효는 위의 `CMN_007`·`CMN_008` 을 써요.
 
@@ -418,7 +419,7 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 | `common-web/.../exception/CommonException.java` | 공통 예외 |
 | `common-web/.../exception/GlobalExceptionHandler.java` | BaseException 통합 핸들러 |
 | `common-web/.../response/ApiError.java` | 에러 응답 구조 |
-| `core-auth-api/.../exception/AuthError.java` | 인증 에러 enum (ATH_001~013, ATH_006 결번) |
+| `core-auth-api/.../exception/AuthError.java` | 인증 에러 enum (ATH_001~014, ATH_006 결번) |
 | `core-auth-api/.../exception/AuthException.java` | 인증 예외 |
 | `core-user-api/.../exception/UserError.java` | 유저 에러 enum (USR_001~002) |
 | `core-user-api/.../exception/UserException.java` | 유저 예외 |
