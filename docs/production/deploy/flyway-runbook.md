@@ -69,9 +69,18 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 | V018 ~ V021 | 운영·콘솔 (attachment_file · user_read_history · message_send_history · audit_logs_archive) | 공통 |
 | V022 ~ V023 | 환불 (payment refunded_amount 컬럼 · payment_refunds) | 공통 |
 | V024 ~ V025 | 콘텐츠·분석 (posts · analytics) | 공통 |
-| **V026 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
+| V026 | auth_email_verification_tokens.attempts 컬럼 | 공통 — 예약 컬럼 (스코프 설계 후 활성화) |
+| **V027 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
 
 V001~V026 이 이미 차 있으므로 본인 도메인 테이블은 V027 부터 시작합니다. V007 을 생성하지 않았어도 그 번호는 시드용으로 비워 둬요. 마이그레이션 세트는 계속 늘어나니, 정확한 다음 번호는 앱 생성 직후 `new-app.sh` 의 안내 메시지와 마이그레이션 디렉토리에서 확인하세요. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.
+
+### 2-3. 기존 앱에 새 공통 마이그레이션 반영 (back-fill)
+
+공통 세트에 새 버전이 추가돼도(예: 2026-07-21 의 V026) **이미 스캐폴딩된 앱은 자동으로 받지 못해요** — `new-app.sh` 는 앱 생성 시점에만 동작하니까요. 템플릿(또는 파생 레포의 템플릿 동기화)에서 새 공통 버전이 들어오면:
+
+1. 각 앱의 `db/migration/<slug>/` 에 같은 번호·같은 내용의 V 파일을 복사해요 (`new-app.sh` 의 heredoc 이 원본).
+2. `<repo> dev migrate` / `<repo> prod migrate` 로 적용해요 (dev/prod 는 VALIDATE_ONLY 라 파일만 놓으면 부팅이 아니라 migrate 명령이 적용 주체예요).
+3. 이 단계를 건너뛰고 코드만 올리면 **부팅은 성공하고**(hbm2ddl 검증 없음) 해당 기능의 첫 사용 시점에 `column ... does not exist` 런타임 오류가 나요 — 배포 전 back-fill 이 먼저입니다.
 
 ---
 

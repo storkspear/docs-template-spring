@@ -42,16 +42,16 @@ Dockerfile.runtime 으로 docker build/push (ghcr.io/<owner>/<repo>:<sha>)
    ↓
 kamal deploy --skip-push --version=<sha>  (이미지 swap, kamal 은 빌드 안 함)
    ↓
-옛 GHCR 이미지 cleanup (최신 2개만 유지)
+옛 GHCR 이미지 cleanup (공유 패키지 최신 10개 버전 유지)
 ```
 
-CI 가 실패하면 deploy 가 시작되지 않아요. gate 가 차단하기 때문에 테스트가 깨진 코드는 절대 운영에 반영되지 않습니다. GHCR 이미지를 최신 2개만 유지하는 건 스토리지 한도 관리를 위해서예요. 직전 1개가 항상 남으므로 한 단계 롤백은 언제나 가능합니다.
+CI 가 실패하면 deploy 가 시작되지 않아요. gate 가 차단하기 때문에 테스트가 깨진 코드는 절대 운영에 반영되지 않습니다. GHCR cleanup 은 스토리지 한도 관리를 위해 최신 10개 package version 만 남겨요. 단, dev 와 prod 가 같은 GHCR 패키지를 공유하고 cleanup 액션이 태그 필터를 지원하지 않아 환경별 세대 보존은 보장되지 않습니다 — 직전 이미지가 정리됐다면 롤백은 workflow_dispatch 재빌드 (아래 옵션 B) 로 하세요.
 
 ### 수동 재배포 (GitHub Actions)
 
 특정 SHA 를 다시 배포하고 싶을 때 GitHub UI 에서 직접 돌릴 수 있어요. Actions 탭에서 deploy workflow 를 열고 "Run workflow" 를 누른 뒤 `version` 칸에 commit SHA 를 입력합니다. 비우면 현재 HEAD 가 적용돼요.
 
-deploy job 은 해당 SHA 를 체크아웃해 jar 부터 다시 빌드하고 이미지를 새로 push 한 뒤 배포합니다. 그래서 GHCR 최신 2개 유지 정책보다 옛 SHA 여도 동작하지만, 빌드를 포함하므로 8분 안팎이 걸려요.
+deploy job 은 해당 SHA 를 체크아웃해 jar 부터 다시 빌드하고 이미지를 새로 push 한 뒤 배포합니다. 그래서 GHCR cleanup 보존 범위 밖의 옛 SHA 여도 동작하지만, 빌드를 포함하므로 8분 안팎이 걸려요.
 
 ### 수동 배포 (로컬)
 
@@ -74,18 +74,18 @@ GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직
 
 ### 이미지 서명 검증 (cosign)
 
-GHA 경로 (`deploy.yml` / `deploy-dev.yml`) 는 GHCR push 직후 이미지 digest 에 **cosign keyless 서명** 을 남깁니다. GitHub OIDC 기반이라 별도 키 관리가 없고, 서명 기록은 Sigstore Rekor 투명성 로그에 남아요. "GHCR 의 이 이미지가 진짜 우리 CI 워크플로에서 나왔는지" 를 배포 전에 확인할 수 있습니다.
+GHA 경로 (`deploy.yml` / `deploy-dev.yml`) 는 GHCR push 직후 이미지 digest 에 **cosign keyless 서명** 을 남깁니다. GitHub OIDC 기반이라 별도 키 관리가 없고, 서명 기록은 Sigstore Rekor 투명성 로그에 남아요. 서명 step 은 `continue-on-error` 라 Sigstore 장애가 배포를 막지는 않으며, 서명 누락 여부는 해당 워크플로 run 의 로그에서 확인합니다.
 
-수동 검증은 다음 한 줄이에요 (`<owner>/<repo>` 는 본인 레포로 치환).
+**수동 검증 명령** — 운영자가 "GHCR 의 이 이미지가 진짜 우리 CI 워크플로에서 나왔는지" 직접 확인할 때 사용해요 (`<owner>/<repo>` 는 본인 레포로 치환, dev 이미지는 태그가 `dev-<sha>`).
 
 ```bash
 cosign verify \
   --certificate-identity-regexp "^https://github.com/<owner>/<repo>/\.github/workflows/deploy(-dev)?\.yml@.*$" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  ghcr.io/<owner>/<repo>:<sha>
+  ghcr.io/<owner>/<repo>:<sha>        # dev 이미지는 :dev-<sha>
 ```
 
-로컬 수동 배포 (`tools/deploy.sh`) 는 배포 확정 직후 이 검증을 자동 수행하되 **soft 모드** 로 동작해요 — cosign 미설치 (`brew install cosign`), 이미지 미존재 (로컬 kamal 빌드 경로), 서명 없음 모두 warn 후 계속 진행합니다. CI 서명 배포가 안정화되면 `tools/deploy.sh` 의 해당 warn 을 fail 로 바꿔 차단 모드로 전환하세요 (스크립트 주석에 안내).
+로컬 수동 배포 (`tools/deploy.sh`) 경로에는 자동 검증이 **없습니다**. 이 경로는 kamal 이 로컬에서 이미지를 새로 빌드해 같은 태그로 push 하기 때문에, 배포 직전에 verify 를 하더라도 검증한 digest 와 실제 배포되는 digest 가 달라요 — 검증이 배포 이미지를 보증하지 못합니다. 배포 경로에 서명 검증을 통합하는 것은 로컬 경로를 `kamal deploy --skip-push` (CI 가 빌드·서명한 이미지를 pull 해서 배포) 로 전환하는 설계를 마친 뒤의 일입니다.
 
 ---
 
@@ -95,7 +95,7 @@ cosign verify \
 
 ### 옵션 A — kamal rollback (직전 배포로)
 
-가장 빠른 경로예요. 직전 버전 이미지가 GHCR 에 살아있으면 즉시 전환됩니다. 최신 2개 유지 정책 덕분에 직전 1개는 항상 가능해요.
+가장 빠른 경로예요. 직전 버전 이미지가 GHCR 에 살아있으면 즉시 전환됩니다. cleanup 은 최신 10개 package version 을 남기지만, dev 와 prod 가 같은 GHCR 패키지를 공유해 태그(환경)별 보존이 보장되지는 않아요 — 직전 이미지가 이미 정리됐다면 옵션 B 로 재빌드 배포하세요.
 
 ```bash
 <repo> prod status        # 최근 배포 목록 확인 (kamal app details)
