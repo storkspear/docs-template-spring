@@ -43,12 +43,10 @@
 
 - [ ] [Security] TLS/HTTPS 내부 구간 검토 — CF 가 edge 처리 OK, 맥미니 ↔ NAS 내부 통신은? (2026-04-18)
 - [ ] [Security] 로그인 실패 계정 잠금 정책 — N회 실패 후 계정 lockout. 현재 rate limit (요청 횟수) 만 있고 brute-force 방어로 부족. ADR-029 line 187 에 등재된 항목 (owasp A07.1) (생성일: 2026-05-06)
-- [ ] [Security] 보안 이벤트 명시 로그 정책 — 로그인 실패/권한 거부/TOTP 실패/webhook 서명 실패/암호 변경 같은 보안 이벤트의 로그 레벨 + 형식 명시 (`observability.md` 보강 또는 별도 security-logging.md). Grafana alert rule cycle 과 묶어 진행 가능 (owasp A09.1) (생성일: 2026-05-06)
-- [ ] [Security] Docker image signing (cosign / Sigstore) CI 통합 — GHCR push 한 image 가 진짜 우리 CI 에서 온 건지 검증 부재. Kamal 배포 시 서명 검증 추가 (owasp A08.1) (생성일: 2026-05-06)
-- [ ] [Security] Gradle dependency verification 활성화 — `org.gradle.dependency-verification` 으로 jar checksum lock. Maven central 에서 받은 의존성 무결성 검증 (owasp A06.3 + A08.2) (생성일: 2026-05-06)
-- [ ] [Security] Log retention 정책 1년으로 연장 — 현재 `loki-config.yml` 의 14일은 PCI-DSS / 일반 compliance 권장 1년 미달. 비용/스토리지 trade-off 검토 후 결정 (owasp A09.5) (생성일: 2026-05-06)
-- [ ] [Security] 이메일 OTP brute-force 방어 명시 — `EmailVerificationService` 의 attempt counter / exponential backoff 정책 코드 + 문서 검증. 6자리 OTP 는 1M 조합이라 TTL 5분만으론 부족 가능 (owasp A07.2) (생성일: 2026-05-06)
+- [ ] [Security] 배포 경로 이미지 서명 검증 — CI keyless 서명은 2026-07-21 도입 완료. 배포측 검증은 현 로컬 빌드 모델과 부정합(TOCTOU)이라 철회 — kamal `--skip-push`(CI 이미지 pull 배포) 전환 설계와 함께 도입. 태그 기반 GHCR cleanup 액션 교체(dataaxiom/ghcr-cleanup-action 류)도 이 사이클에 (재정의: 2026-07-21)
+- [ ] [Security] 이메일 verify 무차별 대입 방어 — verify 입력이 코드 하나뿐이라 per-subject 계상 불가, 전역 계상은 교차 사용자 DoS 로 기각(2026-07-21 리뷰). email 스코프 계약 변경(요청에 email 추가, 3레포 동기) 설계 필요 — 계정 잠금 사이클과 병합 검토. V026 attempts 컬럼은 예약됨 (재정의: 2026-07-21)
 - [ ] [Security] 2FA backup codes 자동 복구 endpoint — 8개 다 소진 시 admin intervention 대신 recovery code 발급. ADR-030 보강 (owasp A07.4) (생성일: 2026-05-06)
+- [ ] [Security] 무로깅 보안 이벤트에 WARN 심기 — security-logging.md 실측 결과 로그인 실패·권한 거부·Apple/PortOne webhook 서명 실패·비밀번호 변경이 무로깅, 콘솔 계정 변경은 audit_logs 미기록(@Audited 미부착). 문서의 인벤토리 표를 스펙 삼아 소형 사이클로 (생성일: 2026-07-21)
 
 ### 데이터 / DB
 
@@ -60,9 +58,8 @@
 ### 관측성 / 운영
 
 - [ ] [Obs] Performance baseline (JMeter / Gatling) — 릴리스 전 기준 RPS / p95 (2026-04-18)
-- [ ] [Obs] On-call 알림 피로 방지 규칙 (솔로 운영 기준) — 중요도별 알림 채널 분리 (2026-04-18)
 - [ ] [Obs] Performance playbook 작성 — `docs/production/operations/performance-playbook.md` 신규. DB 인덱스 정책, Caffeine 캐시 hit-rate, connection pool 튜닝, N+1 추적 절차. 추측 기반 회피 위해 트리거: 첫 prod 앱 슬로우쿼리 1건 발생 또는 DAU 1000 도달 (생성일: 2026-05-06)
-- [ ] [Obs] DB connection pool metric panel — Hikari prometheus metric (`hikaricp_connections_active` / `_max` / `_pending` / `_timeout_total`) 을 시각화하는 panel. infra-level dashboard 별도 신설 또는 app-factory-overview 에 추가. 트리거: 첫 prod 앱 출시 후 connection pool 이슈 발생 또는 의도적 점검 (생성일: 2026-05-06)
+- [ ] [Obs] Mac mini 디스크 사용 알림 부재 — Loki retention 1년 채택 (I-06, 2026-07-21) 으로 재검토 트리거가 "디스크 사용 증가 관측 시" 인데 정작 Mac mini 자체 디스크 사용률 알림이 없음 (rules.yml 의 디스크 알림은 NAS 대상). 트리거 관측 수단 확보 필요 (생성일: 2026-07-21)
 
 ### 앱 기능 (Phase 1+)
 
@@ -76,13 +73,10 @@
 - [ ] [DX] Inventory 기계 추출 파일 `docs/.inventory.yml` — Item 9 plan 의 embed 인벤토리 drift 방지 (2026-04-18)
 - [ ] [DX] Multi-app 로컬 병렬 개발 가이드 (포트 충돌, IntelliJ run config 공유) — 여러 앱 동시 기동 (2026-04-18)
 - [ ] [DX] `<repo> prod db-backup [slug]` / `storage-backup` 명령 + force-clear 백업 선행 강제 — 백업 자동화(위치·tar.gz·retention)와 `prod force-clear` 의 최근 백업 존재 확인 선행(없으면 차단)을 한 사이클로 설계. **실행 시점: bluepig prod 가동 시** (재정의: 2026-07-21)
-- [ ] [DX] `<repo> prod force-clear <slug>` 의 관측성 데이터 처리 — 현재 슬러그 지정 시에도 `[3/5]` 단계가 *모든 관측성 데이터* (Grafana / Loki / Prometheus / Alertmanager) 삭제 confirm 을 묻는다. 관측성 스택은 모든 슬러그가 공유하므로 *특정 슬러그 정리 시* 보존이 자연스러움. slug 지정 케이스에선 `[3/5]` 자동 skip + 안내 또는 *해당 슬러그의 dashboard / log stream 만 분리 정리* 가 정확. 현재 운영자가 실수로 'y' 입력 시 *전체 모니터링 히스토리* 손실 가능. force-clear 와 함께 들어간 사이클에 후속 보강 권장 (2026-05-03)
-- [ ] [DX] `factory install` 의 alias 이름 입력 단계에 *bash 빌트인·예약어 충돌 검증* — 운영자가 `test` 같은 빌트인 명령을 입력하면 `~/.local/bin/test` symlink 가 등록되어도 bash 가 빌트인을 우선해 `test init` 이 no-op 으로 동작 (조건 검사로 해석되어 0 exit). 차단 대상 후보: `test`, `[`, `[[`, `true`, `false`, `cd`, `pwd`, `echo`, `set`, `eval`, `source`, `.`, `:`, `command`, `type`, `which`, `time`, `exec`, `exit`, `kill`, `jobs`, `bg`, `fg`, `wait`, `read`, `local`, `export`, `unset`, `alias`, `unalias`, `history`, `let`, `printf`. 입력 후 `compgen -b <name>` 또는 hardcoded 목록으로 검증 → 매치 시 *재입력 요구*. 도그푸딩 사이클에서 `test` 입력으로 발견됨 (2026-05-03)
 - [ ] [ADR-037 후속] runtime DataSource 의 transaction-mode 전환 설계 — Flyway/session 분리 자체는 구현 완료(`AbstractAppDataSourceConfig.buildFlyway` 별도 session DataSource + `deriveFlywayUrl` 6543→5432). 남은 본체: transaction pooler 는 `currentSchema` 기반 라우팅과 비호환(2026-07 실측 — startup 파라미터 미적용으로 전 앱 misroute) → per-transaction `SET LOCAL search_path` 주입 또는 per-slug role/DB 로 라우팅 재설계 필요 (생성일: 2026-05-26, 재정의: 2026-07-21)
-- [ ] [DX] Mutation testing (PIT) threshold + CI 통합 — 시범 (core-audit-impl) mutation score 81% 확인. 모든 *-impl 모듈 audit 후 적정 threshold 결정 (예: 70%). pitest task 를 ci.yml 에 nightly 또는 weekly cron 으로 통합 (default build 무거우니 별도). 트리거: 첫 manual audit 사이클 완료 후 (생성일: 2026-05-06)
+- [ ] [DX] PIT mutation threshold 확정 — weekly report-only 워크플로는 2026-07-21 도입 완료(pitest.yml). 첫 주간 측정 결과로 모듈별 baseline 확인 후 threshold 활성화 (재정의: 2026-07-21)
 - [ ] [DX] Jacoco 6차 점진 상향 (default 80/70) — 약점 모듈 (common-logging 67/100, core-storage-impl 67/46, core-user-impl 68/50) 본격 보강 후. common-logging 의 ConsoleAppender / LogstashEncoder 통합 테스트, storage 의 MinIO mock 통합, user 의 UserController + Repository 통합. 트리거: prod 가동 + 운영 데이터 1~2개월 후 (생성일: 2026-05-06)
 - [ ] [DX] Multi-session spec 진행 상태 헤더 (S1~SN 체크박스) — multi-session spec 의 복귀 비용 차단. 8-subsession spec (예: 종료 archive `docs/planned/archive/cleanup-legacy-cycle.md` 의 S1~S8 추적) 이 중단된 후 "어디까지 했지?" 추적 어려움. 헤더에 체크박스 도입 후 각 subsession 완료 시 체크. 트리거: 다음 multi-session spec 작성 시 적용 (생성일: 2026-05-06)
-- [~] [DX] `BucketProvisioner` endpoint reach 실패 silent skip 진단성 강화 — **부분 fixed (2026-05-27)**: warn 메시지 *명확화 + 고정 head* 적용 (`BucketProvisioner: endpoint unreachable, bucket creation skipped: bucket=... endpoint=... cause=...`, `BucketProvisioner.java:58-67`) → grep 으로 찾기 쉬움. **남은 작업**: strict mode 옵션 (`app.storage.minio.strict-startup=true` 시 startup fail) 은 *별 cycle* 후보. (2026-05-18)
 
 ### 템플릿 진화
 
