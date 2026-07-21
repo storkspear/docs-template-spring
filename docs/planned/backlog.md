@@ -77,6 +77,7 @@
 - [ ] [Feature] 이미지 검열용 Admin 페이지 (유저 업로드 모더레이션) — Cyberduck/콘솔 대체 (2026-04-18)
 - [ ] [Feature] i18n / 다국어 지원 전략 — 모바일 클라이언트와 계약 (2026-04-18)
 - [ ] [Feature] N일 경과 미연관 POST 첨부 스윕 — 콘솔 게시물 작성 중 업로드만 하고 글 저장을 안 한 미연관(associated_id IS NULL, associated_type='POST') 첨부가 orphan 으로 남음. `AttachmentPurgeScheduler` 에 스윕 추가 (생성일: 2026-07-16)
+- [ ] [Feature] 앱 클라이언트용 파일 업로드·조회 API — 현재 attachment 표면은 관리자 콘솔 전용(`POST /api/admin/apps/{slug}/content/uploads` 티켓 → presigned PUT)이고, 앱측은 `PostCreateRequest` 에 첨부 필드가 없으며 flutter `api_endpoints.dart` 에도 upload/file 항목 0건. 유저 업로드가 필요한 파생 앱을 위해 앱 스코프 업로드 티켓·presigned GET 표면 + flutter 계약 추가 필요. AttachmentPort/StoragePort 는 재사용 (생성일: 2026-07-21)
 
 ### 개발자 경험 / 툴링 (DX)
 
