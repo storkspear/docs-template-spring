@@ -34,6 +34,7 @@ ErrorInfo (인터페이스)
     ├── IapError         ← IAP_001 ~ IAP_007 (Apple·Google IAP — ADR-022)
     ├── PaymentError     ← PAY_001 ~ PAY_009 (PortOne PG — ADR-019)
     ├── StorageError     ← STG_001 ~ STG_011 (오브젝트 스토리지)
+    ├── AttachmentError  ← ATC_001 ~ ATC_004 (앱 파일 업로드·조회 — core-attachment)
     └── AdminError       ← ADMIN_001 ~ ADMIN_025 (운영 콘솔 — core-admin-impl)
 
 BaseException (부모)
@@ -47,6 +48,7 @@ BaseException (부모)
     ├── IapException         ← IAP 영수증 검증·webhook 예외 (ADR-022)
     ├── PaymentException     ← PG 결제 검증·환불·webhook 예외
     ├── StorageException     ← 오브젝트 스토리지 예외
+    ├── AttachmentException  ← 앱 파일 업로드·조회 예외 (티켓 발급 검증·presigned GET 인가)
     └── Admin*Exception      ← 운영 콘솔 예외 다수 (AdminAuthException·AdminAccountException·
                                AdminFileNotFoundException 등 — admin 은 세분화된 예외 클래스 사용)
 
@@ -74,6 +76,7 @@ GlobalExceptionHandler
 | iap | IAP | IAP_001 ~ IAP_999 (ADR-022) |
 | payment | PAY | PAY_001 ~ PAY_999 (PortOne PG) |
 | storage | STG | STG_001 ~ STG_999 |
+| attachment (앱 파일) | ATC | ATC_001 ~ ATC_999 |
 | admin (운영 콘솔) | ADMIN | ADMIN_001 ~ ADMIN_999 (의미 우선해서 5자) |
 | 파생 앱 | 발음 3자 | STL_001 (settlement), GYM_001 (gymlog) |
 
@@ -213,6 +216,17 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | STG_009 | 503 | ADAPTER_UNAVAILABLE | 스토리지 어댑터 미가용 |
 | STG_010 | 500 | DELETE_FAILED | 삭제 실패 |
 | STG_011 | 500 | COPY_FAILED | 복사 실패 |
+
+### AttachmentError (ATC)
+
+앱 클라이언트 파일 업로드·조회 (core-attachment) 전용 — 앱 계약 식별자는 `storageKey`(UUID). 인가 불충족·검역·삭제는 전부 404 로 은닉합니다 (존재 여부 비노출).
+
+| 코드 | HTTP | enum 값 | 설명 |
+|---|---|---|---|
+| ATC_001 | 404 | FILE_NOT_FOUND | 미존재·비 ACTIVE·소유/공개 불충족 (존재 은닉 공용) |
+| ATC_002 | 422 | CONTENT_TYPE_NOT_ALLOWED | content-type 화이트리스트 위반 |
+| ATC_003 | 413 | FILE_SIZE_EXCEEDED | 업로드 선언 크기 상한 초과 |
+| ATC_004 | 422 | ATTACHMENT_ASSOCIATION_INVALID | attachmentKeys 연관 확정 검증 위반 (부재·slug 불일치·비 ACTIVE·타 대상·타인 업로드) |
 
 ### AdminError (ADMIN)
 
