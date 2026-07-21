@@ -16,7 +16,7 @@
 | `develop` | dev-server 배포 기준. `factory install` 이 `main` HEAD 에서 분기해 둡니다 |
 | `feature/<topic>` | 모든 일상 작업. PR 로만 `main` 또는 `develop` 에 통합돼요 |
 
-`main` push 는 운영 배포(`deploy.yml`)를, `develop` push 는 dev-server 배포(`deploy-dev.yml`)를 자동으로 트리거합니다. `feature/` 브랜치 직접 push 는 CI 를 트리거하지 않아요. 검증은 PR 단계에서 돌리고, GitHub Actions 분 소비를 아끼려는 의도예요.
+`main` push 는 CI 성공 시 운영 배포(`deploy.yml`)로, `develop` push 는 dev-server 배포(`deploy-dev.yml`)로 이어집니다. 배포 워크플로우는 push 가 아니라 CI 의 `workflow_run` 으로 트리거되고, `DEPLOY_ENABLED` 변수로 opt-in 해요. `feature/` 브랜치 직접 push 는 CI 를 트리거하지 않아요. 검증은 PR 단계에서 돌리고, GitHub Actions 분 소비를 아끼려는 의도예요.
 
 릴리스 전용으로는 `release/v<x.y.z>` 브랜치를 따로 끊습니다. 자세한 흐름은 아래 [릴리스 프로세스](#릴리스-프로세스) 에 있어요.
 
@@ -160,7 +160,7 @@ feat(user)!: rename UserSummary.name to displayName
 git config --local commit.template .gitmessage
 ```
 
-`package.json` 의 `prepare` 스크립트가 `npm install` 시점에 husky 를 활성화하고 `core.hooksPath` 를 `.husky` 로 잡아 줍니다. `<repo> init` 이 `npm install` 을 자동 수행하므로 대부분 별도 작업이 필요 없어요. Node 18+ 가 없으면 이 단계가 실패하니 먼저 설치하세요.
+`package.json` 의 `prepare` 스크립트가 `npm install` 시점에 husky 를 활성화하고 `core.hooksPath` 를 husky 관리 디렉토리(`.husky/_`)로 잡아 줍니다. `<repo> init` 이 `npm install` 을 자동 수행하므로 대부분 별도 작업이 필요 없어요. Node 18+ 가 없으면 이 단계가 실패하니 먼저 설치하세요.
 
 ### 2차 — CI commitlint
 
@@ -272,14 +272,17 @@ Item 을 시작하기 전에 반드시 backlog 를 점검해요.
 
 ## 문서 자동 검증 (docs-check)
 
-`tools/docs-check/docs-contract-test.sh` 가 CI 에서 문서와 코드의 어긋남을 자동 검증합니다. 네 가지를 검사해요.
+`tools/docs-check/docs-contract-test.sh` 가 CI 에서 문서와 코드의 어긋남을 자동 검증합니다. 일곱 가지를 검사해요.
 
 | 체크 | 확인 사항 |
 |---|---|
-| C1 | Item 7 에서 rename 된 심볼(`UserCredentials`, `TokenPair`, `PushResult`, `verifyReceipt`, `toCredentials`)이 문서에 남아 있지 않음 — CHANGELOG 와 plans 는 예외 |
+| C1 | Item 7 에서 rename 된 심볼(`UserCredentials`, `TokenPair`, `PushResult`, `toCredentials`)이 문서에 남아 있지 않음 — CHANGELOG 와 plans 는 예외 |
 | C2 | `./` 또는 `../` 로 시작하는 상대 경로 링크의 대상 파일이 실제로 존재함 |
-| C3 | 문서에 언급된 환경변수(`APP_*`, `SPRING_*`, `JWT_*` 등)가 `.env.example` 또는 `application-*.yml` 에 정의됨 |
-| C4 | `config/deploy.yml` 의 `env.secret`, `.kamal/secrets.example`, GHA workflow `env:` 의 secret 체인 3중 동기화 |
+| C3 | 문서에 언급된 환경변수(`APP_*`, `SPRING_*`, `JWT_*` 등)가 `.env*.example` 또는 `application-*.yml` 에 정의됨 |
+| C4 | `config/deploy.yml` 의 `env.secret` 목록과 GHA deploy workflow 의 `secrets.*` 참조가 양방향으로 일치함 |
+| C5 | 코드의 `@Table(name)` 집합과 `data-model.md` 의 테이블 표가 일치함 |
+| C6 | API 계약 문서가 참조하는 `*Controller` 클래스가 코드에 실존함 |
+| C7 | `ErrorInfo` enum 의 (코드, enum 값) 쌍과 `exception-handling.md` 표가 일치함 |
 
 ### 로컬 실행
 
@@ -293,7 +296,7 @@ Item 을 시작하기 전에 반드시 backlog 를 점검해요.
 
 ### 트리거
 
-`.github/workflows/docs-check.yml` 이 PR 과 모든 브랜치 push 에서 실행합니다. `tools/ci-test.sh` 의 5단계 검증 중 3단계가 위 검사를 호출해요. 다만 ci-test 는 문서 *내용* 만 검증하고, 워크플로우 YAML 자체의 정적 검증(actionlint)은 backlog 의 보강 항목이에요.
+`.github/workflows/docs-check.yml` 이 `main` 대상 PR 과 `main` push 에서 실행합니다 (feature 브랜치 직접 push 는 ci.yml 과 같은 이유로 트리거하지 않아요). `tools/ci-test.sh` 의 5단계 검증 중 3단계가 위 검사를 호출해요. 워크플로우 YAML 자체의 정적 검증(actionlint)은 검토 결과 실익이 낮아 도입하지 않기로 했어요 — backlog 에 close 기록이 있어요.
 
 ---
 
@@ -301,7 +304,7 @@ Item 을 시작하기 전에 반드시 backlog 를 점검해요.
 
 - [`버전 규약 & Deprecation`](../api-and-functional/api/versioning.md) — 버전 규약, 릴리스 절차, Deprecation 프로세스
 - [`크로스 레포 Cherry-pick 가이드`](../start/cross-repo-cherry-pick.md) — 템플릿과 파생 레포 사이의 동기화
-- [`Secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) — C4 체크의 네 곳 매핑
+- [`Secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) — secret 이 흐르는 네 단계 매핑 (C4 는 그중 `deploy.yml` ↔ GHA workflow 두 곳을 자동 검증)
 - [`ADR-002 · GitHub Template Repository 패턴`](../philosophy/adr-002-use-this-template.md) — 템플릿 전파의 근거
 - [`ADR-015 · Conventional Commits + SemVer`](../philosophy/adr-015-conventional-commits-semver.md) — 커밋 포맷을 강제하는 이유
 - [`Backlog`](../planned/backlog.md) — 실제 개발 대기 목록

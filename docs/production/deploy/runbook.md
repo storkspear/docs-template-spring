@@ -51,7 +51,7 @@ CI 가 실패하면 deploy 가 시작되지 않아요. gate 가 차단하기 때
 
 특정 SHA 를 다시 배포하고 싶을 때 GitHub UI 에서 직접 돌릴 수 있어요. Actions 탭에서 deploy workflow 를 열고 "Run workflow" 를 누른 뒤 `version` 칸에 commit SHA 를 입력합니다. 비우면 현재 HEAD 가 적용돼요.
 
-해당 SHA 의 이미지가 GHCR 에 있어야 동작합니다. 최신 2개만 유지하므로 그보다 옛 SHA 면 이미지가 없어요. 이 경우엔 GHA 가 jar 부터 다시 빌드해 이미지를 새로 만든 뒤 배포하므로 8분 이상 걸립니다.
+deploy job 은 해당 SHA 를 체크아웃해 jar 부터 다시 빌드하고 이미지를 새로 push 한 뒤 배포합니다. 그래서 GHCR 최신 2개 유지 정책보다 옛 SHA 여도 동작하지만, 빌드를 포함하므로 8분 안팎이 걸려요.
 
 ### 수동 배포 (로컬)
 
@@ -89,7 +89,7 @@ GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직
 
 ### 옵션 B — GHA workflow_dispatch (특정 SHA 재배포)
 
-여러 단계 이전으로 돌아가야 할 때 사용해요. Actions 탭의 deploy workflow 에서 "Run workflow" 를 누르고 `version` 칸에 되돌릴 commit SHA 를 입력합니다. 해당 SHA 이미지가 GHCR 에 없으면 GHA 가 jar 부터 다시 빌드해 이미지를 만들고 배포하므로 8분 이상 걸려요.
+여러 단계 이전으로 돌아가야 할 때 사용해요. Actions 탭의 deploy workflow 에서 "Run workflow" 를 누르고 `version` 칸에 되돌릴 commit SHA 를 입력합니다. deploy job 이 그 SHA 에서 jar 부터 다시 빌드해 이미지를 만들고 배포하므로, GHCR 에 옛 이미지가 남아 있지 않아도 되지만 8분 안팎이 걸려요.
 
 ### 옵션 C — revert PR (코드 자체를 되돌림)
 

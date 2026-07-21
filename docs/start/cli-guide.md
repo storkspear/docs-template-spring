@@ -92,7 +92,7 @@
 |---|---|---|---|
 | **migrate** `<slug> <V*>` | dev DB 에 V스크립트 적용 (`.env.dev` 의 DB_URL 사용) | prod DB 에 V스크립트 직접 적용 (ADR-033 Hybrid). `--dry-run`·`--force` 지원 | [`flyway-runbook`](../production/deploy/flyway-runbook.md) — `migrate-prod.sh --target={dev,prod}` |
 | **clear** | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/dev-cleanup.sh`, prod 는 `tools/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
-| **force-clear** `[slug]` | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거. 3단계 confirm + prod host 충돌 safety check (`.env.dev` 의 DB_URL host 가 `.env.prod` 와 같으면 즉시 abort) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
+| **force-clear** `[slug]` | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
 
 ## 단축 — env 생략 = local
 

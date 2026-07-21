@@ -1,6 +1,6 @@
 # ADR-038 · SMS 발송 (core-sms) + 휴대폰 점유인증 (core-phone-auth) 도입
 
-**Status**: Accepted. `core-sms-api/SmsPort` + 멀티 어댑터 (`LoggingSmsAdapter` dev-capture / `CoolSmsAdapter` SOLAPI HMAC), `core-phone-auth-api/PhoneAuthPort` + `OtpService` + `PhoneOtpCode` 로 구현. OTP table 은 *app schema 안* (V015) 에 생성되고, `PhoneOtpCode` 는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어 라우팅 EMF 로 slug schema 에 매핑됩니다. 컨트롤러는 **core 공유** `PhoneAuthController` (아래 갱신) 라, 앱은 `app.features.phone-auth=true` (default) 면 자동으로 재사용합니다.
+**Status**: Accepted. `core-sms-api/SmsPort` + 멀티 어댑터 (`LoggingSmsAdapter` dev-capture / `CoolSmsAdapter` SOLAPI HMAC), `core-phone-auth-api/PhoneAuthPort` + `OtpService` + `AuthPhoneVerificationCode` (결정 당시 `PhoneOtpCode` — 아래 리네임 노트) 로 구현. OTP table 은 *app schema 안* (V015) 에 생성되고, `AuthPhoneVerificationCode` 는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어 라우팅 EMF 로 slug schema 에 매핑됩니다. 컨트롤러는 **core 공유** `PhoneAuthController` (아래 갱신) 라, 앱은 `app.features.phone-auth=true` (default) 면 자동으로 재사용합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 

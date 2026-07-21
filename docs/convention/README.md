@@ -64,7 +64,7 @@
 
 ## 모듈 README 유지 규칙
 
-각 모듈 디렉토리(`common/*`, `core/*`, `bootstrap`, `apps/*`)에는 `README.md` 가 있습니다. 코드를 변경할 때 다음 중 하나라도 해당되면 **같은 커밋에서** 그 모듈의 `README.md` 를 함께 업데이트해요.
+모듈 디렉토리에는 `README.md` 를 둡니다. 현재는 `common/*` 전부, `bootstrap`, 그리고 core 도메인 일부(auth·user·device·billing·push·storage 의 api/impl)에 있고, 나머지 core 모듈은 아직 없어요. README 가 있는 모듈의 코드를 변경할 때 다음 중 하나라도 해당되면 **같은 커밋에서** 그 모듈의 `README.md` 를 함께 업데이트해요.
 
 1. **새 public 클래스를 추가**했을 때 → "제공 기능" 섹션에 추가
 2. **기존 클래스를 삭제하거나 이름을 바꿨을 때** → README 에서 제거·수정

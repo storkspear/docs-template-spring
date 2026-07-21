@@ -50,7 +50,7 @@
 |------|-----------|------|
 | 메트릭 | `AppSlugObservationConvention` | `http.server.requests` 에 `app="<slug>"` 라벨 부여 |
 | 로그 | `AppSlugMdcFilter` | MDC 의 `appSlug` 키 → Loki label 로 승격 |
-| Rate limit | `RateLimitFilter` | 버킷 키 `{appSlug}:{principal}` 에 포함 |
+| Rate limit | `RateLimitFilter` | 버킷 키 `{appSlug}:{principal}:{rpm}` 에 포함 |
 
 슬러그를 어떻게 알아내는지는 메트릭과 로그가 서로 다릅니다.
 

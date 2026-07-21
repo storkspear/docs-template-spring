@@ -819,7 +819,7 @@ private key 인 `~/.ssh/gha_deploy` 를 파생 레포의 `SSH_PRIVATE_KEY` secre
 
 **Repository Secrets**:
 
-- `GHCR_TOKEN` — GHCR push 와 pull 용 Classic PAT. `repo` + `write:packages` scope. `secrets.GITHUB_TOKEN` 자동 주입만으로는 첫 패키지 push 가 403 이 나서 별도 PAT 가 필요해요. 배경은 [`decisions-infra.md I-10`](../deploy/decisions-infra.md) 을 보세요.
+- `GHCR_TOKEN` — GHCR push 와 pull 용 Classic PAT. `write:packages`·`read:packages`·`delete:packages`·`repo` 네 scope 가 필요해요 (`delete:packages` 는 이미지 cleanup step 용). `secrets.GITHUB_TOKEN` 자동 주입만으로는 첫 패키지 push 가 403 이 나서 별도 PAT 가 필요해요. 배경은 [`decisions-infra.md I-10`](../deploy/decisions-infra.md) 을 보세요.
 - `TS_OAUTH_CLIENT_ID` 와 `TS_OAUTH_SECRET` — Tailscale OAuth client (§17.3)
 - `SSH_PRIVATE_KEY` — Mac mini `gha_deploy` private key 내용
 - `DB_URL`·`DB_USER`·`DB_PASSWORD`·`JWT_SECRET`·`APP_DOMAIN`

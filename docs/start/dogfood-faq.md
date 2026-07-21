@@ -151,11 +151,13 @@ curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
 
 **아니에요.** 첫 작업자가 이미 셋업해서 main 에 push 한 레포를 fresh clone 한 두 번째 이상의 작업자는, 운영 secret 을 다시 push 할 필요가 없어요(이미 GitHub Secrets 에 등록돼 있어요).
 
-`./factory init` 은 local 셋업(`init-local.sh`)만 실행해요 — 운영까지 순차로 돌리려면 `./factory all init` 이에요. 어느 쪽이든 그대로 돌리면 **공동 작업자 모드**가 자동으로 감지돼요. 다음 세 단서가 모두 만족할 때 발동해요.
+`./factory init` 은 local 셋업(`init-local.sh`)만 실행해요 — 운영까지 순차로 돌리려면 `./factory all init` 이에요. 어느 쪽이든 그대로 돌리면 **공동 작업자 모드**가 자동으로 감지돼요. 판단 단서는 셋이에요.
 
 1. `settings.gradle` 에 sentinel `template-spring` 매칭이 0이에요(이미 이름이 바뀐 상태).
 2. `PROJECT_README_TEMPLATE.md` 가 없어요(이미 README.md 로 교체된 상태).
 3. `.env.prod` 가 없어요(이 작업자는 운영 secret 이 필요 없어요).
+
+단서 1·2 만으로 `init-local.sh` 가 rename·README 단계를 건너뛰어요 — 로컬 셋업 판단은 `.env.prod` 유무와 무관해요. 단서 3 은 `init-prod.sh` 만 추가로 봐요. 운영 secret push 를 건너뛸지의 판단이라, `.env.prod` 가 있는 운영자 본인 머신에서는 push 가 정상 진행돼요.
 
 이 모드에서는 `init-prod.sh` 의 운영 셋업 단계(.env.prod 생성, Secrets push, observability 배포, verify-server)와 `init-local.sh` 의 rename · README 교체 단계를 자동으로 건너뛰고, **로컬 환경(.env + docker compose + postgres ready)만 준비해요**.
 

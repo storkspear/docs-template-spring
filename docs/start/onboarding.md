@@ -486,11 +486,11 @@ openssl rand -hex 32   # 64자 출력 → 이 값을 복사
 | Kamal 배포 파이프라인 | ✅ 완전 동작 | `prod deploy` / `prod init` 등 ([`CLI 가이드`](./cli-guide.md)) |
 | 앱 프로비저닝 (`new app`) | ✅ 완전 동작 | 기본 동작으로 schema + role 자동 생성 (`--skip-provision-db` 로 끔) |
 | 앱 제거 (`remove app`) | ✅ 완전 동작 (prod 미지원) | `new app` 역방향 |
-| 이메일 발송 (Resend) | dev 선택 / prod 필수 | 키 없으면 `LoggingEmailAdapter` 로 콘솔 출력. prod 는 키 누락 시 부팅 실패. [`email-verification.md`](../api-and-functional/functional/email-verification.md) |
+| 이메일 발송 (Resend) | local fallback / dev·prod 키 필수 | local 은 키 없으면 `LoggingEmailAdapter` 로 콘솔 출력 (local 프로파일 전용). dev·prod 는 키 누락 시 부팅 실패. [`email-verification.md`](../api-and-functional/functional/email-verification.md) |
 | 오브젝트 스토리지 | ⚠️ endpoint 필요 | 미설정 시 `InMemoryStorageAdapter` fallback |
 | 결제 (PortOne PG) | ⚠️ key 필요 | 미설정 시 `StubPaymentAdapter` 가 graceful 503 (`PAY_008`) |
 | 인앱 결제 (IAP) | ⚠️ key 필요 | 미설정 시 `StubIapAdapter` 가 graceful 503 |
-| 푸시 알림 | 🚧 NoOp | `NoOpPushAdapter` 가 로그만 남겨요. FCM 설정 시 `FcmPushAdapter` 활성 |
+| 푸시 알림 | 🚧 자격 필요 | FCM 자격 미설정 앱은 발송이 graceful no-op — 로그만 남아요. `APP_CREDENTIALS_<SLUG>_FCM_SERVICE_ACCOUNT_JSON` 을 채우면 실제 발송이 켜져요 |
 
 ---
 
