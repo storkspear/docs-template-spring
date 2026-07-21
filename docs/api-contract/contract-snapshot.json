@@ -10,6 +10,7 @@
     "/api/apps/{appSlug}/auth/email/verify-code",
     "/api/apps/{appSlug}/auth/google",
     "/api/apps/{appSlug}/auth/kakao",
+    "/api/apps/{appSlug}/auth/me/2fa/backup-codes/regenerate",
     "/api/apps/{appSlug}/auth/me/2fa/disable",
     "/api/apps/{appSlug}/auth/me/2fa/setup",
     "/api/apps/{appSlug}/auth/me/2fa/verify",
@@ -162,6 +163,7 @@
   },
   "dtos": {
     "NotificationSettingUpdateRequest": ["pushEnabled", "emailEnabled"],
+    "RegenerateBackupCodesRequest": ["password", "totpCode"],
     "SendEmailVerificationRequest": ["email"],
     "SignInRequest": ["email", "password"],
     "SignUpRequest": ["email", "password", "displayName", "proofToken"],
