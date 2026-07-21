@@ -182,4 +182,4 @@ Apple/Google/Kakao/Naver 4개 서비스 모두 `PasswordHasher` 참조 0건(grep
 
 - 요구 7항 커버: ①정책(테이블)=②해제(3경로)=③스키마(V027+fixture6)=④ATH_014/429 결정+열거 방지=⑤소셜 제외 근거(grep 실측)=⑥테스트=⑦flutter 계약 — 전부 섹션/Task 존재.
 - 코드 인용 전수 실물 라인 대조 완료. 미확인 항목은 2건뿐이며 명시적으로 표기: GlobalExceptionHandler 헤더 처리(Task 4), drift guard 확장(옵션).
-- 열린 리뷰 질문: (a) V027 번호 선점 vs "도메인 V027부터" 안내 변경 수용 여부 (b) changePassword/2FA disable 포함 여부 (c) 운영자 수동 해제 admin API 를 본 사이클에 넣을지 (d) 보안 이벤트 로깅(backlog:46)과 묶을지.
+- 열린 리뷰 질문: (a) V027 번호 선점 vs "도메인 V027부터" 안내 변경 수용 여부 (b) changePassword/2FA disable 포함 여부 (c) 운영자 수동 해제 admin API 를 본 사이클에 넣을지 (d) 보안 이벤트 로깅(backlog:46)과 묶을지 (e) verify-email 표적 DoS 완화 — 5회 도달 시 즉시 폐기(`markUsed`) 대신 쿨다운, 또는 email 단위 추가 throttle. 계정 잠금과 동일 브루트포스 축이라 이 사이클에서 함께 검토 (근거: `docs/api-and-functional/functional/email-verification.md` verify-email "보안 경계" — 표적 DoS 는 수용된 트레이드오프로 잔존).

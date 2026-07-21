@@ -86,6 +86,8 @@ GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직
 cosign verify --key cosign.pub ghcr.io/<owner>/<repo>:<sha>
 ```
 
+> **인증 선행 필요.** private GHCR 패키지는 `cosign verify` 전에 `docker login ghcr.io` (PAT `read:packages`) 가 되어 있어야 해요. 로그인이 안 된 상태면 registry 가 매니페스트를 안 내줘서 **인증 실패가 서명 검증 실패처럼 표시**될 수 있어요 — rollback 이 `cosign verify 실패` 로 막히면 먼저 `docker login ghcr.io` 부터 확인하세요.
+
 **CI keyless (참고용 — dormant)** — GHA 경로 (`deploy.yml` / `deploy-dev.yml`) 는 GHCR push 직후 이미지 digest 에 GitHub OIDC 기반 keyless 서명을 남기고, 기록은 Sigstore Rekor 투명성 로그에 남아요. 다만 배포가 로컬 빌드 경로로 돌아가는 동안 이 서명은 만들어질 일이 없어 dormant 입니다. GHA 자동 배포를 다시 켜면 (서명 step 은 `continue-on-error`) 다음 명령으로 검증해요 (`<owner>/<repo>` 치환, dev 이미지는 태그가 `dev-<sha>`).
 
 ```bash
