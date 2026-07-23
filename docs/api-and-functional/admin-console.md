@@ -27,7 +27,7 @@
 
 - **cross-app 조회 = in-process fan-out** — MSA 라면 필요했을 서비스 간 호출·분산 트랜잭션이 없습니다. 모든 앱이 한 JVM·한 Postgres 인스턴스에 있어서, 슬러그별 `JdbcTemplate` 을 순회하며 메모리에서 합산·병합할 뿐이에요.
 - **조회는 JPA 미사용** — `core-admin-impl` 은 다른 `core-*-impl` 의 리포지토리를 재사용할 수 없다는 impl→impl 의존 금지 규칙 때문에, 모든 조회를 `JdbcTemplate` 직접 쿼리로 구현합니다.
-- **write 는 포트 재사용** — 결제 환불(§4-11)과 파일 검역/복원/삭제(§4-14~4-16, v1.8)가 write 액션이에요. `core-admin-impl` 이 자체 JPA를 갖는 게 아니라, `core-billing-api`/`core-payment-api`/`core-storage-api` 의 **포트 인터페이스**(`PaymentPort`/`BillingPort`/`StoragePort`)만 의존해서 앱쪽 컨트롤러가 쓰는 것과 **같은 포트 메서드**를 그대로 호출해요(impl→impl 의존은 여전히 금지 — api 포트 인터페이스만 compileOnly 의존). 파일 관리는 슬러그별 schema 가 아니라 슬러그별 **bucket**(`<slug>-uploads`)을 다루기 때문에 `JdbcTemplate` 을 전혀 쓰지 않아요 — `AdminSlugRegistry` 는 슬러그 존재 검증 용도로만 씁니다.
+- **write 는 포트 재사용** — 결제 환불(§4-11)과 파일 검역/복원/삭제(§4-14~4-16, v1.8)가 write 액션이에요. `core-admin-impl` 이 자체 JPA를 갖는 게 아니라, `core-billing-api`/`core-payment-api`/`core-storage-api`/`core-attachment-api` 의 **포트 인터페이스**(`PaymentPort`/`BillingPort`/`StoragePort`/`AttachmentPort`)만 의존해서 앱쪽 컨트롤러가 쓰는 것과 **같은 포트 메서드**를 그대로 호출해요(impl→impl 의존은 여전히 금지 — api 포트 인터페이스만 compileOnly 의존). 파일 관리는 파일 메타·상태(`attachment_file`, 슬러그별 schema)를 `AttachmentPort` 로 다루고, 다운로드 URL 만 `StoragePort` presign(`<slug>-uploads` bucket)으로 그때그때 발급해요 — 검역/삭제/복원은 전부 `AttachmentPort` 위임이고, `AdminSlugRegistry` 는 슬러그 존재 검증과 열람 이력(`user_read_history`) 기록용 `JdbcTemplate` 라우팅에 씁니다.
 - **응답 포맷은 템플릿 표준을 그대로 따름** — `ApiResponse<T>`(`{ data, error }`) 래퍼와 목록 조회의 `PageResponse<T>` 는 [`API Response Format`](./api/api-response.md) 과 동일합니다.
 
 ---
@@ -104,18 +104,18 @@ sequenceDiagram
 | 10 | `GET /api/admin/apps/{slug}/users/{userId}` | `USERS_READ` | 단일 슬러그 — `users`+`devices`+`subscriptions`+`payment_history`(최근 10건) |
 | 11 | `GET /api/admin/apps/{slug}/users/{userId}/reveal` | `USERS_READ` | 단건 원본 PII 열람 — `user_read_history` 에 열람 기록 |
 | 12 | `GET /api/admin/audit-logs?slug&...&page&size` | `AUDIT_READ` | `slug` 지정 시 단일 스키마, 미지정 시 fan-out 병합 |
-| 13 | `GET /api/admin/analytics/{metric}?slug&from&to` | `APPS_READ` | `metric∈{dau,signups,revenue}` — `slug` 생략 시 전 슬러그 fan-out sum-merge (v1.7), 지정 시 단일 슬러그 일별 시계열 |
-| 14 | `GET /api/admin/analytics/events?slug&from&to` | `APPS_READ` | 제품 이벤트별 발생수·순사용자 요약(`analytics_daily`, 발생수 내림차순) (v1.10) |
-| 15 | `GET /api/admin/analytics/events/{eventName}?slug&from&to` | `APPS_READ` | 단일 이벤트 일별 발생수 추이 (v1.10) |
+| 13 | `GET /api/admin/analytics/{metric}?slug&from&to` | `APPS_READ` | `metric∈{dau,signups,revenue}` — 비즈니스 시계열(대시보드·매출분석 차트). `slug` 생략 시 전 슬러그 fan-out sum-merge (v1.7), 지정 시 단일 슬러그 일별 시계열 |
+| 14 | `GET /api/admin/analytics/events?slug&from&to` | `ANALYTICS_READ` | 제품 이벤트별 발생수·순사용자 요약(`analytics_daily`, 발생수 내림차순) — 이벤트 분석 메뉴 전용 권한 (v1.10) |
+| 15 | `GET /api/admin/analytics/events/{eventName}?slug&from&to` | `ANALYTICS_READ` | 단일 이벤트 일별 발생수 추이 (v1.10) |
 | 16 | `GET /api/admin/apps/{slug}/payments?query&channel&status&type&from&to&page&size` | `PAYMENTS_READ` | 단일 슬러그 — `payment_history`+`users` 조인 목록 (v1.5) |
 | 17 | `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` | `PAYMENTS_WRITE` | 단일 슬러그 — PG 환불(write). `PaymentPort`/`BillingPort` 재사용 |
 | 18 | `GET /api/admin/apps/{slug}/payments/{paymentId}/refunds` | `PAYMENTS_READ` | 환불 이력 원장(`payment_refunds`) 최신순 (v1.9) |
-| 19 | `GET /api/admin/apps/{slug}/files?prefix&kind&status&page&size` | `FILES_READ` | 단일 슬러그 — `<slug>-uploads` bucket 목록 (v1.8) |
+| 19 | `GET /api/admin/apps/{slug}/files?prefix&kind&status&page&size` | `FILES_READ` | 단일 슬러그 — `attachment_file` 서버 페이지네이션 목록(`status=deleted` 면 삭제 대상만) (v1.8) |
 | 20 | `GET /api/admin/apps/{slug}/files/{key}/reveal` | `FILES_READ` | 단건 파일 원본(업로더·IP·기기) 열람 — `user_read_history` 기록 |
-| 21 | `POST /api/admin/apps/{slug}/files/quarantine?key` | `FILES_WRITE` | 단일 슬러그 — bucket write(검역). `StoragePort` 재사용 (v1.8) |
-| 22 | `POST /api/admin/apps/{slug}/files/restore?key` | `FILES_WRITE` | 단일 슬러그 — bucket write(검역 해제 복원) (v1.8) |
+| 21 | `POST /api/admin/apps/{slug}/files/quarantine?key` | `FILES_WRITE` | 단일 슬러그 — 검역(write). `AttachmentPort.quarantine` (v1.8) |
+| 22 | `POST /api/admin/apps/{slug}/files/restore?key` | `FILES_WRITE` | 단일 슬러그 — 검역 해제 복원(write). `AttachmentPort.restore` (v1.8) |
 | 23 | `POST /api/admin/apps/{slug}/files/restore-deleted?key` | `FILES_WRITE` | 단일 슬러그 — 삭제 대상 복원(write) |
-| 24 | `DELETE /api/admin/apps/{slug}/files?key` | `FILES_WRITE` | 단일 슬러그 — bucket write(불가역 삭제) (v1.8) |
+| 24 | `DELETE /api/admin/apps/{slug}/files?key` | `FILES_WRITE` | 단일 슬러그 — soft-delete(사유 필수, 30일 후 purge)(write) (v1.8) |
 | 25 | `GET /api/admin/apps/{slug}/content?board&status&page&size` | `CONTENT_READ` | 단일 슬러그 — 공유 게시물(`posts`) 전량 조회·필터 (v1.10) |
 | 26 | `GET /api/admin/apps/{slug}/content/{id}` | `CONTENT_READ` | 게시물 상세 — 본문+첨부이미지 열람 |
 | 27 | `POST /api/admin/apps/{slug}/content/{id}/hide` | `CONTENT_WRITE` | 게시물 숨김(사유 필수, write) (v1.10) |
@@ -474,48 +474,69 @@ IAP 결제 환불 시도 응답:
 
 ### 4-13. `GET /api/admin/apps/{slug}/files` — 업로드 파일 목록 (v1.8)
 
-앱별 업로드 bucket(`<slug>-uploads` 컨벤션 — [`스토리지 버킷 격리`](../production/setup/storage-bucket-isolation.md) §2)의 object 를 `prefix` 로 필터링해 조회해요. `max`(기본 200)는 §4-4 와 같은 내부 콘솔 clamp 규칙으로 `[1, 1000]` 범위로 보정됩니다. `url` 은 만료 ~10분짜리 presigned GET URL(미리보기/다운로드 용도)이고, `quarantined` 는 `key` 가 `quarantine/` 프리픽스로 시작하는지로 판정해요.
+앱 사용자가 올린 파일 메타를 `attachment_file`(슬러그별 schema)에서 **서버 페이지네이션**으로 조회해요 — `AttachmentPort.listActive`(정상+검역) 또는 `listDeleted`(`status=deleted` 일 때 삭제 대상만). `kind`(`audio|image|video`)·`prefix`(원본 파일명 접두)는 DB-side 선택 필터고, `page`(0-based, 기본 0)·`size`(기본 20)는 §4-4 와 같은 내부 콘솔 clamp 규칙으로 `page ≥ 0`·`size ∈ [1, 100]` 로 보정됩니다. 정렬은 최신순(`id` desc). 각 항목의 `key` 는 `attachment_file.id`(숫자 문자열)이고 검역/삭제/복원 시 이 값을 그대로 넘겨요. `url` 은 `StoragePort` 가 `<slug>-uploads` bucket 오브젝트로 발급한 만료 ~10분짜리 presigned GET URL(미리보기/다운로드)이고, `quarantined` 는 `status == QUARANTINED` 로 판정합니다. `FILES_UNMASK` 권한이 없으면 `uploadedBy`·`uploadedIp`·`userAgent` 는 마스킹되고, 행별 `GET .../files/{key}/reveal`(§3 #20)로 원본을 열람하면 `user_read_history` 에 남아요.
 
 ```json
 {
   "data": {
-    "files": [
-      { "key": "avatars/42.png", "size": 10240, "lastModified": "2026-07-06T10:00:00Z",
-        "url": "https://minio.example.com/gymlog-uploads/avatars/42.png?X-Amz-...", "quarantined": false },
-      { "key": "quarantine/avatars/7.png", "size": 5120, "lastModified": "2026-07-05T09:00:00Z",
-        "url": "https://minio.example.com/gymlog-uploads/quarantine/avatars/7.png?X-Amz-...", "quarantined": true }
+    "content": [
+      {
+        "key": "42",
+        "size": 10240,
+        "lastModified": "2026-07-06T10:00:00Z",
+        "url": "https://minio.example.com/gymlog-uploads/9f3c8e...-avatar.png?X-Amz-...",
+        "quarantined": false,
+        "status": "ACTIVE",
+        "originalFilename": "avatar.png",
+        "contentType": "image/png",
+        "associatedType": "USER",
+        "associatedId": 42,
+        "uploadedBy": "42",
+        "uploadedIp": "203.0.113.7",
+        "userAgent": "Dart/3.4 (dart:io)",
+        "deleteReason": null,
+        "deletedAt": null,
+        "purgeAt": null
+      }
     ],
-    "truncated": false
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
   },
   "error": null
 }
 ```
 
-`truncated` 는 실제 object 수가 `max` 를 초과해 목록이 잘렸는지 여부예요(별도 COUNT 쿼리 없이 `max+1` 개를 조회해 판정).
+응답은 [`API Response Format`](./api/api-response.md) 의 표준 `PageResponse<T>` envelope(`content`/`page`/`size`/`totalElements`/`totalPages`)예요.
 
 ### 4-14. `POST /api/admin/apps/{slug}/files/quarantine` — 파일 검역 (write, v1.8)
 
-유해 컨텐츠 대응용 write 액션이에요. `key` 를 `quarantine/` 프리픽스 하위로 옮깁니다(`StoragePort.copyObject` + `deleteObject` 조합 — move 는 별도 API 가 없어 두 호출을 조합해요). 이미 `quarantine/` 로 시작하는 `key` 를 다시 검역하려 하면 400 `ADMIN_008`.
+유해 컨텐츠 대응용 write 액션이에요. `key`(= `attachment_file.id`)의 상태를 `AttachmentPort.quarantine(slug, id)` 로 `QUARANTINED` 로 전환합니다 — 스토리지 오브젝트는 옮기지 않고 상태 컬럼만 바꿔요. 이미 `QUARANTINED`(또는 `DELETED`)면 엔티티가 조용히 no-op 하므로 재검역해도 에러 없이 현재 상태의 파일을 200 으로 돌려줍니다(옛 `ADMIN_008` 은 현재 미발생 — §7 참고). 응답은 갱신된 파일 1건(`AdminFileResponse`) — 액션 응답은 프론트가 즉시 refetch 하므로 `url` 이 항상 `null` 이고, 나머지 필드는 §4-13 과 동일 구조예요.
 
 ```json
-{ "data": { "key": "quarantine/avatars/42.png", "size": 10240, "lastModified": "2026-07-07T09:10:00Z", "url": "https://minio.example.com/...", "quarantined": true }, "error": null }
+{ "data": { "key": "42", "status": "QUARANTINED", "quarantined": true, "url": null, "size": 10240, "originalFilename": "avatar.png", "contentType": "image/png", "deleteReason": null, "deletedAt": null, "purgeAt": null }, "error": null }
 ```
 
 ### 4-15. `POST /api/admin/apps/{slug}/files/restore` — 파일 복원 (write, v1.8)
 
-`quarantine/` 프리픽스를 제거해 원래 위치로 되돌려요. 검역되지 않은(즉 `quarantine/` 로 시작하지 않는) `key` 를 복원하려 하면 400 `ADMIN_009`.
+검역을 해제해 `AttachmentPort.restore(slug, id)` 로 `QUARANTINED` → `ACTIVE` 로 되돌려요. `QUARANTINED` 가 아니면 엔티티가 조용히 no-op 하므로 비검역 파일을 복원해도 에러 없이 현재 상태를 200 으로 돌려줍니다(옛 `ADMIN_009` 은 현재 미발생 — §7 참고). 응답은 §4-14 와 동일 구조(`url=null`)예요.
 
 ```json
-{ "data": { "key": "avatars/42.png", "size": 10240, "lastModified": "2026-07-07T09:20:00Z", "url": "https://minio.example.com/...", "quarantined": false }, "error": null }
+{ "data": { "key": "42", "status": "ACTIVE", "quarantined": false, "url": null, "size": 10240, "originalFilename": "avatar.png", "contentType": "image/png", "deleteReason": null, "deletedAt": null, "purgeAt": null }, "error": null }
 ```
 
 ### 4-16. `DELETE /api/admin/apps/{slug}/files` — 파일 삭제 (write, v1.8)
 
-불가역 삭제예요. `StoragePort.deleteObject` 가 idempotent(존재하지 않는 key 를 지워도 예외 없음)라 이 엔드포인트도 그렇습니다. 본문 없이 204 No Content 를 돌려줘요(`ApiResponse.empty()` — [`API Response Format`](./api/api-response.md) 의 "본문 없는 성공" 참고).
+**soft-delete** 예요(불가역 삭제 아님). 본문 `{ "reason": "..." }`(필수, `AdminFileDeleteRequest`)를 받아 `AttachmentPort.softDelete(slug, id, reason, null)` 로 상태를 `DELETED` 로 전환하고 `deleteReason`·`deletedAt`·`purgeAt`(= `deletedAt` + 30일)을 기록합니다. 스토리지 오브젝트/row 의 실제 삭제는 30일 유예 뒤 `AttachmentPurgeScheduler` 가 수행해요. 유예 기간 안에는 `POST .../files/restore-deleted?key`(§3 #23)로 되살릴 수 있어요. 응답은 삭제 처리된 파일 1건(`AdminFileResponse`, `status=DELETED`, `url=null`) — 204 가 아니라 200 입니다.
 
-**§4-13~4-16 공통 검증 순서**: `AdminSlugRegistry.has(slug)` 가 false 면 404 `ADMIN_003` — bucket 이름 자체를 슬러그로부터 조립하기 때문에(schema 라우팅과 달리 코드가 bucket 접근을 막지 않음) 존재하지 않는 슬러그를 조기에 걸러내는 이 검증이 유일한 방어선이에요. 검역/복원 대상 `key` 가 실제로 존재하지 않으면 404 `ADMIN_010`(`FILE_NOT_FOUND`, `AdminFileNotFoundException`)으로 응답합니다.
+```json
+{ "data": { "key": "42", "status": "DELETED", "quarantined": false, "url": null, "size": 10240, "originalFilename": "avatar.png", "contentType": "image/png", "deleteReason": "규정 위반 신고 처리", "deletedAt": "2026-07-07T09:30:00Z", "purgeAt": "2026-08-06T09:30:00Z" }, "error": null }
+```
 
-**감사로그**: `@Audited("admin.file.quarantine"/"admin.file.restore"/"admin.file.delete")` 가 §4-11 환불과 동일하게 `AuditAspect` 를 트리거해요. 컨트롤러가 서비스 호출 전 `SlugContext` 를 대상 슬러그로 스왑(`try`)하고 호출 후 원복(`finally`)하기 때문에, 감사 이벤트는 대상 앱 슬러그의 스키마에 남습니다 — bucket 접근 자체는 이름으로 직접 라우팅돼 `SlugContext` 를 보지 않지만, 감사로그 라우팅을 위해 스왑이 필요해요.
+**§4-13~4-16 공통 검증 순서**: `AdminSlugRegistry.has(slug)` 가 false 면 404 `ADMIN_003`(`AdminSlugNotFoundException`)으로 존재하지 않는 슬러그를 먼저 걸러내요. 검역/복원/삭제 대상 `key` 가 숫자가 아니거나 해당 `attachment_file.id` 가 없으면(`AttachmentPort.get(slug, id)` 로 확인) 404 `ADMIN_010`(`FILE_NOT_FOUND`, `AdminFileNotFoundException`)으로 응답합니다.
+
+**감사로그**: 검역/복원/삭제/삭제복원 write 액션은 `@Audited("admin.file.quarantine"/"admin.file.restore"/"admin.file.delete"/"admin.file.restore-deleted")` 가 §4-11 환불과 동일하게 `AuditAspect` 를 트리거해요. 포트 호출은 대상 슬러그를 인자로 직접 받고(StoragePort presign 은 bucket 이름으로 라우팅) `SlugContext` 를 보지 않지만, 감사 이벤트를 대상 앱 슬러그의 스키마에 남기기 위해 컨트롤러가 서비스 호출 전 `SlugContext` 를 대상 슬러그로 스왑(`try`)하고 호출 후 원복(`finally`)합니다.
 
 ### 4-17. `GET /api/admin/apps/{slug}/content` + 모더레이션 (v1.10)
 
@@ -528,7 +549,7 @@ IAP 결제 환불 시도 응답:
 | `POST .../content/{id}/hide` (사유 필수) | `ACTIVE → HIDDEN` | 회원에게 숨김. `CONTENT_WRITE` |
 | `POST .../content/{id}/restore` | `HIDDEN → ACTIVE` | 숨김 해제(재공개) |
 | `POST .../content/{id}/restore-deleted` | `DELETED → ACTIVE` | 삭제 대상 복원 |
-| `DELETE .../content/{id}` (사유 필수) | `→ DELETED` (`purge_at` = now+30일) | soft-delete. 30일 후 purge 스케줄러가 실삭제 |
+| `DELETE .../content/{id}` (사유 필수) | `→ DELETED` (`purge_at` = now+30일) | soft-delete. `purge_at` 경과분은 `ContentPort#purgeExpired` 로 삭제 가능하나 현재 자동 스케줄러 미연동 |
 
 - **권한**: 조회 `CONTENT_READ`, 쓰기 3종 `CONTENT_WRITE`(`PermissionCatalog` 의 `CONTENT_WRITE ⇒ CONTENT_READ` 의존). RBAC 역할·권한 분리는 [`ADR-027`](../philosophy/adr-027-admin-role-authorization.md) 참고.
 - **감사로그**: `@Audited("admin.content.hide"/"restore"/"restore-deleted"/"delete")` — §4-11/§4-16 과 동일한 `SlugContext` 스왑으로 대상 앱 스키마 `audit_logs` 에 기록.
@@ -590,8 +611,8 @@ IAP 결제 환불 시도 응답:
 | `ADMIN_005` USER_NOT_FOUND | 404 | `/apps/{slug}/users/{userId}` 조회 시 해당 유저 없음 |
 | `ADMIN_006` PG_REFUND_ONLY | 400 | 환불 대상 결제의 `channel` 이 `PG` 가 아님(IAP 는 스토어가 결제를 소유해 콘솔 대행 불가) |
 | `ADMIN_007` PAYMENT_NOT_FOUND | 404 | 환불 대상 슬러그 스키마에 그 `paymentId` 의 결제가 없음 |
-| `ADMIN_008` FILE_ALREADY_QUARANTINED | 400 | 이미 검역된 파일을 다시 검역 시도(v1.8) |
-| `ADMIN_009` FILE_NOT_QUARANTINED | 400 | 검역되지 않은 파일을 복원 시도(v1.8) |
+| `ADMIN_008` FILE_ALREADY_QUARANTINED | 400 | **레거시 — 현재 미발생.** 재검역은 idempotent no-op 으로 허용(§4-14). enum 은 번호 동결로 유지 |
+| `ADMIN_009` FILE_NOT_QUARANTINED | 400 | **레거시 — 현재 미발생.** 비검역 파일 복원도 idempotent no-op 으로 허용(§4-15). enum 은 번호 동결로 유지 |
 | `ADMIN_010` FILE_NOT_FOUND | 404 | 검역/복원/열람 대상 파일 없음 |
 | `ADMIN_011` ADMIN_EMAIL_EXISTS | 409 | 계정 생성 시 이미 사용 중인 이메일 |
 | `ADMIN_012` ADMIN_ACCOUNT_NOT_FOUND | 404 | `/admins/{id}` 대상 관리자 계정 없음 |

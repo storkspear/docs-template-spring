@@ -79,6 +79,8 @@ public class UserServiceImpl implements UserPort { ... }
 
 `XxxPort` 는 "외부가 의존해도 되는 안정적 경계" 를 명시합니다. `XxxServiceImpl` 은 "이 클래스는 구현체이므로 직접 의존 금지" 를 명시해요.
 
+Port 구현체가 순수 내부 로직이면 `XxxServiceImpl` 을, 외부 시스템·I/O(HTTP·스토리지·푸시·결제·IAP 등)를 감싸면 `XxxAdapter` 를 씁니다. 예를 들어 `IapPort` 는 스토어별 구현이 전부 어댑터라 `AppleAppStoreAdapter` · `GooglePlayAdapter` · `StubIapAdapter`(non-prod fallback) 로, 이메일·푸시·스토리지도 같은 결로 `ResendEmailAdapter` · `FcmPushAdapter` · `MinIOStorageAdapter` 를 씁니다. `Adapter` 접미사는 "이 클래스 뒤에 외부 경계가 있다" 를 이름만으로 드러내요.
+
 ### 내부 서비스 (외부 노출 아님)
 
 같은 모듈 안에서만 쓰이는 헬퍼 서비스는 `Xxx` 또는 `XxxService` 를 씁니다. 외부에 노출되는 인터페이스가 없으니 `Impl` 접미사는 붙이지 않아요.

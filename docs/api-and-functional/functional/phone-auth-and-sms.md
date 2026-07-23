@@ -262,17 +262,19 @@ public void verify(String phoneE164, String code) {
         .findFirstByPhoneE164AndUsedAtIsNullOrderByCreatedAtDesc(phoneE164)
         .orElseThrow(() -> new PhoneAuthException(OTP_NOT_FOUND));
 
-    if (otp.isExpired())                      throw new PhoneAuthException(OTP_EXPIRED);
+    if (otp.isExpired())                         throw new PhoneAuthException(OTP_EXPIRED);
     if (otp.getAttempts() >= MAX_VERIFY_ATTEMPTS) throw new PhoneAuthException(OTP_TOO_MANY_ATTEMPTS);
     if (!otp.matches(OtpCodes.sha256Hex(code))) {
-        otp.incrementAttempts();              // 시도 카운트 증가
+        // 그 코드의 시도 횟수만 원자적 +1 — 동시 요청 lost-update 방지. 0건이면 그 사이 한도 도달.
+        int updated = repository.incrementAttemptsIfBelow(otp.getId(), MAX_VERIFY_ATTEMPTS);
+        if (updated == 0) throw new PhoneAuthException(OTP_TOO_MANY_ATTEMPTS);
         throw new PhoneAuthException(OTP_INVALID_CODE);
     }
-    otp.markUsed();                           // 1회용 — 재사용 불가
+    otp.markUsed();                              // 1회용 — 재사용 불가
 }
 ```
 
-> `@Transactional(noRollbackFor = PhoneAuthException.class)` — 코드 불일치 시 `incrementAttempts()` 직후 예외를 던지는데, 기본 동작(RuntimeException → 롤백) 은 attempts 증가를 사라지게 해 brute-force 가드를 무력화합니다. `noRollbackFor` 로 증가분을 커밋시킵니다.
+> `@Transactional(noRollbackFor = PhoneAuthException.class)` — 코드 불일치 시 시도 횟수를 `incrementAttemptsIfBelow` 의 **원자적 UPDATE**(`attempts < MAX` 조건부 +1)로 증가시킨 뒤 예외를 던지는데, 기본 동작(RuntimeException → 롤백) 은 이 증가를 사라지게 해 brute-force 가드를 무력화합니다. `noRollbackFor` 로 증가분을 커밋시킵니다. 원자적 UPDATE 는 read-modify-write 대신 조건부 UPDATE 라 동시 다중 요청에서도 lost-update 없이 한도를 정확히 강제하며, UPDATE 가 0건이면(그 사이 한도 도달) `OTP_TOO_MANY_ATTEMPTS` 로 전환합니다 — `EmailVerificationService` 와 동일 패턴입니다.
 
 ### TTL / rate-limit 기본값
 

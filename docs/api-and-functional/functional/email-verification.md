@@ -514,6 +514,9 @@ public void confirmReset(String rawToken, String newPassword) {
     token.markUsed();
     userPort.updatePassword(token.getUserId(), passwordHasher.hash(newPassword));
 
+    // 계정 잠금 즉시 해제 — 재설정 = 이메일 소유 증명 = 본인 확인 완료
+    userPort.resetLockout(token.getUserId());
+
     // 모든 세션 무효화 — 보안 조치
     refreshTokenService.revokeAllForUser(token.getUserId());
 }
@@ -622,6 +625,7 @@ EMAIL_CONFIG_MISSING(503, "EMAIL_002", "이메일 발송 설정 누락");
 - send-code 발송 실패는 운영에서는 요청을 명시적으로 실패시키고, 로컬·dev 에서는 raw 반환으로 진행을 보장합니다.
 - 인증 코드·재설정 토큰 TTL 은 모두 기본 5분이고, verify-code 가 발급하는 proof JWT 는 30분이에요.
 - 비밀번호 재설정 성공 시 해당 유저의 모든 refresh token 이 무효화됩니다.
+- 비밀번호 재설정을 완료하면 계정 잠금(로그인 실패 카운터)도 즉시 해제됩니다 — 재설정이 이메일 소유 증명이자 본인 확인이기 때문이에요 (요청만으로는 해제되지 않아요).
 - 존재하지 않는 이메일로 재설정 요청이 와도 동일한 응답을 반환해 열거를 막아요.
 
 ---

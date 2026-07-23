@@ -230,7 +230,7 @@ public record AuthenticatedUser(
         permissions = permissions == null ? List.of() : List.copyOf(permissions);
     }
 
-    /** 권한 없는 4-arg 편의 생성자 — 앱 유저 토큰·기존 호출부용 (permissions=빈 목록). */
+    /** 권한 없는 4-arg 편의 생성자 — permissions 가 불필요한 호출부용 (permissions=빈 목록). 현재 production 호출부는 없고 테스트에서만 사용. */
     public AuthenticatedUser(long userId, String email, String appSlug, String role) {
         this(userId, email, appSlug, role, List.of());
     }

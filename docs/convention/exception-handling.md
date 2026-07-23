@@ -24,7 +24,7 @@
 
 ```
 ErrorInfo (인터페이스)
-    ├── CommonError      ← CMN_001 ~ CMN_010, CMN_429
+    ├── CommonError      ← CMN_001 ~ CMN_010, CMN_400, CMN_413, CMN_429
     ├── AuthError        ← ATH_001 ~ ATH_014 (ATH_006 결번 · 2FA — ADR-030 · 이메일 인증 코드 · 계정 잠금)
     ├── UserError        ← USR_001 ~ USR_002
     ├── BillingError     ← BIL_001 ~ BIL_010 (구독·결제·webhook — ADR-020)
@@ -102,6 +102,8 @@ GlobalExceptionHandler
 | CMN_008 | 401 | ACCESS_TOKEN_INVALID | JWT access token 무효 |
 | CMN_009 | 503 | FEATURE_DISABLED | 기능 비활성 (ADR-034 Lite 모드) |
 | CMN_010 | 426 | UPGRADE_REQUIRED | 앱 버전이 서버 최소 요구 버전 미만 (min-version 게이트) |
+| CMN_400 | 400 | MALFORMED_REQUEST | 요청 본문 파싱/역직렬화 불가 (깨진 JSON 등 · 500 대신 400) |
+| CMN_413 | 413 | PAYLOAD_TOO_LARGE | 요청 본문 크기 초과 (요청 크기 게이트 · 본문 파싱 전 조기 거부) |
 | CMN_429 | 429 | RATE_LIMIT_EXCEEDED | Rate limit 초과 (Retry-After 헤더 포함) |
 
 JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `CommonError` 에 있는 건 모듈 의존 때문이에요. 토큰을 검증하는 common-security 가 core-auth-api 에 의존할 수 없어서, 공통 레이어에 배치했어요.
@@ -241,8 +243,8 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | ADMIN_005 | 404 | USER_NOT_FOUND | 대상 사용자 미발견 |
 | ADMIN_006 | 400 | PG_REFUND_ONLY | PG 결제만 콘솔 환불 가능 (IAP 불가) |
 | ADMIN_007 | 404 | PAYMENT_NOT_FOUND | 결제 내역 미발견 |
-| ADMIN_008 | 400 | FILE_ALREADY_QUARANTINED | 이미 검역된 파일 |
-| ADMIN_009 | 400 | FILE_NOT_QUARANTINED | 검역되지 않은 파일의 복원 시도 |
+| ADMIN_008 | 400 | FILE_ALREADY_QUARANTINED | (레거시 — 현재 미발생) 재검역은 idempotent no-op, enum 은 번호 동결로 유지 |
+| ADMIN_009 | 400 | FILE_NOT_QUARANTINED | (레거시 — 현재 미발생) 비검역 파일 복원도 idempotent no-op, enum 은 번호 동결로 유지 |
 | ADMIN_010 | 404 | FILE_NOT_FOUND | 파일 미발견 |
 | ADMIN_011 | 409 | ADMIN_EMAIL_EXISTS | 관리자 계정 이메일 중복 |
 | ADMIN_012 | 404 | ADMIN_ACCOUNT_NOT_FOUND | 관리자 계정 미발견 |
@@ -431,7 +433,7 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 |---|---|
 | `common-web/.../exception/ErrorInfo.java` | Error enum 인터페이스 |
 | `common-web/.../exception/BaseException.java` | 모든 비즈니스 예외 부모 |
-| `common-web/.../exception/CommonError.java` | 공통 에러 enum (CMN_001~010, CMN_429) |
+| `common-web/.../exception/CommonError.java` | 공통 에러 enum (CMN_001~010, CMN_400, CMN_413, CMN_429) |
 | `common-web/.../exception/CommonException.java` | 공통 예외 |
 | `common-web/.../exception/GlobalExceptionHandler.java` | BaseException 통합 핸들러 |
 | `common-web/.../response/ApiError.java` | 에러 응답 구조 |
@@ -448,7 +450,7 @@ assertThatCode(() -> service.requestReset("nobody@example.com"))
 | `core-payment-api/.../exception/PaymentError.java` | PG 결제 에러 enum (PAY_001~009) |
 | `core-payment-api/.../exception/PaymentException.java` | PG 결제 예외 |
 | `core-storage-api/.../exception/StorageError.java` | 스토리지 에러 enum (STG_001~011) |
-| `core-admin-impl/.../exception/AdminError.java` | 운영 콘솔 에러 enum (ADMIN_001~023) |
+| `core-admin-impl/.../exception/AdminError.java` | 운영 콘솔 에러 enum (ADMIN_001~025) |
 | `core-admin-impl/.../exception/Admin*Exception.java` | 운영 콘솔 예외 (AdminAuthException 등 다수) |
 
 ---

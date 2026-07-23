@@ -97,7 +97,9 @@ APP_STORAGE_MINIO_BUCKETS_1=sumtally-avatars
 - 로컬: `dev-shared` 버킷의 `sumtally/receipts/2026/04/01/u123/abc.png`
 - 운영: `sumtally-receipts` 버킷의 `sumtally/receipts/2026/04/01/u123/abc.png` (경로 중복이지만 코드 분기는 없어요)
 
-이 키 패턴은 `core-storage-impl` 이 만들어 주는 게 아닙니다. `StoragePort` 는 호출자가 넘긴 `objectKey` 를 그대로 쓰므로, 키를 위 규약대로 조립하는 건 포트를 소비하는 앱의 책임이에요. 그래서 모든 앱이 같은 규약을 따르도록 컨벤션으로 고정합니다.
+이 키 패턴은 `core-storage-impl` 이 만들어 주는 게 아닙니다. `StoragePort` 는 호출자가 넘긴 `objectKey` 를 그대로 쓰므로, 키를 위 규약대로 조립하는 건 포트를 소비하는 앱의 책임이에요. 그래서 **파생 앱이 직접 만드는 커스텀 업로드 도메인**은 같은 규약을 따르도록 컨벤션으로 고정합니다.
+
+> **예외 — 템플릿 내장 `core-attachment`(및 admin 첨부) 도메인**: 이 도메인은 위 계층형 키를 쓰지 않고 `AttachmentServiceImpl.create` 가 `storageKey = UUID.randomUUID().toString()` (path 세그먼트 없는 flat UUID) 를 `objectKey` 로 씁니다. `storageKey` 자체가 비추측 공개 식별자로 앱 파일 계약(`GET /api/apps/{appSlug}/files/{key}`)에 그대로 노출되고, 버킷 이름 `<slug>-uploads` 가 이미 slug+category 를 담고 있어 path 세그먼트가 불필요하기 때문이에요. `FileController.issueUpload` / `download` 도 이 flat 키를 presigned POST policy·GET 의 objectKey 로 그대로 씁니다 (`new-app.sh` V018 코멘트의 'UUID 기반 비추측 오브젝트 키'와 동일 의도). 파생 앱이 위 계층형 규약을 따르는 커스텀 업로드 도메인을 별도로 만드는 건 물론 가능해요.
 
 ### 설계 근거
 

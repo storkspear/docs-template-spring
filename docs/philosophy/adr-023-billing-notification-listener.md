@@ -12,7 +12,7 @@
 
 본 ADR 은 결제 도메인이 발행하는 이벤트들 — 갱신 성공·갱신 실패·갱신 포기(Abandoned)·IAP REFUND·IAP REVOKE — 를 push 알림으로 변환하는 listener 를 정의합니다. 위치는 정책 layer `core-billing-impl` 안의 `SubscriptionNotificationListener` 이고, *어떤 이벤트에 어떤 메시지를 보낼지* 의 알림 정책도 같은 모듈에서 관리해요. 채널은 push(FCM) 만 다루고, email 채널은 [`ADR-025`](./adr-025-billing-notification-email-channel.md) 에서 별도로 추가합니다. push 인프라 (`PushPort`, `FcmPushAdapter`) 가 이미 갖춰져 있는 반면, email 은 별도 도메인 [`ADR-024`](./adr-024-email-domain-extraction.md) 로 추출해야 했기 때문이에요.
 
-이 ADR 이 다루는 범위는 다섯 가지예요. listener 의 등록 조건 (`@ConditionalOnBean` + `@ConditionalOnProperty`), 이벤트별 처리 매핑, `@TransactionalEventListener(AFTER_COMMIT)` 으로 멱등성을 보장하는 트랜잭션 경계, 슬러그 컨텍스트 처리, 그리고 알림 발송 실패가 비즈 로직을 막지 않게 하는 격리 정책입니다. 슬러그 컨텍스트는 push token 이 슬러그별 schema 에 있으므로 listener 시작 시 `SlugContext.set` 으로 셋업하고 finally 에서 정리해요.
+이 ADR 이 다루는 범위는 다섯 가지예요. listener 의 등록 조건 (`@ConditionalOnBean` + `@ConditionalOnProperty`), 이벤트별 처리 매핑, 발행 시점이 write TX commit 이후가 되도록 하는 수동 phase 경계 (`@EventListener` + `TransactionTemplate` 커밋 후 publishEvent), 슬러그 컨텍스트 처리, 그리고 알림 발송 실패가 비즈 로직을 막지 않게 하는 격리 정책입니다. 슬러그 컨텍스트는 push token 이 슬러그별 schema 에 있으므로 listener 시작 시 `SlugContext.set` 으로 셋업하고 finally 에서 정리해요.
 
 ---
 

@@ -218,9 +218,9 @@ template-spring/
 │   │       │   └── ApiError.java                  # { code, message, details }
 │   │       ├── exception/
 │   │       │   ├── ErrorInfo.java                 # 도메인 에러 enum 인터페이스
-│   │       │   ├── BaseException.java             # 비즈니스 예외 부모 (abstract)
+│   │       │   ├── BaseException.java             # 비즈니스 예외 공통 부모 (구체 클래스, 직접 상속)
 │   │       │   ├── CommonException.java
-│   │       │   ├── CommonError.java               # CMN_001~010, CMN_429
+│   │       │   ├── CommonError.java               # CMN_001~010, CMN_413, CMN_429
 │   │       │   └── GlobalExceptionHandler.java    # → ApiError 통합 변환
 │   │       ├── pagination/                        # PageRequest, PageResponse
 │   │       ├── search/                            # POST /search DTO (QueryDsl 비의존)
@@ -361,7 +361,8 @@ template-spring/
 │   │       │   ├── OtpService.java                # 발송 rate-limit + 검증 brute-force 가드 (TTL 5분, SHA-256 해시 저장)
 │   │       │   └── OtpCodes.java                  # SecureRandom 6자리 코드 + sha256Hex
 │   │       ├── entity/AuthPhoneVerificationCode.java  # auth_phone_verification_codes (per-app schema 로 라우팅, 코어 schema 없음)
-│   │       ├── repository/PhoneVerificationCodeRepository.java
+│   │       ├── repository/AuthPhoneVerificationCodeRepository.java
+│   │       ├── controller/PhoneAuthController.java # POST /api/apps/{appSlug}/auth/phone/{request,verify} (공유 런타임 빈)
 │   │       └── PhoneAuthAutoConfiguration.java    # 라우팅 EMF/txManager(@Primary) 바인딩
 │   │
 │   ├── core-storage-api/              # 스토리지 포트
@@ -437,7 +438,7 @@ template-spring/
 │   │       └── IapAutoConfiguration.java
 │   │
 │   ├── core-payment-api/              # PG 채널 포트 (포트원)
-│   │   ├── PaymentPort.java                       # verify / refund
+│   │   ├── PaymentPort.java                       # verify / refund / chargeAgain
 │   │   ├── PortOneWebhookVerifier.java            # HMAC SHA-256 + timestamp
 │   │   ├── PaymentStatus.java                     # READY / PAID / FAILED / CANCELLED / VBANK_ISSUED
 │   │   └── dto/ PaymentResult / RefundRequest / RefundResult / WebhookMessage

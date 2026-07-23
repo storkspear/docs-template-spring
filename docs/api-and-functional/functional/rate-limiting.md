@@ -43,9 +43,12 @@ test 프로파일에는 별도 설정이 없어 `RateLimitProperties` 의 기본
 | 경로 상수 | 설명 |
 |---|---|
 | `EMAIL_SIGNUP` · `EMAIL_SIGNIN` | 이메일 가입·로그인 |
-| `APPLE` · `GOOGLE` | 소셜 로그인 |
+| `APPLE` · `GOOGLE` · `KAKAO` · `NAVER` | 소셜 로그인 (find-or-create 경로라 자동가입 남용 표면) |
+| `TOTP_LOGIN` | 2FA 2단계 로그인 (6자리 TOTP brute-force 표면) |
+| `TOTP_DISABLE` · `TOTP_BACKUP_CODES_REGENERATE` | 2FA 관리 (비밀번호 재확인 요구) |
 | `PASSWORD_RESET_REQUEST` · `PASSWORD_RESET_CONFIRM` · `PASSWORD_CHANGE` | 비밀번호 재설정·변경 |
 | `VERIFY_EMAIL` · `RESEND_VERIFICATION` | 이메일 검증·재발송 |
+| `Files.UPLOADS_SUFFIX` | 앱 파일 업로드 티켓 발급 (presigned PUT 남용·스토리지 소진 표면) |
 
 나머지 경로에는 default 한도가 적용돼요.
 
@@ -75,7 +78,7 @@ Content-Type: application/json
 
 ## 검증
 
-`RateLimitFilterTest` 가 필터 동작을 9개 단위 테스트로 검증해요. strict 한도까지의 정상 통과, 초과 시 429, 앱별·IP별 버킷 분리, 비민감 경로의 default 적용, 선행 default 트래픽이 strict 한도를 무력화하지 못함, 신뢰 헤더(`CF-Connecting-IP`) 기반 버킷 키와 스푸핑된 `X-Forwarded-For` 무시, 전역 비활성화 동작을 각각 확인합니다. 초과 케이스는 strict 한도를 3으로 잡고 4번째 호출에서 429 와 `CMN_429` 가 나오는지를 봅니다.
+`RateLimitFilterTest` 가 필터 동작을 12개 단위 테스트로 검증해요. strict 한도까지의 정상 통과, 초과 시 429, `TOTP_LOGIN`·`KAKAO`·`NAVER`·2FA 관리 경로의 strict 적용, 앱별·IP별 버킷 분리, 비민감 경로의 default 적용, 선행 default 트래픽이 strict 한도를 무력화하지 못함, 신뢰 헤더(`CF-Connecting-IP`) 기반 버킷 키와 스푸핑된 `X-Forwarded-For` 무시, 전역 비활성화 동작을 각각 확인합니다. 초과 케이스는 strict 한도를 3으로 잡고 4번째 호출에서 429 와 `CMN_429` 가 나오는지를 봅니다.
 
 ## 관련 문서
 

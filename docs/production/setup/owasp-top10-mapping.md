@@ -16,11 +16,11 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 ## A01 — Broken Access Control (권한 검사 누락)
 
 **현 방어**:
-- `common/common-security/.../SecurityConfig.java:166-168` — `anyRequest().authenticated()` 정책. 새 endpoint 는 `ApiEndpoints.Auth.PUBLIC_PATTERNS` 에 명시하지 않으면 자동으로 보호됩니다
-- `common/common-security/.../AppSlugVerificationFilter.java:57-74` — JWT 의 `appSlug` claim 과 URL path slug 가 불일치하면 403. cross-tenant 데이터 접근을 차단합니다
+- `common/common-security/.../SecurityConfig.java:178-179` — `anyRequest().authenticated()` 정책. 새 endpoint 는 `ApiEndpoints.Auth.PUBLIC_PATTERNS` 에 명시하지 않으면 자동으로 보호됩니다
+- `common/common-security/.../AppSlugVerificationFilter.java:54-68` — JWT 의 `appSlug` claim 과 URL path slug 가 불일치하면 403. cross-tenant 데이터 접근을 차단합니다
 - `common/common-security/.../AdminOnly.java:39` — `@PreAuthorize("hasRole('ADMIN')")` meta annotation. 미인증 401, 권한 없으면 403
 - `core/core-audit-impl/.../AuditAspect.java:56-98` — `@AdminOnly`·`@Audited` 메서드를 자동으로 가로채 audit log 를 기록합니다
-- `common/common-security/.../CurrentUserArgumentResolver.java:27-46` — `@CurrentUser` resolver 가 SecurityContext 에서 `AuthenticatedUser` 를 주입합니다
+- `common/common-security/.../CurrentUserArgumentResolver.java:26-42` — `@CurrentUser` resolver 가 SecurityContext 에서 `AuthenticatedUser` 를 주입합니다
 
 **검증**:
 - `common/common-security/.../AppSlugVerificationFilterTest.java` — slug 불일치 시 403
@@ -81,9 +81,9 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 **현 방어**:
 - `bootstrap/.../BootstrapArchitectureTest.java` — ArchUnit 22 규칙. cross-domain raw repository 호출, cross-app 의존 등을 차단합니다
-- `common/common-web/.../exception/GlobalExceptionHandler.java:144-151` — fallback handler 가 stacktrace 를 노출하지 않아요. 클라이언트엔 generic message 만 갑니다
+- `common/common-web/.../exception/GlobalExceptionHandler.java:154-161` — fallback handler 가 stacktrace 를 노출하지 않아요. 클라이언트엔 generic message 만 갑니다
 - `core/core-auth-api/.../exception/AuthError.java:17-18` — `INVALID_CREDENTIALS (ATH_001)` "이메일 또는 비밀번호가 올바르지 않습니다" — **열거 공격 방지** (어느 필드가 틀렸는지 구분하지 않음)
-- `common/common-web/.../ratelimit/RateLimitFilter.java:48-58` — `SENSITIVE_SUFFIXES` set 으로 auth 민감 endpoint 를 분리. prod 기준 strict 10rpm / default 60rpm
+- `common/common-web/.../ratelimit/RateLimitFilter.java:48-72` — `SENSITIVE_SUFFIXES` set 으로 auth 민감 endpoint 를 분리. prod 기준 strict 10rpm / default 60rpm
 - `common/common-security/.../AppSlugVerificationFilter.java` — schema-per-app 멀티테넌시 격리
 
 **검증**:
@@ -103,7 +103,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `bootstrap/.../application.yml:36-37` — `management.endpoints.web.exposure.include: health,info,prometheus` (env, beans, heapdump 등 제외)
 - `bootstrap/.../application-prod.yml:44-48` — prod 도 동일 정책 (override 없음)
 - `application.yml:40` — `management.endpoint.health.show-details: never` (health 최소 정보)
-- `GlobalExceptionHandler.java:144-151` — fallback 시 stacktrace 비노출
+- `GlobalExceptionHandler.java:154-161` — fallback 시 stacktrace 비노출
 - `application-prod.yml` 모든 민감값 `${ENV_VAR}` 플레이스홀더
 
 **검증**:
@@ -145,7 +145,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 ## A07 — Identification and Authentication Failures (인증 실패)
 
 **현 방어**:
-- `common/common-web/.../security/PasswordValidator.java:23-106` — 최소 10자, 대문자+소문자+숫자 필수, 특수문자 선택. Top 200 흔한 비밀번호 블랙리스트 (`common-passwords.txt`). BCrypt max 72 byte 강제
+- `common/common-web/.../security/PasswordValidator.java:23-106` — 최소 10자, 대문자+소문자+숫자 필수, 특수문자 선택. 흔한 비밀번호 블랙리스트 (`common-passwords.txt`). BCrypt max 72 byte 강제
 - `core/core-auth-impl/.../totp/{TotpService,TwoFactorService}.java` — RFC 6238 TOTP. HMAC-SHA1, 30초 window, 6자리, ±1 window (90초). Backup codes 8개 BCrypt 저장. opt-in 활성화. 임시 토큰 (`type="2fa_pending"`, 5분 TTL)
 - `core/core-auth-impl/.../entity/AuthRefreshToken.java:1-143` — refresh token rotation + replay 감지
   - `familyId` 추적
