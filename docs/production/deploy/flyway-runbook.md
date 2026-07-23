@@ -12,7 +12,7 @@
 | **dev** | `migrate()` (AUTO — 배포 경로가 주입) | `deploy-dev.yml` 이 `APP_FLYWAY_MODE=AUTO` 를 고정 주입. `application-dev.yml` 자체 fallback 은 VALIDATE_ONLY |
 | **prod** | `validate()` (VALIDATE_ONLY) | checksum 정합만 검증, schema 변경 X |
 
-dev 는 배포 경로 기준으로 AUTO 예요 — `deploy-dev.yml` 이 `APP_FLYWAY_MODE=AUTO` 를 고정 주입해서, develop push 자동 배포는 부팅하면서 migrate 까지 수행합니다. 다만 `application-dev.yml` 의 fallback 값 자체는 VALIDATE_ONLY 라, 배포 경로 밖에서 dev profile 로 직접 부팅하면 검증만 해요. prod 는 부팅 시점에 항상 검증만 하고, 실제 schema 변경은 운영자가 `tools/migrate-prod.sh` 로 사전에 직접 적용합니다.
+dev 는 배포 경로 기준으로 AUTO 예요 — `deploy-dev.yml` 이 `APP_FLYWAY_MODE=AUTO` 를 고정 주입해서, develop push 자동 배포는 부팅하면서 migrate 까지 수행합니다. 다만 `application-dev.yml` 의 fallback 값 자체는 VALIDATE_ONLY 라, 배포 경로 밖에서 dev profile 로 직접 부팅하면 검증만 해요. prod 는 부팅 시점에 항상 검증만 하고, 실제 schema 변경은 운영자가 `tools/deploy/migrate-prod.sh` 로 사전에 직접 적용합니다.
 
 스위치는 `app.flyway.mode` 프로퍼티 (`AUTO` / `VALIDATE_ONLY` / `DISABLED`) 이고, `APP_FLYWAY_MODE` 환경변수로 override 합니다. 결정 근거는 [`ADR-033 · Flyway Hybrid Policy`](../../philosophy/adr-033-flyway-hybrid-policy.md) 에 있어요.
 
@@ -55,7 +55,7 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 
 ### 2-2. 마이그레이션 매핑
 
-`new app` (`tools/new-app/new-app.sh`) 이 새 앱마다 기본 25개 (V001~V026, V007 제외) 를 자동 생성합니다. V007 admin 시드는 `--seed-admin` 을 붙일 때만 만들어져요 (opt-in). 전부 슬러그 schema 안에 만들어지고, 내용은 모든 앱이 동일해요.
+`new app` (`tools/app/new-app.sh`) 이 새 앱마다 기본 25개 (V001~V026, V007 제외) 를 자동 생성합니다. V007 admin 시드는 `--seed-admin` 을 붙일 때만 만들어져요 (opt-in). 전부 슬러그 schema 안에 만들어지고, 내용은 모든 앱이 동일해요.
 
 | 버전 | 테이블 / 내용 | 비고 |
 |---|---|---|
@@ -193,7 +193,7 @@ dev / prod 에서는 방법 1 이 유일한 경로예요. checksum 을 손으로
 
 ## 4. 운영 마이그레이션 — `prod migrate`
 
-dev / prod 부팅 시 Flyway 는 validate 만 하고 schema 를 바꾸지 않습니다. 새 schema 는 운영자가 배포 전에 직접 적용해야 해요. `factory` wrapper 의 `prod migrate` (또는 `dev migrate`) 명령이 `tools/migrate-prod.sh` 를 호출하는데, `--target=prod` / `--target=dev` 로 대상 환경만 갈립니다. local 은 부팅 시 자동 migrate 라 `migrate` 명령이 막혀 있어요.
+dev / prod 부팅 시 Flyway 는 validate 만 하고 schema 를 바꾸지 않습니다. 새 schema 는 운영자가 배포 전에 직접 적용해야 해요. `factory` wrapper 의 `prod migrate` (또는 `dev migrate`) 명령이 `tools/deploy/migrate-prod.sh` 를 호출하는데, `--target=prod` / `--target=dev` 로 대상 환경만 갈립니다. local 은 부팅 시 자동 migrate 라 `migrate` 명령이 막혀 있어요.
 
 ### 4-1. 적용 절차
 
@@ -204,7 +204,7 @@ vi apps/app-gymlog/src/main/resources/db/migration/gymlog/V026__add_foo.sql
 # 2. dry-run 으로 미리보기 (실제 적용 X)
 <repo> prod migrate gymlog V026__add_foo --dry-run
 # 또는 직접:
-bash tools/migrate-prod.sh --target=prod gymlog \
+bash tools/deploy/migrate-prod.sh --target=prod gymlog \
   apps/app-gymlog/src/main/resources/db/migration/gymlog/V026__add_foo.sql --dry-run
 
 # 3. 실제 적용 (prompt 에 yes 입력)
@@ -225,7 +225,7 @@ git push origin main
 
 ### 4-2. migrate-prod.sh 가 하는 일
 
-`tools/migrate-prod.sh` 의 동작 순서는 이래요.
+`tools/deploy/migrate-prod.sh` 의 동작 순서는 이래요.
 
 1. `.env.<target>` 에서 `DB_URL` / `DB_USER` / `DB_PASSWORD` 를 로드하고 JDBC URL 을 psql 형식으로 변환합니다.
 2. V스크립트 파일명에서 version 과 description 을 추출하고 (`V026__add_foo.sql` → `26`, `add foo`) SQL 미리보기를 출력한 뒤 적용을 묻습니다 (`--force` 면 skip).
@@ -241,7 +241,7 @@ git push origin main
 `migrate-prod.sh` 가 쓰는 계산은 다음과 같아요. Flyway 와 다른 지점이 바로 이 단순화된 CRC32 입니다.
 
 ```python
-# tools/migrate-prod.sh 발췌 (checksum 계산부)
+# tools/deploy/migrate-prod.sh 발췌 (checksum 계산부)
 import zlib
 with open(SQL_FILE, 'rb') as f:
     data = f.read().replace(b'\r\n', b'\n')   # CRLF → LF
@@ -315,4 +315,4 @@ APP_FLYWAY_MODE=DISABLED kamal deploy
 - [`Architecture`](../../structure/architecture.md) — 모듈별 마이그레이션 위치
 - [`CLI 가이드`](../../start/cli-guide.md) — `prod migrate` / `dev migrate` 명령 매트릭스
 - [`운영 런북`](./runbook.md) — 평시 배포 · 롤백 · 장애 대응
-- `tools/migrate-prod.sh` — prod / dev V스크립트 적용 자동화 도구 (`factory` wrapper 의 본체)
+- `tools/deploy/migrate-prod.sh` — prod / dev V스크립트 적용 자동화 도구 (`factory` wrapper 의 본체)

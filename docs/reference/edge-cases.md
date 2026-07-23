@@ -128,7 +128,7 @@
 
 **영향** — 모듈러 모놀리스 전체 다운. 모든 앱 서비스가 중단됩니다.
 
-**해결** — 개발 단계에서 로컬 Docker Postgres 로 먼저 마이그레이션을 검증하고, CI 에서는 Testcontainers 가 실제 Postgres 에 마이그레이션을 돌려 검증합니다. 운영에서는 한 겹을 더 둬요. 운영 프로파일의 Flyway 가 `VALIDATE_ONLY` 라 부팅 시 임의 마이그레이션을 실행하지 않고 checksum 과 history 만 검증하므로, 검증되지 않은 SQL 이 운영 부팅을 깨뜨리는 경로 자체가 막혀 있어요(마이그레이션은 `tools/migrate-prod.sh` 로 명시적으로 적용). 그래도 문제가 생기면 이전 버전 JAR 로 롤백(이전 커밋 재배포)하고, 실패한 마이그레이션은 `flyway_schema_history` 에 `success=false` 로 남으니 `flyway repair` 후 수정본을 다시 적용합니다. 예방의 핵심은 `naming.md` 에 명시된 "이미 배포된 마이그레이션은 수정 금지" 규칙이에요. 항상 새 V 파일로 추가합니다.
+**해결** — 개발 단계에서 로컬 Docker Postgres 로 먼저 마이그레이션을 검증하고, CI 에서는 Testcontainers 가 실제 Postgres 에 마이그레이션을 돌려 검증합니다. 운영에서는 한 겹을 더 둬요. 운영 프로파일의 Flyway 가 `VALIDATE_ONLY` 라 부팅 시 임의 마이그레이션을 실행하지 않고 checksum 과 history 만 검증하므로, 검증되지 않은 SQL 이 운영 부팅을 깨뜨리는 경로 자체가 막혀 있어요(마이그레이션은 `tools/deploy/migrate-prod.sh` 로 명시적으로 적용). 그래도 문제가 생기면 이전 버전 JAR 로 롤백(이전 커밋 재배포)하고, 실패한 마이그레이션은 `flyway_schema_history` 에 `success=false` 로 남으니 `flyway repair` 후 수정본을 다시 적용합니다. 예방의 핵심은 `naming.md` 에 명시된 "이미 배포된 마이그레이션은 수정 금지" 규칙이에요. 항상 새 V 파일로 추가합니다.
 
 ---
 

@@ -29,7 +29,7 @@
 
 템플릿이 자동으로 넣는 seed 는 **기본 subscription plan 2행** 입니다. `V008__init_subscription_plans.sql` 이 테이블 DDL 과 함께 무료 plan(`free`)과 샘플 유료 plan(`PRO`, dogfood/smoke-test 의 PG/IAP 흐름 검증용)을 INSERT 해요 — 모든 신규 가입자의 default 가 되는 참조 데이터입니다.
 
-**admin 계정 1명은 opt-in seed** 예요. `./tools/new-app/new-app.sh <slug> --seed-admin` 을 명시한 경우에만 생성기가 `V007__seed_admin_user.sql` 을 떨굽니다 (Step 15, 기본 off). 비밀번호는 앱별로 **랜덤 생성**되어 BCrypt 해시로만 저장되고, 평문은 생성 시 콘솔에 1회만 출력돼요 — 파생 앱들이 공유하는 고정/공개 비밀번호(계정 탈취 벡터)를 만들지 않기 위해서입니다.
+**admin 계정 1명은 opt-in seed** 예요. `./tools/app/new-app.sh <slug> --seed-admin` 을 명시한 경우에만 생성기가 `V007__seed_admin_user.sql` 을 떨굽니다 (Step 15, 기본 off). 비밀번호는 앱별로 **랜덤 생성**되어 BCrypt 해시로만 저장되고, 평문은 생성 시 콘솔에 1회만 출력돼요 — 파생 앱들이 공유하는 고정/공개 비밀번호(계정 탈취 벡터)를 만들지 않기 위해서입니다.
 
 ```sql
 -- new-app.sh Step 15 (--seed-admin) 가 생성하는 V007__seed_admin_user.sql 발췌
@@ -214,7 +214,7 @@ public class JpaAuthFixtures implements AuthFixtures {
 
 ## 파생 레포가 자기 앱 schema 에 seed 를 넣는 방법
 
-새 앱을 `./tools/new-app/new-app.sh <slug>` 로 생성하면 `db/migration/<slug>/` 에 V001~V026 공통 테이블(V007 admin 시드는 `--seed-admin` opt-in)이 자동으로 만들어집니다. 각 앱은 자기 schema 를 가지며, Flyway 는 `classpath:db/migration/<slug>` 를 해당 schema 에 대해 독립적으로 실행해요 (`common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java` 의 `buildFlyway` 참조).
+새 앱을 `./tools/app/new-app.sh <slug>` 로 생성하면 `db/migration/<slug>/` 에 V001~V026 공통 테이블(V007 admin 시드는 `--seed-admin` opt-in)이 자동으로 만들어집니다. 각 앱은 자기 schema 를 가지며, Flyway 는 `classpath:db/migration/<slug>` 를 해당 schema 에 대해 독립적으로 실행해요 (`common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java` 의 `buildFlyway` 참조).
 
 ### 도메인 테이블과 seed 추가
 

@@ -157,7 +157,7 @@ public @interface AdminOrModerator {}
 
 - `SecurityConfig` — `@EnableMethodSecurity` 추가
 - `common-security/AdminOnly.java` — meta annotation 신규
-- `tools/new-app/new-app.sh` — PaymentController.refund 에 `@AdminOnly` 추가 + import
+- `tools/app/new-app.sh` — PaymentController.refund 에 `@AdminOnly` 추가 + import
 - 테스트 3건 PASS
 
 ---

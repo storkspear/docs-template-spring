@@ -183,5 +183,5 @@ PATCH /api/admin/features/{name}  # 토글 변경 (운영자 권한 필요)
 - [`ADR-002 · Use this template`](./adr-002-use-this-template.md)
 - [`ADR-007 · Solo-friendly operations`](./adr-007-solo-friendly-operations.md)
 - [`docs/production/operations/feature-toggle.md`](../production/operations/feature-toggle.md) — 운영자 가이드
-- `tools/feature.sh` — CLI 구현
+- `tools/app/feature.sh` — CLI 구현
 - `bootstrap/src/test/java/.../FeatureToggleTest` — 자동 검증

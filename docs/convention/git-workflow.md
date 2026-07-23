@@ -156,7 +156,7 @@ feat(user)!: rename UserSummary.name to displayName
 최초 1회만 셋업하면 돼요.
 
 ```bash
-./tools/init-local.sh     # 내부적으로 npm install 실행 → husky 자동 활성화
+./tools/init/init-local.sh     # 내부적으로 npm install 실행 → husky 자동 활성화
 git config --local commit.template .gitmessage
 ```
 
@@ -272,7 +272,7 @@ Item 을 시작하기 전에 반드시 backlog 를 점검해요.
 
 ## 문서 자동 검증 (docs-check)
 
-`tools/docs-check/docs-contract-test.sh` 가 CI 에서 문서와 코드의 어긋남을 자동 검증합니다. 일곱 가지를 검사해요.
+`tools/docs/docs-contract-test.sh` 가 CI 에서 문서와 코드의 어긋남을 자동 검증합니다. 일곱 가지를 검사해요.
 
 | 체크 | 확인 사항 |
 |---|---|
@@ -287,16 +287,16 @@ Item 을 시작하기 전에 반드시 backlog 를 점검해요.
 ### 로컬 실행
 
 ```bash
-./tools/docs-check/docs-contract-test.sh
+./tools/docs/docs-contract-test.sh
 ```
 
 ### 오탐 처리
 
-오탐이 나면 `tools/docs-check/exclusions.conf` 에 `<check-id>:<pattern>` 형식으로 한 줄 추가하고, 왜 예외인지 이유를 주석으로 남겨요.
+오탐이 나면 `tools/docs/exclusions.conf` 에 `<check-id>:<pattern>` 형식으로 한 줄 추가하고, 왜 예외인지 이유를 주석으로 남겨요.
 
 ### 트리거
 
-`.github/workflows/docs-check.yml` 이 `main` 대상 PR 과 `main` push 에서 실행합니다 (feature 브랜치 직접 push 는 ci.yml 과 같은 이유로 트리거하지 않아요). `tools/ci-test.sh` 의 5단계 검증 중 3단계가 위 검사를 호출해요. 워크플로우 YAML 자체의 정적 검증(actionlint)은 검토 결과 실익이 낮아 도입하지 않기로 했어요 — backlog 에 close 기록이 있어요.
+`.github/workflows/docs-check.yml` 이 `main` 대상 PR 과 `main` push 에서 실행합니다 (feature 브랜치 직접 push 는 ci.yml 과 같은 이유로 트리거하지 않아요). `tools/verify/ci-test.sh` 의 5단계 검증 중 3단계가 위 검사를 호출해요. 워크플로우 YAML 자체의 정적 검증(actionlint)은 검토 결과 실익이 낮아 도입하지 않기로 했어요 — backlog 에 close 기록이 있어요.
 
 ---
 

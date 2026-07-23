@@ -71,7 +71,7 @@
 ### 앱 추가 흐름
 
 ```text
-1. 파생 레포에서: ./tools/new-app/new-app.sh gymlog
+1. 파생 레포에서: ./tools/app/new-app.sh gymlog
 2. apps/app-gymlog/ 모듈 자동 생성:
      - GymlogHealthController (앱 모듈 유일한 컨트롤러 — 인증/유저/결제는 core 공유 컨트롤러가 처리)
      - GymlogDataSourceConfig (gymlog schema 전용)

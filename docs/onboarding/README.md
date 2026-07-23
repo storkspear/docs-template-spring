@@ -69,7 +69,7 @@ template 은 비즈니스 로직 없이 뼈대만 가지고 있어요. 실제로
 수행하는 일은 한 줄이에요.
 
 ```bash
-./tools/new-app/new-app.sh <slug>
+./tools/app/new-app.sh <slug>
 ```
 
 이 명령은 `apps/app-<slug>/` 디렉터리를 만들고, Postgres 에 앱 전용 schema 와 role 을 자동으로 생성해요. 생성되는 파일 목록과 동작은 onboarding 의 §3 에 표로 정리돼 있어요.

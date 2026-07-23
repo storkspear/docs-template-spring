@@ -115,7 +115,7 @@ docker compose -f infra/docker-compose.local.yml up -d postgres minio
        │                   actuator 는 health, info, prometheus 만 노출
        │                   (민감 endpoint 는 exposure 에서 제외)
        │             - Flyway 는 prod 부팅 시 validate 만 수행 (VALIDATE_ONLY, ADR-033)
-       │             - schema 변경은 배포 전 tools/migrate-prod.sh 로 사전 적용
+       │             - schema 변경은 배포 전 tools/deploy/migrate-prod.sh 로 사전 적용
        │             │
        │             ├─→ JDBC (Supavisor :6543) → [Supabase Seoul]
        │             │     - <slug> schema (apps/app-<slug> 소유 — users/auth/devices/도메인 테이블)

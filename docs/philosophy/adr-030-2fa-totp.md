@@ -245,7 +245,7 @@ core 공유 `AuthController` (`AuthAutoConfiguration` 등록) 에 포함돼요 (
 ## 관련 파일
 
 신규:
-- `tools/new-app/new-app.sh` — V013 마이그레이션 heredoc
+- `tools/app/new-app.sh` — V013 마이그레이션 heredoc
 - `core/core-auth-impl/.../controller/AuthController.java` — TOTP 5개 endpoint (공유 컨트롤러, ADR-013 B — 앱별 heredoc 미생성) + ApiEndpoints.Auth.TOTP_*
 - `core/core-auth-impl/.../totp/TotpService.java` — RFC 6238 알고리즘
 - `core/core-auth-impl/.../totp/TwoFactorService.java` — 비즈로직 (setup/verify/disable/loginWith2fa/regenerateBackupCodes)

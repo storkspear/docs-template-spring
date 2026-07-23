@@ -171,7 +171,7 @@ private static final String UPSERT =
 
 **활동 추적**:
 - [`core/core-user-impl/src/main/java/com/factory/core/user/impl/UserActivityTrackingFilter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-impl/src/main/java/com/factory/core/user/impl/UserActivityTrackingFilter.java) — `CURRENT_DATE` upsert
-- [`tools/new-app/new-app.sh:277-282`](https://github.com/storkspear/template-spring/blob/main/tools/new-app/new-app.sh) — 예약어 슬러그(admin/core/public) 차단(교훈 ④), 891행 부근 V017 heredoc
+- [`tools/app/new-app.sh:277-282`](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 예약어 슬러그(admin/core/public) 차단(교훈 ④), 891행 부근 V017 heredoc
 
 **스펙 원본**:
 - [`docs/superpowers/specs/2026-07-06-admin-module-design.md`](https://github.com/storkspear/template-spring/blob/main/docs/superpowers/specs/2026-07-06-admin-module-design.md)

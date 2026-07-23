@@ -64,7 +64,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `core/core-auth-impl/.../repository/AuthRefreshTokenRepository.java:25-38` — `@Query` JPQL UPDATE 도 named parameter 만 사용합니다
 - Flyway migration (`core/core-*-impl/.../db/migration/`) — 모든 V 파일이 정적 DDL/DML. 동적 SQL 이 없어요
 - `common/common-persistence/.../QueryDslPredicateBuilder.java` — 동적 조건 빌더가 `field_op` 형식의 operator 화이트리스트만 허용합니다 (`eq`, `ne`, `like`, `startsWith`, `endsWith`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`, `isNull`, `isNotNull`, `empty`). 화이트리스트 밖 입력은 거부되어 임의 SQL 삽입을 차단합니다
-- Shell script (`tools/new-app/new-app.sh`, `tools/migrate-prod.sh`) — DB 작업이 `psql -f <file.sql>` 형태. user 입력은 schema name (alphanumeric + hyphen) 으로 제한됩니다
+- Shell script (`tools/app/new-app.sh`, `tools/deploy/migrate-prod.sh`) — DB 작업이 `psql -f <file.sql>` 형태. user 입력은 schema name (alphanumeric + hyphen) 으로 제한됩니다
 
 **검증**:
 - Repository test 가 JPA parameter binding 을 암묵적으로 검증
@@ -131,7 +131,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - **Dependabot 미사용** — PR 노이즈와 관리 부담의 trade-off 를 평가한 뒤 미채택을 결정했어요. 의존성 update 는 별도 자동화 도구 (Renovate / OWASP Dependency Check) 또는 분기 manual review 로 대체할 예정이에요 (backlog 등재)
 
 **검증**:
-- `tools/ci-test.sh` 의 secret stage (gitleaks 실행)
+- `tools/verify/ci-test.sh` 의 secret stage (gitleaks 실행)
 
 **Gap**:
 - **CVE 스캔이 non-blocking** — ci.yml 의 OWASP Dependency Check 가 `continue-on-error` 라 critical/high CVE 가 떠도 CI 를 막지 않아요. 발견 후 조치는 운영자의 분기 audit 몫이에요
@@ -176,7 +176,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `core/core-iap-impl/.../AppleJwsVerifier.java:1-227` — Apple JWS 검증. ES256 (SHA256withECDSA) 서명 + X.509 cert chain (Apple Root CA G3, classpath embedded `apple-root-ca-g3.cer`)
 - `core/core-auth-impl/.../service/GoogleSignInService.java:117-156` — Google id token 을 Google `/tokeninfo` endpoint 에 위임 검증 (RS256 + aud/iss/exp 를 Google 측에서 처리)
 - `core/core-iap-impl/.../google/GoogleJwksClient.java:1-101` — Google webhook Bearer JWT 검증. JWKS 캐시 1시간. 4 단계 (RS256 서명 / audience / email service account allowlist / exp). ADR-032 참조
-- `tools/migrate-prod.sh` — Flyway migration checksum (zlib CRC32) 사전 등록. 부팅 시 VALIDATE_ONLY 모드로 재검증
+- `tools/deploy/migrate-prod.sh` — Flyway migration checksum (zlib CRC32) 사전 등록. 부팅 시 VALIDATE_ONLY 모드로 재검증
 - `.github/workflows/deploy.yml` — Docker image `:${sha}` 태그 (commit SHA 추적)
 - Kamal `--skip-push` — GHA deploy job 이 빌드·push 한 이미지를 그대로 사용, kamal 자체 재빌드 금지
 

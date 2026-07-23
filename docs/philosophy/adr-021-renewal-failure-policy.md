@@ -223,4 +223,4 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 - `core/core-billing-impl/.../entity/SubscriptionRenewal.java` — entity + factory 메소드 (구 `RenewalAttempt`)
 - `core/core-billing-impl/.../scheduler/SubscriptionRenewalRetryScheduler.java` — cron
 - `core/core-billing-api/.../event/SubscriptionRenewalSucceeded/Failed/AbandonedEvent.java`
-- `tools/new-app/new-app.sh` — `V011__init_subscription_renewals.sql` heredoc
+- `tools/app/new-app.sh` — `V011__init_subscription_renewals.sql` heredoc

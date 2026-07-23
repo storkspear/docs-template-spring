@@ -222,8 +222,8 @@ GYMLOG_DB_PASSWORD=
 ## 4. `init-prod.sh` 1회차 — `.env.prod` 자동 생성
 
 ```bash
-bash tools/init-prod.sh <owner>/<repo>
-# 예: bash tools/init-prod.sh storkspear/server-factory
+bash tools/init/init-prod.sh <owner>/<repo>
+# 예: bash tools/init/init-prod.sh storkspear/server-factory
 # 또는: <repo> prod init storkspear/server-factory
 # 또는: <repo> all init storkspear/server-factory   (= local → prod 순차; init 만 쓰면 local 셋업만)
 ```
@@ -237,7 +237,7 @@ bash tools/init-prod.sh <owner>/<repo>
 
 > 1회차에서는 Cloudflare 등록(Step 5.7/5.8)·Secrets push(Step 6)·검증(Step 10)까지 가지 않아요. `.env.prod` 의 빈 REQUIRED 를 채운 뒤 같은 명령을 다시 돌리는 것이 2회차예요.
 
-로컬 docker 환경(`.env` · Postgres · MinIO)이 아직 없다면, 먼저 `bash tools/init-local.sh`(또는 `<repo> local init`)로 rename · `.env` · docker compose · 로컬 검증을 끝내고 오세요. 그건 별도 스크립트이고, `init-prod.sh` 는 운영만 다뤄요.
+로컬 docker 환경(`.env` · Postgres · MinIO)이 아직 없다면, 먼저 `bash tools/init/init-local.sh`(또는 `<repo> local init`)로 rename · `.env` · docker compose · 로컬 검증을 끝내고 오세요. 그건 별도 스크립트이고, `init-prod.sh` 는 운영만 다뤄요.
 
 ---
 
@@ -302,7 +302,7 @@ APP_PAYMENT_PORTONE_WEBHOOK_SECRET=dogfood-dummy
 `.env.prod` 의 REQUIRED 를 다 채웠으면 같은 명령을 다시 실행해요.
 
 ```bash
-bash tools/init-prod.sh <owner>/<repo>
+bash tools/init/init-prod.sh <owner>/<repo>
 # 또는: <repo> prod init <owner>/<repo>
 ```
 

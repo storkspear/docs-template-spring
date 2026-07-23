@@ -20,7 +20,7 @@
 - **주기적 rotation** — 노출이 없어도 정해진 주기마다 갱신합니다.
 - **재발급 후 `prod init` 재실행** — 새 값을 `.env.prod` 에 채우고 `<repo> prod init` 을 다시 돌리면 GitHub Secrets 가 덮어쓰기로 갱신됩니다. 다음 배포부터 새 키가 주입돼요.
 
-> 이 문서는 *파생 레포 운영자* 기준입니다. 명령은 `<repo> prod init`(= `tools/init-prod.sh`)·`<repo> prod deploy` 처럼 적었어요. `<repo>` 자리에는 본인 레포 별칭(예: `myapp-backend`)이 들어갑니다.
+> 이 문서는 *파생 레포 운영자* 기준입니다. 명령은 `<repo> prod init`(= `tools/init/init-prod.sh`)·`<repo> prod deploy` 처럼 적었어요. `<repo>` 자리에는 본인 레포 별칭(예: `myapp-backend`)이 들어갑니다.
 
 ---
 

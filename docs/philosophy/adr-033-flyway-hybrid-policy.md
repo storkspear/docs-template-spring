@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — core schema 의 Flyway(coreFlyway Bean) 폐기, 각 app 의 `<slug>Flyway` 만 남음. local / test 환경에서는 `Flyway.migrate()` 가 자동으로 적용되고, dev / prod 환경에서는 `Flyway.validate()` 만 호출돼요(checksum 검증). prod 적용은 운영자가 `tools/migrate-prod.sh` 또는 SSH + psql 로 명시적으로 수행합니다.
+**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — core schema 의 Flyway(coreFlyway Bean) 폐기, 각 app 의 `<slug>Flyway` 만 남음. local / test 환경에서는 `Flyway.migrate()` 가 자동으로 적용되고, dev / prod 환경에서는 `Flyway.validate()` 만 호출돼요(checksum 검증). prod 적용은 운영자가 `tools/deploy/migrate-prod.sh` 또는 SSH + psql 로 명시적으로 수행합니다.
 
 ---
 
@@ -14,7 +14,7 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 
 이 정책의 핵심 가치는 *deploy 와 schema 변경의 분리* 예요. 코드 deploy 는 언제든 안전하게 rollback 가능한 영역이지만, schema 변경은 원칙적으로 forward-only 라 한 번 적용되면 되돌리기 어려운 영역입니다. 이 두 가지를 같은 시점에 자동으로 묶어버리면 schema 변경의 무게가 코드 deploy 의 가벼움과 충돌해요. 분리하면 운영자가 schema 변경의 시점을 별도로 결정할 수 있고, DBA 가 변경 사실을 사전에 인지하는 워크플로우도 자연스럽게 따라옵니다.
 
-운영자의 적용 도구는 `tools/migrate-prod.sh` 자동화이고, SSH + psql 수동 적용과 schema_history INSERT 흐름을 함께 처리합니다. 적용 절차는 [`Flyway Runbook`](../production/deploy/flyway-runbook.md) 에 별도 정리되어 있어요.
+운영자의 적용 도구는 `tools/deploy/migrate-prod.sh` 자동화이고, SSH + psql 수동 적용과 schema_history INSERT 흐름을 함께 처리합니다. 적용 절차는 [`Flyway Runbook`](../production/deploy/flyway-runbook.md) 에 별도 정리되어 있어요.
 
 이 ADR 의 범위는 환경별 분리 정책의 결정 근거, local / test 자동 migrate 가 유지되는 이유, dev / prod validate-only 가 잡는 위험, advisory lock 의 역할, 부분 적용과 락 손상 시 복구 흐름, 그리고 Liquibase·pgschema·Atlas 같은 대안 도구와의 트레이드오프 비교까지입니다.
 
@@ -53,7 +53,7 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 | 장점 | 단점 |
 |---|---|
 | dev / prod 부팅 시 schema 변경 X — 안전 | 운영자가 deploy 전 해당 DB 에 직접 SQL 적용 필요 |
-| DBA / 운영자가 schema 변경을 명시적으로 통제 | 자동화 도구 `tools/migrate-prod.sh` 필요 |
+| DBA / 운영자가 schema 변경을 명시적으로 통제 | 자동화 도구 `tools/deploy/migrate-prod.sh` 필요 |
 | 부분 적용 위험 0 — 부팅 시 검증만 | local / test 에선 그대로 자동이라 개발 iteration 이 빠름 |
 | Flyway `validate` 만 호출 → checksum 정합 보장 | |
 
@@ -74,8 +74,8 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 |---|---|
 | **local / test profile** | Flyway `migrate()` (자동) — 현재 동작 유지 (default `AUTO`) |
 | **dev / prod profile** | Flyway `validate()` 만 — schema_history 의 checksum 정합 검증, 변경 X |
-| **적용 흐름** | 운영자가 deploy 전 SSH + psql 로 직접 적용 → `tools/migrate-prod.sh` 자동화 |
-| **schema_history 등록** | `tools/migrate-prod.sh` 가 SQL 실행 후 자동 `INSERT` |
+| **적용 흐름** | 운영자가 deploy 전 SSH + psql 로 직접 적용 → `tools/deploy/migrate-prod.sh` 자동화 |
+| **schema_history 등록** | `tools/deploy/migrate-prod.sh` 가 SQL 실행 후 자동 `INSERT` |
 | **부팅 실패 정책** | dev / prod validate fail = Spring 부팅 fail → kamal blue/green 이 cutover 안 함 (트래픽 보호) |
 | **switch 메커니즘** | properties `app.flyway.mode = AUTO | VALIDATE_ONLY | DISABLED` (default `AUTO`, dev/prod=`VALIDATE_ONLY`) |
 | **Override** | 운영자가 긴급 시 `APP_FLYWAY_MODE=AUTO` 로 임시 사용 가능 (위험 인지하에) |
@@ -152,7 +152,7 @@ app:
 1) apps/app-<slug>/db/migration/<slug>/V<N>__*.sql 변경 검토 (PR review)
    │
    ▼
-2) tools/migrate-prod.sh <slug> V<N>  실행
+2) tools/deploy/migrate-prod.sh <slug> V<N>  실행
    │   ├── SSH prod-host → psql $DB_URL -f V<N>__*.sql
    │   ├── 성공 시 INSERT INTO <slug>.flyway_schema_history 자동
    │   └── 실패 시 ROLLBACK + 에러 보고
@@ -187,7 +187,7 @@ local / test 는 자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구
 
 ### B. prod 환경
 - validate-only 라 부분 적용 발생 X (Flyway 가 SQL 실행 안 함)
-- 운영자가 `tools/migrate-prod.sh` 실행 중 부분 실패 → 스크립트가 자동 transaction 으로 wrap
+- 운영자가 `tools/deploy/migrate-prod.sh` 실행 중 부분 실패 → 스크립트가 자동 transaction 으로 wrap
 - transaction 실패 시 rollback + schema_history INSERT 도 안 함 → 다음 deploy 의 validate 실패로 detect
 
 ---
@@ -207,7 +207,7 @@ local / test 는 자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구
 
 - ✅ dev / prod 부팅 시 schema 변경 0 — 부팅 실패는 코드·설정·DB 연결 문제로 한정
 - ✅ DBA / 운영자가 schema 변경 시점을 명시적으로 통제
-- ⚠️ deploy 전 `tools/migrate-prod.sh` 실행 step 추가 — 운영자 1단계 추가
+- ⚠️ deploy 전 `tools/deploy/migrate-prod.sh` 실행 step 추가 — 운영자 1단계 추가
 - ⚠️ schema_history INSERT 누락 시 다음 deploy 의 validate 실패 → 명확한 에러로 detect
 - ✅ 자동화 도구가 INSERT 도 함께 → 누락 위험 최소
 
@@ -215,9 +215,9 @@ local / test 는 자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구
 
 ## 후속 작업
 
-> **갱신 (2026-07-15)**: 아래 후속 작업은 모두 완료됐어요 — `tools/migrate-prod.sh` 가 실존하고, `application-prod.yml`/`application-dev.yml` 이 `APP_FLYWAY_MODE:VALIDATE_ONLY` 로 분기하며, `new-app.sh` 의 `<Slug>DataSourceConfig` heredoc 도 동일 패턴을 따릅니다.
+> **갱신 (2026-07-15)**: 아래 후속 작업은 모두 완료됐어요 — `tools/deploy/migrate-prod.sh` 가 실존하고, `application-prod.yml`/`application-dev.yml` 이 `APP_FLYWAY_MODE:VALIDATE_ONLY` 로 분기하며, `new-app.sh` 의 `<Slug>DataSourceConfig` heredoc 도 동일 패턴을 따릅니다.
 
-- `tools/migrate-prod.sh` 신규 (Phase 2-3) — 완료
+- `tools/deploy/migrate-prod.sh` 신규 (Phase 2-3) — 완료
 - `flyway-runbook.md` 본문 갱신 (Phase 2-4) — 완료
 - `bootstrap` profile 분기 적용 (Phase 2-2) — 완료
 - 파생 앱의 `<Slug>DataSourceConfig` 도 동일 패턴 — `new-app.sh` heredoc 갱신 (Phase 2-2 후속) — 완료
@@ -229,4 +229,4 @@ local / test 는 자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구
 
 - [`Flyway Runbook`](../production/deploy/flyway-runbook.md) — 운영 절차 상세
 - [`ADR-018 · SchemaRoutingDataSource`](./adr-018-schema-routing-datasource.md) — 슬러그 schema 격리
-- `tools/migrate-prod.sh` — 자동화 도구
+- `tools/deploy/migrate-prod.sh` — 자동화 도구

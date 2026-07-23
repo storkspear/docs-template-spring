@@ -63,18 +63,18 @@
 
 | verb | dev | prod | 비고 |
 |---|---|---|---|
-| **deploy** | `kamal deploy -c config/deploy-dev.yml` — `:dev-<sha>` 태그 | `kamal deploy` (build + push + blue/green). `git fetch origin main` 후 `--version=$ORIGIN_SHA` 라 로컬 working tree 와 무관 | `tools/deploy.sh --target={dev,prod}` |
+| **deploy** | `kamal deploy -c config/deploy-dev.yml` — `:dev-<sha>` 태그 | `kamal deploy` (build + push + blue/green). `git fetch origin main` 후 `--version=$ORIGIN_SHA` 라 로컬 working tree 와 무관 | `tools/deploy/deploy.sh --target={dev,prod}` |
 | **rollback** `<sha>` | 특정 dev SHA 로 롤백 | 특정 prod SHA 로 롤백 | — |
 | **status** | `kamal app details -c config/deploy-dev.yml` | `kamal app details` | — |
 | **logs** | `kamal app logs -f -c config/deploy-dev.yml` | `kamal app logs -f` | — |
-| **monitor** | ❌ (Grafana 사용 안내로 거부 — env=dev 라벨로 필터) | ❌ (Grafana 사용 안내로 거부 — env=prod 라벨로 필터) | `local monitor` 는 지원 — 핵심 메트릭 5초 폴링 (`tools/monitor-local.sh`). dev/prod 는 Loki/Grafana 공유 |
+| **monitor** | ❌ (Grafana 사용 안내로 거부 — env=dev 라벨로 필터) | ❌ (Grafana 사용 안내로 거부 — env=prod 라벨로 필터) | `local monitor` 는 지원 — 핵심 메트릭 5초 폴링 (`tools/monitor/monitor-local.sh`). dev/prod 는 Loki/Grafana 공유 |
 
 ### 앱 / 모듈
 
 | verb | local | 비고 |
 |---|---|---|
-| **new app** `[slug]` | 새 앱 모듈 (schema + 공통 마이그레이션 V001~V026 25개 + 검증). admin 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼요 (비밀번호 랜덤·1회 출력). `slug` 생략 시 prompt | `tools/new-app/new-app.sh` |
-| **remove app** `<slug>` | 앱 모듈 완전 제거 (코드 + .env + local/dev schema·role). prod 미지원 | `tools/new-app/remove-app.sh` |
+| **new app** `[slug]` | 새 앱 모듈 (schema + 공통 마이그레이션 V001~V026 25개 + 검증). admin 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼요 (비밀번호 랜덤·1회 출력). `slug` 생략 시 prompt | `tools/app/new-app.sh` |
+| **remove app** `<slug>` | 앱 모듈 완전 제거 (코드 + .env + local/dev schema·role). prod 미지원 | `tools/app/remove-app.sh` |
 | **app list** | 등록된 앱 모듈(slug) 목록 + settings.gradle 등록 여부 | env 무관 — 로컬 코드 기준 |
 | **feature list** | Lite 모드 토글 가능 모듈 + 현재 상태 (ADR-034) | `local feature` 만 |
 | **feature enable** `<n>` | `APP_FEATURES_<N>=true` (`.env` + `.env.prod` 동시 갱신) | — |
@@ -84,14 +84,14 @@
 
 | verb | 동작 | 비고 |
 |---|---|---|
-| **firebase-link** `<slug>` | 앱별 Firebase 프로젝트 create-or-use (`<org>-<slug>-<env>` 규약) + service account 키 발급 → `.env.<env>` 에 **base64** 로 기록해요. `<env>` 에 따라 대상 파일이 달라요 (`local`→`.env`, `dev`→`.env.dev`, `prod`→`.env.prod`). `--check` 는 cloud 접근 없이 project-id·prereq 만 보여주는 dry-run, `--unlink` 는 기록된 자격을 비워요 | `tools/firebase-link.sh` — `firebase` CLI + `gcloud` 필요해요 (없으면 설치 runbook 안내). 푸시를 안 쓰면 생략해도 돼요 — FCM 자격이 없으면 서버가 발송 시 graceful no-op 이에요. SA 는 서버 전용이라 클라(`dev init`)는 받지 않아요 |
+| **firebase-link** `<slug>` | 앱별 Firebase 프로젝트 create-or-use (`<org>-<slug>-<env>` 규약) + service account 키 발급 → `.env.<env>` 에 **base64** 로 기록해요. `<env>` 에 따라 대상 파일이 달라요 (`local`→`.env`, `dev`→`.env.dev`, `prod`→`.env.prod`). `--check` 는 cloud 접근 없이 project-id·prereq 만 보여주는 dry-run, `--unlink` 는 기록된 자격을 비워요 | `tools/deploy/firebase-link.sh` — `firebase` CLI + `gcloud` 필요해요 (없으면 설치 runbook 안내). 푸시를 안 쓰면 생략해도 돼요 — FCM 자격이 없으면 서버가 발송 시 graceful no-op 이에요. SA 는 서버 전용이라 클라(`dev init`)는 받지 않아요 |
 
 ### 마이그레이션 / 정리 (DESTRUCTIVE)
 
 | verb | dev | prod | 비고 |
 |---|---|---|---|
 | **migrate** `<slug> <V*>` | dev DB 에 V스크립트 적용 (`.env.dev` 의 DB_URL 사용) | prod DB 에 V스크립트 직접 적용 (ADR-033 Hybrid). `--dry-run`·`--force` 지원 | [`flyway-runbook`](../production/deploy/flyway-runbook.md) — `migrate-prod.sh --target={dev,prod}` |
-| **clear** | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/dev-cleanup.sh`, prod 는 `tools/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
+| **clear** | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/cleanup/dev-cleanup.sh`, prod 는 `tools/cleanup/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
 | **force-clear** `[slug]` | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
 
 ## 단축 — env 생략 = local
@@ -235,7 +235,7 @@ GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 5 단
 
 ### 7. Feature toggle (Lite 모드 — ADR-034)
 
-도메인별 안전 토글을 8 개 모듈(`payment`·`iap`·`email`·`2fa`·`audit`·`push`·`billing-notification`·`password-policy`)에 대해 제공해요. 단 `2fa` 토글은 후속 작업이라 현재 실제로 동작하지 않아요 (`tools/feature.sh` 주석 명시). 기본값은 모두 활성이고, 비활성 상태에서 호출이 발생하면 `CMN_009` 로 명시적인 에러가 발생해요.
+도메인별 안전 토글을 8 개 모듈(`payment`·`iap`·`email`·`2fa`·`audit`·`push`·`billing-notification`·`password-policy`)에 대해 제공해요. 단 `2fa` 토글은 후속 작업이라 현재 실제로 동작하지 않아요 (`tools/app/feature.sh` 주석 명시). 기본값은 모두 활성이고, 비활성 상태에서 호출이 발생하면 `CMN_009` 로 명시적인 에러가 발생해요.
 
 ```bash
 <repo> feature list                # 현재 상태 (8 모듈 × on/off)
@@ -329,21 +329,21 @@ dev force-clear · prod force-clear: 모든 자원 영구 삭제 (clean slate)
 `factory` wrapper 를 거치지 않고도 다음과 같이 직접 호출할 수 있어요.
 
 ```bash
-bash tools/init-local.sh <owner>/<repo>         # local init 본체
-bash tools/init-prod.sh  <owner>/<repo>         # prod init 본체
-bash tools/init-dev.sh                          # dev init 본체
-bash tools/verify-local.sh
-bash tools/verify-server.sh --target={prod,dev} # server-test 본체
-bash tools/deploy.sh --target={prod,dev}        # deploy 본체
-bash tools/api-smoke-test.sh --target={local,dev,prod}
-bash tools/migrate-prod.sh --target={prod,dev}  # migrate 본체 (이름은 호환성 유지)
-bash tools/new-app/new-app.sh <slug>
-bash tools/new-app/remove-app.sh <slug>         # remove app 본체 (new app 역방향, prod 미지원)
-bash tools/ci-test.sh
-bash tools/cleanup-server.sh                    # prod clear 본체
-bash tools/force-clear-server.sh                # prod force-clear 본체
-bash tools/dev-cleanup.sh                       # dev clear 본체
-bash tools/dev-force-clear.sh                   # dev force-clear 본체
+bash tools/init/init-local.sh <owner>/<repo>         # local init 본체
+bash tools/init/init-prod.sh  <owner>/<repo>         # prod init 본체
+bash tools/init/init-dev.sh                          # dev init 본체
+bash tools/verify/verify-local.sh
+bash tools/verify/verify-server.sh --target={prod,dev} # server-test 본체
+bash tools/deploy/deploy.sh --target={prod,dev}        # deploy 본체
+bash tools/verify/api-smoke-test.sh --target={local,dev,prod}
+bash tools/deploy/migrate-prod.sh --target={prod,dev}  # migrate 본체 (이름은 호환성 유지)
+bash tools/app/new-app.sh <slug>
+bash tools/app/remove-app.sh <slug>         # remove app 본체 (new app 역방향, prod 미지원)
+bash tools/verify/ci-test.sh
+bash tools/cleanup/cleanup-server.sh                    # prod clear 본체
+bash tools/cleanup/force-clear-server.sh                # prod force-clear 본체
+bash tools/cleanup/dev-cleanup.sh                       # dev clear 본체
+bash tools/cleanup/dev-force-clear.sh                   # dev force-clear 본체
 ```
 
 다만 `<repo> <verb>` 패턴이 더 짧고 일관성이 있어 wrapper 사용을 권장해요.

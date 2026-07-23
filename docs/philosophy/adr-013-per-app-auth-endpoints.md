@@ -254,7 +254,7 @@ public class AuthController { ... }
 ### `new-app.sh` 의 Controller 자동 생성
 
 ```bash
-# tools/new-app/new-app.sh L595-767 발췌
+# tools/app/new-app.sh L595-767 발췌
 cat > "${JAVA_DIR}/controller/${SLUG_PASCAL}AuthController.java" << EOF
 package com.factory.apps.${SLUG_PACKAGE}.auth;
 
@@ -299,7 +299,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 ### 긍정적 결과
 
-**앱 추가 시 인증 코드 0 줄** — `./tools/new-app/new-app.sh sumtally` 한 줄이면 `SumtallyAuthController` 11 개 엔드포인트 메서드가 자동 생성됩니다. 인증 로직은 건드릴 필요가 없어요. 솔로 운영자의 앱 시작 시간은 인증 플로우 기준 1 분 이내예요.
+**앱 추가 시 인증 코드 0 줄** — `./tools/app/new-app.sh sumtally` 한 줄이면 `SumtallyAuthController` 11 개 엔드포인트 메서드가 자동 생성됩니다. 인증 로직은 건드릴 필요가 없어요. 솔로 운영자의 앱 시작 시간은 인증 플로우 기준 1 분 이내예요.
 
 **URL 이 설명적** — 로그·분석·디버깅에서 `/api/apps/rny/auth/email/signin` 를 보면 "rny 앱의 이메일 로그인" 이 즉시 드러나요. Swagger UI 도 앱별로 그룹핑돼요 (`@Tag(name = "rny-auth")`).
 
@@ -393,7 +393,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 **Controller (공유 빈 — `## 갱신` B)**:
 - [`core-auth-impl/controller/AuthController.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — 공유 런타임 빈 (`{appSlug}` path 변수로 모든 앱 처리)
-- `tools/new-app/new-app.sh` 의 `<Slug>AuthController` 자동 생성 — **역사** (원 결정 A 시절의 구현. 현재 스크립트는 앱별 AuthController 를 생성하지 않아요)
+- `tools/app/new-app.sh` 의 `<Slug>AuthController` 자동 생성 — **역사** (원 결정 A 시절의 구현. 현재 스크립트는 앱별 AuthController 를 생성하지 않아요)
 
 **경계 강제**:
 - [`common-security/AppSlugVerificationFilter.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/AppSlugVerificationFilter.java) — URL slug vs JWT appSlug 일치 검증 (403)

@@ -201,7 +201,7 @@ Started FactoryApplication in 4.xxx seconds
 
 ```bash
 <repo> new gymlog
-# 또는 직접: ./tools/new-app/new-app.sh gymlog
+# 또는 직접: ./tools/app/new-app.sh gymlog
 ```
 
 이 명령은 두 가지 일을 해요 — **코드 골격 만들기** 와 **환경 채우기**. 둘 다 거의 자동이에요.

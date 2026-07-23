@@ -165,7 +165,7 @@ PATCH  /api/apps/<slug>/me/notification-preferences/{kind}     (변경)
 
 ## 관련 파일 (신규)
 
-- `tools/new-app/new-app.sh` — V014 마이그레이션 heredoc
+- `tools/app/new-app.sh` — V014 마이그레이션 heredoc
 - `core/core-billing-api/.../api/NotificationKind.java` — enum (api 모듈 위치 — 다른 도메인이 의존 가능)
 - `core/core-billing-impl/.../entity/NotificationPreference.java` — JPA entity
 - `core/core-billing-impl/.../repository/NotificationPreferenceRepository.java` — Spring Data JPA

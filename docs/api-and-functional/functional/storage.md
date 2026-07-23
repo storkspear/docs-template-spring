@@ -30,7 +30,7 @@
 | Secret Key | `.env` 의 `APP_STORAGE_MINIO_SECRET_KEY` (default `minioadmin`) |
 | 자동 생성 bucket | `.env` 의 `APP_STORAGE_MINIO_BUCKETS_0`, `_1`, ... 에 적힌 이름 |
 
-buckets 키가 비어 있으면 `BucketProvisioner` 가 그대로 건너뛰어요. 부팅은 통과하지만 버킷은 만들어지지 않습니다. `<repo> new <slug>` 로 새 슬러그를 추가하면 비어 있는 다음 인덱스에 버킷 이름이 자동으로 붙어요 (`tools/new-app/new-app.sh`).
+buckets 키가 비어 있으면 `BucketProvisioner` 가 그대로 건너뛰어요. 부팅은 통과하지만 버킷은 만들어지지 않습니다. `<repo> new <slug>` 로 새 슬러그를 추가하면 비어 있는 다음 인덱스에 버킷 이름이 자동으로 붙어요 (`tools/app/new-app.sh`).
 
 운영에서는 endpoint 가 NAS 의 MinIO (예: `http://100.x.x.x:9000`) 나 별도의 S3 호환 서비스로 바뀌고, access key 와 secret key 도 운영용으로 따로 발급한 값을 씁니다. 버킷 자동 생성은 환경변수 기반이라 동작 자체는 로컬과 같아요. 자세한 절차는 [`스토리지 셋업 가이드`](../../production/setup/storage-setup.md) 를 참고하세요.
 

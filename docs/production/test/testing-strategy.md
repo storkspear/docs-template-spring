@@ -433,7 +433,7 @@ PG 결제(PortOne)는 풀 e2e 를 하나의 테스트로 강제하면 안 돼요
   - `422 PAY_009`(`PORTONE_BUSINESS_ERROR`) = PortOne 도달·인증·왕복은 성공했고 가짜 `impUid` 만 거부된 경우입니다. 백엔드 연결·인증 책임은 PASS 예요(실 결제 e2e 는 앱 영역).
   - `502 PAY_005`(`PORTONE_API_ERROR`) 또는 `502 PAY_006`(`PORTONE_AUTH_FAILED`) = PortOne 연결·인증 실패라 진짜 FAIL 입니다.
 
-이 구분을 위해 `PortOneApiClient` 는 네트워크 실패(`IOException` → `PORTONE_API_ERROR`, 502)와 PortOne 응답 거부(`code != 0` → `PORTONE_BUSINESS_ERROR`, 422)를 다른 예외로 던져요. 즉 `tools/api-smoke-test.sh` 의 `[7] PG 결제` 단계는 "풀 결제" 가 아니라 "백엔드가 책임진 만큼" 을 검증합니다.
+이 구분을 위해 `PortOneApiClient` 는 네트워크 실패(`IOException` → `PORTONE_API_ERROR`, 502)와 PortOne 응답 거부(`code != 0` → `PORTONE_BUSINESS_ERROR`, 422)를 다른 예외로 던져요. 즉 `tools/verify/api-smoke-test.sh` 의 `[7] PG 결제` 단계는 "풀 결제" 가 아니라 "백엔드가 책임진 만큼" 을 검증합니다.
 
 이 스크립트는 11단계 e2e smoke(회원가입 → 인증 → 결제 → 환불 → audit)로, `[7] PG 결제` 외에도 webhook·IAP·audit 까지 한 흐름으로 태워요. `--target=local|dev|prod` 로 환경을 골라 같은 흐름을 환경별 책임 범위에 맞게 검증합니다.
 

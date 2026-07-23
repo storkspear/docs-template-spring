@@ -183,5 +183,5 @@ feature flag 변경은 코드 변경이 아니라 환경 변수 변경이라, gi
 - [`ADR-034 · Lite 모드 설계`](../../philosophy/adr-034-feature-toggle-lite-mode.md) — 토글 메커니즘과 환경 파일 동시 변경 근거
 - [`ADR-019 · billing·iap·payment 분리`](../../philosophy/adr-019-billing-iap-payment-separation.md) — 결제 도메인 경계
 - [`ADR-031 · 사용자 알림 toggle`](../../philosophy/adr-031-notification-preferences.md) — 본 문서의 user-level 변형
-- `tools/feature.sh` — `feature` 명령 구현
-- `tools/api-smoke-test.sh` — 끈 모듈의 step 자동 SKIP
+- `tools/app/feature.sh` — `feature` 명령 구현
+- `tools/verify/api-smoke-test.sh` — 끈 모듈의 step 자동 SKIP

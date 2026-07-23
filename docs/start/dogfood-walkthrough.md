@@ -23,7 +23,7 @@
 
 도그푸딩은 템플릿 자기 자신을 Mac mini 에 배포해서 한 사이클을 검증하는 일이에요. "Use this template" 으로 만든 새 [파생 레포](../reference/glossary.md#이-레포-고유-용어) 에서도 똑같은 검증을 합니다.
 
-왜 필요할까요? 템플릿의 자동화 코드는 파생 레포로 그대로 복사돼요. `tools/init-prod.sh`, `tools/init-local.sh`, `tools/init-dev.sh` 같은 스크립트가 한 글자도 빠짐없이 따라가요. 하지만 자동화가 건드리지 못하는 자리가 있어요. GitHub Settings 의 Variables 와 Secrets, Mac mini 의 SSH 키, [GHCR](../reference/glossary.md#ci--배포-파이프라인) 패키지는 파생 레포가 직접 셋업해야 합니다. 첫 실배포 전에 도그푸딩으로 한 바퀴 돌려 두면, 실제 사용자 트래픽이 들어오기 전에 이 함정들을 미리 잡을 수 있어요.
+왜 필요할까요? 템플릿의 자동화 코드는 파생 레포로 그대로 복사돼요. `tools/init/init-prod.sh`, `tools/init/init-local.sh`, `tools/init/init-dev.sh` 같은 스크립트가 한 글자도 빠짐없이 따라가요. 하지만 자동화가 건드리지 못하는 자리가 있어요. GitHub Settings 의 Variables 와 Secrets, Mac mini 의 SSH 키, [GHCR](../reference/glossary.md#ci--배포-파이프라인) 패키지는 파생 레포가 직접 셋업해야 합니다. 첫 실배포 전에 도그푸딩으로 한 바퀴 돌려 두면, 실제 사용자 트래픽이 들어오기 전에 이 함정들을 미리 잡을 수 있어요.
 
 설계 근거는 [`ADR-002 · Use this template`](../philosophy/adr-002-use-this-template.md) 에 정리돼 있어요.
 

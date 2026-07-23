@@ -62,7 +62,7 @@ GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직
 <repo> prod deploy --version <sha>  # 특정 SHA 재배포 (롤백 등)
 ```
 
-내부 동작은 `tools/deploy.sh` 의 Step 0 가 처리해요. `git fetch origin main` 으로 원격 최신 SHA 를 `ORIGIN_SHA` 에 담고, `--version` 이 없으면 이 값을 배포 버전으로 자동 설정합니다. 이후 `kamal deploy --version=<sha>` 가 호출되면 kamal 이 `Dockerfile` 의 multi-stage 빌드로 그 SHA 의 코드를 clone 한 뒤 빌드합니다.
+내부 동작은 `tools/deploy/deploy.sh` 의 Step 0 가 처리해요. `git fetch origin main` 으로 원격 최신 SHA 를 `ORIGIN_SHA` 에 담고, `--version` 이 없으면 이 값을 배포 버전으로 자동 설정합니다. 이후 `kamal deploy --version=<sha>` 가 호출되면 kamal 이 `Dockerfile` 의 multi-stage 빌드로 그 SHA 의 코드를 clone 한 뒤 빌드합니다.
 
 이 흐름의 핵심은 로컬 working tree 와 HEAD 가 빌드에 영향을 주지 않는다는 점이에요. 배포는 항상 origin 코드를 기준으로 동작하고, commit 과 push 는 운영자의 책임입니다. 로컬에 미커밋 변경이 있어도 빌드 결과는 동일하고 정보성 경고만 출력돼요. GHA 경로가 `Dockerfile.runtime` 으로 빌드하는 것과 달리 로컬 경로는 `Dockerfile` 로 빌드하므로, 두 경로는 빌드 dockerfile 부터 별개입니다.
 
@@ -74,7 +74,7 @@ GHA 빌링 이슈나 hotfix 처럼 GHA 를 우회해야 할 때 로컬에서 직
 
 ### 이미지 서명 검증 (cosign)
 
-서명 체계는 두 갈래예요 — **로컬 키 (실사용)** 와 **CI keyless (참고용, dormant)**. 배포가 로컬 빌드 경로 (`tools/deploy.sh`, Actions 과금 회피 — 의도된 결정) 로 돌아가는 현재 구성에서 실제로 동작하는 것은 로컬 키 쪽입니다. 위협 모델은 "빌드 시점의 변조" 가 아니라 서버가 레지스트리에서 이미지를 **다시 받는 경로** (rollback, 이미지 소실 후 re-pull) 에서의 변조예요.
+서명 체계는 두 갈래예요 — **로컬 키 (실사용)** 와 **CI keyless (참고용, dormant)**. 배포가 로컬 빌드 경로 (`tools/deploy/deploy.sh`, Actions 과금 회피 — 의도된 결정) 로 돌아가는 현재 구성에서 실제로 동작하는 것은 로컬 키 쪽입니다. 위협 모델은 "빌드 시점의 변조" 가 아니라 서버가 레지스트리에서 이미지를 **다시 받는 경로** (rollback, 이미지 소실 후 re-pull) 에서의 변조예요.
 
 **로컬 키 (실사용)** — 키쌍은 운영자가 로컬에서 발급하고 (opt-in, [`키 발급 통합 §3.3`](../setup/key-issuance.md#33-cosign-이미지-서명-키쌍-선택--로컬-배포-서명-opt-in)), private key 는 레포 밖에 보관하며 `cosign.pub` 만 레포 루트에 커밋합니다.
 
@@ -128,7 +128,7 @@ cosign verify \
 
 ### prod 는 부팅 시 validate 만 합니다 (VALIDATE_ONLY)
 
-[`ADR-033`](../../philosophy/adr-033-flyway-hybrid-policy.md) 의 Hybrid 정책에 따라 prod 는 `APP_FLYWAY_MODE=VALIDATE_ONLY` 가 기본입니다. Blue 와 Green 어느 쪽도 기동 시 migrate 를 실행하지 않아요. 부팅 시점의 Flyway 는 schema_history 와 classpath 의 정합만 검증하고, 실제 schema 변경은 운영자가 배포 전에 `tools/migrate-prod.sh` 로 직접 적용합니다.
+[`ADR-033`](../../philosophy/adr-033-flyway-hybrid-policy.md) 의 Hybrid 정책에 따라 prod 는 `APP_FLYWAY_MODE=VALIDATE_ONLY` 가 기본입니다. Blue 와 Green 어느 쪽도 기동 시 migrate 를 실행하지 않아요. 부팅 시점의 Flyway 는 schema_history 와 classpath 의 정합만 검증하고, 실제 schema 변경은 운영자가 배포 전에 `tools/deploy/migrate-prod.sh` 로 직접 적용합니다.
 
 ```bash
 # 새 V스크립트가 포함된 배포라면 — 배포 전에 먼저 schema 적용
@@ -292,7 +292,7 @@ docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 
 `force-clear` 는 5단계 confirm 을 차례로 거치고, 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 됩니다. 단계 순서는 DB 데이터, Storage 데이터, 관측성 데이터, 백업 의향, 최종 확인이에요. 백업 의향 단계에서 'y' 를 선택하면 manual 백업 명령을 출력하고 종료합니다. 자동 백업은 아직 개발 중이라 manual 절차만 안내돼요.
 
-> **코드 정리와 데이터 정리는 별개예요.** `force-clear <slug>` 는 데이터와 인프라 (schema · bucket · 컨테이너) 만 영구 삭제하고, 코드 모듈은 그대로 둡니다. 데이터만 초기화한 뒤 재배포하려는 경우를 위한 동작이에요. 앱을 완전히 은퇴시켜 코드까지 제거하려면 `local` 또는 `dev` 환경에서 `remove app <slug>` 를 추가로 실행합니다. 이 명령은 `new app` 의 역방향이고 `tools/new-app/remove-app.sh` 가 처리해요. `remove app` 은 실데이터와 공유 소스를 보호하기 위해 prod 를 지원하지 않으므로, prod 배포 앱의 표준 은퇴 순서는 다음과 같아요.
+> **코드 정리와 데이터 정리는 별개예요.** `force-clear <slug>` 는 데이터와 인프라 (schema · bucket · 컨테이너) 만 영구 삭제하고, 코드 모듈은 그대로 둡니다. 데이터만 초기화한 뒤 재배포하려는 경우를 위한 동작이에요. 앱을 완전히 은퇴시켜 코드까지 제거하려면 `local` 또는 `dev` 환경에서 `remove app <slug>` 를 추가로 실행합니다. 이 명령은 `new app` 의 역방향이고 `tools/app/remove-app.sh` 가 처리해요. `remove app` 은 실데이터와 공유 소스를 보호하기 위해 prod 를 지원하지 않으므로, prod 배포 앱의 표준 은퇴 순서는 다음과 같아요.
 >
 > 1. 데이터 백업
 > 2. `<repo> prod force-clear <slug>` 로 데이터 삭제
@@ -309,7 +309,7 @@ docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 
 > **⚠ 슬러그 지정 시의 현재 한계** — `prod force-clear <slug>` 로 특정 슬러그만 정리하려는 경우에도 `[3/5]` 관측성 단계가 동일한 confirm prompt 를 띄워요. 여기서 'y' 를 입력하면 다른 슬러그의 관측성 히스토리까지 모두 삭제됩니다. 슬러그를 지정했다면 `[3/5]` 단계에서 반드시 'n' 으로 건너뛰어야 해요. 슬러그별 분리 정리는 backlog 에 등록돼 있고 후속 사이클에 보강될 예정입니다.
 
-운영자 본인의 정적 페이지 (`homepage-nginx`) 와 다른 도메인의 DNS 레코드, bluebirds NAS 같은 다른 머신은 어느 명령으로도 영향받지 않아요. 자세한 동작은 `tools/cleanup-server.sh` 와 `tools/force-clear-server.sh` 의 첫 30줄 주석에서 확인할 수 있습니다.
+운영자 본인의 정적 페이지 (`homepage-nginx`) 와 다른 도메인의 DNS 레코드, bluebirds NAS 같은 다른 머신은 어느 명령으로도 영향받지 않아요. 자세한 동작은 `tools/cleanup/cleanup-server.sh` 와 `tools/cleanup/force-clear-server.sh` 의 첫 30줄 주석에서 확인할 수 있습니다.
 
 ---
 

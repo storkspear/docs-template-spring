@@ -203,7 +203,7 @@ b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 
 ### 3.3 cosign 이미지 서명 키쌍 (선택 — 로컬 배포 서명 opt-in)
 
-**발급 목적**. 로컬 수동 배포 (`tools/deploy.sh`) 가 GHCR 에 push 한 이미지 digest 에 서명을 남기고, rollback 처럼 서버가 레지스트리에서 이미지를 **다시 받는** 경로에서 변조 여부를 검증하기 위한 키쌍이에요. GHA 의 CI keyless 서명과는 별개의 로컬 키입니다 ([`운영 런북 cosign 절`](../deploy/runbook.md#이미지-서명-검증-cosign) 참조). opt-in 이라 발급 전에는 서명·검증 모두 warn 후 skip 되고 배포에 영향이 없어요.
+**발급 목적**. 로컬 수동 배포 (`tools/deploy/deploy.sh`) 가 GHCR 에 push 한 이미지 digest 에 서명을 남기고, rollback 처럼 서버가 레지스트리에서 이미지를 **다시 받는** 경로에서 변조 여부를 검증하기 위한 키쌍이에요. GHA 의 CI keyless 서명과는 별개의 로컬 키입니다 ([`운영 런북 cosign 절`](../deploy/runbook.md#이미지-서명-검증-cosign) 참조). opt-in 이라 발급 전에는 서명·검증 모두 warn 후 skip 되고 배포에 영향이 없어요.
 
 **발급 절차**.
 1. cosign 을 설치해요.

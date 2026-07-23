@@ -33,7 +33,7 @@
 이 템플릿은 공통 로직을 `core/` 모듈로 한 번만 추출해 모든 앱이 함께 써요. 데이터는 앱마다 별도 [schema](../reference/glossary.md#데이터베이스) 로 완전히 갈라놓아 서로 섞이지 않고요. 새 앱이 필요하면 명령 한 줄이면 돼요.
 
 ```bash
-./tools/new-app/new-app.sh sumtally
+./tools/app/new-app.sh sumtally
 ```
 
 이 한 줄이 모듈 골격, 데이터베이스 schema, 공통 마이그레이션, 설정까지 한꺼번에 만들어 줘요.

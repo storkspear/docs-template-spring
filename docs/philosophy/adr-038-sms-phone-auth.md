@@ -143,7 +143,7 @@ public static final String[] CORE_ENTITY_PACKAGES = {
 - `core/core-phone-auth-impl/src/main/java/com/factory/core/phoneauth/impl/entity/AuthPhoneVerificationCode.java` — SHA-256 해시 저장 엔티티
 - `core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java#issueForVerifiedPhone` — find-or-create
 - `common/common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java#CORE_ENTITY_PACKAGES` — phoneauth entity 패키지 (`AuthPhoneVerificationCode`) 등록
-- `tools/new-app/new-app.sh` — `V015__init_auth_phone_verification_codes.sql` heredoc (per-app schema OTP table, 옵트인)
+- `tools/app/new-app.sh` — `V015__init_auth_phone_verification_codes.sql` heredoc (per-app schema OTP table, 옵트인)
 
 ## 후속
 

@@ -121,7 +121,7 @@ void ensureBucket(String bucket, BucketPolicy policy);
 
 ### 5-1. 새 슬러그의 bucket 추가
 
-`new app` 이 슬러그를 추가할 때 `APP_STORAGE_MINIO_BUCKETS_<N>=<slug>-uploads` 한 줄을 자동으로 주입해요 (`tools/new-app/new-app.sh` Step 12). 인덱스 `<N>` 은 `.env` 의 기존 최대값 다음으로 자동 증가하므로 직접 셀 필요가 없어요.
+`new app` 이 슬러그를 추가할 때 `APP_STORAGE_MINIO_BUCKETS_<N>=<slug>-uploads` 한 줄을 자동으로 주입해요 (`tools/app/new-app.sh` Step 12). 인덱스 `<N>` 은 `.env` 의 기존 최대값 다음으로 자동 증가하므로 직접 셀 필요가 없어요.
 
 ```bash
 <repo> new gymlog

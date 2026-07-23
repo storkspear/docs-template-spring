@@ -51,7 +51,7 @@
 
 도메인 의미 측면에서도 슬러그별 schema 가 자연스러워요. *앱마다 독립적인 비즈니스* 라 *어느 앱의 구독이 다른 앱의 구독과 연결될 일이 거의 없고*, *cross-app subscription* 같은 개념도 우리 환경에는 등장하지 않습니다. core schema 에 통합하는 대안은 *appSlug 컬럼을 모든 행에 추가하고 모든 쿼리에 WHERE 절을 강제* 하는 row-level 격리가 되는데, 이는 [`ADR-012`](./adr-012-per-app-user-model.md) 가 *유저 모델에서 이미 거부한 패턴* 이라 결제 도메인에서도 같은 거부 이유가 그대로 적용돼요.
 
-채택한 형태는 *plans / subscriptions / payment_records / webhook_events* 4 테이블을 모든 슬러그 schema 에 동일하게 두는 형태입니다. V008 / V009 / V010 마이그레이션이 *기존 인증 도메인의 V001~V006 패턴* 과 같은 방식으로 모든 슬러그 schema 에 자동 적용되고, `tools/new-app/new-app.sh` 가 신규 앱을 생성할 때마다 *4 개 테이블 + free plan seed 까지 자동으로 만들어* 줍니다. 운영자가 새 앱을 추가할 때 별도 SQL 작업이 필요 없어요.
+채택한 형태는 *plans / subscriptions / payment_records / webhook_events* 4 테이블을 모든 슬러그 schema 에 동일하게 두는 형태입니다. V008 / V009 / V010 마이그레이션이 *기존 인증 도메인의 V001~V006 패턴* 과 같은 방식으로 모든 슬러그 schema 에 자동 적용되고, `tools/app/new-app.sh` 가 신규 앱을 생성할 때마다 *4 개 테이블 + free plan seed 까지 자동으로 만들어* 줍니다. 운영자가 새 앱을 추가할 때 별도 SQL 작업이 필요 없어요.
 
 ## 결정 2 — DB 모델
 
@@ -228,7 +228,7 @@ ArchUnit r1~r22 (BootstrapArchitectureTest): PASS
    r18 (dto = record/sealed) — enum 4개 (PaymentChannel/PaymentRecordStatus/SubscriptionState/PaymentStatus) 를 api 루트로 이동
    r19 (dto suffix) — WebhookPayload → WebhookMessage 로 rename
 PortOneWebhookVerifierTest: 14/14 PASS (Signature 6 + Timestamp 5 + Combined 3)
-새 앱 e2e (tools/new-app/new-app.sh): 자동 생성 + V001~V010 적용 + admin user SELECT 통과
+새 앱 e2e (tools/app/new-app.sh): 자동 생성 + V001~V010 적용 + admin user SELECT 통과
 ```
 
 ## 핵심 파일
@@ -256,7 +256,7 @@ PortOneWebhookVerifierTest: 14/14 PASS (Signature 6 + Timestamp 5 + Combined 3)
 | `core/core-billing-api/{SubscriptionState,PaymentChannel,PaymentRecordStatus}.java` | 상태 enum (api 루트, ArchUnit r18 정합) |
 | `core/core-payment-api/PortOneWebhookVerifier.java` | HMAC + timestamp 검증 (apps/* 도 import 가능하도록 api 모듈에 위치) |
 | `core/core-payment-impl/PaymentAutoConfiguration.java` | PortOneAdapter / Verifier / ProdConfigGuard Bean |
-| `tools/new-app/new-app.sh` heredoc | V008~V010 SQL 생성 (PaymentController 는 core 공유 — ADR-013 B) |
+| `tools/app/new-app.sh` heredoc | V008~V010 SQL 생성 (PaymentController 는 core 공유 — ADR-013 B) |
 
 ## 결정 5 — Subscription 만료 자동 sweep ([B 사이클 추가])
 

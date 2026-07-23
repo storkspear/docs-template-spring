@@ -102,7 +102,7 @@
 | 런타임 이미지 | `eclipse-temurin:21-jre-alpine` | JDK 21 | Dockerfile multi-stage 의 runtime 단. 빌드 단은 `21-jdk-alpine` |
 | 프레임워크 | Spring Boot | 3.x | 모듈러 모놀리스 아키텍처 |
 | DB driver | HikariCP + PostgreSQL JDBC | 표준 | [HikariCP](../../reference/glossary.md#데이터베이스) 풀 + 표준 JDBC Postgres |
-| 마이그레이션 | [Flyway](../../reference/glossary.md#데이터베이스) | 앱 schema 당 V001~V026 | `app.flyway.mode` 분기 (ADR-033) — prod 는 VALIDATE_ONLY (부팅 시 검증만), 적용은 `tools/migrate-prod.sh` |
+| 마이그레이션 | [Flyway](../../reference/glossary.md#데이터베이스) | 앱 schema 당 V001~V026 | `app.flyway.mode` 분기 (ADR-033) — prod 는 VALIDATE_ONLY (부팅 시 검증만), 적용은 `tools/deploy/migrate-prod.sh` |
 
 ### 데이터 레이어 — 런타임 의존성
 | 자원 | 위치 | 역할 |
@@ -520,7 +520,7 @@ ssh <your-mac-user>@100.X.X.X 'docker login ghcr.io -u <user> -p <token> 2>&1 | 
 
 ## 11. Cloudflare Tunnel 구성
 
-> 무엇이 자동인지 먼저 — 터널을 한 번 만들어 두면, 호스트별 DNS 레코드와 Tunnel ingress 등록은 이제 `prod init` 이 자동으로 처리해요. `tools/init-prod.sh` 가 `tools/lib/cloudflare.sh` 를 호출해 `CLOUDFLARE_API_TOKEN` 하나만으로 Zone ID·Account ID·Tunnel ID 를 추출하고, `server.<도메인>` 의 CNAME 과 ingress 항목을 Cloudflare API 로 생성해요. 아래 §11.3 의 `cloudflared tunnel route dns` 는 그 자동화가 안에서 무슨 일을 하는지 보여주는 손작업 버전이에요. 터널 자체의 최초 생성(§11.1)과 launchd 영속화(§11.4)는 여전히 호스트에서 한 번 손으로 해 둬야 해요. 배포 절차 전체는 [`deployment.md`](../deploy/deployment.md) 를 참고하세요.
+> 무엇이 자동인지 먼저 — 터널을 한 번 만들어 두면, 호스트별 DNS 레코드와 Tunnel ingress 등록은 이제 `prod init` 이 자동으로 처리해요. `tools/init/init-prod.sh` 가 `tools/lib/cloudflare.sh` 를 호출해 `CLOUDFLARE_API_TOKEN` 하나만으로 Zone ID·Account ID·Tunnel ID 를 추출하고, `server.<도메인>` 의 CNAME 과 ingress 항목을 Cloudflare API 로 생성해요. 아래 §11.3 의 `cloudflared tunnel route dns` 는 그 자동화가 안에서 무슨 일을 하는지 보여주는 손작업 버전이에요. 터널 자체의 최초 생성(§11.1)과 launchd 영속화(§11.4)는 여전히 호스트에서 한 번 손으로 해 둬야 해요. 배포 절차 전체는 [`deployment.md`](../deploy/deployment.md) 를 참고하세요.
 
 ### 11.1 tunnel 생성 (최초 1회, 손작업)
 ```bash

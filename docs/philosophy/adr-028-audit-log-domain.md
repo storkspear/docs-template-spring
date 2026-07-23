@@ -204,7 +204,7 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id)
 
 ## 관련 파일 (신규)
 
-- `tools/new-app/new-app.sh` — V012__init_audit_logs.sql heredoc
+- `tools/app/new-app.sh` — V012__init_audit_logs.sql heredoc
 - `core/core-audit-api/build.gradle`
 - `core/core-audit-api/.../AuditPort.java`, `AuditEvent.java`, `AuditResult.java`
 - `core/core-audit-impl/build.gradle`
