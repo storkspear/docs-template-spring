@@ -200,6 +200,22 @@ public class JpaAuthFixtures implements AuthFixtures {
 
 ---
 
+## 개발 반복 픽스처 — `db/seed/<slug>.dev.sql` + `reset --fixtures`
+
+옵션 A~C 가 "코드/마이그레이션에 seed 를 심는" 방식이라면, 이건 **설계 중 로컬 반복**을 위한 별도 경량 경로예요. 스키마를 자주 갈아엎는 단계에서 매번 테스트 데이터를 다시 넣기 번거로울 때 씁니다.
+
+- 파일: **`db/seed/<slug>.dev.sql`** (repo 루트 `db/seed/`, 앱별). 해당 slug 스키마에 넣을 raw `INSERT` SQL.
+- 로드: `<repo> local reset <slug> --fixtures` 가 스키마를 비우고 Flyway 가 재migrate 로 **테이블을 만든 뒤** psql 로 이 파일을 로드해요. (`db/seed/README.md` 참조.)
+- **local/dev 전용, prod 거부** — `reset`/`truncate` 자체가 prod 를 막습니다. 실데이터가 아니라 개발 편의 데이터라 여기 둬요.
+- 이건 versioned 마이그레이션이 아니므로 flyway_schema_history 에 안 남고, 부팅 validate 에 영향 없어요.
+
+관련 명령(설계 반복 툴킷, `docs/start/cli-guide.md` "마이그레이션 / 정리"):
+- `local reset <slug>` — 스키마 통째 비우고 spring 재시작→Flyway AUTO 재migrate(올바른 checksum). `V028` 을 반복 편집하며 처음부터 재적용할 때.
+- `local truncate <slug>` — 스키마·마이그레이션 유지, **데이터만** TRUNCATE(재migrate 불필요).
+- `dev migrate <slug> --all-pending` — 로컬에서 확정한 마이그레이션을 dev 로 일괄 승격.
+
+---
+
 ## 세 옵션 비교
 
 | 기준 | 옵션 A (R__) | 옵션 B (ApplicationRunner) | 옵션 C (Fixtures) |

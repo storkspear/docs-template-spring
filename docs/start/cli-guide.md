@@ -88,9 +88,11 @@
 
 ### 마이그레이션 / 정리 (DESTRUCTIVE)
 
-| verb | dev | prod | 비고 |
-|---|---|---|---|
-| **migrate** `<slug> <V*>` | dev DB 에 V스크립트 적용 (`.env.dev` 의 DB_URL 사용) | prod DB 에 V스크립트 직접 적용 (ADR-033 Hybrid). `--dry-run`·`--force` 지원 | [`flyway-runbook`](../production/deploy/flyway-runbook.md) — `migrate-prod.sh --target={dev,prod}` |
+| verb | local | dev | prod | 비고 |
+|---|---|---|---|---|
+| **migrate** `<slug> <V*>`<br>`<slug> --all-pending` | 부팅 시 auto (ADR-033) — 명령 없음 | dev DB 에 V스크립트 적용. `--all-pending` 은 미적용분 일괄 승격 | prod DB 에 V스크립트 직접 적용 (ADR-033 Hybrid). `--dry-run`·`--force`·`--all-pending` | [`flyway-runbook`](../production/deploy/flyway-runbook.md) — `migrate-prod.sh --env={local,dev,prod}`. checksum 근사값 주의 |
+| **reset** `<slug>` | 스키마 통째 비우고 **spring 재시작→Flyway AUTO 재migrate**(올바른 checksum). 설계 중 마이그레이션 반복 편집용. `--fixtures`·`--with-storage`·`--no-restart`·`--force` | 스키마만 비우고 `APP_FLYWAY_MODE=AUTO` 재배포 **안내**(수동 SQL 재적용 안 함 — checksum mismatch 방지) | ❌ 미지원 (운영 데이터 파괴) | `tools/app/reset-schema.sh`. `db/seed/<slug>.dev.sql` 있으면 `--fixtures` 로 로드 |
+| **truncate** `<slug>` | 스키마 **데이터만** TRUNCATE (스키마·`flyway_schema_history` 유지, 재migrate 불필요). `--with-storage`·`--force` | 동일 (dev DB) | ❌ 미지원 | `tools/app/truncate-schema.sh`. 스키마 안정 후 "데이터만 리프레시" |
 | **clear** | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/cleanup/dev-cleanup.sh`, prod 는 `tools/cleanup/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
 | **force-clear** `[slug]` | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
 
