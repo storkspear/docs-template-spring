@@ -1,4 +1,4 @@
-# ADR-027 — Admin role 권한 시스템 (@AdminOnly)
+# ADR-027 — Admin role 권한 시스템 (`@AdminOnly`)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
@@ -32,7 +32,7 @@
 
 Spring Security 의 method security 방식은 *선언적* 이에요. `@PreAuthorize("hasRole('ADMIN')")` 한 줄을 메서드에 붙이면 *AOP 가 자동으로 권한 검증* 을 실행하고, 권한 부족 시 *AccessDeniedException* 을 던져 표준 403 응답으로 처리됩니다. 컨트롤러 코드 안의 권한 분기 로직이 사라지고, *어느 endpoint 가 admin 전용인지* 가 어노테이션으로 명확히 드러나요.
 
-다만 `@PreAuthorize("hasRole('ADMIN')")` 자체는 *문자열 SPEL* 형태라 *오타 가능성* 과 *도메인 의미가 약한* 부분이 있어요. *@AdminOnly* 라는 의도가 명확한 meta annotation 으로 한 번 감싸면 *오타 차단 + 도메인 의도 표현* 이 동시에 가능합니다. 다른 도메인이 *moderator 전용* 이나 *billing_ops 전용* 같은 추가 role 을 도입할 때도 같은 패턴 (`@ModeratorOnly`, `@BillingOpsOnly`) 으로 자연스럽게 확장돼요.
+다만 `@PreAuthorize("hasRole('ADMIN')")` 자체는 *문자열 SPEL* 형태라 *오타 가능성* 과 *도메인 의미가 약한* 부분이 있어요. *`@AdminOnly`* 라는 의도가 명확한 meta annotation 으로 한 번 감싸면 *오타 차단 + 도메인 의도 표현* 이 동시에 가능합니다. 다른 도메인이 *moderator 전용* 이나 *billing_ops 전용* 같은 추가 role 을 도입할 때도 같은 패턴 (`@ModeratorOnly`, `@BillingOpsOnly`) 으로 자연스럽게 확장돼요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
@@ -53,7 +53,7 @@ Spring Security 의 method security 방식은 *선언적* 이에요. `@PreAuthor
 
 ---
 
-## @AdminOnly 사용 패턴
+## `@AdminOnly` 사용 패턴
 
 ### Method level
 

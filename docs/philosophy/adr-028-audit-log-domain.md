@@ -115,7 +115,7 @@ public void record(AuditEvent event) {
 
 ---
 
-## @Audited annotation 사용 패턴
+## `@Audited` annotation 사용 패턴
 
 | 경우 | annotation |
 |---|---|

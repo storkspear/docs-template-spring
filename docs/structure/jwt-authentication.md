@@ -208,7 +208,7 @@ Spring 의 `OncePerRequestFilter` 를 상속하고, 요청당 정확히 한 번�
 
 ---
 
-## 5. @CurrentUser 어노테이션
+## 5. `@CurrentUser` 어노테이션
 
 ### AuthenticatedUser
 
@@ -253,7 +253,7 @@ public record AuthenticatedUser(
 
 `Principal` 을 구현해서 `getName()` 이 `userId` 문자열을 반환합니다. 만약 `Principal` 을 구현하지 않으면 Spring Security 가 `principal.toString()` 으로 fall through 하고, record 의 기본 `toString()` 이 email, appSlug, role 까지 노출해서 감사 로그나 rate limit 키에 민감 정보가 새어나갈 수 있어요.
 
-### @CurrentUser
+### `@CurrentUser`
 
 `common/common-security/.../CurrentUser.java`
 
