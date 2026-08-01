@@ -123,7 +123,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 ## A06 — Vulnerable and Outdated Components (의존성 CVE)
 
 **현 방어**:
-- `gradle/libs.versions.toml` — 중앙 버전 카탈로그. Spring Boot 3.5.13, JJWT 0.13.0, Firebase 9.8.0, Testcontainers 1.20.6 등 모두 명시됩니다
+- `gradle/libs.versions.toml` — 중앙 버전 카탈로그. Spring Boot 4.1.0, JJWT 0.13.0, Firebase 9.8.0, Testcontainers 2.0.5 등 모두 명시됩니다
 - `.github/workflows/ci.yml` — OWASP Dependency Check (`dependencyCheckAggregate`) 를 매 CI 마다 실행합니다. task 는 `failBuildOnCVSS=7.0` 이지만 CI step 은 `continue-on-error` 라 non-blocking — 결과는 step 로그로 남고, 조치는 분기 audit 에서 해요
 - `.gitleaks.toml` — secret 누출 검사. default rule + 테스트 fixture allowlist
 

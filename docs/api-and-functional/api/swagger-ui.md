@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~4분
 
-이 레포는 [`springdoc-openapi`](https://springdoc.org/) (v2.8.13) 로 OpenAPI 3 문서를 자동 생성하고 Swagger UI 로 제공합니다. 새 `@RestController` 를 추가하면 springdoc 가 component scan 으로 잡아 자동 노출하고, `@Operation`·`@Tag` 어노테이션이 있으면 요약·그룹까지 함께 반영합니다.
+이 레포는 [`springdoc-openapi`](https://springdoc.org/) (v3.0.3) 로 OpenAPI 3 문서를 자동 생성하고 Swagger UI 로 제공합니다. 새 `@RestController` 를 추가하면 springdoc 가 component scan 으로 잡아 자동 노출하고, `@Operation`·`@Tag` 어노테이션이 있으면 요약·그룹까지 함께 반영합니다.
 
 핵심을 먼저 짚으면 이래요.
 

@@ -13,22 +13,22 @@
 | 이름 | 버전 | 용도 |
 |---|---|---|
 | **Java** | 21 (Temurin LTS) | 주 언어 |
-| **Spring Boot** | 3.5.13 | 애플리케이션 프레임워크 |
+| **Spring Boot** | 4.1.0 | 애플리케이션 프레임워크 |
 
 ## 빌드 도구
 
 | 이름 | 버전 | 용도 |
 |---|---|---|
-| **Gradle** | 8.12.1 | 빌드 시스템 |
+| **Gradle** | 8.14.3 | 빌드 시스템 |
 | **Gradle Convention Plugin** | — | `build-logic/` 에 5 개 — bootstrap · common · core-api · core-impl · app-module |
-| **Spring Boot Gradle Plugin** | 3.5.13 | Fat JAR 빌드, bootRun |
+| **Spring Boot Gradle Plugin** | 4.1.0 | Fat JAR 빌드, bootRun |
 | **Spring Dependency Management Plugin** | 1.1.7 | 의존성 BOM 관리 |
-| **Spotless** | 6.25.0 | google-java-format 4-space 자동 적용 (커밋 전 강제) |
+| **Spotless** | 8.9.0 | google-java-format 4-space 자동 적용 (커밋 전 강제) |
 | **OWASP Dependency Check** | 12.2.2 | 의존성 CVE 스캔 (옵트인 task) |
 
 ## Spring 생태계
 
-Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
+Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 
 | 이름 | 용도 |
 |---|---|
@@ -51,8 +51,7 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 | **Hibernate** | Spring Boot BOM | JPA 구현체 |
 | **HikariCP** | Spring Boot BOM | 커넥션 풀 (앱당 독립) |
 | **Flyway** | Spring Boot BOM | DB 마이그레이션 |
-| **QueryDsl (JPA, Jakarta)** | 5.1.0 | 타입 세이프 동적 쿼리 |
-| **QueryDsl APT** | 5.1.0 | Q 클래스 자동 생성 |
+| **QueryDsl (openfeign 포크)** | 7.5 | 타입 세이프 동적 쿼리 — `io.github.openfeign.querydsl:querydsl-jpa`. 원본 `com.querydsl` 은 5.1.0 에서 멈췄고 포크가 Hibernate 7 대응을 이어받았어요. 패키지명은 `com.querydsl.*` 그대로예요 |
 
 ## 인증 · 보안
 
@@ -71,8 +70,8 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 | **JUnit 5 (Jupiter)** | Spring Boot BOM | 테스트 프레임워크 |
 | **AssertJ** | Spring Boot BOM | Fluent assertion |
 | **Mockito** | Spring Boot BOM | 모킹 |
-| **Testcontainers BOM** | 1.20.6 | 실제 Postgres · MinIO 컨테이너로 테스트 |
-| **Testcontainers PostgreSQL · JUnit5 · MinIO** | 1.20.6 | 각 리소스별 컨테이너 |
+| **Testcontainers BOM** | 2.0.5 | 실제 Postgres · MinIO 컨테이너로 테스트 (Spring Boot BOM 이 관리하는 버전과 동일) |
+| **Testcontainers PostgreSQL · JUnit5 · MinIO** | 2.0.5 | 각 리소스별 컨테이너 — 2.x 부터 아티팩트명이 `testcontainers-*` 접두사로 통일됐어요 |
 | **ArchUnit JUnit5** | 1.4.2 | 아키텍처 규칙 테스트 (r1~r22) |
 | **Jackson Databind · JSR310** | Spring Boot BOM | 계약 테스트 JSON 비교 |
 | **WireMock standalone** | 3.10.0 | OAuth provider HTTP mock (테스트 전용, Jetty/Jackson 충돌 회피용 standalone) |
@@ -105,8 +104,8 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 
 | 이름 | 버전 | 용도 |
 |---|---|---|
-| **springdoc-openapi-starter-webmvc-ui** | 2.8.13 | Swagger UI (`/swagger-ui.html`) |
-| **springdoc-openapi-starter-webmvc-api** | 2.8.13 | OpenAPI 문서 (`/v3/api-docs`) |
+| **springdoc-openapi-starter-webmvc-ui** | 3.0.3 | Swagger UI (`/swagger-ui.html`) — 3.x 가 Spring Boot 4 대응 라인이에요 |
+| **springdoc-openapi-starter-webmvc-api** | 3.0.3 | OpenAPI 문서 (`/v3/api-docs`) |
 
 ## Rate Limiting · 유틸
 
@@ -127,7 +126,7 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 
 | 이름 | 버전 | 용도 |
 |---|---|---|
-| **MinIO Java Client** | 8.5.14 | S3 호환 오브젝트 스토리지 |
+| **MinIO Java Client** | 9.0.3 | S3 호환 오브젝트 스토리지 — 9.x 에서 `Http.Method` · `SourceObject` · `LifecycleConfiguration` 중첩 타입으로 패키지가 재편됐어요 |
 | **MinIO** (docker) | RELEASE.2025-01-20T14-49-07Z | 로컬/운영 스토리지 |
 
 ## 인프라 · 배포

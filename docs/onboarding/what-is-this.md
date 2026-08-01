@@ -83,7 +83,7 @@
 
 | 영역 | 기술 |
 |---|---|
-| 언어·프레임워크 | Java 21, Spring Boot 3.5 |
+| 언어·프레임워크 | Java 21, Spring Boot 4.1 |
 | 빌드 | Gradle 멀티모듈 |
 | 데이터베이스 | PostgreSQL 16 (로컬은 Docker, 운영은 Supabase) |
 | 인증 | JWT (HS256) + Spring Security |

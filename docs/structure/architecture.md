@@ -31,9 +31,9 @@
 
 | 영역 | 기술 | 근거 ADR |
 |---|---|---|
-| 언어/런타임 | Spring Boot 3.5.13, Java 21~25 (toolchain 21 컴파일) | — |
-| 빌드 | Gradle 8.12.1 멀티모듈 + convention plugins | [`ADR-004`](../philosophy/adr-004-gradle-archunit.md) |
-| 데이터 액세스 | Spring Data JPA, Hibernate, QueryDsl 5.1.0 (Jakarta) | [`ADR-009`](../philosophy/adr-009-base-entity.md), [`ADR-010`](../philosophy/adr-010-search-condition.md) |
+| 언어/런타임 | Spring Boot 4.1.0, Java 21~25 (toolchain 21 컴파일) | — |
+| 빌드 | Gradle 8.14.3 멀티모듈 + convention plugins | [`ADR-004`](../philosophy/adr-004-gradle-archunit.md) |
+| 데이터 액세스 | Spring Data JPA, Hibernate, QueryDsl 7.5 (openfeign 포크) | [`ADR-009`](../philosophy/adr-009-base-entity.md), [`ADR-010`](../philosophy/adr-010-search-condition.md) |
 | DB | PostgreSQL 16 (로컬 Docker, 운영 Supabase Seoul) | [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) |
 | 인증 | jjwt 0.13 (HS256), Spring Security stateless, BCrypt | [`ADR-006`](../philosophy/adr-006-hs256-jwt.md) |
 | 외부 서비스 | Resend 이메일, FCM 푸시, MinIO·R2 스토리지 | [`ADR-007`](../philosophy/adr-007-solo-friendly-operations.md) |
