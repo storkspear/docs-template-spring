@@ -272,9 +272,45 @@ on:
     branches: [main, develop]   # feature push 는 제외
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:            # 게이트와 무관하게 수동 1회 실행
 ```
 
 feature 작업 중 빠르게 확인하고 싶으면 로컬에서 `<repo> ci-test` 를 돌리면 돼요.
+
+#### 분 절약 스위치 — `CI_ON_PUSH`
+
+private 레포는 GitHub-hosted 러너의 **분 배수가 러너 종류마다 달라요**. Linux 는 1배지만
+macOS 는 **10배**예요. 즉 macOS 에서 5분 걸린 job 은 쿼터에서 50분이 빠져나갑니다.
+Free 티어 월 2000분은 생각보다 빨리 바닥나요.
+
+분이 소진되면 워크플로우가 **0 step · 몇 초 만에 실패**해요. 로그가 없어서 코드 문제로
+착각하기 쉬운데, 이건 실행 자체가 차단된 신호예요. 더 나쁜 건 그 기간 내내 회귀가
+아무 저항 없이 main 에 쌓인다는 점이에요.
+
+그래서 `ci.yml` 의 job 에 `deploy.yml` 의 `DEPLOY_ENABLED` 와 같은 방식의 게이트를 뒀어요.
+
+```yaml
+jobs:
+  build:
+    if: github.event_name != 'push' || vars.CI_ON_PUSH != 'false'
+```
+
+skip 된 job 은 러너를 잡지 않아 **분을 전혀 소비하지 않아요**. PR 과 `workflow_dispatch`
+는 게이트와 무관하게 항상 돌기 때문에 수동 검증 경로는 그대로 남아요.
+
+| 하고 싶은 것 | 명령 |
+|---|---|
+| push 시 CI 끄기 | `gh variable set CI_ON_PUSH --body false --repo <owner>/<repo>` |
+| 다시 켜기 | `gh variable delete CI_ON_PUSH --repo <owner>/<repo>` |
+| 끈 상태로 1회만 실행 | `gh workflow run ci.yml --repo <owner>/<repo>` |
+
+> ⚠️ **기본값(미설정)은 "실행" 이고, 파생 레포는 이걸 유지하세요.** `deploy.yml` 이
+> `workflow_run` 으로 CI 성공을 받아 배포를 시작하므로, CI 를 끄면 배포 체인이 끊깁니다.
+> 끄는 건 배포를 하지 않는 template 레포에서만 의미가 있어요.
+
+CI 를 끄면 "전체 test 는 CI 가 책임진다" 는 전제도 같이 깨져요. 그래서 `.husky/pre-push`
+에 ArchUnit(r1~r22, 16초)을 넣어 뒀지만, 전체 `./gradlew build`(약 13분)는 여전히 빠져
+있어요. **큰 변경 뒤에는 `./gradlew build` 를 직접 돌리거나 CI 를 수동 1회 실행하세요.**
 
 ### PHASE 3 — PR 생성
 
