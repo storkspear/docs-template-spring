@@ -125,13 +125,11 @@ public DeviceDto register(long userId, String appSlug, RegisterDeviceRequest req
 ```java
 // core-device-impl/DeviceServiceImpl.java 발췌
 public void unregister(long userId, long deviceId) {
+    // 소유자가 아니거나 존재하지 않으면 둘 다 NOT_FOUND 로 통일 — 리소스 존재 여부 누출 방지.
     Device device = deviceRepository.findById(deviceId)
+            .filter(d -> d.getUserId().equals(userId))
             .orElseThrow(() -> new CommonException(CommonError.NOT_FOUND,
                     Map.of("resource", "Device", "id", String.valueOf(deviceId))));
-
-    if (!device.getUserId().equals(userId)) {
-        throw new CommonException(CommonError.FORBIDDEN);
-    }
 
     deviceRepository.delete(device);
 }
@@ -471,7 +469,7 @@ public PushSendResult sendToDevices(List<String> pushTokens, PushMessage message
 
 푸시 도메인은 전용 에러 enum 을 갖지 않습니다. `PushSendResult` 에 성공/실패 카운트가 담겨 돌아오는 것으로 충분하다고 봐요. 네트워크나 자격 증명 문제는 `FcmPushAdapter` 내부에서 로그로 남기고 `failureCount` 에 반영합니다.
 
-디바이스 도메인도 별도 exception enum 이 없습니다. `unregister` 에서 대상이 없거나 권한이 없으면 공통 `CommonError.NOT_FOUND` 또는 `CommonError.FORBIDDEN` 을 써요. 푸시 토큰 자체는 값 객체일 뿐이라, 토큰 무효화는 **예외가 아니라 결과값(`invalidTokens`)** 으로 표현합니다.
+디바이스 도메인도 별도 exception enum 이 없습니다. `unregister` 에서 대상이 없거나 소유자가 아니면 **둘 다** 공통 `CommonError.NOT_FOUND` 로 통일해요 (리소스 존재 여부 누출 방지). 푸시 토큰 자체는 값 객체일 뿐이라, 토큰 무효화는 **예외가 아니라 결과값(`invalidTokens`)** 으로 표현합니다.
 
 ---
 

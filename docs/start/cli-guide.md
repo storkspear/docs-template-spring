@@ -73,7 +73,7 @@
 
 | verb | local | 비고 |
 |---|---|---|
-| **new app** `[slug]` | 새 앱 모듈 (schema + 공통 마이그레이션 V001~V026 25개 + 검증). admin 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼요 (비밀번호 랜덤·1회 출력). `slug` 생략 시 prompt | `tools/app/new-app.sh` |
+| **new app** `[slug]` | 새 앱 모듈 (schema + 공통 마이그레이션 V001~V027 26개 + 검증). admin 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼요 (비밀번호 랜덤·1회 출력). `slug` 생략 시 prompt | `tools/app/new-app.sh` |
 | **remove app** `<slug>` | 앱 모듈 완전 제거 (코드 + .env + local/dev schema·role). prod 미지원 | `tools/app/remove-app.sh` |
 | **app list** | 등록된 앱 모듈(slug) 목록 + settings.gradle 등록 여부 | env 무관 — 로컬 코드 기준 |
 | **feature list** | Lite 모드 토글 가능 모듈 + 현재 상태 (ADR-034) | `local feature` 만 |
@@ -93,8 +93,8 @@
 | **migrate** `<slug> <V*>`<br>`<slug> --all-pending` | 부팅 시 auto (ADR-033) — 명령 없음 | dev DB 에 V스크립트 적용. `--all-pending`(미적용 일괄 승격) 지원 | **무조건 수동 적용** — 운영자가 `<V*>` 단건을 `--dry-run` 검토 후 직접 적용. **`--all-pending` 미지원**(자동 일괄 금지). 자동 백업 전략 없어 되돌릴 수 없으니 적용 전 수동 스냅샷 권장 | [`flyway-runbook`](../production/deploy/flyway-runbook.md) — `migrate-prod.sh --env={local,dev,prod}`. checksum 근사값 주의 |
 | **reset** `<slug>` | 스키마 통째 비우고 **spring 재시작→Flyway AUTO 재migrate**(올바른 checksum). 설계 중 마이그레이션 반복 편집용. `--fixtures`·`--with-storage`·`--no-restart`·`--force` | 스키마만 비우고 `APP_FLYWAY_MODE=AUTO` 재배포 **안내**(수동 SQL 재적용 안 함 — checksum mismatch 방지) | ❌ 미지원 (운영 데이터 파괴) | `tools/app/reset-schema.sh`. `db/seed/<slug>.dev.sql` 있으면 `--fixtures` 로 로드 |
 | **truncate** `<slug>` | 스키마 **데이터만** TRUNCATE (스키마·`flyway_schema_history` 유지, 재migrate 불필요). `--with-storage`·`--force` | 동일 (dev DB) | ❌ 미지원 | `tools/app/truncate-schema.sh`. 스키마 안정 후 "데이터만 리프레시" |
-| **clear** | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/cleanup/dev-cleanup.sh`, prod 는 `tools/cleanup/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
-| **force-clear** `[slug]` | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
+| **clear** | ❌ 미지원 | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/cleanup/dev-cleanup.sh`, prod 는 `tools/cleanup/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
+| **force-clear** `[slug]` | ❌ 미지원 | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
 
 ## 단축 — env 생략 = local
 
@@ -127,8 +127,8 @@
 
 # 3) (선택) 새 앱 추가
 <repo> new myapp
-   → apps/app-myapp + schema + 공통 마이그레이션 V001~V026 (admin 시드 V007 은 --seed-admin opt-in)
-   → 도메인 테이블은 다음 빈 번호(현재 V026)부터 직접 작성
+   → apps/app-myapp + schema + 공통 마이그레이션 V001~V027 (admin 시드 V007 은 --seed-admin opt-in)
+   → 도메인 테이블은 다음 빈 번호(현재 V028)부터 직접 작성
    → 끝나면: <repo> local restart   (새 코드 반영)
 ```
 
@@ -197,7 +197,7 @@ GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 5 단
 
 5 단계가 모두 PASS 면 안전하게 push 할 수 있고, fail 이 나면 어떤 명령으로 해결해야 하는지를 출력 끝에서 안내해요.
 
-> 단, ci-test 는 content 검증만 해요. `.github/workflows/*.yml` 의 runtime 의존성 — 등록되지 않은 secret 참조 같은 것 — 은 잡지 못해요. 이 갭을 보강하기 위한 actionlint 통합이 [`backlog`](../planned/backlog.md) 에 등록되어 있어요.
+> 단, ci-test 는 content 검증만 해요. `.github/workflows/*.yml` 의 runtime 의존성 — 등록되지 않은 secret 참조 같은 것 — 은 잡지 못해요. 워크플로 YAML 정적 검증(actionlint)은 검토 결과 실익이 낮아 도입하지 않기로 했어요(CHANGELOG 2026-05-27).
 
 ### 5. 운영 트러블 대응
 
@@ -224,20 +224,20 @@ GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 5 단
 
 ```bash
 # dry-run (실제 적용은 일어나지 않고 SQL 만 출력해요)
-<repo> prod migrate <slug> V018__add_my_table --dry-run
+<repo> prod migrate <slug> apps/app-<slug>/src/main/resources/db/migration/<slug>/V028__add_my_table.sql --dry-run
 
 # 실제 적용
-<repo> prod migrate <slug> V018__add_my_table
+<repo> prod migrate <slug> apps/app-<slug>/src/main/resources/db/migration/<slug>/V028__add_my_table.sql
 
 # checksum 어긋남 등 의도적 force (운영 DB 를 직접 수정하므로 주의)
-<repo> prod migrate <slug> V018__add_my_table --force
+<repo> prod migrate <slug> apps/app-<slug>/src/main/resources/db/migration/<slug>/V028__add_my_table.sql --force
 ```
 
 자세한 절차는 [`flyway-runbook`](../production/deploy/flyway-runbook.md) 을 참조하세요. 결정 근거는 [`ADR-033 Flyway Hybrid`](../philosophy/adr-033-flyway-hybrid-policy.md) 에 정리되어 있어요.
 
 ### 7. Feature toggle (Lite 모드 — ADR-034)
 
-도메인별 안전 토글을 8 개 모듈(`payment`·`iap`·`email`·`2fa`·`audit`·`push`·`billing-notification`·`password-policy`)에 대해 제공해요. 단 `2fa` 토글은 후속 작업이라 현재 실제로 동작하지 않아요 (`tools/app/feature.sh` 주석 명시). 기본값은 모두 활성이고, 비활성 상태에서 호출이 발생하면 `CMN_009` 로 명시적인 에러가 발생해요.
+도메인별 안전 토글을 8 개 모듈(`payment`·`iap`·`email`·`2fa`·`audit`·`push`·`billing-notification`·`password-policy`)에 대해 제공해요. `2fa` 토글도 동작해요 — `app.features.2fa=false` 면 `TwoFactorService` 빈이 미등록되고(`AuthAutoConfiguration` `@ConditionalOnExpression`), 2FA endpoint 호출 시 `CMN_009` 가 발생해요 (`FeatureToggleTest` 가 검증). 기본값은 모두 활성이고, 비활성 상태에서 호출이 발생하면 `CMN_009` 로 명시적인 에러가 발생해요.
 
 ```bash
 <repo> feature list                # 현재 상태 (8 모듈 × on/off)
@@ -262,7 +262,7 @@ GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 5 단
 
 `force-clear` 는 다섯 단계의 confirm 을 차례로 거쳐요. DB 데이터 → Storage 데이터 → 관측성 데이터 → 백업 의향 → 최종 확인 순서예요. 백업 의향 단계의 자동 백업은 아직 개발 중이라 지금은 manual 절차만 안내해요. 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 돼요.
 
-> ⚠ 슬러그 지정 시 [3/5] 관측성 단계의 현재 한계 — 슬러그를 지정해도(`prod force-clear myapp`) 관측성 단계가 모든 앱의 관측성 데이터 삭제 confirm 을 띄워요. 슬러그 단위 격리 의도와 어긋나는 동작이라 backlog 에 영구 fix 가 등록되어 있어요. 임시 회피책은 [3/5] 단계에서 'n' 을 입력해 건너뛰는 거예요.
+슬러그를 지정하면([3/5]) 관측성 단계는 전 슬러그 공유 스택이라 자동으로 건너뜁니다 — 전체 모드에서만 confirm 을 띄워요.
 
 > **데이터는 `force-clear`, 코드는 `remove app`** — `force-clear <slug>` 는 배포된 데이터·인프라(schema·bucket·컨테이너)만 리셋하고 코드 모듈은 그대로 둬요. 그래서 재배포가 가능해요. 반대로 `remove app <slug>` 는 코드 모듈(`apps/app-<slug>/` + `settings.gradle` + bootstrap dep + `.env` 라인)까지 지우는 앱 완전 은퇴 명령이에요. 같은 앱을 영구 폐기하려면 두 가지를 조합해요. 아래 §9 를 참고하세요.
 
@@ -367,4 +367,3 @@ bash tools/cleanup/dev-force-clear.sh                   # dev force-clear 본체
 - [`Feature toggle 운영자 가이드`](../production/operations/feature-toggle.md) — `feature` 명령의 영향
 - [`ADR-033 Flyway Hybrid`](../philosophy/adr-033-flyway-hybrid-policy.md) — Flyway 모드 결정 근거
 - [`ADR-034 Feature Toggle Lite Mode`](../philosophy/adr-034-feature-toggle-lite-mode.md) — 토글 메커니즘 설계
-- [`Backlog`](../planned/backlog.md) — actionlint 통합·db-backup 자동화 등 미완 항목

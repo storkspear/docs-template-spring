@@ -361,7 +361,7 @@ bucket 단위로 받으려면 `bb` 대신 `bb/<bucket-name>` 을 지정해요.
 5. 재발 방지 — 체크, 테스트, 모니터링 개선
 6. 이 런북에 추가할 내용
 
-회고 결과는 [`Edge Cases`](../../reference/edge-cases.md) 와 [`Backlog`](../../planned/backlog.md) 에 반영하거나 새 항목으로 추가합니다.
+회고 결과는 [`Edge Cases`](../../reference/edge-cases.md) 에 반영하거나, 레포의 계획 문서에 새 항목으로 추가합니다.
 
 ---
 
@@ -383,7 +383,6 @@ bucket 단위로 받으려면 `bb` 대신 `bb/<bucket-name>` 을 지정해요.
 ### 장애와 회고
 
 - [`Edge Cases & Risk Analysis`](../../reference/edge-cases.md) — 리스크 시나리오와 엣지 케이스
-- [`Backlog`](../../planned/backlog.md) — 미완료 항목 (인시던트 회고 추가 대상)
 
 ### 설계 배경
 

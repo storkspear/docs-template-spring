@@ -7,7 +7,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 **용도**:
 - 외부 보안 감사·B2B 클로징·규제 대응 시 즉시 답변하는 reference
 - 신규 입사자가 본 프로젝트의 보안 사고관을 빠르게 파악
-- 분기별 self-audit — gap 항목이 그대로 backlog 의 Security 카테고리로 흘러가요
+- 분기별 self-audit — gap 항목을 보안 후속 작업으로 등재해요
 
 **버전**: OWASP Top 10 2021 기준. 2025 발표 후 재매핑 예정.
 
@@ -42,6 +42,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `common/common-security/.../PasswordHasher.java:12-13` — BCrypt strength 12 (~200~300ms/hash)
 - `core/core-auth-impl/.../service/TokenGenerator.java:52-64` — `sha256Hex()` 로 refresh·verification·reset 토큰을 모두 SHA-256 해시로 저장 (raw 미저장)
 - `core/core-user-impl/.../entity/User.java:40` — `totp_secret VARCHAR(64)` 평문 저장 (RFC 6238 준수, 클라이언트 측 encrypted local storage 권장)
+- `core/core-auth-impl/.../totp/TwoFactorService.java` — backup code 8개를 BCrypt 해시 후 `List<String>` JSON 으로 `users.totp_backup_codes` 에 저장 (raw 는 발급 응답 1회만)
 - `.gitignore:26-58` — `.env`, `.env.*`, `.kamal/secrets` 제외
 - `.gitleaks.toml` — gitleaks default rule + allowlist (테스트 fixture, .env.example 등)
 
@@ -53,7 +54,6 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 **Gap**:
 - **TLS 내부 통신 정책 미명시** — `application.yml` 에 `server.ssl.*` 가 없어요. Cloudflare edge 에서 종료하는 전제이지만 backend ↔ Supabase 간 `sslmode=require` 명시 검증이 빠져 있어요
 - **Key rotation 자동화 없음** — `docs/production/setup/key-rotation.md` 가 수동 절차만 기술합니다. 6개월 주기 자동 reminder 가 없어요
-- **TOTP backup codes 저장 방식 상세 부족** — `User.totpBackupCodes` 의 정확한 JSON 스키마와 BCrypt 적용 여부가 코드 주석에 없어요. 검증 로직(`TwoFactorService`) 을 정독해야만 확인됩니다
 
 ---
 
@@ -220,7 +220,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - **보안 이벤트 alert rule 부재** — Grafana 대시보드 + 보안 alert rule 은 backlog 에 등재되어 있어요. 현재 `infra/prometheus/rules.yml` 에는 8개 (HighErrorRate, HighLatencyP95, RateLimitSpike, BackendDown, MinioDown, MinioDiskUsageHigh, MinioDiskUsageCritical, MinioDiskUsageEmergency) 만 있어요. 보안 이벤트 alert (failed login spike, webhook auth fail) 는 없어요
 - **Audit log 조회 endpoint 부재** — `GET /api/admin/audit-logs?action=...&since=...` 같은 운영자 UI 가 미구현이에요. ADR-028 에 다음 사이클로 등재되어 있어요
 - **Entity 변경 추적 (`@PreUpdate`) 미구현** — User.role 변경 시 old/new 값을 audit details 에 캡처하지 않아요
-- **Log retention 정책 단명** — `infra/loki/loki-config.yml` 의 `retention_period: 336h` (14일). PCI-DSS·일반 compliance 의 1년 권장과 차이가 있어요
+- **Log retention** — `infra/loki/loki-config.yml` 의 `retention_period: 8760h` (1년)으로 PCI-DSS·일반 compliance 의 1년 권장을 충족해요
 
 ---
 
@@ -270,7 +270,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 ## 종합 — Gap 우선순위
 
-본 매핑의 self-audit 결과를 우선순위별로 정리해요. 모두 [`backlog.md`](../../planned/backlog.md) 의 Security 카테고리에 등재되어 있어요.
+본 매핑의 self-audit 결과를 우선순위별로 정리해요. 아래 항목은 **모두 미완**이며, 우선순위 순으로 처리 대상이에요.
 
 ### 즉시 fix — 모두 해결됨 ✅
 - ~~**A05.1 Swagger UI 노출**~~ — `application-prod.yml:55-59` 에 `swagger-ui.enabled: false` + `api-docs.enabled: false` 적용. prod 차단 완료 (dev 는 기본 활성 — 외부 노출 시 `SPRINGDOC_*_ENABLED=false` 환경변수로 꺼야 해요)
@@ -312,4 +312,3 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - [`ADR-030 (2FA TOTP)`](../../philosophy/adr-030-2fa-totp.md) — A07
 - [`ADR-032 (Google webhook auth)`](../../philosophy/adr-032-google-webhook-auth.md) — A08
 - [`ADR-036 (SSRF URL whitelist)`](../../philosophy/adr-036-ssrf-url-whitelist.md) — A10
-- [`Backlog`](../../planned/backlog.md) — Security 카테고리 후속 작업

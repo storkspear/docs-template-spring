@@ -315,10 +315,9 @@ CREATE UNIQUE INDEX uk_users_email ON sumtally.users(email) WHERE deleted_at IS 
 
 ### Schema
 
-Schema 이름은 앱의 slug 와 일치시켜요. `core` schema 도 함께 쓰지만 *템플릿 기준선* 역할만 합니다. 실제 런타임 유저는 앱 schema 에 들어가요.
+Schema 이름은 앱의 slug 와 일치시켜요. 실제 런타임 유저는 각 앱 schema 에 들어가요. (물리 `core` schema 는 ADR-037(2026-07-01)로 폐기됐어요 — 더는 어떤 경로로도 생성하지 않아요. bootstrap 통합테스트도 default schema 의 Testcontainers 만 써요.)
 
 - `sumtally`, `gymlog`, `fintrack`, `rny` — 각 앱 모듈(slug)
-- `core` — 템플릿 기준선 + bootstrap test 의 단일 DB
 - 각 앱 schema 는 유저/인증 테이블과 도메인 테이블을 모두 포함해요.
 
 Schema 이름은 snake_case(또는 alphanumeric)로 작성하고, 하이픈은 쓰지 않습니다. 격리 근거는 [`ADR-005 · 단일 Postgres + 앱당 schema`](../philosophy/adr-005-db-schema-isolation.md) 를 참고하세요.
@@ -333,7 +332,7 @@ Schema 이름은 snake_case(또는 alphanumeric)로 작성하고, 하이픈은 �
 
 - `V001__init_users.sql`
 - `V002__init_auth_social_identities.sql`
-- `V026__init_budget_groups.sql`
+- `V028__init_budget_groups.sql`
 
 규칙은 이렇습니다.
 
@@ -344,7 +343,7 @@ Schema 이름은 snake_case(또는 alphanumeric)로 작성하고, 하이픈은 �
 
 ### 디렉토리 구조
 
-`new app` 스크립트가 V001~V026 공통 마이그레이션을 자동으로 깔아 주고, 도메인 테이블은 개발자가 그다음 빈 번호인 V027부터 작성합니다. V007 admin 시드는 `--seed-admin` 을 붙였을 때만 생성되는 opt-in 파일이라, 기본 생성은 24개예요.
+`new app` 스크립트가 V001~V027 공통 마이그레이션을 자동으로 깔아 주고, 도메인 테이블은 개발자가 그다음 빈 번호인 V028부터 작성합니다. V007 admin 시드는 `--seed-admin` 을 붙였을 때만 생성되는 opt-in 파일이라, 기본 생성은 26개예요.
 
 ```
 apps/app-sumtally/src/main/resources/db/migration/sumtally/
@@ -355,14 +354,16 @@ apps/app-sumtally/src/main/resources/db/migration/sumtally/
     ...
     V018__init_attachment_file.sql          ← new-app.sh 자동 생성 (파일 첨부)
     ...
-    V025__add_analytics.sql                 ← new-app.sh 자동 생성 (마지막 공통)
-    V026__init_budget_groups.sql            ← 개발자가 작성 (첫 도메인 테이블)
-    V027__init_expenses.sql                 ← 개발자가 작성
+    V025__add_analytics.sql                 ← new-app.sh 자동 생성
+    V026__add_auth_email_verification_tokens_attempts.sql ← new-app.sh 자동 생성
+    V027__add_login_lockout_to_users.sql    ← new-app.sh 자동 생성 (마지막 공통)
+    V028__init_budget_groups.sql            ← 개발자가 작성 (첫 도메인 테이블)
+    V029__init_expenses.sql                 ← 개발자가 작성
 ```
 
 공통 마이그레이션의 내용 분류는 [`onboarding.md`](../start/onboarding.md#3-첫-앱-모듈-추가) 의 표에 정리돼 있어요.
 
-각 앱 schema 는 자기 디렉토리에서 공통 테이블(V001~V026)과 도메인 테이블(V027~)을 함께 관리합니다. Flyway 는 각 디렉토리를 자기 schema 에 대해 독립적으로 적용해요. 공통 마이그레이션 개수는 템플릿이 진화하면서 늘어나니, 도메인 시작 번호는 항상 생성된 디렉토리의 마지막 V 번호 다음을 쓰세요.
+각 앱 schema 는 자기 디렉토리에서 공통 테이블(V001~V027)과 도메인 테이블(V028~)을 함께 관리합니다. Flyway 는 각 디렉토리를 자기 schema 에 대해 독립적으로 적용해요. 공통 마이그레이션 개수는 템플릿이 진화하면서 늘어나니, 도메인 시작 번호는 항상 생성된 디렉토리의 마지막 V 번호 다음을 쓰세요.
 
 ---
 

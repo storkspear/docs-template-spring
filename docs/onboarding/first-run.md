@@ -63,19 +63,20 @@ Postgres 에 연결이 성공했다는 신호예요. 매 요청마다 DB 연결�
 Flyway Community Edition 11.x.x by Redgate
 Database: jdbc:postgresql://localhost:5433/postgres (PostgreSQL 16.x)
 Schema: [sumtally]
-Successfully validated 24 migrations (execution time 00:00.015s)
+Successfully validated 26 migrations (execution time 00:00.015s)
 Creating schema history table "sumtally"."flyway_schema_history" ...
 Current version of schema "sumtally": << Empty Schema >>
 Migrating schema "sumtally" to version "1 - init users"
 Migrating schema "sumtally" to version "2 - init auth social identities"
 ...
 Migrating schema "sumtally" to version "26 - add auth email verification tokens attempts"
-Successfully applied 24 migrations to schema "sumtally"
+Migrating schema "sumtally" to version "27 - add login lockout to users"
+Successfully applied 26 migrations to schema "sumtally"
 ```
 
-[Flyway](../reference/glossary.md#데이터베이스) 가 `V001` 부터 `V025` 까지 SQL 파일을 번호 순서대로 한 번씩 실행하는 단계예요 (V007 은 옵트인 자리라 기본 실행에서는 건너뛰어 총 24개예요). 실행 이력은 그 앱 schema 안의 `flyway_schema_history` 테이블에 남아서, 다음 기동 때는 "이미 최신" 이라 모두 건너뛰어요.
+[Flyway](../reference/glossary.md#데이터베이스) 가 `V001` 부터 `V027` 까지 SQL 파일을 번호 순서대로 한 번씩 실행하는 단계예요 (V007 은 옵트인 자리라 기본 실행에서는 건너뛰어 총 26개예요). 실행 이력은 그 앱 schema 안의 `flyway_schema_history` 테이블에 남아서, 다음 기동 때는 "이미 최신" 이라 모두 건너뛰어요.
 
-마이그레이션 로그에 schema 이름이 앱 슬러그(`sumtally`)로 찍히는 게 핵심이에요. 이 레포는 앱마다 독립된 schema 를 쓰고, schema 마다 이력을 따로 관리하거든요. `<repo> new <slug>` 로 앱을 추가할 때 이 25개 마이그레이션이 그 앱 schema 에 자동으로 깔려요. 번호별로 무엇이 들어가는지는 이렇게 나뉘어요.
+마이그레이션 로그에 schema 이름이 앱 슬러그(`sumtally`)로 찍히는 게 핵심이에요. 이 레포는 앱마다 독립된 schema 를 쓰고, schema 마다 이력을 따로 관리하거든요. `<repo> new <slug>` 로 앱을 추가할 때 이 26개 마이그레이션이 그 앱 schema 에 자동으로 깔려요. 번호별로 무엇이 들어가는지는 이렇게 나뉘어요.
 
 | 버전 | 내용 | 비고 |
 |---|---|---|
@@ -88,8 +89,9 @@ Successfully applied 24 migrations to schema "sumtally"
 | **V022 ~ V023** | 환불. payment 환불 컬럼 · payment_refunds | |
 | **V024 ~ V025** | posts · analytics | |
 | **V026** | auth_email_verification_tokens.attempts (이메일 인증 무차별 대입 방어) | |
+| **V027** | users 로그인 잠금 컬럼 (연속 실패 시 계정 잠금) | 마지막 공통 |
 
-본인 도메인 테이블은 그다음 비어 있는 번호(현재 V027)부터 직접 작성하면 돼요.
+본인 도메인 테이블은 그다음 비어 있는 번호(현재 V028)부터 직접 작성하면 돼요.
 
 ## 5. [Hibernate ORM](../reference/glossary.md#데이터베이스)
 
@@ -186,7 +188,7 @@ HikariPool-1 - Shutdown completed.
 - [ ] `BUILD SUCCESSFUL` 이 떴어요
 - [ ] `Active Spring profiles: [local]` 이 보였어요
 - [ ] `HikariPool-1 - Start completed.` 가 떴어요
-- [ ] `Successfully applied 24 migrations to schema "<slug>"` 가 떴어요
+- [ ] `Successfully applied 26 migrations to schema "<slug>"` 가 떴어요
 - [ ] `Tomcat started on port(s): 8081` 이 떴어요
 - [ ] `Started FactoryApplication` 이 떴어요
 - [ ] `curl .../actuator/health` 가 `"status":"UP"` 을 돌려줬어요

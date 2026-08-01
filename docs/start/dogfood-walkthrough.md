@@ -112,7 +112,7 @@
 
 **왜 발생했나요?** bash 에는 `test`, `time`, `if`, `for` 같은 키워드와 내장 명령이 있어요. 사용자가 같은 이름으로 PATH alias 를 만들어도 shell 이 내장 명령을 먼저 해석해서 alias 가 호출되지 않습니다. 당시 `factory install` 이 alias 이름의 충돌 여부를 사전 검증하지 않은 게 원인이었어요.
 
-**무엇이 정착됐나요?** 임시로는 사용자가 alias 를 `stest` 로 다시 등록해서 진행했어요. 영구 수정은 backlog 에 등록됐어요(commit `1f24fb9`). `factory install` 이 `command -v <name>` 또는 bash `type -t <name>` 으로 사전 검증하고, 내장 명령이나 예약어면 등록을 차단하고 경고하는 방향이에요.
+**무엇이 정착됐나요?** `factory install`(그리고 `alias` 로 이름을 바꿀 때도) 이 등록 전에 셸 빌트인·예약어와 PATH 상 기존 실행파일 충돌을 검사해 차단해요(`factory:353-387`). 당시 임시 대응이던 `stest` 재등록은 더 이상 필요 없어요.
 
 ### 4.6 placeholder `<repo-name>` 이 그대로 출력 — alias 감지 실패
 
@@ -128,7 +128,7 @@
 
 **왜 발생했나요?** `init-prod.sh` 는 부분 실패가 나도 그대로 다음 단계로 진행하는 구조였어요. 어떤 단계의 "[OK] 등록 완료" 는 그 단계만의 성공 메시지인데, 사용자 입장에선 전체 init 의 종료 메시지처럼 보였습니다. 그래서 뒤따라야 할 단계가 조용히 건너뛰어졌어요.
 
-**무엇이 정착됐나요?** 영구 수정은 backlog 에 등록됐어요(commit `254fb30`). 부분 실패 시 명시적 SUMMARY 를 출력해서(성공 N개 / 실패 M개 / skip K개), 사용자가 init 종료 후 "어디까지 됐고 어디부터 다시 해야 하는지" 를 한눈에 보게 하고, 가능하면 fail-fast 모드(`--strict`) 옵션을 더하는 방향이에요. 그때까지의 임시 대응은, init 이 끝난 뒤 `gh secret list -R <repo>` 로 직접 확인하는 거예요.
+**무엇이 정착됐나요?** `init-prod.sh` 가 `trap _on_exit_init_prod EXIT` + `_INIT_PROD_OK` sentinel 로 정상 완료와 비정상 종료를 구별해요(`tools/init/init-prod.sh:41-57`). 비정상 종료면 ❌ 박스와 점검 안내가, 정상 완료면 `✅ 운영 셋업 정상 완료` 박스가 떠서 부분 실패를 성공으로 오인하지 않아요.
 
 ### 4.8 `sync-docs` 가 며칠치 모든 push 에서 실패
 
@@ -136,7 +136,7 @@
 
 **왜 발생했나요?** `sync-docs.yml` 은 docs 변경분을 `docs-template-spring` 레포로 PR 보내고, 이 cross-repo 동작에 PAT 가 필요해요. 이 PAT 는 secret 이름 `GHCR_TOKEN` 으로 함께 씁니다(이름이 GHCR 인 건 주 용도가 GHCR push 라서예요). 그런데 ci-test 5단계(spotless · build · docs-contract · docs-unit · gitleaks)는 내용을 검증할 뿐, 워크플로 YAML 자체의 런타임 의존성, 예컨대 등록되지 않은 secret 참조까지는 보지 않아요. 그래서 secret 누락이 CI 를 통과해 버린 거예요.
 
-**무엇이 정착됐나요?** 사용자가 `gh secret set GHCR_TOKEN -R <repo>` 로 등록하고 정상화했어요. backlog 에는 actionlint 통합 항목이 올라갔어요(commit `d1baf27`). actionlint 는 GitHub Actions 워크플로의 정적 검증 도구로, `.github/workflows/*.yml` 의 YAML 구문, 잘못된 action 버전, job dependency 누락 등을 잡아 줍니다. 다만 secret 부재 같은 런타임 에러는 actionlint 도 못 잡아요. 그건 워크플로 시작 시 토큰 존재를 검증하고 없으면 graceful skip 하는, 별개의 보강이 필요한 영역이에요.
+**무엇이 정착됐나요?** 사용자가 `gh secret set GHCR_TOKEN -R <repo>` 로 등록하고 정상화했어요. actionlint 통합도 후보로 검토됐지만, GHA 자체가 YAML 구문을 검증하고 secret 부재 같은 런타임 에러는 actionlint 도 못 잡아 2026-05-27 에 도입하지 않기로 종결됐어요. actionlint 는 GitHub Actions 워크플로의 정적 검증 도구로, `.github/workflows/*.yml` 의 YAML 구문, 잘못된 action 버전, job dependency 누락 등을 잡아 줍니다. 다만 secret 부재 같은 런타임 에러는 actionlint 도 못 잡아요. 그건 워크플로 시작 시 토큰 존재를 검증하고 없으면 graceful skip 하는, 별개의 보강이 필요한 영역이에요.
 
 ---
 

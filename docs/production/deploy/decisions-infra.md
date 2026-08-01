@@ -117,7 +117,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 - **status**: `provisioned` (template 관리자 LAN 내부에서만 접근)
 - **결정일**: 2026-04-18
-- **결정**: 오브젝트 스토리지는 시놀로지 NAS 의 MinIO 컨테이너예요. S3 호환이라 나중에 AWS S3 나 Cloudflare R2 로 옮길 때 endpoint 만 바꾸면 돼요. 외부 네트워크에서 닿게 하는 방식은 Item Ops-1 에서 결정합니다.
+- **결정**: 오브젝트 스토리지는 시놀로지 NAS 의 MinIO 컨테이너예요. S3 호환이라 나중에 AWS S3 나 Cloudflare R2 로 옮길 때 endpoint 만 바꾸면 돼요. 외부 네트워크에서 닿게 하는 방식은 운영 배포 단계에서 결정합니다.
 - **근거**:
   - 보유 NAS 를 활용해서 추가 호스팅비가 0 이에요
   - S3 호환이라 클라우드 이관이 유연해요
@@ -137,7 +137,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - NAS 가 단일 장애점이에요. RAID 와 Snapshot Replication 으로 완화합니다
   - 외부 노출 시 집 인터넷 업로드 속도가 병목이 될 수 있어요
 - **재검토 트리거**:
-  - 외부 개발자 합류 — Tailscale 또는 Cloudflare Tunnel (Item Ops-1)
+  - 외부 개발자 합류 — Tailscale 또는 Cloudflare Tunnel (운영 배포 단계)
   - NAS 디스크 사용량 80% 초과 — 증설 또는 R2 이관
   - 집 인터넷 업로드 10 Mbps 미만 — 업로드 병목
   - 파생 레포 5개 이상 — 공용 인프라 분리 검토
@@ -150,7 +150,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 ## 결정 I-04. 운영 호스트 — Apple Silicon 맥미니 (홈 서버)
 
-- **status**: `hardware-acquired` (물리 보유, 네트워크·배포 셋업은 Item Ops-1)
+- **status**: `hardware-acquired` (물리 보유, 네트워크·배포 셋업은 운영 배포 단계)
 - **결정일**: 2026-04-18
 - **결정**: 운영 단일 호스트로 Apple Silicon 맥미니를 가정 내에 설치해 사용합니다. 권장 사양은 16GB 이고, 실제 도그푸딩 운영 장비는 M2 8GB 예요 (현재 트래픽 규모에는 충분).
 - **근거**:
@@ -180,7 +180,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 - **관련 문서**:
   - [`인프라`](./infrastructure.md) — 구성도
   - [`Edge Cases`](../../reference/edge-cases.md) 3-1 — 고장 복구 시나리오
-  - Item Ops-1 — 배포 메커니즘 (launchd)
+  - 운영 배포 단계 — 배포 메커니즘 (launchd)
 
 ---
 
@@ -213,7 +213,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - 더 전문적인 글로벌 edge 가속 요구
   - Tunnel 장애 월 2회 이상
 - **관련 문서**:
-  - Item Ops-1 — 실제 셋업
+  - 운영 배포 단계 — 실제 셋업
   - [`인프라`](./infrastructure.md) — 운영 구성도 (planned 박스)
 
 ---
@@ -250,7 +250,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 - **관련 문서**:
   - [`Observability 규약`](../../api-and-functional/functional/observability.md)
   - `infra/docker-compose.observability.yml`
-  - Item Ops-1 — 알림 종류와 임계치 정의
+  - 운영 배포 단계 — 알림 종류와 임계치 정의
 
 ---
 
@@ -258,7 +258,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 - **status**:
   - 로컬 (`dev-shared`): `provisioned`
-  - 운영 (`{slug}-{category}`): `planned` (Item Ops-1 에서 앱별 bucket 생성)
+  - 운영 (`{slug}-{category}`): `planned` (운영 배포 단계에서 앱별 bucket 생성)
 - **결정일**: 2026-04-18
 - **결정**: 오브젝트 저장소를 환경별 2-tier 로 나눕니다. 코드는 환경과 무관하고, `.env` 의 bucket 이름만 스위치해요.
   - 로컬: `dev-shared` 단일 bucket (여러 파생 레포가 공유)
@@ -540,4 +540,4 @@ ADR-037 이전에는 `CoreDataSourceConfig` 가 `@Primary` 로 core schema 와 �
 - [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md) — 2-tier bucket 상세 규약
 - [`Observability 규약`](../../api-and-functional/functional/observability.md) — 관측성 규약
 - [`Edge Cases & Risk Analysis`](../../reference/edge-cases.md) — 리스크 시나리오 분석
-- Item Ops-1 (예정) — 운영 배포 구현
+- 운영 배포 단계 (예정) — 운영 배포 구현

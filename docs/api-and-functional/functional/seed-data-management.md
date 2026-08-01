@@ -18,10 +18,25 @@
 
 | 영역 | 도구 | 관리 위치 | 실행 시점 |
 |---|---|---|---|
-| 스키마 (DDL) | Flyway `V***` | `apps/app-<slug>/src/main/resources/db/migration/<slug>/` | 부팅 시 1회 (`@Bean(initMethod = "migrate")`) |
+| 스키마 (DDL) | Flyway `V***` | `apps/app-<slug>/src/main/resources/db/migration/<slug>/` | 부팅 시 1회 (`runFlywayWithMode` — `app.flyway.mode` 가 `AUTO` 일 때만 migrate, dev/prod 는 `VALIDATE_ONLY`) |
 | Seed 데이터 (DML) | 옵션 A·B·C | 아래 섹션 참조 | 환경에 따라 다름 |
 
 스키마 변경은 모든 환경(local, CI, dev, prod)에서 동일하게 적용되어야 합니다. 반면 seed 데이터는 환경별로 넣거나 말거나가 갈리는 것이 자연스러워요. 개발 DB 에는 테스트 계정이 있어도 되지만 운영 DB 에는 없어야 하는 식입니다. 그래서 두 영역은 별도 전략이 필요합니다.
+
+---
+
+## 신규 앱 최초 부트스트랩
+
+위 표의 `runFlywayWithMode` 는 `app.flyway.mode` 를 존중해요. 그래서 dev/prod 기본값인 `VALIDATE_ONLY` 그대로 새 앱을 처음 배포하면, 빈 스키마에는 `flyway_schema_history` 가 없어 검증이 실패하고 부팅이 멈춥니다. `tools/deploy/migrate-prod.sh` 도 그 테이블이 없으면 "먼저 부팅/배포로 초기 migrate 하세요" 로 거부해요. **아래 seed 옵션들도 스키마가 있어야 의미가 있으므로, 첫 마이그레이션을 먼저 통과시켜야 합니다.**
+
+절차는 **`AUTO` 로 1회 부팅 → 원복** 이에요.
+
+1. 대상 환경의 `APP_FLYWAY_MODE` 를 `AUTO` 로 두고 1회 배포해요. 부팅 중 Flyway 가 `V001~` 을 전부 적용하고 `flyway_schema_history` 를 만듭니다.
+2. 스키마가 자리 잡으면 `APP_FLYWAY_MODE` 를 `VALIDATE_ONLY` 로 되돌려요. 이후 스키마 변경은 `migrate-prod.sh` 로 명시 적용합니다.
+
+dev 자동배포(`deploy-dev.yml`)는 `APP_FLYWAY_MODE=AUTO` 를 고정 주입하므로 그 경로만 쓰면 1단계가 자동으로 충족돼요. prod 와 그 밖의 부팅 경로는 직접 지정해야 합니다.
+
+`tools/app/reset-schema.sh` 가 dev 스키마를 비운 뒤 안내하는 절차와 같은 형태예요 — 수동 SQL 재적용은 checksum mismatch 위험이라 지원하지 않습니다.
 
 ---
 
@@ -50,7 +65,7 @@ versioned `V***` 파일이라 Flyway 가 **한 번만** 실행합니다. 그래�
 
 ### 앱이 생성하는 마이그레이션 한눈에
 
-`new-app.sh` 가 만드는 `db/migration/<slug>/` 의 versioned 파일은 기본 25개(V001~V026, V007 은 `--seed-admin` 시에만 생성)입니다. 도메인 테이블은 **V027 부터** 이어집니다.
+`new-app.sh` 가 만드는 `db/migration/<slug>/` 의 versioned 파일은 기본 26개(V001~V027, V007 은 `--seed-admin` 시에만 생성)입니다. 도메인 테이블은 **V028 부터** 이어집니다.
 
 | 파일 | 성격 |
 |---|---|
@@ -63,7 +78,8 @@ versioned `V***` 파일이라 Flyway 가 **한 번만** 실행합니다. 그래�
 | `V018__init_attachment_file.sql` ~ `V021__init_audit_logs_archive.sql` | DDL — 첨부파일 · 열람이력 · 발송이력 · 감사로그 아카이브 |
 | `V022__add_payment_refunded_amount.sql` ~ `V023__add_payment_refunds.sql` | DDL + **V023 은 환불 원장 백필(DML) 포함** — 부분환불 |
 | `V024__add_posts.sql` ~ `V025__add_analytics.sql` | DDL — 공유 게시물 · 제품 이벤트 |
-| `V026__...` 이후 | 파생 레포의 도메인 테이블 (직접 작성) |
+| `V026__add_auth_email_verification_tokens_attempts.sql` ~ `V027__add_login_lockout_to_users.sql` | DDL — 이메일 인증 시도 제한 · 로그인 잠금 (마지막 공통) |
+| `V028__...` 이후 | 파생 레포의 도메인 테이블 (직접 작성) |
 
 > **혼동 주의** — 위 표의 `V007` 은 **앱 슬러그 schema** 의 admin 시드입니다. core 모듈(`core-auth-impl` 등)의 테스트 리소스에는 `db/migration/core/V007__init_auth_password_reset_tokens.sql` 이라는 동명 버전 번호가 있는데, 그건 core 네임스페이스의 **테스트 전용 스키마** 라 별개예요. 같은 V007 이라도 schema 가 다르면 다른 파일입니다.
 
@@ -80,7 +96,7 @@ versioned `V***` 파일이라 Flyway 가 **한 번만** 실행합니다. 그래�
 ```text
 apps/app-sumtally/src/main/resources/db/migration/sumtally/
 ├── V001__init_users.sql                 ← 스키마 (한 번만)
-├── V026__init_expense_categories.sql    ← 도메인 스키마
+├── V028__init_expense_categories.sql    ← 도메인 스키마
 └── R__seed_expense_categories.sql       ← 데이터 (수정 시마다 재실행)
 ```
 
@@ -230,19 +246,19 @@ public class JpaAuthFixtures implements AuthFixtures {
 
 ## 파생 레포가 자기 앱 schema 에 seed 를 넣는 방법
 
-새 앱을 `./tools/app/new-app.sh <slug>` 로 생성하면 `db/migration/<slug>/` 에 V001~V026 공통 테이블(V007 admin 시드는 `--seed-admin` opt-in)이 자동으로 만들어집니다. 각 앱은 자기 schema 를 가지며, Flyway 는 `classpath:db/migration/<slug>` 를 해당 schema 에 대해 독립적으로 실행해요 (`common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java` 의 `buildFlyway` 참조).
+새 앱을 `./tools/app/new-app.sh <slug>` 로 생성하면 `db/migration/<slug>/` 에 V001~V027 공통 테이블(V007 admin 시드는 `--seed-admin` opt-in)이 자동으로 만들어집니다. 각 앱은 자기 schema 를 가지며, Flyway 는 `classpath:db/migration/<slug>` 를 해당 schema 에 대해 독립적으로 실행해요 (`common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java` 의 `buildFlyway` 참조).
 
 ### 도메인 테이블과 seed 추가
 
-앱 고유 도메인 테이블은 V027 부터 이어서 추가합니다. 참조 데이터는 옵션 A 로 같은 디렉터리에 둬요.
+앱 고유 도메인 테이블은 V028 부터 이어서 추가합니다. 참조 데이터는 옵션 A 로 같은 디렉터리에 둬요.
 
 ```text
 apps/app-sumtally/src/main/resources/db/migration/sumtally/
 ├── V001 ~ V006                              ← 유저·인증 (자동 생성)
 ├── V007__seed_admin_user.sql                ← admin 시드 (--seed-admin 시에만 생성)
-├── V008 ~ V025                              ← 결제·audit·2FA·알림·점유인증·활동추적·첨부·게시물·분석 (자동 생성)
-├── V026__init_expense_categories.sql        ← 도메인 스키마
-├── V027__init_expenses.sql                  ← 도메인 스키마
+├── V008 ~ V027                              ← 결제·audit·2FA·알림·점유인증·활동추적·첨부·게시물·분석·인증시도제한·로그인잠금 (자동 생성)
+├── V028__init_expense_categories.sql        ← 도메인 스키마
+├── V029__init_expenses.sql                  ← 도메인 스키마
 └── R__seed_expense_categories.sql           ← 옵션 A 로 참조 데이터
 ```
 

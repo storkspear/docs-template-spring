@@ -30,7 +30,7 @@
 | Cloudflare Tunnel | `template-ready` | cloudflared 설치는 파생 레포 개발자 몫. ingress 샘플은 `§4.2`, 상세는 `deployment.md` |
 | 배포 파이프라인 (Kamal + GHA) | `template-ready` | `config/deploy.yml` 과 `.github/workflows/deploy.yml` 가 커밋돼 있어요. 파생 레포가 env 와 Secrets 만 채우면 바로 동작. 결정 I-09 |
 | 알림 (Discord webhook) | `provisioned` | Alertmanager 컨테이너와 Discord receiver 구성 완료. `DISCORD_WEBHOOK_URL` env 로 즉시 동작. 알림 룰 8개 정의됨 (`infra/prometheus/rules.yml` — 에러율·지연·rate-limit·백엔드 다운·MinIO 다운/디스크 3단계) |
-| 운영 관측성 스택 | `template-ready` | `infra/docker-compose.observability.yml`, retention Prometheus 7일·Loki 14일, `mem_limit` 명시. Mac mini 에서 `docker compose up -d` 한 번 |
+| 운영 관측성 스택 | `template-ready` | `infra/docker-compose.observability.yml`, retention Prometheus 7일·Loki 1년, `mem_limit` 명시. Mac mini 에서 `docker compose up -d` 한 번 |
 | 로컬 docker 관측성 | `not-applicable` | 로컬에서는 기동하지 않아요. 운영 전용 (I-06 노트) |
 | 2-tier bucket 정책 | `provisioned` (로컬 `dev-shared`) / `planned` (운영 `{slug}-{category}`) | `BucketProvisioner` 가 자동 생성. 상세는 `storage.md`, I-07 |
 
@@ -176,9 +176,9 @@ ingress:
 
 | 기능 | 담당 | 상태 | 참조 |
 |---|---|---|---|
-| TLS 종료 | Cloudflare | planned | Item Ops-1 |
-| DDoS 방어 | Cloudflare | planned | Item Ops-1 |
-| Rate limit (엣지) | Cloudflare | planned | Item Ops-1 |
+| TLS 종료 | Cloudflare | planned | 운영 배포 단계 |
+| DDoS 방어 | Cloudflare | planned | 운영 배포 단계 |
+| Rate limit (엣지) | Cloudflare | planned | 운영 배포 단계 |
 | Rate limit (앱 내) | Spring (`bucket4j`) | provisioned | `rate-limiting.md` |
 | DB (운영) | Supabase | provisioned | I-01, keep-alive.sh |
 | DB (로컬) | docker postgres | provisioned | compose |
@@ -187,7 +187,7 @@ ingress:
 | 이메일 발송 | Resend | 계정 준비, app key 등록 필요 | `social-auth-setup.md` (유사) |
 | 푸시 (FCM) | Firebase Cloud Messaging | 설정 pending, NoOp fallback | `core-push-impl` |
 | 소셜 로그인 검증 | Apple·Google API 직접 호출 | provisioned (Java 구현 완료) | `social-auth-setup.md` |
-| 백업 | pg_dump → NAS | planned | Item Ops-1 |
+| 백업 | pg_dump → NAS | planned | 운영 배포 단계 |
 | 시크릿 보관 | `.env` (로컬), GitHub Secrets (CI) | provisioned — `init-prod.sh` 가 `.env.prod` 를 GitHub Secrets 로 자동 push | `secret-chain-4stage.md` |
 
 ---
@@ -233,7 +233,7 @@ ingress:
 
 ## 8. 보안 / 네트워크 경계 (planned)
 
-> 현재는 외부 노출 서비스가 없어요 (개발 단계). 실제 경계 규칙은 Item Ops-1 에서 확정합니다.
+> 현재는 외부 노출 서비스가 없어요 (개발 단계). 실제 경계 규칙은 운영 배포 단계(파생 레포·호스트 셋업)에서 확정합니다.
 
 ### 8.1 현재 (Phase 0)
 - 로컬 개발만 진행 중이라 전체 포트가 `localhost` 또는 `192.168.*` LAN 안에 있어요
@@ -311,7 +311,7 @@ postgres (Supabase 또는 로컬 docker)
 
 ### 10.3 Flyway 마이그레이션
 
-`new-app.sh` 는 모든 앱이 똑같이 받는 공통 마이그레이션 기본 25개 (V001 ~ V026, V007 제외) 를 앱의 `<slug>` schema 에 생성해요. 인증·결제·감사·운영 콘솔 기반이 여기에 들어갑니다. 본인 도메인 테이블은 **V027 부터** 직접 작성하면 돼요. V007 은 admin user 시드로 `--seed-admin` 을 붙일 때만 생성되지만 (opt-in, 랜덤 비밀번호), 생성하지 않아도 번호는 시드용으로 비워 둡니다.
+`new-app.sh` 는 모든 앱이 똑같이 받는 공통 마이그레이션 기본 26개 (V001 ~ V027, V007 제외) 를 앱의 `<slug>` schema 에 생성해요. 인증·결제·감사·운영 콘솔 기반이 여기에 들어갑니다. 본인 도메인 테이블은 **V028 부터** 직접 작성하면 돼요. V007 은 admin user 시드로 `--seed-admin` 을 붙일 때만 생성되지만 (opt-in, 랜덤 비밀번호), 생성하지 않아도 번호는 시드용으로 비워 둡니다.
 
 | 버전 | 내용 |
 |---|---|
@@ -323,7 +323,8 @@ postgres (Supabase 또는 로컬 docker)
 | V016 ~ V017 | auth_email_verification_codes · user_activity_days |
 | V018 ~ V021 | 운영·콘솔 — attachment_file · user_read_history · message_send_history · audit_logs_archive |
 | V022 ~ V025 | 환불·콘텐츠·분석 — payment refunded_amount · payment_refunds · posts · analytics |
-| V026 ~ | 앱 도메인 테이블 (파생 레포가 직접 작성) |
+| V026 ~ V027 | 인증 시도 제한 · 로그인 잠금 — auth_email_verification_tokens attempts · login lockout (마지막 공통) |
+| V028 ~ | 앱 도메인 테이블 (파생 레포가 직접 작성) |
 
 > ADR-037 이후 `core/core-*-impl/src/main/resources/db/migration/core/` 의 production migration 7 개는 삭제됐어요. 각 앱은 자기 `<slug>` schema 만 마이그레이션합니다. `core/core-*-impl/src/test/resources/db/migration/core/` 는 Testcontainers 용으로만 잔존하며, 거기 파일의 버전 번호는 테스트 픽스처용이라 위 운영 번호 체계와는 별개예요. production runtime 에는 영향이 없습니다.
 
@@ -341,7 +342,7 @@ cron 예시는 매 14 분 호출입니다.
 */14 * * * * /path/to/keep-alive.sh >> /var/log/keep-alive.log 2>&1
 ```
 
-환경변수는 `BASE_URL`, `INTERVAL_SEC`, `ENDPOINTS` 예요. launchd 등록 또는 Supabase Pro 업그레이드는 Item Ops-1 에서 결정합니다.
+환경변수는 `BASE_URL`, `INTERVAL_SEC`, `ENDPOINTS` 예요. launchd 등록 또는 Supabase Pro 업그레이드는 운영 배포 단계에서 결정합니다.
 
 ---
 
@@ -369,4 +370,3 @@ cron 예시는 매 14 분 호출입니다.
 ### 여정 / 진입점
 - [`Onboarding — 템플릿 첫 사용 가이드`](../../start/onboarding.md) — 템플릿 첫 사용 가이드
 - [`운영 배포 가이드 (파생 레포 onboarding)`](./deployment.md) — 파생 레포 첫 운영 배포
-- [`Backlog`](../../planned/backlog.md) — 미완료 항목 (Item Ops-1 묶음 포함)

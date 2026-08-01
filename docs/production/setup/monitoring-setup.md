@@ -119,7 +119,7 @@ Grafana panel 의 alert 기능은 본 프로젝트에서 쓰지 않아요 (사�
 | Prometheus `rules.yml` (system-level) | 사용. 임계치를 넘으면 Discord webhook 으로 발송 |
 | 보안 이벤트 alert (로그인 실패 spike, webhook 검증 실패 등) | 미도입. 솔로 운영자의 alert fatigue 를 피하려는 결정. 의심 사건은 `audit_logs` 테이블 + Loki ERROR 로그로 직접 조회 |
 
-이 정책의 trade-off 를 정리하면, 장점은 alert 채널 관리 부담이 없고 alert fatigue 를 자동으로 피한다는 점이에요. 단점은 운영자가 능동 점검을 안 하면 사고 인지가 늦어진다는 점이고요. 솔로 운영자이면서 트래픽 임계점에 도달하지 않은 단계에 맞는 선택이에요. 본격 prod 트래픽이 들어오면 passive 에서 active 로 정책을 재평가해요 (backlog 항목).
+이 정책의 trade-off 를 정리하면, 장점은 alert 채널 관리 부담이 없고 alert fatigue 를 자동으로 피한다는 점이에요. 단점은 운영자가 능동 점검을 안 하면 사고 인지가 늦어진다는 점이고요. 솔로 운영자이면서 트래픽 임계점에 도달하지 않은 단계에 맞는 선택이에요. 본격 prod 트래픽이 들어오면 passive 에서 active 로 정책을 재평가해요 — **아직 미착수**예요.
 
 새 dashboard 나 panel 을 추가할 때는 panel 에 `"alert"` 키를 두지 마세요. 시스템 critical alert 가 필요하면 `infra/prometheus/rules.yml` 에 Prometheus rule 로 추가합니다.
 
@@ -132,7 +132,7 @@ Grafana panel 의 alert 기능은 본 프로젝트에서 쓰지 않아요 (사�
 - 트래픽이 적은 초기엔 `HighErrorRate` 를 5% 로 완화 (현재 기본값은 1%)
 - MAU 가 늘면 다시 1% 로 엄격하게
 
-> ⚠ `BackendDown` 규칙은 `up{job="app-factory-backend"}` 를 보지만, `prometheus.yml` 의 실제 scrape job 이름은 `spring-backend` 예요. 라벨이 어긋나 현재로선 발사되지 않아요. Mac mini 자체 down 알림에 의존하려면 rule 의 job 이름을 `spring-backend` 로 맞춰야 합니다 (backlog 항목).
+> ⚠ `BackendDown` 규칙은 `up{job="app-factory-backend"}` 를 보지만, `prometheus.yml` 의 실제 scrape job 이름은 `spring-backend` 예요. 라벨이 어긋나 현재로선 발사되지 않아요. Mac mini 자체 down 알림에 의존하려면 rule 의 job 이름을 `spring-backend` 로 맞춰야 합니다 — **아직 미수정**이에요.
 
 수정한 뒤 Prometheus 를 reload 해요.
 

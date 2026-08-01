@@ -32,13 +32,16 @@ CORS 는 의도적으로 설정하지 않습니다. 이 템플릿은 모바일 �
 
 ### 필터 체인
 
-`UsernamePasswordAuthenticationFilter` 앞뒤로 다섯 개의 커스텀 필터가 등록됩니다.
+`UsernamePasswordAuthenticationFilter` 앞뒤로 여섯 개의 커스텀 필터가 등록됩니다.
 
 ```text
 [요청]
   │
   ▼
-MinAppVersionFilter (선택)  ← X-App-Version 헤더의 최소 앱 버전 게이트 (426 Upgrade Required)
+RequestSizeLimitFilter      ← Content-Length 상한 초과를 본문 파싱 전에 413 CMN_413 으로 조기 거부 (체인 최전방)
+  │
+  ▼
+MinAppVersionFilter (선택)  ← X-App-Version + X-App-Platform 헤더의 최소 앱 버전 게이트, force tier 만 차단 (426 CMN_010, details: forceMinVersion/storeUrl?/message?)
   │
   ▼
 JwtAuthFilter              ← Bearer 토큰 파싱, SecurityContext 세팅
@@ -56,7 +59,7 @@ RateLimitFilter (선택)      ← common-web 이 classpath 에 있을 때만 활
 [컨트롤러]
 ```
 
-`RateLimitFilter` 는 인증·권한 검증을 통과한 요청만 카운트하도록 체인 끝에 위치해요. 인증 실패한 요청이 한도를 무의미하게 소진하는 걸 막기 위함입니다.
+`RequestSizeLimitFilter` 는 인증·본문 파싱 이전이라 체인 최전방이에요 — 과대 요청을 가장 싼 지점에서 잘라냅니다. 반대로 `RateLimitFilter` 는 인증·권한 검증을 통과한 요청만 카운트하도록 체인 끝에 위치해요. 인증 실패한 요청이 한도를 무의미하게 소진하는 걸 막기 위함입니다.
 
 ### 인증 실패 시 응답
 

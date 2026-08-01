@@ -92,7 +92,7 @@ scope 규칙은 warning 수준이에요. scope 가 없어도, 집합 밖 scope �
 
 ### Subject 규칙
 
-subject 는 동사 원형으로 시작하는 명령형으로 씁니다. *"이 행동을 하라"* 는 의미의 git rebase 메시지 스타일이에요. commitlint 가 강제하는 제약은 세 가지입니다.
+subject 는 동사 원형으로 시작하는 명령형으로 씁니다. *"이 행동을 하라"* 는 의미의 git rebase 메시지 스타일이에요. commitlint 가 강제하는 제약은 네 가지입니다.
 
 - 첫 글자는 소문자나 숫자 — `subject-case` 가 upper-case 와 pascal-case 를 막아요. PR 타이틀도 `pr-title` 워크플로우의 `^[a-z0-9].+$` 패턴이 같은 규칙을 검사합니다.
 - 비어 있으면 안 돼요 — `subject-empty`
@@ -229,7 +229,7 @@ git push origin template-v0.3.0
 
 ## Backlog 운영 규칙
 
-[`docs/planned/backlog.md`](../planned/backlog.md) 는 "지금 안 하지만 잊지 말 것" 을 추적해요. 기술부채, 미완 기능, 운영 배포 대기 항목 등이 들어가요. 파생 레포가 생긴 뒤에도 이 목록이 있어야 항목이 잊히지 않습니다.
+`docs/planned/backlog.md` 는 "지금 안 하지만 잊지 말 것" 을 추적해요. 기술부채, 미완 기능, 운영 배포 대기 항목 등이 들어가요. 파생 레포가 생긴 뒤에도 이 목록이 있어야 항목이 잊히지 않습니다.
 
 ### 항목 추가
 
@@ -264,7 +264,7 @@ Item 을 시작하기 전에 반드시 backlog 를 점검해요.
 1. 대기 목록을 훑어 이 Item 과 관련된 항목을 식별해요
 2. 관련 항목을 plan 의 scope 선언에 포함해요
 3. plan 에 "이 항목들이 본 Item 에서 해소됨" 을 명시해요
-4. Item 완료 시 관련 backlog 항목을 일괄 archive 하고 커밋 해시를 연결해요
+4. Item 완료 시 관련 계획 항목을 일괄 archive 하고 커밋 해시를 연결해요
 
 이 흐름이 없으면 backlog 가 오래된 채 방치되고 항목이 영영 잊혀요.
 
@@ -307,4 +307,4 @@ Item 을 시작하기 전에 반드시 backlog 를 점검해요.
 - [`Secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) — secret 이 흐르는 네 단계 매핑 (C4 는 그중 `deploy.yml` ↔ GHA workflow 두 곳을 자동 검증)
 - [`ADR-002 · GitHub Template Repository 패턴`](../philosophy/adr-002-use-this-template.md) — 템플릿 전파의 근거
 - [`ADR-015 · Conventional Commits + SemVer`](../philosophy/adr-015-conventional-commits-semver.md) — 커밋 포맷을 강제하는 이유
-- [`Backlog`](../planned/backlog.md) — 실제 개발 대기 목록
+- `docs/planned/backlog.md` — 실제 개발 대기 목록

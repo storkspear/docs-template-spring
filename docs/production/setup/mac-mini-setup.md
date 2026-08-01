@@ -102,7 +102,7 @@
 | 런타임 이미지 | `eclipse-temurin:21-jre-alpine` | JDK 21 | Dockerfile multi-stage 의 runtime 단. 빌드 단은 `21-jdk-alpine` |
 | 프레임워크 | Spring Boot | 3.x | 모듈러 모놀리스 아키텍처 |
 | DB driver | HikariCP + PostgreSQL JDBC | 표준 | [HikariCP](../../reference/glossary.md#데이터베이스) 풀 + 표준 JDBC Postgres |
-| 마이그레이션 | [Flyway](../../reference/glossary.md#데이터베이스) | 앱 schema 당 V001~V026 | `app.flyway.mode` 분기 (ADR-033) — prod 는 VALIDATE_ONLY (부팅 시 검증만), 적용은 `tools/deploy/migrate-prod.sh` |
+| 마이그레이션 | [Flyway](../../reference/glossary.md#데이터베이스) | 앱 schema 당 V001~V027 | `app.flyway.mode` 분기 (ADR-033) — prod 는 VALIDATE_ONLY (부팅 시 검증만), 적용은 `tools/deploy/migrate-prod.sh` |
 
 ### 데이터 레이어 — 런타임 의존성
 | 자원 | 위치 | 역할 |
@@ -725,7 +725,7 @@ docker compose -f infra/docker-compose.observability.yml up -d
 | 컨테이너 | 이미지 | 호스트 포트 | 외부 접근 | mem_limit | 용도 |
 |---|---|---|---|---|---|
 | observability-prometheus | `prom/prometheus:v2.55.0` | 9090 | 내부 | 512m | 메트릭 저장, retention 7일 |
-| observability-loki | `grafana/loki:3.2.0` | 3100 | 내부 | 256m | 로그 저장, retention 14일 |
+| observability-loki | `grafana/loki:3.2.0` | 3100 | 내부 | 256m | 로그 저장, retention 1년 |
 | observability-grafana | `grafana/grafana:11.3.0` | 3000 | `log.<domain>`, CF Access | 256m | 대시보드 |
 | observability-alertmanager | `prom/alertmanager:v0.27.0` | 127.0.0.1:9093 | 내부 전용 | 64m | Discord webhook 라우팅 |
 
@@ -765,7 +765,7 @@ Prometheus 컨테이너는 `/var/run/docker.sock:ro` 로 호스트 소켓을 읽
 
 [ADR-037](../../philosophy/adr-037-core-schema-deprecation.md) 이후 별도의 `core` schema 는 존재하지 않아요. 각 앱의 `users`·`auth`·`device` 테이블은 그 앱의 schema 안에 V001~V006 으로 생성돼요. `core/core-*-impl` 의 Java 코드는 라이브러리 역할로 남아서, 각 앱 DataSource 의 `entityPackagesToScan()` 에 포함돼 앱 schema 의 같은 테이블 위에서 동작해요.
 
-그래서 파생 레포에 새 앱을 추가하면, 그 앱 schema 가 기본 25개 마이그레이션 (V001~V026, V007 제외) 을 받아요. 구성은 [onboarding 의 마이그레이션 표](../../start/onboarding.md#3-첫-앱-모듈-추가) 와 같아요. 인증 기반이 V001~V006, admin 시드가 V007 (`--seed-admin` opt-in — 기본 미생성), 결제·구독·감사가 V008~V012, 2FA 와 알림이 V013~V014, 휴대폰 점유인증이 V015, 이메일 소유확인 코드·활동 추적이 V016~V017, 운영·콘솔이 V018~V021, 환불·콘텐츠·분석이 V022~V025 예요. 도메인 테이블은 V027 부터 작성해요.
+그래서 파생 레포에 새 앱을 추가하면, 그 앱 schema 가 기본 26개 마이그레이션 (V001~V027, V007 제외) 을 받아요. 구성은 [onboarding 의 마이그레이션 표](../../start/onboarding.md#3-첫-앱-모듈-추가) 와 같아요. 인증 기반이 V001~V006, admin 시드가 V007 (`--seed-admin` opt-in — 기본 미생성), 결제·구독·감사가 V008~V012, 2FA 와 알림이 V013~V014, 휴대폰 점유인증이 V015, 이메일 소유확인 코드·활동 추적이 V016~V017, 운영·콘솔이 V018~V021, 환불·콘텐츠·분석이 V022~V025 예요. 도메인 테이블은 V028 부터 작성해요.
 
 ---
 
@@ -959,7 +959,7 @@ MinIO NAS 와 Cloudflare 클라우드 자산이 남아 있다는 전제에서, �
 - Supabase `core` schema 전체를 DROP CASCADE
 - 로컬 repo 의 `.env.kamal` 과 `.kamal/secrets` (GHCR 토큰 포함)
 
-> 참고 — 이 cleanup 이후 [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md) 로 `core` schema 개념 자체가 폐기됐어요. 그래서 이제는 cleanup 으로 비우는 게 아니라, 처음부터 각 앱 schema 에 기본 25개 마이그레이션 (V001~V026, V007 opt-in) 이 생성돼요 ([§15.3](#153-현재-schema-상태) 참고).
+> 참고 — 이 cleanup 이후 [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md) 로 `core` schema 개념 자체가 폐기됐어요. 그래서 이제는 cleanup 으로 비우는 게 아니라, 처음부터 각 앱 schema 에 기본 26개 마이그레이션 (V001~V027, V007 opt-in) 이 생성돼요 ([§15.3](#153-현재-schema-상태) 참고).
 
 ### 21.3 아직 안 된 것 — 파생 레포 첫 배포 전까지
 - cloudflared 프로세스 재기동 (nohup 또는 launchd plist 등록)

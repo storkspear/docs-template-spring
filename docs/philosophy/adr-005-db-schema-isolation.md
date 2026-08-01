@@ -178,14 +178,14 @@ r2 · r3 · r11 이 schema 격리를 기계적으로 강제합니다.
 
 1. `init-app-schema.sql` 실행 → **방어선 1** (schema + role) 생성
 2. `<Slug>DataSourceConfig.java` 생성 → **방어선 2** (DataSource bean)
-3. `V001__init_users.sql` ~ `V026__add_auth_email_verification_tokens_attempts.sql` 템플릿 생성 (기본 24개 — `V007` 시드는 `--seed-admin` opt-in) → **방어선 3** (Flyway 경로)
+3. `V001__init_users.sql` ~ `V027__add_login_lockout_to_users.sql` 템플릿 생성 (기본 26개 — `V007` 시드는 `--seed-admin` opt-in) → **방어선 3** (Flyway 경로)
 4. `<Slug>AppAutoConfiguration` 생성 → 앱 모듈이 포트 의존만 허용하도록 스캐폴드 → **방어선 4** 준비
 
 ## 이 선택이 가져온 것
 
 ### 긍정적 결과
 
-**앱 추가 비용이 거의 제로** — `./tools/app/new-app.sh sumtally` 한 줄로 schema · role · DataSource · 기본 마이그레이션 24개 + AutoConfiguration 까지 셋업. 솔로 운영자가 새 앱 착수 시 DB 셋업 시간 5분 미만이에요.
+**앱 추가 비용이 거의 제로** — `./tools/app/new-app.sh sumtally` 한 줄로 schema · role · DataSource · 기본 마이그레이션 26개 + AutoConfiguration 까지 셋업. 솔로 운영자가 새 앱 착수 시 DB 셋업 시간 5분 미만이에요.
 
 **Supabase 관리형 이점 그대로** — 백업, 대시보드, Auth, Storage 가 전부 `postgres` database 에 의존하므로 schema 만 추가해도 관리형 UX 그대로.
 
@@ -255,7 +255,7 @@ Flyway 가 기본적으로 `flyway_schema_history` 를 한 개만 만들려 하�
 
 **방어선 3 — Flyway 마이그레이션**:
 - `apps/app-<slug>/src/main/resources/db/migration/<slug>/` — 앱별 마이그레이션 경로 (공유 core schema 마이그레이션은 [`ADR-037`](./adr-037-core-schema-deprecation.md) 로 제거)
-- [`tools/app/new-app.sh`](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 마이그레이션 템플릿 자동 생성 (기본 25개 V001~V026, `V007` 은 `--seed-admin` opt-in)
+- [`tools/app/new-app.sh`](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 마이그레이션 템플릿 자동 생성 (기본 26개 V001~V027, `V007` 은 `--seed-admin` opt-in)
 
 **방어선 4, 5 — 포트 + ArchUnit**:
 - [ADR-003 · `-api` / `-impl` 분리](./adr-003-api-impl-split.md) — 방어선 4 의 근거

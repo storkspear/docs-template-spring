@@ -64,12 +64,14 @@ InterruptedException 처리도 표준 패턴 따름 — `Thread.currentThread().
 
 | # | 호출 | 파일 (식별자) | URL 결정 | timeout |
 |---|---|---|---|---|
-| 1 | Apple JWKS | `AppleJwksClient.DEFAULT_JWKS_URL` | hardcode | connect 5s |
-| 2 | Google tokeninfo | `GoogleSignInService.DEFAULT_TOKENINFO_URL` | hardcode | connect 5s, req 10s |
-| 3 | Google JWKS (IAP webhook) | `core-iap-impl/google/GoogleJwksClient.DEFAULT_JWKS_URL` | hardcode | connect 5s |
-| 4 | Kakao token info | `KakaoSignInService.DEFAULT_TOKEN_INFO_URL` | hardcode | connect 5s, req 10s |
-| 5 | Kakao user/me | `KakaoSignInService.DEFAULT_USER_ME_URL` | hardcode | connect 5s, req 10s |
-| 6 | Naver user info | `NaverSignInService.DEFAULT_USER_ME_URL` | hardcode | connect 5s, req 10s |
+| 1 | Apple JWKS | `AuthAutoConfiguration` → `AppleJwksClient` | 설정 주입 `app.oauth.apple.jwks-url` | connect 5s |
+| 2 | Google tokeninfo | `AuthAutoConfiguration` → `GoogleSignInService` | 설정 주입 `app.oauth.google.tokeninfo-url` | connect 5s, req 10s |
+| 3 | Google JWKS (IAP webhook) | `core-iap-impl/google/GoogleJwksClient.DEFAULT_JWKS_URL` | **hardcode** | connect 5s |
+| 4 | Kakao token info | `AuthAutoConfiguration` → `KakaoSignInService` | 설정 주입 `app.oauth.kakao.token-info-url` | connect 5s, req 10s |
+| 5 | Kakao user/me | `AuthAutoConfiguration` → `KakaoSignInService` | 설정 주입 `app.oauth.kakao.user-me-url` | connect 5s, req 10s |
+| 6 | Naver user info | `AuthAutoConfiguration` → `NaverSignInService` | 설정 주입 `app.oauth.naver.user-me-url` | connect 5s, req 10s |
+
+설정 주입 5건은 `application.yml` 에 운영 기본값이 있고, `application-local.yml` 이 wiremock 으로 오버라이드해요(`${APP_OAUTH_*_URL:http://wiremock:8080/...}`). 각 서비스 클래스의 `DEFAULT_*_URL` 상수는 **URL 인자를 받지 않는 편의 생성자의 fallback** 으로만 남아 있고 프로덕션 경로는 `@Value` 주입이에요 — 화이트리스트를 논할 때 설정값이 실질 통제점이라는 뜻입니다. 3번(IAP JWKS)만 상수 직결이에요.
 | 7 | Resend 이메일 | `ResendEmailAdapter.RESEND_API_URL` | hardcode | connect 5s, req 10s |
 | 8 | Apple App Store Server API | `AppleAppStoreAdapter` (`config.apiUrl()` + `/inApps/v1/transactions/{txId}`) | env (slug별 `IapProperties.apple.apiUrl`) | connect 5s, req 10s |
 | 9 | Google Play Developer API | `GooglePlayAdapter` (`config.apiUrl()` + `/androidpublisher/v3/.../tokens/{token}`) | env (slug별 `IapProperties.google.apiUrl`) | connect 5s, req 10s |

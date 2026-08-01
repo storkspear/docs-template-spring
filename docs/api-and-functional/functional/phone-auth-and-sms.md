@@ -51,7 +51,7 @@
 
 | 모듈 | 역할 |
 |---|---|
-| `core/core-sms-api` | `SmsPort` 인터페이스, `SmsError` (SMS_001~SMS_002) |
+| `core/core-sms-api` | `SmsPort` 인터페이스, `SmsError` (SMS_001) |
 | `core/core-sms-impl` | `CoolSmsAdapter`(SOLAPI 실발송), `LoggingSmsAdapter`(dev fallback), `CoolSmsProperties`, `SmsAutoConfiguration` |
 | `core/core-phone-auth-api` | `PhoneAuthPort` 인터페이스, `PhoneAuthError` (PHA_001~PHA_006) |
 | `core/core-phone-auth-impl` | `PhoneAuthAdapter`, `OtpService`, `OtpCodes`, `AuthPhoneVerificationCode` 엔티티, `AuthPhoneVerificationCodeRepository`, `PhoneAuthAutoConfiguration` |
@@ -368,7 +368,6 @@ app:
 | `PHA_005` OTP_RATE_LIMITED | 429 | 발송 rate-limit(1시간 5회) 초과 |
 | `PHA_006` OTP_SMS_UNAVAILABLE | 503 | 발신사 미설정 (운영 `SmsPort` 빈 부재) |
 | `SMS_001` SMS_DELIVERY_FAILED | 502 | SOLAPI 2xx 외 응답 / 네트워크 에러 |
-| `SMS_002` SMS_CONFIG_MISSING | 503 | 문자 발송 설정 누락 |
 
 전체 에러 코드는 [`exception-handling.md`](../../convention/exception-handling.md) 를 참조하세요.
 

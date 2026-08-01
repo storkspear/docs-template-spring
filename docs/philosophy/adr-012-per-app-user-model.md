@@ -129,7 +129,7 @@ core.linked_accounts (별도 테이블, 명시적 매핑)
 
 ### 구현 ① — users 테이블을 앱 schema 에 생성
 
-`new-app.sh <slug>` 가 마이그레이션 템플릿 기본 25개 (V001~V026 — `V007` 시드는 `--seed-admin` opt-in) 를 해당 앱 schema 에 생성. 유저·인증 관련 앞부분 발췌:
+`new-app.sh <slug>` 가 마이그레이션 템플릿 기본 26개 (V001~V027 — `V007` 시드는 `--seed-admin` opt-in) 를 해당 앱 schema 에 생성. 유저·인증 관련 앞부분 발췌:
 
 ```
 apps/app-<slug>/src/main/resources/db/migration/<slug>/
@@ -295,7 +295,7 @@ DB 마이그레이션과 달리 JWT 스키마 변경은 **rollout 경로가 없�
 - [`AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — `AuthController` 를 `@Bean` + `@ConditionalOnMissingBean` 으로 등록
 
 **앱별 users 테이블 마이그레이션**:
-- [`tools/app/new-app.sh`](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 마이그레이션 템플릿 생성 (기본 25개 V001~V026, `V007` 은 `--seed-admin` opt-in)
+- [`tools/app/new-app.sh`](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 마이그레이션 템플릿 생성 (기본 26개 V001~V027, `V007` 은 `--seed-admin` opt-in)
 
 **부재 확인 (통합 계정 잔재 없음 — ADR-018 이후 기준)**:
 - `user_app_access` 조인 테이블 — 0건

@@ -49,7 +49,7 @@ raw 이벤트 type 도 platform 마다 분류가 다릅니다. Apple 은 *DID_RE
 | **Apple 검증** | `AppleJwsVerifier` 재활용 (cert chain + ES256) | D-secure 이미 구현 |
 | **Google 검증** | Pub/Sub bearer token (별도 filter, 옵션) | 결정 당시 decode 만 — 이후 [`ADR-032`](./adr-032-google-webhook-auth.md) 의 `GoogleWebhookAuthFilter` 로 구현 완료 |
 | **진입점** | `BillingPort.handleIapNotification(IapNotification)` | PG webhook (`handleWebhook`) 와 분리 — 형식 너무 다름 |
-| **Idempotency** | webhook_events 테이블 재활용 (source="iap-ios"/"iap-android", externalId=transactionId) | ADR-020 의 동일 mechanism |
+| **Idempotency** | webhook_events 테이블 재활용 (source="iap-ios"/"iap-android", externalId=notificationId — Apple notificationUUID / Google messageId) | ADR-020 의 동일 mechanism |
 
 ---
 
@@ -120,13 +120,15 @@ BillingPort.handleIapNotification(notification)
 Apple/Google notification 자체에는 user 정보가 없어요 (transactionId·purchaseToken 만 있어요). 우리의 PaymentRecord 에 저장된 `originalTransactionId` (= IAP channel 의 customer_uid 컬럼) 와 매칭하여 user 를 식별합니다:
 
 ```java
-// Phase 1 의 사전 setup
-INSERT INTO payment_records (..., channel='IAP', external_id=originalTxId, customer_uid=originalTxId, ...)
+// 최초 구매 기록: external_id=이번 transactionId, customer_uid=originalTransactionId (IAP 채널 한정 의미)
 
-// 갱신 알림 도착 시
-PaymentRecord existing = paymentRecordRepository.findByExternalId(originalTransactionId);
+// 갱신 알림 도착 시 — customer_uid 로 역참조
+PaymentHistory existing = paymentHistoryRepository
+        .findFirstByChannelAndCustomerUidOrderByIdDesc(PaymentChannel.IAP, originalTransactionId);
 long userId = existing.getUserId();
 ```
+
+→ `external_id` 로 조회하면 최초 서버 기록이 갱신 transaction 인 사용자(`external_id != originalTransactionId`)를 놓쳐요 — 반드시 `customer_uid` 로 역참조합니다.
 
 → **사전 조건**: 사용자 첫 구매 시 `IapPort.verifyReceipt` + `activateFromIap` 가 originalTransactionId 를 PaymentRecord 에 저장합니다. (BillingServiceImpl.activateFromIap 가 이미 그렇게 동작해요.)
 
@@ -143,8 +145,8 @@ long userId = existing.getUserId();
 
 ### Idempotency
 
-- `webhook_events` 의 `(source, external_id)` UNIQUE 제약을 활용해요. 같은 transactionId 의 두 번째 호출은 markProcessed 만 확인하고 처리를 skip 합니다.
-- contract test `duplicateTransactionId_idempotencySkipsSecondCall` 가 검증해요.
+- `webhook_events` 의 `(source, external_id)` UNIQUE 제약을 활용해요. 여기서 external_id 는 알림 1건마다 고유한 **notificationId**(Apple `notificationUUID` / Google Pub/Sub `messageId`)예요 — `transactionId` 가 **아니에요**. Google 은 구독 생애 내내 `purchaseToken`(=transactionId)이 불변이라, transactionId 로 dedup 하면 갱신·환불 알림이 최초 구매와 같은 키로 충돌해 영구 skip 되기 때문이에요. 같은 notificationId 의 두 번째 호출(재전송)은 markProcessed 만 확인하고 처리를 skip 합니다.
+- contract test `duplicateTransactionId_idempotencySkipsSecondCall`(재전송 skip)·`sameTransactionId_distinctNotificationIds_bothProcessed`(다른 이벤트는 각각 처리) 가 검증해요.
 
 ### Race / 동시성
 
@@ -153,15 +155,19 @@ long userId = existing.getUserId();
 
 ---
 
-## Contract Test (5개)
+## Contract Test (9개)
 
 `AbstractBillingPortContractTest$HandleIapNotification`:
 
 1. `didRenew_verifyReceiptValid_createsNewSubscription` — DID_RENEW 흐름 (verifyReceipt + activateFromIap)
-2. `refund_marksRefundedAndCancelsSubscription` — REFUND 흐름
-3. `revoke_cancelsSubscriptionWithoutRefundMark` — REVOKE 는 record 그대로
-4. `duplicateTransactionId_idempotencySkipsSecondCall` — 중복 호출 차단
-5. `expired_isNoop` — EXPIRED 는 record/sub 변화 X
+2. `didRenew_resolvesUserByCustomerUid_whenExternalIdDiffers` — 갱신 사용자 역참조는 customer_uid
+3. `didRenew_duplicateTransaction_distinctNotificationId_isBenignNoop` — 중복 갱신 알림 no-op
+4. `refund_duplicateNotification_isIdempotent` — 중복 환불 알림이 refundedAt 을 덮어쓰지 않음
+5. `refund_marksRefundedAndCancelsSubscription` — REFUND 흐름
+6. `revoke_cancelsSubscriptionWithoutRefundMark` — REVOKE 는 record 그대로
+7. `duplicateTransactionId_idempotencySkipsSecondCall` — 같은 notificationId 재전송 skip
+8. `sameTransactionId_distinctNotificationIds_bothProcessed` — 같은 tx·다른 notificationId 는 각각 처리
+9. `expired_isNoop` — EXPIRED 는 record/sub 변화 X
 
 ---
 

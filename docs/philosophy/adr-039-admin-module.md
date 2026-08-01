@@ -1,6 +1,6 @@
 # ADR-039 · admin 모듈 — cross-app 운영 콘솔 (superadmin + admin 스키마 + in-process fan-out)
 
-**Status**: Accepted. `core/core-admin-impl` 모듈로 구현 완료(`feat/admin-module`, 도그푸딩까지 완료). `admin` 스키마 + 슬러그 fan-out(`AdminSlugRegistry`) + 활동 추적(`user_activity_days`, V017)으로 `/api/admin/*` 콘솔을 제공합니다 — 현재 컨트롤러 12개·매핑 41개(2026-07-21 실측). 이 ADR 이 신설한 `ROLE_SUPERADMIN` 단일 권한은 이후 viewer/support/admin/master 4티어 + 리소스별 `PERM_*` 권한 RBAC 로 확장됐어요(§결정 1 의 갱신 참고).
+**Status**: Accepted. `core/core-admin-impl` 모듈로 구현 완료(`feat/admin-module`, 도그푸딩까지 완료). `admin` 스키마 + 슬러그 fan-out(`AdminSlugRegistry`) + 활동 추적(`user_activity_days`, V017)으로 `/api/admin/*` 콘솔을 제공합니다 — 현행 엔드포인트 카탈로그는 [`admin-console.md §3`](../api-and-functional/admin-console.md) 이 단일 출처예요. 이 ADR 이 신설한 `ROLE_SUPERADMIN` 단일 권한은 이후 viewer/support/admin/master 4티어 + 리소스별 `PERM_*` 권한 RBAC 로 확장됐어요(§결정 1 의 갱신 참고).
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~10분
 
@@ -66,14 +66,15 @@
 > **갱신 (2026-07, RBAC 확장)**: v1 의 인가 규칙은 `.requestMatchers(SECURED_PATTERN).hasRole("SUPERADMIN")` 단일 게이트였어요. 이후 콘솔 RBAC 확장으로 `admin_users.role`(V002 — viewer/support/admin/master 4티어)과 편집 가능한 `role_permissions`(V003)가 도입되면서, 지금은 콘솔 JWT 에 실린 리소스별 `PERM_*` authority 를 `SecurityConfig` 가 검사합니다. "앱 권한과 콘솔 권한의 양방향 격리" 라는 이 절의 본질은 그대로예요. 아래는 현행 스니펫입니다.
 
 ```java
-// common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java:92-152 (발췌)
+// common/common-security/.../SecurityConfig.java (발췌)
+// 경로 상수 = ApiEndpoints.Admin, 권한 상수 = AdminPermissions (common-web)
 // 운영 콘솔 RBAC — 로그인/헬스만 public, 나머지는 리소스별 PERM_* 권한.
 .requestMatchers(ApiEndpoints.Admin.PUBLIC_PATTERNS).permitAll()   // login, health
 .requestMatchers(ApiEndpoints.Admin.ADMINS, ApiEndpoints.Admin.ADMINS + "/**",
                 ApiEndpoints.Admin.ROLES_PERMISSIONS)
-        .hasAuthority(ApiEndpoints.Admin.PERM_ADMIN_MANAGE)        // 계정 관리·역할 매트릭스 (master)
+        .hasAuthority(AdminPermissions.PERM_ADMIN_MANAGE)          // 계정 관리·역할 매트릭스 (master)
 .requestMatchers(ApiEndpoints.Admin.APP_USERS_PATTERN)
-        .hasAuthority(ApiEndpoints.Admin.PERM_USERS_READ)          // 사용자 조회 (support+)
+        .hasAuthority(AdminPermissions.PERM_USERS_READ)            // 사용자 조회 (support+)
 // ... 결제/파일/콘텐츠/감사로그/대시보드/앱·분석도 각각 PERM_* 로 게이팅 ...
 .requestMatchers(ApiEndpoints.Admin.SECURED_PATTERN).authenticated()   // 그 외 콘솔 경로 fail-safe
 ```
@@ -115,13 +116,13 @@ private static final String UPSERT =
         + " ON CONFLICT DO NOTHING";
 ```
 
-"오늘" 은 애플리케이션 서버 시계가 아니라 **DB 의 `CURRENT_DATE`** 로 upsert 쿼리 안에서 결정합니다 — 앱 서버와 DB 서버의 시계·타임존이 어긋나도 기록 시점과 `WHERE activity_date = CURRENT_DATE` 집계 쿼리의 기준이 항상 일치하도록 시계를 통일한 거예요. 유저×날짜 인메모리 dedup 캐시로 같은 날 중복 upsert 를 걸러 부하는 사실상 0 입니다. 이 테이블은 V017 로 신설되어(§data-model 참고) 당시 도메인 테이블 시작 번호가 V017 → V018 로 한 칸 밀렸습니다(이후 공통 테이블이 계속 늘어 현재 도메인 시작 번호는 V026).
+"오늘" 은 애플리케이션 서버 시계가 아니라 **DB 의 `CURRENT_DATE`** 로 upsert 쿼리 안에서 결정합니다 — 앱 서버와 DB 서버의 시계·타임존이 어긋나도 기록 시점과 `WHERE activity_date = CURRENT_DATE` 집계 쿼리의 기준이 항상 일치하도록 시계를 통일한 거예요. 유저×날짜 인메모리 dedup 캐시로 같은 날 중복 upsert 를 걸러 부하는 사실상 0 입니다. 이 테이블은 V017 로 신설되어(§data-model 참고) 당시 도메인 테이블 시작 번호가 V017 → V018 로 한 칸 밀렸습니다(이후 공통 테이블이 계속 늘어 현재 도메인 시작 번호는 V028).
 
 ## 이 선택이 가져온 것
 
 ### 긍정적 결과
 
-- **콘솔 전체가 mock 이 아닌 실 데이터로 동작** — v1 의 login/health/apps/dashboard/metrics/users/userDetail/billing/audit-logs 9개에서 출발해, analytics·ops(갱신 실패율·webhook 처리·리텐션)·활동 ping·RBAC 계정 관리·파일·콘텐츠 모더레이션 등으로 확장. 현재 컨트롤러 12개·매핑 41개(2026-07-21 실측).
+- **콘솔 전체가 mock 이 아닌 실 데이터로 동작** — v1 의 login/health/apps/dashboard/metrics/users/userDetail/billing/audit-logs 9개에서 출발해, analytics·ops(갱신 실패율·webhook 처리·리텐션)·활동 ping·RBAC 계정 관리·파일·콘텐츠 모더레이션 등으로 확장(현행 카탈로그는 [`admin-console.md §3`](../api-and-functional/admin-console.md) 참고).
 - **React 계약의 진실화** — 조회 불가능했던 필드를 없애는 대신, DAU/MAU 처럼 실제로 유용한 지표는 데이터 소스를 새로 만들어 계약을 지켰습니다. "라벨은 유지, 값은 진짜로" 원칙.
 - **gross 매출 시맨틱 정합** — `payment_history.status` 가 환불 시 `PAID`→`REFUNDED` 로 *덮어써지는* 구조라, gross(수금총액)를 `status='PAID'` 로만 집계하면 환불건이 gross 에서도 빠지고 `gross - refunded` 로 다시 한 번 차감되는 이중차감 버그가 있었습니다. `status IN ('PAID','REFUNDED')` 로 정정해 "환불 여부와 무관하게 한 번이라도 수금된 금액의 총합" 이라는 시맨틱을 대시보드/앱 metrics/billing/analytics 4곳 모두에 일관 적용했습니다. *(후속: 부분환불 도입으로 gross 필터에 `PARTIALLY_REFUNDED` 를 추가하고, `refunded` 는 `payment_refunds` 원장의 건별 합으로 이관 — 현행 시맨틱은 [`admin-console.md §5-1`](../api-and-functional/admin-console.md) 참고.)*
 - **네트워크 홉 0** — MSA 였다면 필요했을 서비스 간 호출·분산 트랜잭션 없이, 슬러그별 JdbcTemplate 순회만으로 cross-app 집계가 끝납니다.
@@ -173,8 +174,7 @@ private static final String UPSERT =
 - [`core/core-user-impl/src/main/java/com/factory/core/user/impl/UserActivityTrackingFilter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-impl/src/main/java/com/factory/core/user/impl/UserActivityTrackingFilter.java) — `CURRENT_DATE` upsert
 - [`tools/app/new-app.sh:277-282`](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 예약어 슬러그(admin/core/public) 차단(교훈 ④), 891행 부근 V017 heredoc
 
-**스펙 원본**:
-- [`docs/superpowers/specs/2026-07-06-admin-module-design.md`](https://github.com/storkspear/template-spring/blob/main/docs/superpowers/specs/2026-07-06-admin-module-design.md)
+**스펙 원본**: 내부 설계문서(레포 비공개)
 
 ## 후속
 

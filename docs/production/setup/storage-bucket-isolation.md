@@ -113,7 +113,7 @@ void ensureBucket(String bucket, BucketPolicy policy);
 
 운영의 모든 bucket 은 단일 admin 자격 (`APP_STORAGE_MINIO_ACCESS_KEY` / `SECRET_KEY`) 으로 접근해요. 애플리케이션이 잘못된 bucket 이름을 넘기면 MinIO 는 그대로 처리합니다. 즉 슬러그 간 분리를 보장하는 건 "각 앱이 자기 bucket 이름만 넘긴다" 는 컨벤션이지, IAM 정책이나 포트 레벨 검증이 아니에요.
 
-이것이 DB schema 격리와의 결정적 차이예요. schema 쪽은 DB role 과 `SchemaRoutingDataSource` 가 다른 schema 접근을 런타임에 거부하지만, 스토리지 쪽은 그런 방어선이 없어요. 슬러그별 access key 발급과 IAM 정책으로 코드 버그가 있어도 MinIO 가 거부하게 만드는 강화는 향후 작업으로 남아 있습니다 (Item Ops-1, [`I-07`](../deploy/decisions-infra.md) 의 운영 tier).
+이것이 DB schema 격리와의 결정적 차이예요. schema 쪽은 DB role 과 `SchemaRoutingDataSource` 가 다른 schema 접근을 런타임에 거부하지만, 스토리지 쪽은 그런 방어선이 없어요. 슬러그별 access key 발급과 IAM 정책으로 코드 버그가 있어도 MinIO 가 거부하게 만드는 강화는 향후 작업으로 남아 있습니다 (운영 배포 단계 — [`I-07`](../deploy/decisions-infra.md) 의 운영 tier).
 
 ---
 

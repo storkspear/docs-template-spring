@@ -1,18 +1,18 @@
-# 코어 데이터 모델 (22 테이블 + admin 스키마 1개)
+# 코어 데이터 모델 (24 테이블 + admin 스키마 3개)
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~12분
 
 ## 개요
 
-이 문서는 `new-app.sh` 가 모든 파생 레포에 자동으로 깔아 주는 코어 테이블 중 **22 테이블**(per-slug)과, 운영 콘솔(`/api/admin/*`) 전용으로 딱 하나 존재하는 **`admin` 스키마**를 도메인 8 그룹으로 정리한 카탈로그입니다. 테이블마다 *용도 한 줄 · 주요 컬럼 · FK 관계 · 생성 마이그레이션 V번호 · 관련 ADR* 을 담아, 파생 레포 개발자가 이름만 보고도 무엇을 담는 테이블인지 바로 가늠할 수 있게 했어요. 컬럼/FK/인덱스/V번호는 모두 엔티티 `.java` 와 `tools/app/new-app.sh` 의 Flyway heredoc 에서 확인한 값입니다.
+이 문서는 `new-app.sh` 가 모든 파생 레포에 자동으로 깔아 주는 코어 테이블 중 **24 테이블**(per-slug)과, 운영 콘솔(`/api/admin/*`) 전용으로 딱 하나 존재하는 **`admin` 스키마**를 도메인 8 그룹으로 정리한 카탈로그입니다. 테이블마다 *용도 한 줄 · 주요 컬럼 · FK 관계 · 생성 마이그레이션 V번호 · 관련 ADR* 을 담아, 파생 레포 개발자가 이름만 보고도 무엇을 담는 테이블인지 바로 가늠할 수 있게 했어요. 컬럼/FK/인덱스/V번호는 모두 엔티티 `.java` 와 `tools/app/new-app.sh` 의 Flyway heredoc 에서 확인한 값입니다.
 
 ## 멀티테넌시 — 테이블은 앱별 schema 에
 
-이 22 테이블은 공유 DB 의 어느 한 곳에 모여 있는 게 아니라, **앱(슬러그)별 PostgreSQL schema** 안에 동일한 구조로 각각 생성됩니다. 한 Postgres 인스턴스에 슬러그 이름 그대로의 schema (예: `sumtally`) 가 앱 수만큼 있고, 같은 `users`·`subscriptions` 테이블이 각 schema 에 따로 존재해요. 런타임에는 [`SchemaRoutingDataSource`](../structure/multitenant-architecture.md) 가 `SlugContext` (ThreadLocal) 의 슬러그 값을 보고 커넥션을 해당 schema 로 라우팅하므로, 서비스 코드는 어느 앱인지 신경 쓰지 않고 INSERT/SELECT 만 합니다. 자세한 배경은 [`ADR-005 · 단일 Postgres + 앱당 schema`](../philosophy/adr-005-db-schema-isolation.md), 라우팅 구현은 [`ADR-018 · SchemaRoutingDataSource`](../philosophy/adr-018-schema-routing-datasource.md), 공유 `core` schema 폐기 경위는 [`ADR-037 · core schema 폐기`](../philosophy/adr-037-core-schema-deprecation.md) 를 참고하세요.
+이 24 테이블은 공유 DB 의 어느 한 곳에 모여 있는 게 아니라, **앱(슬러그)별 PostgreSQL schema** 안에 동일한 구조로 각각 생성됩니다. 한 Postgres 인스턴스에 슬러그 이름 그대로의 schema (예: `sumtally`) 가 앱 수만큼 있고, 같은 `users`·`subscriptions` 테이블이 각 schema 에 따로 존재해요. 런타임에는 [`SchemaRoutingDataSource`](../structure/multitenant-architecture.md) 가 `SlugContext` (ThreadLocal) 의 슬러그 값을 보고 커넥션을 해당 schema 로 라우팅하므로, 서비스 코드는 어느 앱인지 신경 쓰지 않고 INSERT/SELECT 만 합니다. 자세한 배경은 [`ADR-005 · 단일 Postgres + 앱당 schema`](../philosophy/adr-005-db-schema-isolation.md), 라우팅 구현은 [`ADR-018 · SchemaRoutingDataSource`](../philosophy/adr-018-schema-routing-datasource.md), 공유 `core` schema 폐기 경위는 [`ADR-037 · core schema 폐기`](../philosophy/adr-037-core-schema-deprecation.md) 를 참고하세요.
 
-**딱 하나 예외가 있어요 — `admin` 스키마.** 운영 콘솔(cross-app superadmin 로그인)에 쓰는 `admin_users`·`role_permissions` 두 테이블만 per-slug 라우팅을 타지 않고, 고정된 `admin` schema 에 전용 DataSource 로 바인딩됩니다. `ADR-037` 이 폐기한 건 *"앱 사용자 데이터를 공유하는 core schema"* 이고, 운영자 계정(공장 운영자 1인)을 담는 `admin` schema 는 그 대상이 아니에요. 자세한 배경은 [`ADR-039 · admin 모듈`](../philosophy/adr-039-admin-module.md) 을 참고하세요. §6 에서 별도로 다룹니다.
+**딱 하나 예외가 있어요 — `admin` 스키마.** 운영 콘솔(cross-app superadmin 로그인)에 쓰는 `admin_users`·`role_permissions`·`app_min_versions` 세 테이블만 per-slug 라우팅을 타지 않고, 고정된 `admin` schema 에 전용 DataSource 로 바인딩됩니다. `ADR-037` 이 폐기한 건 *"앱 사용자 데이터를 공유하는 core schema"* 이고, 운영자 계정(공장 운영자 1인)을 담는 `admin` schema 는 그 대상이 아니에요. 자세한 배경은 [`ADR-039 · admin 모듈`](../philosophy/adr-039-admin-module.md) 을 참고하세요. §6 에서 별도로 다룹니다.
 
-마이그레이션 V001~V017 이 인증·결제·감사 등 기반 테이블을 만들고, 그 사이의 **V007 은 테이블이 아니라 admin 계정 시드(DML)** 입니다 — `--seed-admin` 을 붙였을 때만 생성되는 opt-in 파일이에요. V018~V025 는 도메인 확장분(첨부·열람이력·발송이력·감사아카이브·환불원장·게시물·애널리틱스)으로, 위 카탈로그는 그중 콘솔·스키마 참조가 잦은 테이블을 담았어요. 도메인 테이블은 그다음 빈 번호(V026)부터 개발자가 작성합니다.
+마이그레이션 V001~V017 이 인증·결제·감사 등 기반 테이블을 만들고, 그 사이의 **V007 은 테이블이 아니라 admin 계정 시드(DML)** 입니다 — `--seed-admin` 을 붙였을 때만 생성되는 opt-in 파일이에요. V018~V027 은 도메인 확장분(첨부·열람이력·발송이력·감사아카이브·환불원장·게시물·애널리틱스·인증시도제한·로그인잠금)으로, 위 카탈로그는 그중 콘솔·스키마 참조가 잦은 테이블을 담았어요. 도메인 테이블은 그다음 빈 번호(V028)부터 개발자가 작성합니다.
 
 ## 전체 테이블 한눈에
 
@@ -38,10 +38,12 @@
 | Activity | `user_activity_days` | 유저 활동일 기록 (DAU/MAU 원천) | V017 |
 | Content | `posts` | 공유(공개) 게시물 + 모더레이션 상태 | V024 |
 | Storage | `attachment_file` | 업로드 파일 메타 + 검역/삭제 상태 (polymorphic 연관) | V018 |
+| Audit | `user_read_history` | 마스킹 PII 원본 열람 이력 (reveal·export) | V019 |
+| Ops | `message_send_history` | 콘솔 SMS/이메일/푸시 발송 이력 | V020 |
 | Analytics | `analytics_events` | 제품 이벤트 원본 (append, 내용 없음) | V025 |
 | Analytics | `analytics_daily` | 이벤트 일별 집계 (롤업 산물) | V025 |
 
-> **admin 스키마 (per-slug 아님)** — `admin.admin_users` (공장 운영자 계정, cross-app superadmin 로그인) 와 `admin.role_permissions` (RBAC 권한 grant) 는 위 표에 없어요. 라우팅 대상 앱 schema 가 아니라 `admin` schema 고정 DataSource 하나뿐이라 §6 에서 별도로 다룹니다.
+> **admin 스키마 (per-slug 아님)** — `admin.admin_users` (공장 운영자 계정, cross-app superadmin 로그인) · `admin.role_permissions` (RBAC 권한 grant) · `admin.app_min_versions` (앱 최소버전 규칙) 세 테이블은 위 표에 없어요. 라우팅 대상 앱 schema 가 아니라 `admin` schema 고정 DataSource 하나뿐이라 §6 에서 별도로 다룹니다.
 
 > **공통 컬럼** — `users` · `subscription_plans` · `subscriptions` · `payment_history` · `subscription_renewals` · `user_notification_settings` · `payment_webhook_events` · `devices` · `audit_logs` 는 [`BaseEntity`](../philosophy/adr-009-base-entity.md) 를 상속해 `id` (BIGSERIAL PK) · `created_at` · `updated_at` 을 공통으로 가집니다. 토큰/코드 계열(`auth_refresh_tokens` · `*_verification_*` · `auth_password_reset_tokens` · `auth_phone_verification_codes`)은 BaseEntity 를 쓰지 않고 `id` + 자체 `created_at`/`issued_at` 만 두며, `auth_social_identities` 는 복합 PK 라 `id` 자체가 없어요.
 
@@ -269,22 +271,32 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 
 ### `admin.admin_users` (admin V001~V002, `admin` 스키마)
 
-**`admin` 스키마의 테이블은 예외적으로 per-slug 가 아니에요.** 위 22 테이블은 앱마다 독립된 schema 에 반복 생성되지만, `admin_users` 는 공장 전체에 **딱 하나**, 고정된 `admin` schema 안에 존재합니다. 담는 내용도 앱 사용자가 아니라 **공장 운영자 계정**(cross-app 콘솔에 로그인하는 솔로 운영자)이라 앱 데이터가 전혀 섞이지 않아요 — `ADR-037` 이 폐기한 "앱 사용자 데이터를 공유하는 core schema" 와는 다른 층위입니다.
+**`admin` 스키마의 테이블은 예외적으로 per-slug 가 아니에요.** 위 24 테이블은 앱마다 독립된 schema 에 반복 생성되지만, `admin_users` 는 공장 전체에 **딱 하나**, 고정된 `admin` schema 안에 존재합니다. 담는 내용도 앱 사용자가 아니라 **공장 운영자 계정**(cross-app 콘솔에 로그인하는 솔로 운영자)이라 앱 데이터가 전혀 섞이지 않아요 — `ADR-037` 이 폐기한 "앱 사용자 데이터를 공유하는 core schema" 와는 다른 층위입니다.
 
 - **주요 컬럼**: `email` (UNIQUE) · `password_hash` · `display_name` · `role` (`viewer`/`support`/`admin`/`master`, 기본 `master` — admin V002 가 추가한 RBAC 컬럼) · `created_at` · `updated_at`.
 - **FK**: 없음.
 - **라우팅**: `AdminDataSourceConfig` 가 `adminDataSource` 라는 고정 이름의 별도 `DataSource`/`Flyway`/`JdbcTemplate` 빈을 등록하고, `RoutingDataSourceConfig` 는 이 빈을 슬러그 라우팅 맵에서 명시적으로 제외합니다 — superadmin 토큰(`appSlug=admin`)이 실수로 `/api/apps/admin/**` 을 호출해도 이 schema 로 라우팅되지 않아요 (fail-secure).
-- **시딩**: `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 채워져 있고 테이블이 비어 있을 때만 `AdminAccountSeeder` 가 부팅 시 1계정을 넣습니다. 관리형 마이그레이션 경로는 `core/core-admin-impl/src/main/resources/db/migration/admin/` 의 V001(`init_admin_users`)·V002(`add_admin_role`)·V003(`init_role_permissions`) — 이 V 번호는 위 per-slug 카탈로그의 V001~V026 시퀀스와는 **완전히 별개**(다른 schema, 다른 Flyway 인스턴스)예요.
+- **시딩**: `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 채워져 있고 테이블이 비어 있을 때만 `AdminAccountSeeder` 가 부팅 시 1계정을 넣습니다. 관리형 마이그레이션 경로는 `core/core-admin-impl/src/main/resources/db/migration/admin/` 의 V001(`init_admin_users`)~V010(`drop_files_write`) — 이 V 번호는 위 per-slug 카탈로그의 V001~V027 시퀀스와는 **완전히 별개**(다른 schema, 다른 Flyway 인스턴스)예요.
 - **관련 ADR**: [`ADR-039 · admin 모듈`](../philosophy/adr-039-admin-module.md), [`ADR-037 · core schema 폐기`](../philosophy/adr-037-core-schema-deprecation.md) — "폐기 대상이 아닌 이유".
-- **자세히**: [`admin-console.md`](../api-and-functional/admin-console.md) — 인증 흐름, 9+2 엔드포인트, 에러 코드.
+- **자세히**: [`admin-console.md`](../api-and-functional/admin-console.md) — 인증 흐름, 엔드포인트 카탈로그, 에러 코드.
 
 ### `admin.role_permissions` (admin V003)
 
-역할별 권한 grant 를 담는 편집 가능한 표입니다. 콘솔 계정의 효과 권한은 *코드 고정 baseline* ∪ *이 표* 로 결정되고, seed 데이터는 기존 코드 고정 매트릭스와 동일한 동작을 재현해요.
+역할별 권한 grant 를 담는 편집 가능한 표입니다. 콘솔 계정의 효과 권한은 *코드 고정 baseline* ∪ *이 표* 로 결정되고, seed 는 코드 고정 매트릭스(`PermissionCatalog`)와 정합해요.
 
 - **주요 컬럼**: `role` (`viewer`/`support`/`admin`/`master`) · `permission` (`PERM_*`) — 복합 **PK `(role, permission)`**.
 - **FK**: 없음.
 - **관련 ADR**: [`ADR-039 · admin 모듈`](../philosophy/adr-039-admin-module.md).
+
+### `admin.app_min_versions` (admin V004, `enabled` 는 V007)
+
+앱별 최소버전(강제 업데이트) 게이트 규칙을 담습니다. 앱-스코프지만 per-slug 라우팅을 타지 않고 `admin` schema 에 모여 있어요 — 콘솔이 전 슬러그 규칙을 한 곳에서 편집하기 때문이에요.
+
+- **주요 컬럼**: `slug` · `platform` (`IOS`/`ANDROID`) · `enabled` (게이트 마스터 on/off, V007 추가, 기본 `false`) · `force_min_version` · `warn_min_version` · `store_url` · `message`.
+- **제약**: UNIQUE `(slug, platform)` — 앱당 고정 2행(iOS/Android)이라 매칭 행은 최대 1개.
+- **FK**: 없음.
+- **소비처**: `DbAppVersionResolver`(30초 TTL 인메모리 스냅샷) → `MinAppVersionFilter`(426 `CMN_010`) 및 앱 스플래시 조회 엔드포인트.
+- **자세히**: [`admin-console.md` §4-18](../api-and-functional/admin-console.md).
 
 ---
 

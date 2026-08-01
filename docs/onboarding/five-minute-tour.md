@@ -84,18 +84,18 @@ apps/app-gymlog/                             ← 새 앱 모듈 디렉터리
     ├── V001__init_users.sql                 ← 유저·인증 기반 테이블
     ├── ...                                  ← V002 ~ V006
     ├── V008__init_subscription_plans.sql    ← 구독·결제 테이블
-    ├── ...                                  ← V009 ~ V024 (감사·알림·첨부·환불·게시글 등)
-    └── V025__add_analytics.sql              ← 분석 이벤트 테이블
+    ├── ...                                  ← V009 ~ V026 (감사·알림·첨부·환불·게시글·분석·인증시도제한 등)
+    └── V027__add_login_lockout_to_users.sql ← 로그인 잠금 (마지막 공통)
 ```
 
-[Flyway](../reference/glossary.md#데이터베이스) 마이그레이션이 꽤 많아 보이지만, 대부분 모든 앱이 똑같이 쓰는 인증·결제 기반이에요. admin 유저 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼서 기본 실행에는 없어요. 본인 도메인 테이블은 그다음 비어 있는 번호(현재 V026)부터 직접 작성하면 돼요. 자세한 구성은 [`Onboarding §3`](../start/onboarding.md#3-첫-앱-모듈-추가) 에 표로 정리돼 있어요.
+[Flyway](../reference/glossary.md#데이터베이스) 마이그레이션이 꽤 많아 보이지만, 대부분 모든 앱이 똑같이 쓰는 인증·결제 기반이에요. admin 유저 시드(V007)는 `--seed-admin` 을 붙였을 때만 생성돼서 기본 실행에는 없어요. 본인 도메인 테이블은 그다음 비어 있는 번호(현재 V028)부터 직접 작성하면 돼요. 자세한 구성은 [`Onboarding §3`](../start/onboarding.md#3-첫-앱-모듈-추가) 에 표로 정리돼 있어요.
 
 그리고 PostgreSQL 쪽에서도 두 가지가 자동으로 생겨요.
 
 - `gymlog` [schema](../reference/glossary.md#데이터베이스) 가 새로 만들어져요.
 - `gymlog_app` 이라는 전용 [role](../reference/glossary.md#데이터베이스) 이 만들어져요. 이 role 은 다른 앱 schema 에는 접근하지 못해요.
 
-인증 컨트롤러는 앱 모듈에 새로 생기지 않아요. `core-auth-impl` 의 공유 `AuthController` 한 개가 `/api/apps/{appSlug}/auth/*` 경로로 모든 앱의 인증을 처리해요. 가입·로그인·소셜 로그인·토큰 갱신·비밀번호 재설정·2단계 인증까지 엔드포인트 열아홉 개가 이미 들어 있어서, 직접 손으로 짤 필요가 없어요.
+인증 컨트롤러는 앱 모듈에 새로 생기지 않아요. `core-auth-impl` 의 공유 `AuthController` 한 개가 `/api/apps/{appSlug}/auth/*` 경로로 모든 앱의 인증을 처리해요. 가입·로그인·소셜 로그인·토큰 갱신·비밀번호 재설정·2단계 인증까지 엔드포인트 스무 개가 이미 들어 있어서, 직접 손으로 짤 필요가 없어요.
 
 그래서 새 앱을 받은 당신이 할 일은 단순해요. `apps/app-gymlog/` 안에 그 앱만의 도메인 코드를 더하면 돼요. 운동 기록 앱이라면 세트·반복·운동 같은 것들이요. 이 "복사 자동화" 덕분에 앱 추가에 걸리는 시간이 분 단위로 떨어져요.
 

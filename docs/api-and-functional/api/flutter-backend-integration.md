@@ -141,7 +141,6 @@ public record SignInRequest(
 public record AuthResponse(
     @JsonInclude(NON_NULL) UserSummary user,
     @JsonInclude(NON_NULL) AuthTokens tokens,
-    @JsonInclude(NON_NULL) String devVerificationToken,
     @JsonInclude(NON_NULL) String twoFactorToken
 ) {}
 
@@ -164,7 +163,6 @@ public record AuthTokens(
 |---|---|---|
 | `user` · `tokens` | 정상 로그인/가입 | 토큰 저장 후 진입 |
 | `twoFactorToken` | 2FA 활성 유저의 1단계 통과 | `user`·`tokens` 가 비어 있음. 이 토큰으로 `/auth/2fa/login` 호출 |
-| `devVerificationToken` | (레거시 컴포넌트 — 현행 가입 플로우에선 채워지지 않음) | verify-before-signup 전환 후 dev 노출은 `send-code` 응답의 `devCode` 가 담당 (dev·local 의 `app.email.dev-fallback-raw=true` 에서만). 운영에서는 절대 안 나옴 |
 
 응답 예시 (201 Created):
 
@@ -407,6 +405,7 @@ Flutter 가 자주 받게 될 조합만 추렸어요.
 | 이메일 발송 실패 | 502 | `EMAIL_001` |
 | Rate limit 초과 | 429 | `CMN_429` (Retry-After 헤더 포함) |
 | 로그인 실패 계정 잠금 | 429 | `ATH_014` (Retry-After 헤더 + `details.retryAfterSeconds`) |
+| 앱 버전이 강제 최소 버전 이하(≤) (강제 업데이트) | 426 | `CMN_010` (`details.forceMinVersion`/`storeUrl?`/`message?`) |
 
 전체 매핑과 근거는 [`API Response Format`](./api-response.md) 과 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리합니다.
 
@@ -474,6 +473,80 @@ Content-Type: application/json
 
 ---
 
+## 최소 앱 버전 게이트 (2단계 — 강제/경고)
+
+서버가 breaking change 를 배포해도 구버전 앱이 조용히 파손되지 않도록, 관리자가 최소 버전을 2단계로 설정할 수 있어요 — **강제(`forceMinVersion`)**: 클라이언트가 보낸 버전이 그 값 **이하(≤)** 면 서버가 426 으로 막고 스토어 업데이트를 유도해요. **경고(`warnMinVersion`)**: 서버는 절대 막지 않아요 — 값만 클라에 전달하고, 미달 판정과 경고 배너 표시는 전적으로 클라이언트(Flutter)의 몫이에요. 둘 다 nullable 이고 독립적으로 설정 가능해요(강제만, 경고만, 둘 다, 둘 다 없음 모두 유효).
+
+안전망(서버가 모든 요청을 막는 경로)과 스플래시의 능동 조회(로그인 전에 스스로 확인하는 경로) 두 가지를 함께 둡니다. 규칙을 편집하는 관리자 콘솔 API 는 [`admin-console.md` §4-18](../admin-console.md) 이 정본이에요.
+
+### 요청 헤더 — `X-App-Platform`
+
+`/api/apps/**` 로 가는 요청에 플랫폼을 실어 보내면(선택), 서버가 슬러그·플랫폼 조합으로 다른 최소버전 규칙을 적용할 수 있어요.
+
+| 헤더 | 값 | 필수 | 설명 |
+|---|---|---|---|
+| `X-App-Platform` | `ios` \| `android` (대소문자 무관) | 아니오 | 생략하거나 다른 값이면 매칭되는 플랫폼(iOS/Android) 규칙이 없어 게이트 미적용(통과) |
+| `X-App-Version` | `x.y.z` | 게이트 활성 시 사실상 필수 | 없거나 파싱 불가면 최소 미달로 간주(강제 업데이트 대상) |
+
+두 헤더 모두 `api_client` 기본 헤더로 전 요청에 자동 첨부하는 걸 권장해요(엔드포인트별 추가 작업 없이 한 번만 배선).
+
+### 공개 조회 엔드포인트 — `GET /api/apps/{appSlug}/app-version`
+
+앱 스플래시가 로그인 전에 능동으로 호출해 "내가 구버전인지"를 스스로 판단하는 엔드포인트예요. `permitAll` + `MinAppVersionFilter` 미적용(구버전 앱도 이 경로엔 항상 도달해야 하는 달걀-닭 문제 방지)이라, 클라이언트 버전과 무관하게 항상 200 이에요.
+
+```http
+GET /api/apps/sumtally/app-version
+X-App-Platform: ios
+```
+
+```json
+{
+  "data": {
+    "enabled": true,
+    "forceMinVersion": "2.0.0",
+    "warnMinVersion": "2.1.0",
+    "storeUrl": "https://apps.apple.com/app/id0000000000",
+    "message": "새 버전으로 업데이트해주세요"
+  },
+  "error": null
+}
+```
+
+게이트가 없는 슬러그/플랫폼이면 `enabled` 는 `false`, 나머지 네 필드는 `null`(`NON_NULL` 정책으로 응답에서 생략)이에요. Flutter 쪽 권장 판정 로직:
+
+- `enabled` 가 `false` 면 force/warn 값이 있어도 게이트를 적용하지 않아요(마스터 off — 그대로 통과).
+- `forceMinVersion` 이 채워져 있고 자기 앱 버전이 그 값 **이하(≤)** 면 → 닫을 수 없는 강제 업데이트 다이얼로그. 서버 필터와 같은 경계라 여기서 어긋나면 안내 없이 전 API 가 426 이 돼요.
+- (강제 조건에 안 걸렸을 때) `warnMinVersion` 이 채워져 있고 자기 앱 버전이 그 값 **이하(≤)** 면 → 닫을 수 있는 경고 배너("업데이트 권장"). 이 판정은 **서버가 전혀 하지 않으므로** 전적으로 클라이언트 로직이에요.
+
+### 426 강제 업데이트 응답 — `CMN_010`
+
+`app-version` 조회 경로 자체는 예외지만, 그 외 `/api/apps/**` 의 모든 요청은(인증 전·후 모두) 이 게이트에 걸릴 수 있어요. **오직 `forceMinVersion` 이하(≤)일 때만** `details` 가 실린 426 을 받습니다 — `warnMinVersion` 미달은 서버가 절대 막지 않아요(경고 판정은 앱 스플래시가 위 조회 엔드포인트 값으로 직접 수행).
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "CMN_010",
+    "message": "새 버전으로 업데이트해주세요",
+    "details": {
+      "forceMinVersion": "2.0.0",
+      "storeUrl": "https://apps.apple.com/app/id0000000000",
+      "message": "새 버전으로 업데이트해주세요"
+    }
+  }
+}
+```
+
+| `details` 필드 | 항상 있음? | 비고 |
+|---|---|---|
+| `forceMinVersion` | 예 | 항상 채워짐(이 응답 자체가 강제 tier 위반이라는 뜻) |
+| `storeUrl` | 아니오 | 관리자가 설정 안 했으면 생략 |
+| `message` | 아니오 | 생략 시 기본 메시지(`CommonError.UPGRADE_REQUIRED` 의 message)로 대체 |
+
+Flutter 권장 동작: 이 코드를 받으면 `details.forceMinVersion`/`storeUrl`/`message` 로 강제 업데이트 다이얼로그를 조립해요. 업데이트 전까진 같은 426 이 반복되므로 재시도는 무의미하고, 앱을 진행 불가 상태로 막는 게 안전해요.
+
+---
+
 ## 트러블슈팅
 
 ### 401 Unauthorized 가 계속 반환돼요
@@ -510,3 +583,4 @@ Content-Type: application/json
 - [`Rate Limit 규약`](../functional/rate-limiting.md) — Rate limit 규약과 민감 엔드포인트
 - [`Naming Conventions`](../../convention/naming.md) — REST URL 패턴 일반 규약
 - [`Swagger UI`](./swagger-ui.md) — API 자동 탐색
+- [`운영 콘솔 API — admin-console`](../admin-console.md) — `GET`/`PUT /api/admin/apps/{slug}/app-versions` (§4-18) 로 최소버전 규칙을 편집하는 관리자 쪽 계약

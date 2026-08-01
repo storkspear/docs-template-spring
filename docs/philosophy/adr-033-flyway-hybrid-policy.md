@@ -88,39 +88,50 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 
 ```java
 public enum FlywayMode {
-    AUTO,           // configure + migrate (dev/test)
-    VALIDATE_ONLY,  // configure + validate (prod default)
-    DISABLED        // bean 등록 X (긴급 우회)
+    AUTO,           // configure + migrate (local/test)
+    VALIDATE_ONLY,  // configure + validate (dev/prod default)
+    DISABLED        // 검증도 안 함 (긴급 우회)
 }
 
 protected Flyway buildFlyway(DataSource ds, FlywayMode mode) {
-    if (mode == FlywayMode.DISABLED) {
-        return null;  // concrete subclass 가 @Bean null check
-    }
     return Flyway.configure()
-            .dataSource(ds)
+            // 전달된 runtime ds 는 무시 — Flyway 는 session-mode 전용 DS 사용 (ADR-037 후속 fix,
+            // transaction pooler 에서 advisory lock 이 깨지는 문제)
+            .dataSource(buildFlywayDataSource())
             .schemas(slug)
             .locations("classpath:db/migration/" + slug)
-            .baselineOnMigrate(mode == FlywayMode.AUTO)  // validate-only 는 baseline X
+            .baselineOnMigrate(mode == FlywayMode.AUTO)   // VALIDATE_ONLY 는 baseline X
             .load();
 }
 ```
 
-### 2. concrete subclass — initMethod 분기
+`buildFlyway` 는 mode 와 무관하게 **항상 설정된 Flyway 객체를 반환**해요 — `DISABLED` 라고 `null` 을 돌려주지 않습니다(초안 스니펫과 다른 부분). mode 는 여기서 `baselineOnMigrate` 정책만 가르고, "실행하느냐 마느냐" 는 아래 `runFlywayWithMode` 가 `migrate()` / `validate()` 를 **호출하는지 여부**로 표현합니다.
+
+### 2. concrete subclass — `@Bean` 안에서 mode 분기
+
+초안은 `@Bean(initMethod = ...)` + `@ConditionalOnProperty` 로 빈을 두 개 나누는 형태였지만, 실제 구현은 **빈 하나 + 명시 호출**로 정리했어요. `initMethod` 는 `app.flyway.mode` 를 무시하고 무조건 그 메서드를 부르기 때문이에요. 프로퍼티 값은 enum 이라 대문자(`AUTO` / `VALIDATE_ONLY` / `DISABLED`)를 씁니다.
 
 ```java
-@Bean(initMethod = "migrate")
-@ConditionalOnProperty(name = "app.flyway.mode", havingValue = "auto", matchIfMissing = false)
-public Flyway gymlogFlywayAuto(DataSource ds) {
-    return buildFlyway(ds, FlywayMode.AUTO);
+@Bean(name = "gymlogFlyway")
+public Flyway gymlogFlyway(
+        @Qualifier("gymlogDataSource") DataSource ds,
+        @Value("${app.flyway.mode:AUTO}") FlywayMode mode) {
+    Flyway flyway = buildFlyway(ds, mode);
+    runFlywayWithMode(flyway, mode);
+    return flyway;
 }
 
-@Bean(initMethod = "validate")
-@ConditionalOnProperty(name = "app.flyway.mode", havingValue = "validate-only", matchIfMissing = true)
-public Flyway gymlogFlywayValidate(DataSource ds) {
-    return buildFlyway(ds, FlywayMode.VALIDATE_ONLY);
+// AbstractAppDataSourceConfig — mode 별 실행 분기
+public static void runFlywayWithMode(Flyway flyway, FlywayMode mode) {
+    switch (mode) {
+        case AUTO -> flyway.migrate();
+        case VALIDATE_ONLY -> flyway.validate();
+        case DISABLED -> { /* no-op — 운영자가 수동 우회. schema 검증 안 됨. */ }
+    }
 }
 ```
+
+> **명시 예외**: `AdminDataSourceConfig.adminFlyway` 만 `initMethod = "migrate"` 를 유지해요. admin 스키마의 권한 시드는 전 환경에 즉시 적용돼야 배포 직후 콘솔 RBAC 가 동작하기 때문입니다. 본 ADR 의 정책은 앱(slug) 스키마 대상이에요.
 
 ### 3. profile 별 default
 

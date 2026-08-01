@@ -180,7 +180,6 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 | 🔌 API 및 기능 | 2 | 필요 시 | API 응답 · 푸시 · 이메일 · 스토리지 · 마이그레이션 · 관측성 |
 | 🛠️ 운영 (Production) | 2.5+ | 운영자용 | 인프라 · CI/CD · 배포 · [`Runbook`](../production/deploy/runbook.md) · 키 교체 · [`Testing Strategy`](../production/test/testing-strategy.md) · 계약 테스트 |
 | 📚 참고 (Reference) | — | — | 용어 사전 · 데이터 모델 · API 레퍼런스 · 엣지 케이스 · [`STYLE_GUIDE`](../reference/STYLE_GUIDE.md) (저자용) |
-| 🗂️ 계획 (Planned) | — | — | [`Backlog`](../planned/backlog.md) — 개발 예정 항목 |
 
 8개 테마의 주제는 차례로 레포 구조의 기반, 모듈 내부 설계, 데이터·멀티테넌시, 인증·보안, 운영·개발 방법론, 결제·구독 도메인, 보안·감사·알림 도메인, 운영 정책·Lite 모드·SSRF 예요.
 
@@ -199,7 +198,6 @@ template 의 구조와 자동화를 이해했으니, 이제 실제 본인 프로
 | 도그푸딩 walkthrough | [`도그푸딩 walkthrough`](../start/dogfood-walkthrough.md) | 시간 순 narrative + 정착된 패턴 |
 | secret 동기화 | [`secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) | 4 곳 매핑 + 체크리스트 |
 | 장애 시나리오 분석 | [`Edge Cases & Risk Analysis`](../reference/edge-cases.md) | 무엇이 깨질 수 있나 |
-| 미완 항목 | [`Backlog`](../planned/backlog.md) | 진행 중 · 대기 |
 | 키 교체 절차 | [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) | PAT · Tailscale · Supabase · SSH |
 | Mac mini 셋업 | [`Mac mini 운영 호스트 설정`](../production/setup/mac-mini-setup.md) | 물리 호스트 셋업 |
 | 관측성 스택 | [`운영 모니터링 셋업 가이드`](../production/setup/monitoring-setup.md) | Loki · Grafana · Prometheus |

@@ -205,7 +205,7 @@ dev 서버는 실제 Resend 키로 메일을 보내면서도 `dev-fallback-raw=t
 | `POST /auth/resend-verification` | 응답 헤더 | `X-Dev-Verification-Token` |
 | `POST /auth/password-reset/request` | 응답 헤더 | `X-Dev-Reset-Token` |
 
-`SendEmailCodeResponse.devCode` 는 `@JsonInclude(NON_NULL)` 이라, 값이 없으면 응답에서 필드 자체가 사라져요. 운영에서는 두 스위치가 모두 꺼져 있어 이 필드와 헤더가 항상 비어 있습니다. (`AuthResponse.devVerificationToken` 컴포넌트는 남아 있지만 현행 가입 플로우에선 채워지지 않아요 — 인증이 가입 *전에* 끝나므로 signup 이 메일을 보내지 않거든요.)
+`SendEmailCodeResponse.devCode` 는 `@JsonInclude(NON_NULL)` 이라, 값이 없으면 응답에서 필드 자체가 사라져요. 운영에서는 두 스위치가 모두 꺼져 있어 이 필드와 헤더가 항상 비어 있습니다. 인증이 가입 *전에* 끝나므로 signup 은 메일을 보내지 않고, `AuthResponse` 에는 dev 코드 필드가 없어요.
 
 > 테스트 통과가 곧 운영 가용성은 아니에요. local 에서 회원가입과 재설정 플로우가 돈다고 운영에서도 돈다는 보장은 없어요. 운영은 `RESEND_API_KEY` 가 채워져 있어야만 부팅되고, 비어 있으면 yml 의 strict placeholder 가 기동을 막습니다.
 
@@ -429,7 +429,7 @@ public long verify(String email, String rawToken) {
 
 검증에 성공하면 `markUsed()` 로 재사용을 막고 `userId` 를 반환합니다. 호출자인 `AuthServiceImpl.verifyEmail` 은 그 `userId` 로 `userPort.verifyEmail(userId)` 를 불러 실제 플래그를 세워요. 검증 로직과 유저 상태 변경이 모듈 경계를 따라 나뉘어 있는 거예요.
 
-> **보안 경계 (과장 금지).** 이 email 스코프 계약이 확보하는 건 두 가지예요 — **집단(collateral) DoS 제거**(비인증 요청이 임의 피해자의 토큰을 무효화하지 못함)와 **6자리 브루트포스 방어**. 다만 **표적(targeted) DoS 는 잔존해요** — 공격자가 피해자의 email 을 알면 오답 5회로 그 피해자의 활성 토큰을 소진시킬 수 있고(피해자가 재발송하면 새 토큰으로 복구), 이건 `EmailPreVerificationService` 의 가입 전 코드 검증과 동일하게 **수용된 트레이드오프**이지 "교차 사용자 DoS 근본 해결"이 아니에요. 표적 DoS 완화 옵션(5회 도달 시 즉시 폐기 대신 쿨다운, email 단위 throttle 등)은 계정 잠금과 동일 브루트포스 축이라 [계정 잠금 플랜](../../superpowers/plans/2026-07-21-account-lockout.md)에서 함께 검토해요.
+> **보안 경계 (과장 금지).** 이 email 스코프 계약이 확보하는 건 두 가지예요 — **집단(collateral) DoS 제거**(비인증 요청이 임의 피해자의 토큰을 무효화하지 못함)와 **6자리 브루트포스 방어**. 다만 **표적(targeted) DoS 는 잔존해요** — 공격자가 피해자의 email 을 알면 오답 5회로 그 피해자의 활성 토큰을 소진시킬 수 있고(피해자가 재발송하면 새 토큰으로 복구), 이건 `EmailPreVerificationService` 의 가입 전 코드 검증과 동일하게 **수용된 트레이드오프**이지 "교차 사용자 DoS 근본 해결"이 아니에요. 표적 DoS 완화 옵션(5회 도달 시 즉시 폐기 대신 쿨다운, email 단위 throttle 등)은 계정 잠금과 동일 브루트포스 축이라 계정 잠금 사이클에서 함께 검토해요.
 
 ### TTL
 

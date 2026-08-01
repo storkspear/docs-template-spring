@@ -1,6 +1,7 @@
 {
   "schemaVersion": 2,
   "paths": [
+    "/api/apps/{appSlug}/app-version",
     "/api/apps/{appSlug}/auth",
     "/api/apps/{appSlug}/auth/2fa/login",
     "/api/apps/{appSlug}/auth/apple",
@@ -26,6 +27,7 @@
     "/api/apps/{appSlug}/auth/verify-email",
     "/api/apps/{appSlug}/auth/withdraw",
     "/api/apps/{appSlug}/devices",
+    "/api/apps/{appSlug}/devices/{id}",
     "/api/apps/{appSlug}/files",
     "/api/apps/{appSlug}/files/uploads",
     "/api/apps/{appSlug}/files/{key}",
@@ -40,7 +42,6 @@
     "/api/apps/{appSlug}/payment/verify",
     "/api/apps/{appSlug}/payment/webhook",
     "/api/apps/{appSlug}/posts",
-    "/api/apps/{appSlug}/posts/{id}",
     "/api/apps/{appSlug}/users",
     "/api/apps/{appSlug}/users/me",
     "/api/apps/{appSlug}/users/me/activity"
@@ -136,7 +137,6 @@
     "PHA_005",
     "PHA_006",
     "SMS_001",
-    "SMS_002",
     "STG_001",
     "STG_002",
     "STG_003",
@@ -152,7 +152,6 @@
     "USR_002"
   ],
   "noContentEndpoints": [
-    "/{id}",
     "Auth.PASSWORD_CHANGE",
     "Auth.PASSWORD_RESET_CONFIRM",
     "Auth.PASSWORD_RESET_REQUEST",
@@ -160,6 +159,7 @@
     "Auth.TOTP_DISABLE",
     "Auth.VERIFY_EMAIL",
     "Auth.WITHDRAW",
+    "Device.BY_ID",
     "NotificationSettings.BY_KIND",
     "User.ACTIVITY"
   ],

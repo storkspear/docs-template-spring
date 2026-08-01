@@ -4,7 +4,7 @@
 
 이 문서는 `template-spring` 의 세 가지 규약을 한곳에 모아요 — 템플릿 전체의 SemVer 버저닝, API URL 의 버전 정책, 그리고 Deprecation 라이프사이클이에요. 릴리스를 자르거나, 엔드포인트를 바꾸거나, 메서드를 은퇴시킬 때 여기서 규칙을 찾아보세요.
 
-> 📌 **현재 상태**: 최신 태그는 `template-v0.3.0` 입니다 (루트 `CHANGELOG.md` 의 *Released versions* 참조). major 0 → 1 승격은 *Phase 0 안정화* 이후 예정이에요. breaking change 없이 기본 기능이 완성되는 시점이에요.
+> 📌 **현재 상태**: 최신 태그는 `template-v1.0.0` 입니다 (2026-07-21 버전 리셋 — 루트 `CHANGELOG.md` 참조). 이후 breaking change 는 major 를 올려요.
 
 ---
 
@@ -15,16 +15,15 @@ Git 태그 형식은 `template-v<major>.<minor>.<patch>` 입니다.
 | | 값 | 이유 |
 |---|---|---|
 | 단위 | 템플릿 레포 전체 (core 모듈 · common · bootstrap · docs) | 솔로 운영, 모듈 간 의존 그래프 연관 |
-| 첫 버전 | `template-v0.1.0` | 초기 템플릿 공개 시점 |
-| 1.0.0 승격 | Phase 0 안정화 이후 | breaking 없이 기본 기능 완성 시 |
+| 현재 기준 | `template-v1.0.0` (2026-07-21 리셋) | 운영 릴리스가 없던 0.x 태그는 정리됨 |
 
 ### SemVer 판단
 
 | 상황 | bump |
 |---|---|
 | breaking change 포함 | major (X.0.0) |
-| 새 기능 (feat) 있고 breaking 없음 | minor (0.X.0) |
-| 버그 수정·잡무·문서·스타일·리팩토링만 | patch (0.0.X) |
+| 새 기능 (feat) 있고 breaking 없음 | minor (x.Y.0) |
+| 버그 수정·잡무·문서·스타일·리팩토링만 | patch (x.y.Z) |
 
 breaking 인지 아닌지의 판단은 "파생 레포가 그대로 빌드되는가" 가 기준이에요. 아래 예시로 감을 잡아요.
 
@@ -196,7 +195,7 @@ breaking 을 미루는 이유는 파생 레포 마이그레이션 시간을 확�
 
 ```text
 [Active] ──deprecate──> [Deprecated] ──next major──> [Removed]
- v0.2.0                  v0.3.0 ~ v0.x.y              v1.0.0
+ v1.0.0                  v1.1.0 ~ v1.x.y              v2.0.0
 ```
 
 ### 필수 요소 — 코드·CHANGELOG·문서

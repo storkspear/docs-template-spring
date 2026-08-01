@@ -9,7 +9,7 @@
 > 인프라 스택 구성 / 프로비저닝 상태: [`인프라 (Infrastructure)`](../../production/deploy/infrastructure.md)
 > 셋업 가이드 (도커 기동, 대시보드 프로비저닝): [`운영 모니터링 셋업 가이드`](../../production/setup/monitoring-setup.md)
 > 선택 근거 (셀프 호스트 vs 관리형): [`인프라 결정 기록 (Decisions — Infrastructure)`](../../production/deploy/decisions-infra.md) I-06
-> 알림 종류·임계치 확정: Item Ops-1 ([`../../planned/backlog.md`](../../planned/backlog.md))
+> 알림 종류·임계치는 **아직 확정 전**이에요 — 운영 데이터를 모으며 정합니다.
 
 ## 한 문장 요약
 

@@ -157,7 +157,7 @@ public @interface AdminOrModerator {}
 
 - `SecurityConfig` — `@EnableMethodSecurity` 추가
 - `common-security/AdminOnly.java` — meta annotation 신규
-- `tools/app/new-app.sh` — PaymentController.refund 에 `@AdminOnly` 추가 + import
+- `core-billing-impl` 의 공유 `PaymentController.refund` 에 `@AdminOnly` 적용 (ADR-013 B — 앱별 컨트롤러는 생성하지 않음)
 - 테스트 3건 PASS
 
 ---
@@ -178,4 +178,3 @@ public @interface AdminOrModerator {}
 - `common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java` — `@EnableMethodSecurity` 추가
 - `common/common-security/src/main/java/com/factory/common/security/AdminOnly.java` — 신규 meta annotation
 - `common/common-security/src/test/java/com/factory/common/security/AdminOnlyTest.java` — 신규 단위 테스트
-- `core-billing-impl` 의 공유 `PaymentController.refund` 에 `@AdminOnly` 적용 (ADR-013 B)

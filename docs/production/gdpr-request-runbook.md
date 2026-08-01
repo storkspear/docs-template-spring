@@ -25,7 +25,7 @@
 ## 2. 열람(export) 처리
 
 1. 콘솔 사용자 상세 → **"개인정보 내보내기(JSON)"** — `GET /api/admin/apps/{slug}/users/{userId}/export`.
-2. 권한: `PERM_USERS_UNMASK`(전 PII 원본). 없으면 403.
+2. 권한: `PERM_USERS_EXPORT`(전 PII 원본 — UNMASK 에서 분리된 전용 권한, `PERM_USERS_READ` 선행 필요). 없으면 403.
 3. 반환된 JSON 번들을 **가입 email 로만** 발송. 첨부 파일 실체는 미포함(메타의 `storageKey` 로 파일 화면에서 개별 다운로드).
 4. 발급 사실은 `user_read_history.resource_type='EXPORT'` + 감사로그에 자동 기록.
 

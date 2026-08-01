@@ -13,7 +13,7 @@
 
 ### Lite 모드 (ADR-034) 영향
 
-- `app.features.<domain>=false` 시 endpoint 자동 사라짐 (404) — payment / iap / push / email / audit / 2fa / billing-notification / password-policy / phone-auth 9 도메인 모두.
+- `app.features.<domain>=false` 시 endpoint 자동 사라짐 (404) — payment / iap / push / email / audit / 2fa / billing-notification / password-policy / phone-auth / analytics / billing **11 도메인** 모두.
 - 호출 시점에 lazy 의존 부재면 `503 CMN_009 FEATURE_DISABLED` (details 에 feature 이름 포함) — payment / iap / 2fa 만 해당. email 은 silent skip (가입 흐름 보호).
 
 ### Validation 에러 (`CMN_001 VALIDATION_ERROR` — 422)
@@ -42,10 +42,10 @@
 | POST | `/auth/naver` | X | Naver 소셜 로그인 | ADR-013 |
 | POST | `/auth/refresh` | X (refresh) | refresh token 회전 + 새 access token 발급 | ADR-013 |
 | POST | `/auth/withdraw` | O | 계정 탈퇴 (soft delete) | ADR-013 |
-| POST | `/auth/verify-email` | X | 이메일 인증 (6자리 코드) | ADR-013, ADR-024 |
+| POST | `/auth/verify-email` | X | 가입 후 메일로 받은 6자리 인증 코드 검증 (`email` + `token` 필드, 오답 5회 시 해당 사용자 토큰 무효화) | ADR-013, ADR-024 |
 | POST | `/auth/resend-verification` | O | 인증 메일 재발송 | ADR-013 |
 | POST | `/auth/password-reset/request` | X | 비밀번호 재설정 요청 (메일 발송) | ADR-013 |
-| POST | `/auth/password-reset/confirm` | X | 6자리 코드 + 새 비밀번호 적용 (모든 세션 무효화) | ADR-013, ADR-029 |
+| POST | `/auth/password-reset/confirm` | X | 메일로 받은 6자리 재설정 코드(`token` 필드) + 새 비밀번호 적용 (1회용, 모든 세션 무효화) | ADR-013, ADR-029 |
 | PATCH | `/auth/password` | O | 현재 비밀번호 검증 + 새 비밀번호 적용 | ADR-029 |
 | POST | `/auth/phone/request` | X | 휴대폰 OTP 발송 (SMS) — dev-capture 어댑터면 `devCode` 반환 | ADR-038 |
 | POST | `/auth/phone/verify` | X | OTP 검증 → 번호로 유저 find-or-create + 토큰 발급 | ADR-038 |
@@ -150,7 +150,8 @@ MVP 는 작성·목록 두 액션만 제공합니다. 개별 조회·작성자 �
 | GET | `/health` | X | 부팅 상태 (단순 200) |
 | GET | `/version` | X | 빌드 버전 (git sha + tag) |
 | GET | `/api/apps/{slug}/health` | X | 슬러그 schema 연결 검증 |
-| GET | `/actuator/**` | (env 분리) | Spring Actuator (prod 는 별도 management port 권장) |
+| GET | `/api/apps/{slug}/app-version` | X | 최소버전(강제 업데이트) 조회 — `X-App-Platform` 헤더로 분기, 게이트 없으면 `enabled=false` + 나머지 전 필드 null. 상세는 [`Flutter ↔ Backend Integration`](../../api-and-functional/api/flutter-backend-integration.md) |
+| GET | `/actuator/**` | (env 분리) | Spring Actuator (prod 는 app port 공유 — kamal-proxy healthcheck 제약 + 노출을 health/info/prometheus 로 제한) |
 
 ---
 
@@ -158,14 +159,15 @@ MVP 는 작성·목록 두 액션만 제공합니다. 개별 조회·작성자 �
 
 코어 엔드포인트(auth / user / device / notification / posts / payment / iap)의 경로는 `common-web` 의 `ApiEndpoints` + 각 `core-*-impl` 의 공유 컨트롤러에서 관리돼요 — 경로 변경 시 그쪽을 고칩니다. 앱 고유 경로만 `tools/app/new-app.sh` 의 heredoc 이 `<Slug>HealthController` / `<Slug>ApiEndpoints` 로 생성합니다.
 
-- `common/common-web/.../ApiEndpoints.java` — 코어 공유 경로 상수 (`Auth` / `User` / `Device` / `NotificationSettings` / `Posts` / `Payment` / `Iap`)
-- `core/core-auth-impl/.../AuthController.java`, `core/core-billing-impl/.../controller/{Payment,Iap}Controller.java`, `core/core-phone-auth-impl/.../controller/PhoneAuthController.java` 등 — 공유 런타임 빈 (각 AutoConfiguration 이 등록)
+- `common/common-web/.../ApiEndpoints.java` — 코어 공유 경로 상수 (`App` / `Auth` / `User` / `Device` / `NotificationSettings` / `Posts` / `Payment` / `Iap`)
+- `core/core-auth-impl/.../AuthController.java`, `core/core-billing-impl/.../controller/{Payment,Iap}Controller.java`, `core/core-phone-auth-impl/.../controller/PhoneAuthController.java`, `core/core-user-impl/.../controller/AppVersionCheckController.java` 등 — 공유 런타임 빈 (각 AutoConfiguration 이 등록)
 
 ---
 
 ## 관련 문서
 
 - [`Email Verification`](../../api-and-functional/functional/email-verification.md) — 가입/인증/재설정 플로우 상세
+- [`Flutter ↔ Backend Integration`](../../api-and-functional/api/flutter-backend-integration.md) — 최소 앱 버전 게이트(`X-App-Platform`·426 `CMN_010`·`app-version` 조회) 상세
 - [`JWT Authentication`](../../structure/jwt-authentication.md) — Bearer / refresh / 2FA pending 토큰 구조
 - [`Exception Handling`](../../convention/exception-handling.md) — 에러 코드 단일 정본
 - [`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) — 앱별 인증 endpoint

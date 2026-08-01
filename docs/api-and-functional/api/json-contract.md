@@ -39,7 +39,6 @@ JSON 계약 테스트는 프로젝트 정책을 재현한 `ObjectMapper` 로 직
 public record AuthResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL) UserSummary user,
         @JsonInclude(JsonInclude.Include.NON_NULL) AuthTokens tokens,
-        @JsonInclude(JsonInclude.Include.NON_NULL) String devVerificationToken,
         @JsonInclude(JsonInclude.Include.NON_NULL) String twoFactorToken) {}
 ```
 
@@ -153,7 +152,7 @@ class UserAccountJsonTest extends AbstractJsonContractTest<UserAccount> {
 
 ## 샘플 — 중첩 record
 
-`AuthResponse` 의 정상 응답은 `UserSummary` 와 `AuthTokens` 를 품어요. 두 컴포넌트만 채우는 생성자를 쓰면 `devVerificationToken` 과 `twoFactorToken` 은 null 이 되고, 위에서 본 `@JsonInclude(NON_NULL)` 덕분에 JSON 에서 빠집니다.
+`AuthResponse` 의 정상 응답은 `UserSummary` 와 `AuthTokens` 를 품어요. 두 컴포넌트만 채우는 생성자를 쓰면 `twoFactorToken` 은 null 이 되고, 위에서 본 `@JsonInclude(NON_NULL)` 덕분에 JSON 에서 빠집니다.
 
 ```java
 class AuthResponseJsonTest extends AbstractJsonContractTest<AuthResponse> {

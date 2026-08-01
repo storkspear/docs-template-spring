@@ -76,8 +76,8 @@
      - GymlogHealthController (앱 모듈 유일한 컨트롤러 — 인증/유저/결제는 core 공유 컨트롤러가 처리)
      - GymlogDataSourceConfig (gymlog schema 전용)
      - GymlogAppAutoConfiguration
-     - V001~V026 마이그레이션 (users, auth_social_identities, auth_refresh_tokens 등.
-       V007 admin 시드는 --seed-admin opt-in 시에만 생성, 도메인 테이블은 V027 부터)
+     - V001~V027 마이그레이션 (users, auth_social_identities, auth_refresh_tokens 등.
+       V007 admin 시드는 --seed-admin opt-in 시에만 생성, 도메인 테이블은 V028 부터)
      - build.gradle
 3. 도메인 코드 작성 (controller / service / entity / repository / Flyway)
 4. core-* 는 건드리지 않음 — 새 기능이 core 에 필요하면 별도 ADR
@@ -116,7 +116,7 @@ template-spring/
 ├── README.md                          # 템플릿 소개
 │
 ├── .github/
-│   └── workflows/                     # 13 개 workflow
+│   └── workflows/                     # 14 개 workflow (pitest.yml 포함)
 │       ├── ci.yml                     # 빌드 + 테스트 + ArchUnit
 │       ├── deploy.yml                 # main → workflow_run 게이트 → 운영 배포
 │       ├── deploy-dev.yml             # develop → dev 서버 자동 배포
@@ -220,7 +220,7 @@ template-spring/
 │   │       │   ├── ErrorInfo.java                 # 도메인 에러 enum 인터페이스
 │   │       │   ├── BaseException.java             # 비즈니스 예외 공통 부모 (구체 클래스, 직접 상속)
 │   │       │   ├── CommonException.java
-│   │       │   ├── CommonError.java               # CMN_001~010, CMN_413, CMN_429
+│   │       │   ├── CommonError.java               # CMN_001~010, CMN_400, CMN_413, CMN_429
 │   │       │   └── GlobalExceptionHandler.java    # → ApiError 통합 변환
 │   │       ├── pagination/                        # PageRequest, PageResponse
 │   │       ├── search/                            # POST /search DTO (QueryDsl 비의존)
@@ -229,6 +229,7 @@ template-spring/
 │   │       ├── security/
 │   │       │   └── ValidPassword.java             # Bean Validation custom (ADR-029)
 │   │       ├── version/                           # MinAppVersionFilter (최소 앱 버전 게이트)
+│   │       ├── requestsize/                       # 요청 본문 크기 상한 필터 (CMN_413)
 │   │       ├── ratelimit/                         # Bucket4j 기반 레이트 리미터
 │   │       └── metrics/                           # Micrometer (appSlug 태깅)
 │   │
@@ -289,7 +290,7 @@ template-spring/
 │   │   └── src/main/java/com/factory/core/auth/api/
 │   │       ├── AuthPort.java                      # ADR-013 + ADR-030 (2FA)
 │   │       ├── dto/                               # Request/Response DTO + TwoFactor* (setup/verify/login)
-│   │       └── exception/                         # AuthError (ATH_001~ATH_013 — ATH_006 의도적 누락 (ADR-024 후 EmailError EMAIL_001 로 이전))
+│   │       └── exception/                         # AuthError (ATH_001~ATH_014 — ATH_006 의도적 누락 (ADR-024 후 EmailError EMAIL_001 로 이전))
 │   │
 │   ├── core-auth-impl/                # 인증 로직 라이브러리
 │   │   └── src/main/java/com/factory/core/auth/impl/
@@ -342,7 +343,7 @@ template-spring/
 │   │       └── PushAutoConfiguration.java
 │   │
 │   ├── core-sms-api/                  # SMS 발송 포트 (도메인 횡단 — OTP/알림 단일 진입점)
-│   │   └── SmsPort.java + exception/SmsError (SMS_001~SMS_002)
+│   │   └── SmsPort.java + exception/SmsError (SMS_001)
 │   │
 │   ├── core-sms-impl/                 # SMS 발송 구현 (CoolSMS/SOLAPI)
 │   │   └── src/main/java/com/factory/core/sms/impl/
@@ -462,8 +463,8 @@ template-spring/
 │   └── core-admin-impl/               # cross-app 운영 콘솔 (ADR-039, -impl 단독 — api 쌍 없음)
 │       ├── controller/                            # /api/admin — Auth/Dashboard/Apps/Users/Payments/Files/Content/Analytics/Audit/Accounts/Roles/Metrics
 │       ├── rbac/                                  # AdminRole (viewer/support/admin/master 4티어) + RolePermissionService
-│       ├── exception/AdminError.java              # ADMIN_001~ADMIN_023
-│       └── src/main/resources/db/migration/admin/ # V001 admin_users, V002 role, V003 role_permissions
+│       ├── exception/AdminError.java              # ADMIN_001~ADMIN_025
+│       └── src/main/resources/db/migration/admin/ # V001~V010 (admin_users · role · role_permissions · app_min_versions · 권한 시드/세분화)
 │
 ├── apps/                              # 앱별 도메인 모듈
 │   ├── README.md                      # "new-app.sh 로 추가" 안내
@@ -489,22 +490,16 @@ template-spring/
 │       └── test/
 │           └── BootstrapArchitectureTest.java     # ArchUnit r1~r22 바인딩
 │
-├── tools/
-│   ├── init-local.sh                  # local 셋업 (rename / .env / docker compose / postgres)
-│   ├── init-prod.sh                   # prod 셋업 (.env.prod / Cloudflare / Secrets push / observability)
-│   ├── init-dev.sh                    # dev 셋업 (.env.dev / Kamal dev 배포 사전 검증)
-│   ├── new-app/
-│   │   └── new-app.sh                 # 새 앱 스캐폴딩 (schema/role/Flyway/Controller 자동)
-│   ├── deploy.sh                      # origin/main SHA 추출 + kamal --version 명시
-│   ├── force-clear-server.sh          # 5단계 confirm + 인프라 + 데이터 + 관측성 정리
-│   ├── ci-test.sh                     # 5-stage 로컬 검증 (spotless / build / docs-contract / docs-unit / gitleaks)
-│   ├── lib/
-│   │   ├── cloudflare.sh              # cloudflare_register_hostname (NS polling + 자동 재생성)
-│   │   ├── common.sh                  # detect_factory_alias 등 helper
-│   │   └── init-common.sh             # init-local / init-prod 공통 함수 (repo 감지 / .env 생성 / Secrets push)
-│   ├── dogfooding/
-│   │   └── setup.sh                   # Trial 환경 자동화 (GHA + Mac mini + GHCR, 1회성 운영 도구)
-│   └── docs-check/                    # 문서 링크/메타 검증
+├── tools/                             # 기능별 depth-2 폴더 (2026-07 재구성)
+│   ├── init/                          # init-local.sh / init-dev.sh / init-prod.sh (환경 셋업)
+│   ├── app/                           # new-app.sh / remove-app.sh / feature.sh / reset·truncate-schema.sh
+│   ├── deploy/                        # deploy.sh (origin SHA 빌드) / migrate-prod.sh / start-server.sh / firebase-link.sh
+│   ├── verify/                        # ci-test.sh / gen-snapshot.sh / doctor.sh / verify-local·server.sh / users-schema-drift.sh
+│   ├── cleanup/                       # force-clear-server.sh (5단계 confirm) / dev-cleanup.sh 등
+│   ├── docs/                          # docs-contract-test.sh / sync-docs.sh (docs-template-spring 미러)
+│   ├── monitor/                       # monitor-local.sh / test-monitor-p95.sh
+│   ├── dogfooding/                    # setup.sh / cleanup.sh (Trial 환경 자동화)
+│   └── lib/                           # cloudflare.sh / common.sh / init-common.sh / migrate-apply.sh / schema-ops.sh
 │
 ├── factory                             # wrapper 진입점 (FACTORY_ALIAS export)
 │

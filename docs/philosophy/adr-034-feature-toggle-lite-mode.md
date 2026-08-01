@@ -69,13 +69,13 @@ trade-off 는 jar 크기와 의존성 classpath 풍부함입니다. Spring condi
 - ✅ 가장 깔끔한 결과 (jar / source / DB 모두 정합)
 - ❌ 자동화 복잡 + 테스트 부담 (lite vs full 매트릭스 폭증)
 - ❌ 위험 — 실수 시 복구 어려움 (git rm 후 build 깨짐)
-- ❌ 파생 레포 fork 후 사용자 코드 추가된 상태에서 toggle 시 충돌
+- ❌ 파생 레포에 사용자 코드가 추가된 상태에서 toggle 시 충돌
 
 ### Option D — 별도 template repo (lite / full)
 - `template-spring-lite` / `template-spring` 두 레포 운영
 - ✅ 각 레포 단순
 - ❌ 두 레포 sync 부담 (공통 변경 시 두 번)
-- ❌ 사용자가 도중 변형 X (fork 시점에 결정 lock)
+- ❌ 사용자가 도중 변형 X (파생 시점에 결정 lock)
 
 ---
 
@@ -88,10 +88,10 @@ trade-off 는 jar 크기와 의존성 classpath 풍부함입니다. Spring condi
 | 기준 | A | B | C | D |
 |---|---|---|---|---|
 | 구현 단순도 | ✅ | ❌ | ❌ | ❌ |
-| 사용자 부담 | 0 | 중 | 중 | 큼 (fork 결정) |
+| 사용자 부담 | 0 | 중 | 중 | 큼 (파생 시 결정) |
 | 코드 분기 | 0 | 큰 | 큰 | 0 (각 레포) |
 | 실수 위험 | 낮음 | 중 | 큼 | 낮음 |
-| 운영 변경 | `.env` 토글 | gradle | git/sed | fork |
+| 운영 변경 | `.env` 토글 | gradle | git/sed | 재파생 |
 | **점수** | **A 압승** | | | |
 
 Option A 의 단점 (jar 크기, 미사용 의존성, 미사용 schema) 는 본 template 의 사용 컨텍스트 (소규모 SaaS 출시) 에서 무시 가능 — jar 100MB, 미사용 schema row 0 = 운영 부하 0.
@@ -241,7 +241,7 @@ APP_FEATURES_BILLING_NOTIFICATION=false
 |---|---|
 | Compile-time exclusion | Option B — CI 매트릭스 폭증으로 실현 X |
 | Source removal command | Option C — 위험 + 복구 어려움 |
-| 별도 template repo | Option D — sync 부담 + fork 시점 lock |
+| 별도 template repo | Option D — sync 부담 + 파생 시점 lock |
 | Java module system (JPMS) | OSGi 수준 isolation 필요 — 본 template 의 monolith 규모 외 |
 
 **Option A 의 jar 크기 단점은 무시 가능 (~50-100MB), 운영 부하 X**. 사용자 비즈니스의 실 needs 와 일치.

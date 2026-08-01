@@ -55,7 +55,7 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 
 ### 2-2. 마이그레이션 매핑
 
-`new app` (`tools/app/new-app.sh`) 이 새 앱마다 기본 25개 (V001~V026, V007 제외) 를 자동 생성합니다. V007 admin 시드는 `--seed-admin` 을 붙일 때만 만들어져요 (opt-in). 전부 슬러그 schema 안에 만들어지고, 내용은 모든 앱이 동일해요.
+`new app` (`tools/app/new-app.sh`) 이 새 앱마다 기본 26개 (V001~V027, V007 제외) 를 자동 생성합니다. V007 admin 시드는 `--seed-admin` 을 붙일 때만 만들어져요 (opt-in). 전부 슬러그 schema 안에 만들어지고, 내용은 모든 앱이 동일해요.
 
 | 버전 | 테이블 / 내용 | 비고 |
 |---|---|---|
@@ -69,10 +69,11 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 | V018 ~ V021 | 운영·콘솔 (attachment_file · user_read_history · message_send_history · audit_logs_archive) | 공통 |
 | V022 ~ V023 | 환불 (payment refunded_amount 컬럼 · payment_refunds) | 공통 |
 | V024 ~ V025 | 콘텐츠·분석 (posts · analytics) | 공통 |
-| V026 | auth_email_verification_tokens.attempts 컬럼 | 공통 — 예약 컬럼 (스코프 설계 후 활성화) |
-| **V027 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
+| V026 | auth_email_verification_tokens.attempts 컬럼 | 공통 — EmailVerificationService 가 verify 시도 제한에 활성 사용 |
+| V027 | users 로그인 계정 잠금 컬럼 (failed_attempts 등) | 공통 — LoginLockoutService |
+| **V028 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
 
-V001~V026 이 이미 차 있으므로 본인 도메인 테이블은 V027 부터 시작합니다. V007 을 생성하지 않았어도 그 번호는 시드용으로 비워 둬요. 마이그레이션 세트는 계속 늘어나니, 정확한 다음 번호는 앱 생성 직후 `new-app.sh` 의 안내 메시지와 마이그레이션 디렉토리에서 확인하세요. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.
+V001~V027 이 이미 차 있으므로 본인 도메인 테이블은 V028 부터 시작합니다. V007 을 생성하지 않았어도 그 번호는 시드용으로 비워 둬요. 마이그레이션 세트는 계속 늘어나니, 정확한 다음 번호는 앱 생성 직후 `new-app.sh` 의 안내 메시지와 마이그레이션 디렉토리에서 확인하세요. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.
 
 ### 2-3. 기존 앱에 새 공통 마이그레이션 반영 (back-fill)
 
@@ -232,7 +233,7 @@ git push origin main
 3. 단일 transaction 으로 `BEGIN; <SQL>; INSERT INTO <slug>.flyway_schema_history ...; COMMIT;` 을 실행합니다. SQL 적용과 history INSERT 가 같은 transaction 이라, 둘 중 하나가 실패하면 둘 다 롤백돼 schema 와 history 의 inconsistent state 를 막아요.
 4. 적용 후 `success = true` 행을 출력해 결과를 확인시킵니다.
 
-> ⚠️ **checksum 알고리즘이 Flyway 와 1:1 일치하지 않습니다.** 이 도구는 CRLF 를 LF 로 바꾼 뒤 zlib CRC32 로 checksum 을 계산하는데, Flyway 의 내부 알고리즘과 정확히 같지 않아요. 그래서 부팅 시 validate 가 `Migration checksum mismatch` 를 낼 수 있고, 그때는 [§5.3](#5-3-부팅-시-validate-실패-대응) 의 history checksum 갱신으로 정정합니다. 근본 해결 (Flyway 라이브러리 직접 호출 helper) 은 [백로그](../../planned/backlog.md) 에 있어요.
+> ⚠️ **checksum 알고리즘이 Flyway 와 1:1 일치하지 않습니다.** 이 도구는 CRLF 를 LF 로 바꾼 뒤 zlib CRC32 로 checksum 을 계산하는데, Flyway 의 내부 알고리즘과 정확히 같지 않아요. 그래서 부팅 시 validate 가 `Migration checksum mismatch` 를 낼 수 있고, 그때는 [§5.3](#5-3-부팅-시-validate-실패-대응) 의 history checksum 갱신으로 정정합니다. 근본 해결(Flyway 라이브러리를 직접 호출하는 helper)은 **아직 미구현**이에요.
 
 > ⚠️ V스크립트 안에서 직접 `BEGIN` / `COMMIT` 을 쓰면 이 도구의 transaction wrap 과 충돌합니다. V스크립트는 raw DDL 만 담으세요.
 
@@ -303,7 +304,7 @@ APP_FLYWAY_MODE=DISABLED kamal deploy
 - **모든 인스턴스가 부팅 대기** — advisory lock 손상이 의심되면 [§3.B](#b-advisory-lock-충돌) 의 holder 식별을 먼저 하고, 그래도 안 풀리면 운영 배포를 멈춘 뒤 lock 을 정리합니다.
 - 장애가 배포 전반으로 번지면 [`운영 런북`](./runbook.md) 의 롤백·장애 대응 절차로 넘어가세요.
 
-복구 후에는 무엇이 원인이었는지 [백로그](../../planned/backlog.md) 나 인시던트 회고에 남겨, 같은 실패가 반복되지 않게 합니다.
+복구 후에는 무엇이 원인이었는지 인시던트 회고에 남겨, 같은 실패가 반복되지 않게 합니다.
 
 ---
 

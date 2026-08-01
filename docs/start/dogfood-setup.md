@@ -67,7 +67,7 @@ git clone <derived-repo>.git && cd <derived-repo>
 
 | 항목 | 어디서 | 자세히 |
 |---|---|---|
-| GitHub 레포 | "Use this template" 또는 fork | §3.1 의 PAT 도 함께 준비 |
+| GitHub 레포 | "Use this template" 으로 만든 파생 레포 | §3.1 의 PAT 도 함께 준비 |
 | Mac mini SSH 접근 | macOS 운영 호스트 | §3.3 |
 | Tailscale 계정 + ACL admin | login.tailscale.com | §3.2 |
 | Supabase 프로젝트 (Seoul region 권장) | supabase.com | §3.5 |

@@ -49,8 +49,7 @@ public record UserSummary(long id, String email, String displayName, boolean ema
 
 ```java
 // AuthResponse.java 발췌 — 여러 소스 조합은 생성자로
-public record AuthResponse(UserSummary user, AuthTokens tokens, String devVerificationToken,
-        String twoFactorToken) {
+public record AuthResponse(UserSummary user, AuthTokens tokens, String twoFactorToken) {
 
     public AuthResponse(UserSummary user, AuthTokens tokens) {
         this(user, tokens, null, null);

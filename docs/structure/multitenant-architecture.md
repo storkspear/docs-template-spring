@@ -167,7 +167,8 @@ protected String[] entityPackagesToScan() {
 ### Concrete subclass 가 지킬 계약
 
 - 각 `build*` 헬퍼는 매번 새 인스턴스를 만드므로 반드시 `@Bean` 으로 래핑해 Spring 캐시를 활용해야 해요. 그래야 앱당 HikariCP pool 이 하나만 유지됩니다.
-- Flyway 빈은 `@Bean(initMethod = "migrate")` 로 선언해야 해요. `buildFlyway()` 는 configure 만 하고 migrate 를 실행하지 않습니다.
+- Flyway 빈은 `@Bean` 메서드 안에서 `runFlywayWithMode(flyway, mode)` 를 직접 호출해야 해요. `buildFlyway()` 는 configure 만 하고 migrate 를 실행하지 않습니다. `initMethod = "migrate"` 는 `app.flyway.mode` (ADR-033) 를 무시하고 항상 migrate 하므로 쓰지 않아요 — dev/prod 는 `VALIDATE_ONLY` 라 부팅 시 검증만 해야 합니다.
+  - **명시 예외 — `AdminDataSourceConfig.adminFlyway`**: admin 스키마는 의도적으로 부팅 자동 migrate 예요(권한 시드가 전 환경에 즉시 적용돼야 배포 직후 콘솔 RBAC 가 동작). 위 금지는 앱(slug) 스키마에만 적용됩니다.
 - `@EnableJpaRepositories` 는 어노테이션 속성이 상속되지 않으므로 concrete 클래스에 직접 선언해야 해요.
 
 ---
@@ -292,11 +293,14 @@ public class SumtallyDataSourceConfig extends AbstractAppDataSourceConfig {
         return buildTransactionManager(emf);
     }
 
-    @Bean(name = "sumtallyFlyway", initMethod = "migrate")
+    @Bean(name = "sumtallyFlyway")
     public Flyway sumtallyFlyway(
-        @Qualifier("sumtallyDataSource") DataSource ds
+        @Qualifier("sumtallyDataSource") DataSource ds,
+        @Value("${app.flyway.mode:AUTO}") FlywayMode mode
     ) {
-        return buildFlyway(ds);
+        Flyway flyway = buildFlyway(ds, mode);
+        runFlywayWithMode(flyway, mode);   // AUTO=migrate / VALIDATE_ONLY=validate / DISABLED=no-op
+        return flyway;
     }
 }
 ```
@@ -321,6 +325,19 @@ slug 에 하이픈이 있으면 (예: `my-app`) 빈 이름에서는 하이픈을
 ### Flyway 초기화 순서
 
 `@DependsOn("<slug>Flyway")` 로 EMF 가 Flyway 보다 뒤에 초기화되도록 강제합니다. Flyway 가 먼저 migration 을 실행해서 테이블을 만들어 둬야, 그 schema 위에서 EMF 가 정상적으로 뜨고 첫 쿼리가 닿을 곳이 존재합니다.
+
+### 신규 앱 최초 부트스트랩
+
+스캐폴드가 만드는 `<slug>Flyway` 는 `app.flyway.mode` 를 존중해요. 그래서 dev/prod 기본값인 `VALIDATE_ONLY` 그대로 새 앱을 처음 배포하면 부팅 시 validate 만 도는데, 빈 스키마에는 `flyway_schema_history` 가 없어서 검증이 실패하고 부팅이 멈춥니다. `tools/deploy/migrate-prod.sh` 도 그 테이블이 없으면 "먼저 부팅/배포로 초기 migrate 하세요" 로 거부해요. 즉 **첫 마이그레이션만은 별도의 진입 경로가 필요**합니다.
+
+절차는 **`AUTO` 로 1회 부팅 → 원복** 이에요.
+
+1. 대상 환경의 `APP_FLYWAY_MODE` 를 `AUTO` 로 두고 1회 배포해요. 부팅 중 Flyway 가 `V001~` 을 전부 적용하고 `flyway_schema_history` 를 만듭니다.
+2. 스키마가 자리 잡으면 `APP_FLYWAY_MODE` 를 `VALIDATE_ONLY` 로 되돌려요. 이후 스키마 변경은 `migrate-prod.sh` 로 명시 적용합니다.
+
+dev 자동배포(`deploy-dev.yml`)는 `APP_FLYWAY_MODE=AUTO` 를 고정 주입하므로 그 경로만 쓰면 1단계가 자동으로 충족돼요. prod 와 그 밖의 부팅 경로는 직접 지정해야 합니다.
+
+`tools/app/reset-schema.sh` 가 dev 스키마를 비운 뒤 안내하는 절차와 같은 형태예요 — 수동 SQL 재적용은 checksum mismatch 위험이라 지원하지 않습니다.
 
 ---
 
@@ -458,7 +475,7 @@ core 는 엔티티와 Port 만 정의하고 DataSource 는 제공하지 않습�
 
 ### 트레이드오프 결론
 
-솔로·인디 규모 (slug 5~10) 에서는 위 단점들이 실질적인 운영 부담으로 다가오지 않습니다. `core 1 + apps N` 패턴이 코드 검토와 운영 단순성에서 큰 가치를 갖기 때문이에요. 조직이 커져 slug 가 30개를 넘거나 다른 팀이 독립 운영하는 시스템이 등장하면, 템플릿 자체를 다시 fork 한 별도 레포로 분리하는 흐름이 자연스러워요. ADR-007 의 솔로 친화적 운영, ADR-005 의 단일 DB / per-schema 결정과 일관된 흐름이고, "운영 단위는 한 벌, slug 는 N 개, 그 이상은 fork" 가 템플릿이 권장하는 운영 철학입니다.
+솔로·인디 규모 (slug 5~10) 에서는 위 단점들이 실질적인 운영 부담으로 다가오지 않습니다. `core 1 + apps N` 패턴이 코드 검토와 운영 단순성에서 큰 가치를 갖기 때문이에요. 조직이 커져 slug 가 30개를 넘거나 다른 팀이 독립 운영하는 시스템이 등장하면, 템플릿에서 별도 파생 레포를 새로 만들어 분리하는 흐름이 자연스러워요. ADR-007 의 솔로 친화적 운영, ADR-005 의 단일 DB / per-schema 결정과 일관된 흐름이고, "운영 단위는 한 벌, slug 는 N 개, 그 이상은 파생 레포 분리" 가 템플릿이 권장하는 운영 철학입니다.
 
 → [`ADR-007 · 솔로 친화적 운영`](../philosophy/adr-007-solo-friendly-operations.md) · [`ADR-005 · 단일 DB / per-schema`](../philosophy/adr-005-db-schema-isolation.md)
 

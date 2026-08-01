@@ -29,7 +29,7 @@ ErrorInfo (인터페이스)
     ├── UserError        ← USR_001 ~ USR_002
     ├── BillingError     ← BIL_001 ~ BIL_010 (구독·결제·webhook — ADR-020)
     ├── EmailError       ← EMAIL_001 ~ EMAIL_002 (ADR-024)
-    ├── SmsError         ← SMS_001 ~ SMS_002
+    ├── SmsError         ← SMS_001
     ├── PhoneAuthError   ← PHA_001 ~ PHA_006 (휴대폰 점유인증)
     ├── IapError         ← IAP_001 ~ IAP_007 (Apple·Google IAP — ADR-022)
     ├── PaymentError     ← PAY_001 ~ PAY_009 (PortOne PG — ADR-019)
@@ -101,7 +101,7 @@ GlobalExceptionHandler
 | CMN_007 | 401 | ACCESS_TOKEN_EXPIRED | JWT access token 만료 |
 | CMN_008 | 401 | ACCESS_TOKEN_INVALID | JWT access token 무효 |
 | CMN_009 | 503 | FEATURE_DISABLED | 기능 비활성 (ADR-034 Lite 모드) |
-| CMN_010 | 426 | UPGRADE_REQUIRED | 앱 버전이 서버 최소 요구 버전 미만 (min-version 게이트) |
+| CMN_010 | 426 | UPGRADE_REQUIRED | 앱 버전이 강제 최소 버전 이하(≤) (2단계 min-version 게이트의 force tier · `details.forceMinVersion`/`storeUrl?`/`message?`) |
 | CMN_400 | 400 | MALFORMED_REQUEST | 요청 본문 파싱/역직렬화 불가 (깨진 JSON 등 · 500 대신 400) |
 | CMN_413 | 413 | PAYLOAD_TOO_LARGE | 요청 본문 크기 초과 (요청 크기 게이트 · 본문 파싱 전 조기 거부) |
 | CMN_429 | 429 | RATE_LIMIT_EXCEEDED | Rate limit 초과 (Retry-After 헤더 포함) |
@@ -162,7 +162,6 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | 코드 | HTTP | enum 값 | 설명 |
 |---|---|---|---|
 | SMS_001 | 502 | SMS_DELIVERY_FAILED | 문자 발송 실패 |
-| SMS_002 | 503 | SMS_CONFIG_MISSING | SMS 발신사 미설정 |
 
 ### PhoneAuthError (PHA)
 

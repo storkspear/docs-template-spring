@@ -97,7 +97,7 @@ Spring Boot 3.5.13 BOM 으로 버전을 일괄 관리해요.
 | 이름 | 버전 | 용도 |
 |---|---|---|
 | **Prometheus** | v2.55.0 | 메트릭 수집 (운영 retention 7일) |
-| **Grafana Loki** | 3.2.0 | 로그 수집 (retention 14일) |
+| **Grafana Loki** | 3.2.0 | 로그 수집 (retention 1년) |
 | **Grafana** | 11.3.0 | 대시보드 |
 | **Alertmanager** | v0.27.0 | 알람 라우팅 (Discord webhook) |
 

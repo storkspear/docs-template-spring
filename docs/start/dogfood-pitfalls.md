@@ -27,28 +27,26 @@
 
 ## 한눈에 — 함정 15개 표
 
-| # | 단계 | 증상(검색 키워드) | 원인 한 줄 | 해결 한 줄 | 관련 commit |
-|---|---|---|---|---|---|
-| **1** | Locate jar | `[ -f ]` false, multi-line `$JAR` | `bootstrap.jar` 과 `bootstrap-plain.jar` 양쪽이 매치 | artifact path 좁힘 + `find -not -name '*-plain.jar' \| head -1` | `3af3e89` |
-| **2** | Cleanup step | `Package not found` | 첫 배포라 GHCR 패키지가 아직 없음 | cleanup step 에 `continue-on-error: true` | `3af3e89` |
-| **3** | Tailscale | `403 ... does not have enough permissions`(action v2) | `tailscale/github-action@v2` 가 옛 1.42.0 을 받아 신 OAuth API 와 비호환 | `tailscale/github-action@v4` 로 업그레이드 | `41e076d` |
-| **4** | Tailscale | 같은 `403`(action v4 인데도) | OAuth client 의 Auth Keys 권한 미체크 | OAuth client 재발급, Devices Core Write 와 Auth Keys Write 둘 다 + tag:ci | `26ff9e0` |
-| **5** | GHCR push | `403 Forbidden HEAD blob` | repo 의 default workflow permissions 가 read-only | `gh api`로 `default_workflow_permissions=write` 변경 | `8bbb8ea` |
-| **6** | GHCR push | 같은 `403`(write 인데도) | provenance·sbom attestation 이 추가 권한을 요구 | `provenance: false`, `sbom: false`, cache export 제거 | `777218d` |
-| **7** | GHCR push | 또 같은 `403` | `GITHUB_TOKEN` 으로는 첫 GHCR 패키지 생성 권한이 부족 | PAT 발급 후 `GHCR_TOKEN` secret 사용 | `5b2eb7a` |
-| **8** | kamal SSH | `ENOTTY ... root@... password:` | `ssh.user` default 가 `root` → root SSH 비활성 → 비대화형 프롬프트 | `DEPLOY_SSH_USER` GHA Variable 추가 후 env 주입 | `d765372` |
-| **9** | kamal docker login | `flag needs argument: 'p' in -p` | env 에 `GHCR_TOKEN` 미주입 → `$GHCR_TOKEN` 이 빈 값으로 해석 | env 블록에 `GHCR_TOKEN` 추가 | `c312bb5` |
-| **10a** | kamal pull | 이미지 경로 `ghcr.io/ghcr.io/...` 이중 prefix | `KAMAL_IMAGE` 에 `ghcr.io/` 까지 포함 → registry.server 가 다시 prefix | `KAMAL_IMAGE` 를 `owner/repo` 만으로 | `d610cb5` |
-| **10b** | kamal inspect | `Image ... is missing the 'service' label` | 직접 buildx 빌드라 kamal 자동 부여 label 이 없음 | build-push-action 에 `service` label 추가 | `d610cb5` |
-| **11** | Spring 기동 | `No suitable driver` for jdbcUrl=postgresql://... | `DB_URL` 에 `jdbc:` prefix 누락 + user/password inline | `jdbc:postgresql://host:port/db` 로, 자격은 별도 변수로 | `5c54b86` |
-| **12** | Gradle 빌드 | `Unsupported class file major version 70` | 시스템 JDK 가 26 — Gradle/Groovy 가 못 읽음 | JDK 21 설치 후 `JAVA_HOME` 고정 | prereq 가드로 차단 |
-| **13** | 첫 배포 health | `target failed to become healthy ... timeout (30s)` | 원거리 콜드 DB 라 첫 Flyway 마이그레이션이 30초 초과 | `deploy_timeout: 120` | post-deploy 보강 |
-| **14** | Cloudflare 라우팅 | 배포 성공인데 외부 도메인 404, `dig` NXDOMAIN | 터널이 remote-managed + manual deploy 라 ingress·DNS 자동등록을 건너뜀 | `prod init` 로 자동등록, 또는 API 로 수동 추가 | post-deploy 보강 |
-| **15** | Loki 로그 | Grafana 로그 0, `loki4j ... ConnectException` 반복 | 앱이 Loki 보다 먼저 떠 appender 가 영구 fail | observability 를 첫 배포 전 기동, 또는 앱 컨테이너 restart | post-deploy 보강 |
+| # | 단계 | 증상(검색 키워드) | 원인 한 줄 | 해결 한 줄 |
+|---|---|---|---|---|
+| **1** | Locate jar | `[ -f ]` false, multi-line `$JAR` | `bootstrap.jar` 과 `bootstrap-plain.jar` 양쪽이 매치 | artifact path 좁힘 + `find -not -name '*-plain.jar' \| head -1` |
+| **2** | Cleanup step | `Package not found` | 첫 배포라 GHCR 패키지가 아직 없음 | cleanup step 에 `continue-on-error: true` |
+| **3** | Tailscale | `403 ... does not have enough permissions`(action v2) | `tailscale/github-action@v2` 가 옛 1.42.0 을 받아 신 OAuth API 와 비호환 | `tailscale/github-action@v4` 로 업그레이드 |
+| **4** | Tailscale | 같은 `403`(action v4 인데도) | OAuth client 의 Auth Keys 권한 미체크 | OAuth client 재발급, Devices Core Write 와 Auth Keys Write 둘 다 + tag:ci |
+| **5** | GHCR push | `403 Forbidden HEAD blob` | repo 의 default workflow permissions 가 read-only | `gh api`로 `default_workflow_permissions=write` 변경 |
+| **6** | GHCR push | 같은 `403`(write 인데도) | provenance·sbom attestation 이 추가 권한을 요구 | `provenance: false`, `sbom: false`, cache export 제거 |
+| **7** | GHCR push | 또 같은 `403` | `GITHUB_TOKEN` 으로는 첫 GHCR 패키지 생성 권한이 부족 | PAT 발급 후 `GHCR_TOKEN` secret 사용 |
+| **8** | kamal SSH | `ENOTTY ... root@... password:` | `ssh.user` default 가 `root` → root SSH 비활성 → 비대화형 프롬프트 | `DEPLOY_SSH_USER` GHA Variable 추가 후 env 주입 |
+| **9** | kamal docker login | `flag needs argument: 'p' in -p` | env 에 `GHCR_TOKEN` 미주입 → `$GHCR_TOKEN` 이 빈 값으로 해석 | env 블록에 `GHCR_TOKEN` 추가 |
+| **10a** | kamal pull | 이미지 경로 `ghcr.io/ghcr.io/...` 이중 prefix | `KAMAL_IMAGE` 에 `ghcr.io/` 까지 포함 → registry.server 가 다시 prefix | `KAMAL_IMAGE` 를 `owner/repo` 만으로 |
+| **10b** | kamal inspect | `Image ... is missing the 'service' label` | 직접 buildx 빌드라 kamal 자동 부여 label 이 없음 | build-push-action 에 `service` label 추가 |
+| **11** | Spring 기동 | `No suitable driver` for jdbcUrl=postgresql://... | `DB_URL` 에 `jdbc:` prefix 누락 + user/password inline | `jdbc:postgresql://host:port/db` 로, 자격은 별도 변수로 |
+| **12** | Gradle 빌드 | `Unsupported class file major version 70` | 시스템 JDK 가 26 — Gradle/Groovy 가 못 읽음 | JDK 21 설치 후 `JAVA_HOME` 고정 (prereq 가드로 차단) |
+| **13** | 첫 배포 health | `target failed to become healthy ... timeout (30s)` | 원거리 콜드 DB 라 첫 Flyway 마이그레이션이 30초 초과 | `deploy_timeout: 120` (post-deploy 보강) |
+| **14** | Cloudflare 라우팅 | 배포 성공인데 외부 도메인 404, `dig` NXDOMAIN | 터널이 remote-managed + manual deploy 라 ingress·DNS 자동등록을 건너뜀 | `prod init` 로 자동등록, 또는 API 로 수동 추가 (post-deploy 보강) |
+| **15** | Loki 로그 | Grafana 로그 0, `loki4j ... ConnectException` 반복 | 앱이 Loki 보다 먼저 떠 appender 가 영구 fail | observability 를 첫 배포 전 기동, 또는 앱 컨테이너 restart (post-deploy 보강) |
 
 > 위 표의 "원인 한 줄"·"해결 한 줄" 칸은 빠르게 훑는 reference 라 의도적으로 명사구로 압축했어요. 표 안 명사구 허용 규정은 [`STYLE_GUIDE §3`](../reference/STYLE_GUIDE.md) 에 있어요.
->
-> "관련 commit" 칸의 SHA 는 도그푸딩 당시 히스토리 기준이에요. 이후 히스토리 정리로 현재 레포에서는 그 SHA 가 조회되지 않고, 같은 수정이 다른 SHA 로 남아 있어요 (예: #1·#2 의 수정은 현재 히스토리의 `6e2b825`). 수정 내용 자체는 코드에 그대로 반영돼 있어요.
 
 ---
 
@@ -72,7 +70,7 @@ _artifact/:
 - `ci.yml` 의 upload-artifact path 를 `bootstrap.jar` 로 좁혀 plain jar 를 제외했어요.
 - `deploy.yml` 의 Locate step 을 `find bootstrap/build/libs -maxdepth 1 -name '*.jar' -not -name '*-plain.jar' | head -1` 로 안전하게 바꿨어요.
 
-이 함정은 워크플로우 코드 자체에 박혀 있어서, 새 fork 에서 다시 만나지 않아요. `setup.sh` 와는 무관해요.
+이 함정은 워크플로우 코드 자체에 박혀 있어서, 새 파생 레포에서 다시 만나지 않아요. `setup.sh` 와는 무관해요.
 
 ---
 
@@ -298,9 +296,9 @@ ERROR: target failed to become healthy within configured timeout (30s)
 
 앱 컨테이너 로그를 보면 죽기 직전까지 Flyway 가 `Migrating schema "<slug>" to version "00X"` 를 정상 진행 중이었어요. 재시도하면 더 높은 버전까지 갔다가 또 죽고요.
 
-원인은 첫 배포가 빈 schema 라는 데 있어요. 새 앱이 받는 공통 마이그레이션은 `new-app.sh` 가 생성하는 V001~V026 세트예요(V001~V006 인증, V008~V012 결제·audit, V013 2FA, V014 알림, V015 점유인증, V016 이메일 소유확인 코드, V017 유저 활동 추적, V018~V021 첨부파일·열람이력·발송이력·감사 아카이브, V022~V023 환불, V024~V025 게시글·분석 — V007 admin 시드는 `--seed-admin` opt-in). 첫 기동에서는 Spring 이 이 전체를 다 migrate 한 뒤에야 `/actuator/health/liveness` 가 200 을 줘요. DB 가 배포 호스트와 멀거나(예: Supabase 가 Mac mini 와 다른 리전 — 시드니 대 서울) 콜드 상태면 쿼리 왕복 지연이 커져서, 마이그레이션이 kamal-proxy 의 기본 `deploy-timeout` 30초를 넘겨요. 그러면 컨테이너가 kill 되고 배포가 실패 루프에 빠져요. dev 는 같은 리전이라 통과하는데 prod 만 실패한다면 이걸 의심하세요.
+원인은 첫 배포가 빈 schema 라는 데 있어요. 새 앱이 받는 공통 마이그레이션은 `new-app.sh` 가 생성하는 V001~V027 세트예요(V001~V006 인증, V008~V012 결제·audit, V013 2FA, V014 알림, V015 점유인증, V016 이메일 소유확인 코드, V017 유저 활동 추적, V018~V021 첨부파일·열람이력·발송이력·감사 아카이브, V022~V023 환불, V024~V025 게시글·분석 — V007 admin 시드는 `--seed-admin` opt-in). 첫 기동에서는 Spring 이 이 전체를 다 migrate 한 뒤에야 `/actuator/health/liveness` 가 200 을 줘요. DB 가 배포 호스트와 멀거나(예: Supabase 가 Mac mini 와 다른 리전 — 시드니 대 서울) 콜드 상태면 쿼리 왕복 지연이 커져서, 마이그레이션이 kamal-proxy 의 기본 `deploy-timeout` 30초를 넘겨요. 그러면 컨테이너가 kill 되고 배포가 실패 루프에 빠져요. dev 는 같은 리전이라 통과하는데 prod 만 실패한다면 이걸 의심하세요.
 
-> 도메인 테이블은 다음 빈 번호(현재 V027)부터 작성해요. V001~V026 이 이미 차 있고, V007 은 도메인이 아니라 `--seed-admin` 전용 admin 시드 자리예요.
+> 도메인 테이블은 다음 빈 번호(현재 V028)부터 작성해요. V001~V027 이 이미 차 있고, V007 은 도메인이 아니라 `--seed-admin` 전용 admin 시드 자리예요.
 
 해결은 `config/deploy.yml` 루트에 `deploy_timeout: 120` 을 두는 거예요(이제 템플릿 default). kamal 은 로컬 config 를 deploy 설정으로 읽으니(이미지는 origin SHA) 커밋 전이라도 적용돼요. 평시 재배포는 schema 가 이미 최신이라 마이그레이션 없이 빠르게 부팅해요. 매 재시도가 마이그레이션을 버전별로 누적 진행해서 끝내 수렴하긴 하지만, timeout 을 키우는 게 정석이에요. `config/deploy.yml` 과 `config/deploy-dev.yml` 모두 `deploy_timeout: 120` 으로 반영돼 있어요.
 

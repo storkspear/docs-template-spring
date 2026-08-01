@@ -171,12 +171,6 @@ GitHub 에서 바로 읽고 싶다면 아래 목차를 따라가세요. 섹션 �
 - [`Edge Cases`](./reference/edge-cases.md)
 - [`Documentation Style Guide`](./reference/STYLE_GUIDE.md) — 저자용
 
-## Planned
-
-- [`Backlog`](./planned/backlog.md) — 개발 예정 항목
-
----
-
 ## 문서 관리 규칙
 
 이 레포의 `docs/` 는 뷰어 레포 (`docs-template-spring`) 와 **동일한 디렉토리 구조 + 동일한 파일 내용** 을 유지합니다. 변경 시 양쪽에 반영하세요.
