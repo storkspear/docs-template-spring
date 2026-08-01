@@ -135,7 +135,7 @@ public void onApplicationReady() {
 
 - 비인증 endpoint 가 DB 접근을 시도하면 fail-secure exception 이 나요. 다만 비인증 endpoint 는 actuator·health 뿐이고 이들은 DB 에 접근하지 않으니 영향이 없어요
 - 기존 운영 환경에 core schema 데이터가 있으면 DROP CASCADE 가 필요해요. 구축 단계라 데이터를 보존하지 않기로 도그푸딩 cycle 에서 결정했어요
-- template-spring 자체(apps 0개)는 부팅 불가이고, 파생 레포(new-app 1개 이상)에서만 부팅해요. bootstrap 의 통합 test 3개(FactoryApplicationTests·FeatureToggleTest·HealthEndpointsTest)는 `@Disabled` 이고 ArchUnit 만 활성이에요
+- ~~template-spring 자체(apps 0개)는 부팅 불가이고, 파생 레포(new-app 1개 이상)에서만 부팅해요. bootstrap 의 통합 test 3개(FactoryApplicationTests·FeatureToggleTest·HealthEndpointsTest)는 `@Disabled` 이고 ArchUnit 만 활성이에요~~ → **2026-08-02 해소** (아래 후속 참고)
 
 ## Code References
 
@@ -148,6 +148,14 @@ public void onApplicationReady() {
 ## 후속
 
 이후 cycle 에서 완료한 것:
+- **template-spring 자체 부팅 복구 (2026-08-02)** — 위 Con 이 해소됐어요. 테스트 전용 슬러그 픽스처
+  (`bootstrap/src/test/.../TestAppDataSourceConfig`)가 `testapp` 슬러그 하나를 등록해 routing target 을 채워요.
+  형태는 `new-app.sh` 스캐폴드와 같은 계약(DataSource/EMF/TM/Flyway 4빈 + `runFlywayWithMode` 명시 호출)이라,
+  이 픽스처가 뜨면 스캐폴드가 만드는 앱도 뜬다는 뜻이에요. 마이그레이션은 `common-testing` 의
+  `db/migration/apps`(core 세트 21개)를 재사용해요 — `AdminFanoutTestSupport` 가 쓰던 자산 그대로예요.
+  `@Disabled` 3개를 해제해 **17개 테스트가 되살아났고**, 부팅하자마자 Spring Boot 4 이관에서 넘어간
+  `application.yml` 의 Jackson 설정 오류(앱이 아예 뜨지 않는 수준)를 잡아냈어요.
+  덤으로 `ApiEndpointMatrixTest` 가 붙어 계약 스냅샷 경로의 실제 등록 여부와 미인증 접근 posture 를 검증해요.
 - **물리 `core` schema 잔재 제거 (2026-07-01)** — `infra/postgres/init.sql` 의 `CREATE SCHEMA IF NOT EXISTS core;` 삭제 + `infra/scripts/init-core-schema.sql` 파일 폐기 + 빈 `db/migration/core/` 디렉토리(auth/user/device impl) 정리. 앞서 '정리 예정' 이라 했던 항목을 완료로 마감. (테스트 `UserControllerTest`·`NotificationSettingControllerTest` 는 Testcontainers 가 `spring.flyway.schemas=core` + `create-schemas=true` 로 자족 생성하므로 영향 없음.)
 
 본 cycle 에서 임시 fix 한 것:

@@ -32,7 +32,7 @@
 | `@Primary` | 같은 타입의 Bean 이 여러 개 있을 때 "기본은 이거다" 라고 지정해요. 다중 DataSource 구성에서 등장해요 |
 | `@ConfigurationProperties` | `application.yml` 의 설정값을 타입 세이프한 클래스에 바인딩해요. `JwtProperties`, `RateLimitProperties` 등이 그 예예요 |
 | `@ConditionalOnMissingBean` | "이 이름의 Bean 이 없을 때만 이 Bean 을 등록하라" 는 조건이에요. 자동 설정에서 사용자 커스터마이즈를 허용하는 패턴이에요 |
-| `@AutoConfiguration` | Spring Boot 3.x 의 자동 설정 선언. `spring.factories` 대신 `AutoConfiguration.imports` 로 로딩돼요 |
+| `@AutoConfiguration` | Spring Boot 자동 설정 선언. `spring.factories` 대신 `AutoConfiguration.imports` 로 로딩돼요 |
 | `@Import` | 다른 `@Configuration` 을 현재 설정에 가져와요. 모듈 경계를 넘나들 때 사용해요 |
 | `@Transactional` | 메서드 실행 전후로 DB 트랜잭션을 자동 관리해요. 예외 발생 시 롤백돼요 |
 | `@Entity` | JPA 가 "이 클래스는 DB 테이블과 매핑된다" 고 인식하는 표식이에요 |
