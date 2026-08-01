@@ -132,7 +132,7 @@ Email 만 silent skip 인 이유: 기존 정책 (이메일 발송 실패가 가�
 
 ### 자기검증
 
-- `bootstrap/src/test/java/.../FeatureToggleTest` — 9 도메인 동시 비활성 + 부팅 OK + 6 Port bean 미등록 + 공유 컨트롤러·listener·validator 미등록 (Testcontainers + @SpringBootTest, @Test 12건)
+- `bootstrap/src/test/java/.../FeatureToggleTest` — 9 도메인 동시 비활성 + 부팅 OK + 6 Port bean 미등록 + 공유 컨트롤러·listener·validator 미등록 (Testcontainers + `@SpringBootTest`, `@Test` 12건)
 - 패턴 분류:
   - **Leaf 모듈** (의존을 받지 않는 모듈): `@ConditionalOnProperty` 만으로 안전하게 토글돼요
   - **Non-leaf 모듈** (의존을 받는 모듈): 의존 측에서 `ObjectProvider<Port>` 로 lazy 의존 → toggle off 시에도 컴파일과 부팅이 OK 예요

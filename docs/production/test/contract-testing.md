@@ -114,7 +114,7 @@ core-<x>-impl/
     └── <X>ServiceImplContractTest.java   (concrete, @ContractTest + @Import)
 ```
 
-### Abstract 계약 구조 — method 별 @Nested
+### Abstract 계약 구조 — method 별 `@Nested`
 
 각 Port 의 public method 마다 `@Nested` 클래스를 하나씩 두고, 그 안에 happy path 와 error path 를 담습니다. abstract 클래스는 `AbstractContractBase` 를 상속하고, 구현 주입은 `port()` 와 `fixtures()` 추상 메서드로 받아요.
 
@@ -360,7 +360,7 @@ core-*-impl 의 test 가 다른 impl 을 `testImplementation` 으로 가져오�
 - [ ] 위 모든 단계와 더불어
 - [ ] `core-<x>-api/build.gradle` 에 `java-test-fixtures` 플러그인 적용
 - [ ] `core-<x>-impl/build.gradle` 에 `testImplementation testFixtures(project(':core:core-<x>-api'))` 추가
-- [ ] `<X>ContractTestApplication.java` 작성 (@SpringBootConfiguration)
+- [ ] `<X>ContractTestApplication.java` 작성 (`@SpringBootConfiguration`)
 - [ ] 외부 port 가 있으면 `<X>Recorder` 와 `InMemory<Port>Adapter` 작성
 
 ---

@@ -238,7 +238,7 @@ PortOneWebhookVerifierTest: 14/14 PASS (Signature 6 + Timestamp 5 + Combined 3)
 | `core/core-billing-impl/.../entity/{Plan,Subscription,PaymentRecord,WebhookEvent}.java` | 신규 — BaseEntity 상속 |
 | `core/core-billing-impl/.../repository/*Repository.java` | Spring Data JPA |
 | `core/core-billing-impl/.../BillingServiceImpl.java` | BillingPort 구현 — TransactionTemplate phase 분리 |
-| `core/core-billing-impl/.../scheduler/SubscriptionExpirationScheduler.java` | @Scheduled cron + slug iter (B 사이클) |
+| `core/core-billing-impl/.../scheduler/SubscriptionExpirationScheduler.java` | `@Scheduled` cron + slug iter (B 사이클) |
 | `core/core-billing-impl/.../scheduler/SubscriptionRenewalScheduler.java` | 만료 임박 식별 + RenewalDueEvent 발행 (F-MVP 사이클) |
 | `core/core-billing-api/event/SubscriptionRenewalDueEvent.java` | ApplicationEvent record (F-MVP) |
 | `core/core-billing-impl/.../scheduler/SubscriptionRenewalListener.java` | RenewalDueEvent 처리 → renewSubscription 호출 (G 사이클) |
@@ -374,8 +374,8 @@ IapAdapter (composite)
 
 - **Auth**: App Store Connect API key (.p8) 으로 ES256 JWT 발급 (50분 캐시). DER → JOSE P1363 변환 직접 구현 (외부 lib 없이 JDK `Signature`).
 - **API**: `GET /inApps/v1/transactions/{transactionId}` → 응답의 `signedTransactionInfo` (JWS) 파싱.
-- **JWS 서명 검증** ([D-secure 사이클]): {@code AppleJwsVerifier} 가 cert chain validation + ES256 signature
-  검증을 수행해요. {@code classpath:apple-root-ca-g3.cer} (Apple Root CA G3) 를 trust anchor 로 {@code
+- **JWS 서명 검증** ([D-secure 사이클]): {`@code` AppleJwsVerifier} 가 cert chain validation + ES256 signature
+  검증을 수행해요. {`@code` classpath:apple-root-ca-g3.cer} (Apple Root CA G3) 를 trust anchor 로 {`@code`
   CertPathValidator} (PKIX) 가 leaf → intermediate → root 를 검증하고, 그 leaf cert 의 public key 로 ES256 서명을 확인해요.
   JOSE P1363 → DER ECDSA 변환은 직접 구현했어요. revocation (OCSP/CRL) 은 OFF — Apple cert 가 짧은 lifetime 이라 운영 부하를 회피하려는 결정이에요.
 

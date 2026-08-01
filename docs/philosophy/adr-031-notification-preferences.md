@@ -127,7 +127,7 @@ GET    /api/apps/<slug>/me/notification-preferences            (조회)
 PATCH  /api/apps/<slug>/me/notification-preferences/{kind}     (변경)
 ```
 
-→ **`NotificationPreferenceController` 신규 추가됨** — 위치는 `core/core-billing-impl/.../controller/` 예요. `NotificationPreferenceControllerTest` 가 Testcontainers + @SpringBootTest + MockMvc + JWT 로 GET/PATCH 200/204/401 + 영속 + upsert 6 건을 검증해요. `-parameters` compile flag 미설정 환경과 호환되도록 `@PathVariable("appSlug")` 와 `@PathVariable("kind")` 의 name 을 명시했어요.
+→ **`NotificationPreferenceController` 신규 추가됨** — 위치는 `core/core-billing-impl/.../controller/` 예요. `NotificationPreferenceControllerTest` 가 Testcontainers + `@SpringBootTest` + MockMvc + JWT 로 GET/PATCH 200/204/401 + 영속 + upsert 6 건을 검증해요. `-parameters` compile flag 미설정 환경과 호환되도록 `@PathVariable("appSlug")` 와 `@PathVariable("kind")` 의 name 을 명시했어요.
 
 ---
 

@@ -99,14 +99,14 @@ CLI 가 `.env` + `.env.prod` 를 동시 변경하는 것에 비해 한쪽만 변
 
 ## 토글 매트릭스 (검증 결과)
 
-> **갱신 (2026-07-15)**: 결정 당시 payment·iap·email·2fa 는 "후속 — 토글 시 부팅 fail" 이었지만, 이후 `ObjectProvider` lazy 의존 적용으로 전 도메인 토글이 완료됐어요 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.md)). phone-auth 도 [`ADR-038`](./adr-038-sms-phone-auth.md) 에서 추가됐습니다. 아래 매트릭스는 현행 기준이에요 — `FeatureToggleTest` 가 9개 도메인 동시 off + 부팅 OK 를 @Test 12건으로 검증합니다.
+> **갱신 (2026-07-15)**: 결정 당시 payment·iap·email·2fa 는 "후속 — 토글 시 부팅 fail" 이었지만, 이후 `ObjectProvider` lazy 의존 적용으로 전 도메인 토글이 완료됐어요 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.md)). phone-auth 도 [`ADR-038`](./adr-038-sms-phone-auth.md) 에서 추가됐습니다. 아래 매트릭스는 현행 기준이에요 — `FeatureToggleTest` 가 9개 도메인 동시 off + 부팅 OK 를 `@Test` 12건으로 검증합니다.
 
 | Feature | default | toggle off 동작 | 검증 |
 |---|---|---|---|
 | `audit` | true | AuditPort bean 미등록 → `@Audited` 무동작 | ✅ FeatureToggleTest |
 | `push` | true | PushPort bean 미등록 → 푸시 발송 무동작 | ✅ FeatureToggleTest |
 | `billing-notification` | true | listener 미등록 → 갱신 알림 X | ✅ FeatureToggleTest |
-| `password-policy` | true | PasswordValidator 미등록 → @ValidPassword 무동작 | ✅ FeatureToggleTest |
+| `password-policy` | true | PasswordValidator 미등록 → `@ValidPassword` 무동작 | ✅ FeatureToggleTest |
 | `payment` | true | PaymentPort·공유 PaymentController 미등록 → 호출 시 CMN_009 | ✅ FeatureToggleTest |
 | `iap` | true | IapPort·공유 IapController 미등록 → 호출 시 CMN_009 | ✅ FeatureToggleTest |
 | `email` | true | EmailPort 미등록 → 메일 발송 silent skip | ✅ FeatureToggleTest |
@@ -130,7 +130,7 @@ CLI 가 `.env` + `.env.prod` 를 동시 변경하는 것에 비해 한쪽만 변
 <repo> local api-test               # step 11 PASS 복귀 확인
 ```
 
-위 시나리오는 `bootstrap/FeatureToggleTest` 가 자동화합니다 (Testcontainers + @SpringBootTest).
+위 시나리오는 `bootstrap/FeatureToggleTest` 가 자동화합니다 (Testcontainers + `@SpringBootTest`).
 
 ---
 

@@ -25,21 +25,21 @@
 
 | 용어 | 설명 |
 |---|---|
-| @Bean | Spring 이 관리하는 객체인 Bean 을 선언해요. `@Configuration` 클래스 안의 메서드에 붙여요 |
-| @Configuration | "이 클래스 안에 `@Bean` 메서드가 있다" 고 Spring 에 알리는 표식이에요 |
-| @Component / @Service / @Controller / @Repository | 각각 일반 Bean·비즈니스 로직·HTTP 컨트롤러·DB 접근을 의미하는 스테레오타입 어노테이션이에요. Spring 이 자동으로 등록해요 |
-| @Autowired | Bean 을 주입받을 지점을 표시해요. 이 레포는 생성자 주입을 선호해서 대부분 생략해요. Spring 4.3 이상은 단일 생성자면 자동으로 주입돼요 |
-| @Primary | 같은 타입의 Bean 이 여러 개 있을 때 "기본은 이거다" 라고 지정해요. 다중 DataSource 구성에서 등장해요 |
-| @ConfigurationProperties | `application.yml` 의 설정값을 타입 세이프한 클래스에 바인딩해요. `JwtProperties`, `RateLimitProperties` 등이 그 예예요 |
-| @ConditionalOnMissingBean | "이 이름의 Bean 이 없을 때만 이 Bean 을 등록하라" 는 조건이에요. 자동 설정에서 사용자 커스터마이즈를 허용하는 패턴이에요 |
-| @AutoConfiguration | Spring Boot 3.x 의 자동 설정 선언. `spring.factories` 대신 `AutoConfiguration.imports` 로 로딩돼요 |
-| @Import | 다른 `@Configuration` 을 현재 설정에 가져와요. 모듈 경계를 넘나들 때 사용해요 |
-| @Transactional | 메서드 실행 전후로 DB 트랜잭션을 자동 관리해요. 예외 발생 시 롤백돼요 |
-| @Entity | JPA 가 "이 클래스는 DB 테이블과 매핑된다" 고 인식하는 표식이에요 |
-| @MappedSuperclass | 공통 필드인 id, createdAt 등을 담고 실제 테이블로는 매핑되지 않는 부모 클래스예요. `BaseEntity` 가 이것이에요 ([`ADR-009`](../philosophy/adr-009-base-entity.md)) |
-| @Id / @GeneratedValue | 엔티티의 PK 와 자동 증가 전략. 이 레포는 `GenerationType.IDENTITY`, 즉 DB 자동 증가를 사용해요 |
-| @Column | 엔티티 필드와 DB 컬럼 매핑을 커스터마이즈해요. 이름·nullable·length 등을 지정해요 |
-| @CurrentUser | 이 레포 자체의 커스텀 어노테이션. 컨트롤러 파라미터에 붙이면 JWT 에서 추출한 유저 정보를 자동 주입해요 |
+| `@Bean` | Spring 이 관리하는 객체인 Bean 을 선언해요. `@Configuration` 클래스 안의 메서드에 붙여요 |
+| `@Configuration` | "이 클래스 안에 `@Bean` 메서드가 있다" 고 Spring 에 알리는 표식이에요 |
+| `@Component` / `@Service` / `@Controller` / `@Repository` | 각각 일반 Bean·비즈니스 로직·HTTP 컨트롤러·DB 접근을 의미하는 스테레오타입 어노테이션이에요. Spring 이 자동으로 등록해요 |
+| `@Autowired` | Bean 을 주입받을 지점을 표시해요. 이 레포는 생성자 주입을 선호해서 대부분 생략해요. Spring 4.3 이상은 단일 생성자면 자동으로 주입돼요 |
+| `@Primary` | 같은 타입의 Bean 이 여러 개 있을 때 "기본은 이거다" 라고 지정해요. 다중 DataSource 구성에서 등장해요 |
+| `@ConfigurationProperties` | `application.yml` 의 설정값을 타입 세이프한 클래스에 바인딩해요. `JwtProperties`, `RateLimitProperties` 등이 그 예예요 |
+| `@ConditionalOnMissingBean` | "이 이름의 Bean 이 없을 때만 이 Bean 을 등록하라" 는 조건이에요. 자동 설정에서 사용자 커스터마이즈를 허용하는 패턴이에요 |
+| `@AutoConfiguration` | Spring Boot 3.x 의 자동 설정 선언. `spring.factories` 대신 `AutoConfiguration.imports` 로 로딩돼요 |
+| `@Import` | 다른 `@Configuration` 을 현재 설정에 가져와요. 모듈 경계를 넘나들 때 사용해요 |
+| `@Transactional` | 메서드 실행 전후로 DB 트랜잭션을 자동 관리해요. 예외 발생 시 롤백돼요 |
+| `@Entity` | JPA 가 "이 클래스는 DB 테이블과 매핑된다" 고 인식하는 표식이에요 |
+| `@MappedSuperclass` | 공통 필드인 id, createdAt 등을 담고 실제 테이블로는 매핑되지 않는 부모 클래스예요. `BaseEntity` 가 이것이에요 ([`ADR-009`](../philosophy/adr-009-base-entity.md)) |
+| @Id / `@GeneratedValue` | 엔티티의 PK 와 자동 증가 전략. 이 레포는 `GenerationType.IDENTITY`, 즉 DB 자동 증가를 사용해요 |
+| `@Column` | 엔티티 필드와 DB 컬럼 매핑을 커스터마이즈해요. 이름·nullable·length 등을 지정해요 |
+| `@CurrentUser` | 이 레포 자체의 커스텀 어노테이션. 컨트롤러 파라미터에 붙이면 JWT 에서 추출한 유저 정보를 자동 주입해요 |
 | ApplicationRunner | Spring Boot 시작 직후 실행되는 인터페이스. 초기 데이터 로드, 헬스체크 등에 사용해요 |
 
 ## 데이터베이스
@@ -165,17 +165,17 @@
 | 용어 | 설명 |
 |---|---|
 | JUnit 5 | Java 테스트 프레임워크. `@Test` 어노테이션 기반이에요 |
-| @Nested | JUnit 5 의 테스트 클래스 중첩. given-when-then 구조화에 사용해요 |
+| `@Nested` | JUnit 5 의 테스트 클래스 중첩. given-when-then 구조화에 사용해요 |
 | AssertJ | 유창한 assert 라이브러리. `assertThat(result).isEqualTo(expected).hasSize(3)` 같은 체이닝을 써요 |
 | Mockito | Java 모킹 라이브러리. `when().thenReturn()`, `verify()` 등을 제공해요 |
 | ArgumentCaptor | Mockito 의 호출 인자 캡처 도구. "실제로 어떤 값으로 호출됐는지" 를 검증해요 |
 | Testcontainers | 테스트에서 진짜 Postgres, MinIO 등을 Docker 로 띄우는 라이브러리. Mock 대신 실제 DB 로 통합 테스트를 해요 |
-| @SpringBootTest | Spring ApplicationContext 전체를 띄우는 통합 테스트 어노테이션이에요 |
-| @DataJpaTest | JPA 레이어만 띄우는 슬라이스 테스트. H2 가 기본이지만 이 레포는 Testcontainers Postgres 를 써요 |
-| @TestConfiguration | 테스트 전용 Bean 정의. 프로덕션 코드에는 영향이 없어요 |
-| @ActiveProfiles | 테스트에서 사용할 Spring 프로파일을 지정해요. `@ActiveProfiles("test")` 처럼 써요 |
-| @Sql | 테스트 전후로 SQL 파일을 실행해요. 시드 데이터 로드에 사용해요 |
-| @DynamicPropertySource | Testcontainers 가 띄운 컨테이너의 동적 포트 주소를 Spring 설정에 주입해요 |
+| `@SpringBootTest` | Spring ApplicationContext 전체를 띄우는 통합 테스트 어노테이션이에요 |
+| `@DataJpaTest` | JPA 레이어만 띄우는 슬라이스 테스트. H2 가 기본이지만 이 레포는 Testcontainers Postgres 를 써요 |
+| `@TestConfiguration` | 테스트 전용 Bean 정의. 프로덕션 코드에는 영향이 없어요 |
+| `@ActiveProfiles` | 테스트에서 사용할 Spring 프로파일을 지정해요. `@ActiveProfiles("test")` 처럼 써요 |
+| `@Sql` | 테스트 전후로 SQL 파일을 실행해요. 시드 데이터 로드에 사용해요 |
+| `@DynamicPropertySource` | Testcontainers 가 띄운 컨테이너의 동적 포트 주소를 Spring 설정에 주입해요 |
 | Contract Testing | API 응답의 JSON 계약을 테스트로 고정해요. 필드 이름이 바뀌면 테스트가 깨져요 ([`production/test/contract-testing`](../production/test/contract-testing.md)) |
 | Integration Test | 여러 컴포넌트를 실제로 엮어서 돌리는 테스트. 이 레포는 Testcontainers Postgres 가 필수예요 |
 | Delegation Mock | "A 가 B 를 호출하는지" 만 확인하는 테스트로 껍데기만 검증해요. 이 레포는 금지해요 ([`ADR-014`](../philosophy/adr-014-no-delegation-mock.md)) |

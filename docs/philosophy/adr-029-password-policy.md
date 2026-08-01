@@ -1,4 +1,4 @@
-# ADR-029 — 비밀번호 정책 강화 (@ValidPassword)
+# ADR-029 — 비밀번호 정책 강화 (`@ValidPassword`)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
 
@@ -57,7 +57,7 @@ baseline 강화의 필요성을 보여주는 시나리오를 보면 그 부담�
 
 ---
 
-## @ValidPassword 사용 패턴
+## `@ValidPassword` 사용 패턴
 
 ```java
 public record SignUpRequest(

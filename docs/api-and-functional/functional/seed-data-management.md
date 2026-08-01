@@ -239,7 +239,7 @@ public class JpaAuthFixtures implements AuthFixtures {
 | 실행 환경 | 모든 환경 | 프로파일로 제한 | 테스트만 |
 | 실행 시점 | 부팅 시 (Flyway) | 부팅 시 (bean 초기화 후) | 테스트 메서드 전·중 |
 | 수정 반영 | 파일 체크섬 변경 시 자동 | 코드 재배포 필요 | 코드 재컴파일 |
-| 운영 위험 | **높음** (실수로 넣으면 그대로 prod 에) | 낮음 (@Profile 가드) | 없음 (ephemeral) |
+| 운영 위험 | **높음** (실수로 넣으면 그대로 prod 에) | 낮음 (`@Profile` 가드) | 없음 (ephemeral) |
 | 권장 데이터 | 참조 데이터 (카테고리, 코드) | 개발자 테스트 계정 | 테스트 케이스별 fixture |
 
 ---

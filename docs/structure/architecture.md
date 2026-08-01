@@ -931,8 +931,8 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 
 |---|---|---|---|
 | Unit | 순수 알고리즘 (JWT, AuthRefreshToken rotation, Apple JWKS, BCrypt) | `common-security/test/`, `core-auth-impl/test/service/` | 없음 |
 | Contract (JSON) | DTO ↔ JSON 직렬화 | `core-*-api/test/json/` | 없음 |
-| Contract (Port) | Port 인터페이스 행위 계약 | `core-auth-impl/test/AuthServiceImplContractTest` | @SpringBootTest + Testcontainers |
-| Integration | HTTP → Controller → DB 전체 흐름 | `bootstrap/test/` | @SpringBootTest + Testcontainers |
+| Contract (Port) | Port 인터페이스 행위 계약 | `core-auth-impl/test/AuthServiceImplContractTest` | `@SpringBootTest` + Testcontainers |
+| Integration | HTTP → Controller → DB 전체 흐름 | `bootstrap/test/` | `@SpringBootTest` + Testcontainers |
 
 **금지** — "A 가 B.foo() 를 호출하는가" 같은 delegation mock 검증이에요. 리팩토링 안전망을 파괴하니까요.
 
@@ -955,7 +955,7 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 
 - [`모듈 의존 규칙 (Module Dependencies)`](./module-dependencies.md) — 의존 방향 규칙 상세
 - [`Architecture Rules (ArchUnit)`](./architecture-rules.md) — ArchUnit 22 규칙 전체 (r1~r22)
 - [`Multi-tenant Architecture`](./multitenant-architecture.md) — per-app schema + HikariCP 격리 + appSlug 검증
-- [`JWT Authentication`](./jwt-authentication.md) — JWT claims · access/refresh · @CurrentUser · BCrypt
+- [`JWT Authentication`](./jwt-authentication.md) — JWT claims · access/refresh · `@CurrentUser` · BCrypt
 
 ### 인프라 / 운영
 - [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) — 맥미니 홈서버, Supabase, Cloudflare Tunnel, 블루그린 배포

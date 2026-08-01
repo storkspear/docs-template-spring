@@ -257,7 +257,7 @@ Hexagonal 원문은 "Primary Adapter" 이지만, Spring 관용은 `*ServiceImpl`
 
 **Repository / Entity 패턴**:
 - [`core-auth-impl/repository/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/repository) — Spring Data JPA 인터페이스
-- [`core-auth-impl/entity/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/entity) — @Entity 클래스들
+- [`core-auth-impl/entity/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/entity) — `@Entity` 클래스들
 
 **Config 패턴**:
 - [`AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java)
