@@ -107,12 +107,21 @@ cosign verify \
 
 ### 옵션 A — kamal rollback (직전 배포로)
 
-가장 빠른 경로예요. 직전 버전 이미지가 GHCR 에 살아있으면 즉시 전환됩니다. cleanup 은 최신 10개 package version 을 남기지만, dev 와 prod 가 같은 GHCR 패키지를 공유해 태그(환경)별 보존이 보장되지는 않아요 — 직전 이미지가 이미 정리됐다면 옵션 B 로 재빌드 배포하세요.
+가장 빠른 경로지만 **조건이 좁아요.** `kamal rollback` 은 이미지를 다시 받아 컨테이너를 만드는 게
+아니라, **멈춰 있는 그 버전의 컨테이너를 되살리는** 방식이에요. 그래서 GHCR 에 이미지가 남아 있는
+것만으로는 부족하고, 호스트에 그 버전의 컨테이너가 **같은 이름 그대로** 있어야 해요.
+
+blue/green 스왑을 거치면 이전 컨테이너 이름 뒤에 `_replaced_<hash>` 가 붙어요. 그러면
+`Container not found` 로 실패합니다 — 이미지가 멀쩡히 있어도요. 실측으로 확인한 동작이에요.
 
 ```bash
 <repo> prod status        # 최근 배포 목록 확인 (kamal app details)
 <repo> prod rollback <previous-sha>
 ```
+
+`prod rollback` 은 실행 후 돌고 있는 컨테이너 이름에 목표 SHA 가 들어있는지 직접 확인하고,
+아니면 실패로 끝내요. `kamal rollback` 은 내부적으로 실패해도 종료코드 0 을 내기 때문이에요.
+**실패했다면 곧장 옵션 B 로 가세요** — 대개 이 경로가 정답입니다.
 
 ### 옵션 B — GHA workflow_dispatch (특정 SHA 재배포)
 
@@ -130,12 +139,18 @@ cosign verify \
 
 [`ADR-033`](../../philosophy/adr-033-flyway-hybrid-policy.md) 의 Hybrid 정책에 따라 prod 는 `APP_FLYWAY_MODE=VALIDATE_ONLY` 가 기본입니다. Blue 와 Green 어느 쪽도 기동 시 migrate 를 실행하지 않아요. 부팅 시점의 Flyway 는 schema_history 와 classpath 의 정합만 검증하고, 실제 schema 변경은 운영자가 배포 전에 `tools/deploy/migrate-prod.sh` 로 직접 적용합니다.
 
+V스크립트는 **파일 경로**로 넘겨요 — 버전 이름만 주면 `✗ V스크립트 없음` 으로 끝납니다.
+
 ```bash
 # 새 V스크립트가 포함된 배포라면 — 배포 전에 먼저 schema 적용
-<repo> prod migrate <slug> V026__add_foo --dry-run    # SQL 미리보기
-<repo> prod migrate <slug> V026__add_foo              # 실제 적용
+SQL=apps/app-<slug>/src/main/resources/db/migration/<slug>/V026__add_foo.sql
+<repo> prod migrate <slug> "$SQL" --dry-run    # SQL 미리보기
+<repo> prod migrate <slug> "$SQL"              # 실제 적용 (prompt 에 yes 입력)
 # 그 다음 main push (또는 workflow_dispatch) 로 배포
 ```
+
+`prod deploy` 는 배포 전에 origin 브랜치의 V스크립트와 운영 `flyway_schema_history` 를
+대조해, 미적용분이 있으면 **배포 자체를 막아요.** 위 순서를 잊어도 Green 이 뜨기 전에 걸립니다.
 
 migrate 를 빼먹고 배포하면 Green 부팅 시 validate 가 `Resolved migration not applied` 로 실패하고, health check 타임아웃으로 그 배포만 중단됩니다. 서비스는 Blue 가 계속 서빙하므로 장애는 아니에요. `migrate-prod.sh` 를 실행한 뒤 재배포하면 됩니다. 적용 절차와 validate 실패 대응의 전체 시나리오는 [`Flyway Runbook`](./flyway-runbook.md) 에 있어요.
 

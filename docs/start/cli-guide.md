@@ -66,7 +66,7 @@
 | verb | dev | prod | 비고 |
 |---|---|---|---|
 | **deploy** | `kamal deploy -c config/deploy-dev.yml` — `:dev-<sha>` 태그 | `kamal deploy` (build + push + blue/green). `git fetch origin main` 후 `--version=$ORIGIN_SHA` 라 로컬 working tree 와 무관 | `tools/deploy/deploy.sh --target={dev,prod}` |
-| **rollback** `<sha>` | 특정 dev SHA 로 롤백 | 특정 prod SHA 로 롤백 | — |
+| **rollback** `<sha>` | 특정 dev SHA 로 롤백 | 특정 prod SHA 로 롤백 | — |<br>⚠ `kamal rollback` 은 그 버전 컨테이너가 호스트에 남아 있어야 동작해요. blue/green 스왑 후엔 이름에 `_replaced_` 가 붙어 실패하니, 그때는 GHA `workflow_dispatch` 재배포를 쓰세요 ([`runbook`](../production/deploy/runbook.md)) |
 | **status** | `kamal app details -c config/deploy-dev.yml` | `kamal app details` | — |
 | **logs** | `kamal app logs -f -c config/deploy-dev.yml` | `kamal app logs -f` | — |
 | **monitor** | ❌ (Grafana 사용 안내로 거부 — env=dev 라벨로 필터) | ❌ (Grafana 사용 안내로 거부 — env=prod 라벨로 필터) | `local monitor` 는 지원 — 핵심 메트릭 5초 폴링 (`tools/monitor/monitor-local.sh`). dev/prod 는 Loki/Grafana 공유 |
@@ -96,7 +96,7 @@
 | **reset** `<slug>` | 스키마 통째 비우고 **spring 재시작→Flyway AUTO 재migrate**(올바른 checksum). 설계 중 마이그레이션 반복 편집용. `--fixtures`·`--with-storage`·`--no-restart`·`--force` | 스키마만 비우고 `APP_FLYWAY_MODE=AUTO` 재배포 **안내**(수동 SQL 재적용 안 함 — checksum mismatch 방지) | ❌ 미지원 (운영 데이터 파괴) | `tools/app/reset-schema.sh`. `db/seed/<slug>.dev.sql` 있으면 `--fixtures` 로 로드 |
 | **truncate** `<slug>` | 스키마 **데이터만** TRUNCATE (스키마·`flyway_schema_history` 유지, 재migrate 불필요). `--with-storage`·`--force` | 동일 (dev DB) | ❌ 미지원 | `tools/app/truncate-schema.sh`. 스키마 안정 후 "데이터만 리프레시" |
 | **clear** | ❌ 미지원 | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/cleanup/dev-cleanup.sh`, prod 는 `tools/cleanup/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
-| **force-clear** `[slug]` | ❌ 미지원 | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
+| **force-clear** `[slug]` | ❌ 미지원 | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거 + `:dev-*` 태그 이미지 rmi. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
 
 ## 단축 — env 생략 = local
 
@@ -287,7 +287,7 @@ GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 7 단
 <repo> prod force-clear myapp      # 해당 앱만 (myapp schema + myapp-* bucket)
 ```
 
-`force-clear` 는 다섯 단계의 confirm 을 차례로 거쳐요. DB 데이터 → Storage 데이터 → 관측성 데이터 → 백업 의향 → 최종 확인 순서예요. 백업 의향 단계의 자동 백업은 아직 개발 중이라 지금은 manual 절차만 안내해요. 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 돼요.
+`force-clear` 는 다섯 단계의 confirm 을 차례로 거쳐요. DB 데이터 → Storage 데이터 → 관측성 데이터 → 백업 의향 → 최종 확인 순서예요. 확인이 끝나면 인프라·데이터·관측성에 더해 **호스트에 남은 이 레포의 이미지까지** 정리하고 0개인지 확인해요 (`:dev-*` 태그는 `dev force-clear` 몫이라 남겨둬요 — dev 가 아직 살아 있을 수 있어서예요). 백업 의향 단계의 자동 백업은 아직 개발 중이라 지금은 manual 절차만 안내해요. 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 돼요.
 
 슬러그를 지정하면([3/5]) 관측성 단계는 전 슬러그 공유 스택이라 자동으로 건너뜁니다 — 전체 모드에서만 confirm 을 띄워요.
 
@@ -314,7 +314,7 @@ GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 7 단
 
 **prod 미지원 이유** — `prod remove app` 과 `all remove app` 은 차단돼요. 운영 DB 의 실데이터와 공유 소스를 보호하기 위해서예요. 코드 모듈을 먼저 지우면 prod 재배포가 불가능해지는 사고도 막아요.
 
-**force-clear 와의 구분** — `force-clear <slug>` 는 데이터·인프라만 지워 코드를 남기므로 재배포에 쓰고, `remove app <slug>` 는 코드까지 지우는 완전 은퇴예요. MinIO 버킷과 운영 컨테이너는 `force-clear` 가 담당하므로 `remove app` 은 코드와 DB schema 만 다뤄요.
+**force-clear 와의 구분** — `force-clear <slug>` 는 데이터·인프라만 지워 코드를 남기므로 재배포에 쓰고, `remove app <slug>` 는 코드까지 지우는 완전 은퇴예요. MinIO 버킷과 운영 컨테이너는 `force-clear` 가 담당해요. `remove app` 이 다루는 건 코드 모듈 · DB schema/role · `.env`/`.env.dev` 의 슬러그 라인(버킷 항목 포함)이에요.
 
 **prod 앱 은퇴 절차** — prod 에 배포된 앱을 완전히 내릴 때는 다음 순서로 진행해요.
 
