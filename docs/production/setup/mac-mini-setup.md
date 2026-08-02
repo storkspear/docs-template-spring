@@ -4,7 +4,7 @@
 
 > ⚠️ 이 문서는 template 관리자 본인의 Mac mini 를 실제로 셋업한 기록이에요. 파생 레포 개발자가 자기 환경으로 옮길 때 그대로 베껴 쓰는 샘플로 활용하세요. IP·UUID·도메인·호스트명 같은 개별 값은 본인 환경의 값으로 바꿔야 해요. 전체 구성도·책임 분담·결정 근거는 [`infrastructure.md`](../deploy/infrastructure.md) 가 기준 문서이고, 이 문서는 그 위에 얹은 실제 설치 스냅샷이에요.
 >
-> 한 가지 더 — 이 문서에 손으로 따라 하는 단계로 적힌 일 가운데 상당수는 이제 자동화돼 있어요. `prod init` 명령 하나가 Cloudflare Tunnel·DNS·GitHub Secrets 등록을 대신 처리해요. 무엇이 자동이고 무엇이 손작업인지는 §11 과 §17 에서 짚어요. 이 문서를 읽으면 그 자동화가 "안에서 무슨 일을 하는지" 까지 이해하게 돼요.
+> 한 가지 더 — 이 문서에 손으로 따라 하는 단계로 적힌 일 가운데 상당수는 이제 자동화돼 있어요. `infra init` 이 공유 자격(SSH·Cloudflare·GHCR·Tailscale)과 관측 스택을, `prod init` 이 운영 DNS·Secrets 등록을 대신 처리해요. 무엇이 자동이고 무엇이 손작업인지는 §11 과 §17 에서 짚어요. 이 문서를 읽으면 그 자동화가 "안에서 무슨 일을 하는지" 까지 이해하게 돼요.
 >
 > 관련 문서:
 > - 운영 배포 절차: [`운영 배포 가이드`](../deploy/deployment.md)
@@ -711,7 +711,7 @@ Kamal 은 Mac mini 호스트에는 설치하지 않아요. SSH 로 원격 제어
 ## 14. 관측성 Stack
 
 ### 14.1 파일 위치
-Mac mini 에 파생 레포를 clone 한 뒤 `infra/docker-compose.observability.yml` 을 써요. 도그푸딩 때는 `prod init` 이 `infra/` 를 호스트로 rsync 해 줘요.
+Mac mini 에 파생 레포를 clone 한 뒤 `infra/docker-compose.observability.yml` 을 써요. 도그푸딩 때는 `infra init` 이 `infra/` 를 호스트로 rsync 해 줘요.
 
 ### 14.2 기동
 ```bash
@@ -789,7 +789,7 @@ APP_STORAGE_MINIO_SECRET_KEY=<secret>
 
 ## 17. GitHub Actions 배포 연동
 
-> 무엇이 자동인지 먼저 — Secrets·Variables 등록은 `prod init` 이 `.env.prod` 의 값을 읽어 `gh` 로 자동 push 해요. 아래 §17.1 의 SSH 키 생성과 §17.3 의 OAuth client 발급만 호스트와 Tailscale 콘솔에서 손으로 한 번 해 두면 돼요. 목록은 자동 push 가 무엇을 올리는지 보여주는 참고예요.
+> 무엇이 자동인지 먼저 — Secrets·Variables 등록은 두 명령이 나눠 처리해요. 접미사 없는 공유 자격(`SSH_PRIVATE_KEY`·`GHCR_TOKEN`·`TS_OAUTH_*`·`DEPLOY_HOST`·`DEPLOY_SSH_USER`)은 `infra init` 이 `.env.infra` 에서, 환경별 값은 `prod init` 이 `.env.prod` 에서 읽어 `gh` 로 push 해요. 아래 §17.1 의 SSH 키 생성과 §17.3 의 OAuth client 발급만 호스트와 Tailscale 콘솔에서 손으로 한 번 해 두면 돼요. 목록은 자동 push 가 무엇을 올리는지 보여주는 참고예요.
 
 ### 17.1 Mac mini 쪽 준비 — GHA 전용 SSH 키
 
@@ -799,11 +799,11 @@ ssh <your-mac-user>@100.X.X.X
 ssh-keygen -t ed25519 -f ~/.ssh/gha_deploy -C "gha-deploy@<파생레포>" -N ""
 cat ~/.ssh/gha_deploy.pub >> ~/.ssh/authorized_keys
 ```
-private key 인 `~/.ssh/gha_deploy` 를 파생 레포의 `SSH_PRIVATE_KEY` secret 으로 등록해요.
+private key 인 `~/.ssh/gha_deploy` 를 `.env.infra` 의 `SSH_PRIVATE_KEY` 에 넣으면 `infra init` 이 접미사 없는 secret 으로 등록해요.
 
 ### 17.2 파생 레포 Secrets 와 Variables
 
-`prod init` 이 `.env.prod` 에서 읽어 push 하는 항목들이에요. 평문이어도 되는 구성값은 Variables 로, 민감값은 Secrets 로 올려요.
+두 init 이 각자 소유한 파일에서 읽어 push 하는 항목들이에요. 평문이어도 되는 구성값은 Variables 로, 민감값은 Secrets 로 올려요. `DEPLOY_HOST`·`DEPLOY_SSH_USER`·`SSH_PRIVATE_KEY`·`GHCR_TOKEN`·`TS_OAUTH_*` 는 `.env.infra` + `infra init`, 나머지는 `.env.prod` + `prod init` 담당이에요.
 
 **Repository Variables**:
 
@@ -815,7 +815,7 @@ private key 인 `~/.ssh/gha_deploy` 를 파생 레포의 `SSH_PRIVATE_KEY` secre
 | `DEPLOY_SSH_USER` | Mac mini 의 운영 계정 (보통 root 가 아닌 개인 계정) |
 | `PUBLIC_HOSTNAME` | `server.example.com` |
 
-`KAMAL_IMAGE` 와 `GHCR_USERNAME` 은 등록할 필요가 없어요 — `deploy.yml` 이 `github.repository` / `github.actor` 컨텍스트에서 자동 계산합니다 (로컬 수동 배포용 `.env.prod` 값은 `init-prod.sh` 가 git remote 에서 자동 도출).
+`KAMAL_IMAGE` 와 `GHCR_USERNAME` 은 등록할 필요가 없어요 — `deploy.yml` 이 `github.repository` / `github.actor` 컨텍스트에서 자동 계산합니다 (로컬 수동 배포용 `.env.prod` 값은 `init-prod.sh` 가 git remote 에서 자동 도출). 레포마다 달라지는 값이라 `.env.infra` 가 아니라 환경 파일에 남아요.
 
 **Repository Secrets**:
 
@@ -902,7 +902,7 @@ Mac mini 가 고장나서 새 기기로 교체할 때 복원해야 할 핵심 �
 
 ### 20.2 Cloudflare 대시보드에서 재설정해야 할 것
 
-백업이 불가능해 손으로 다시 잡아야 해요. 다만 Tunnel·DNS 는 `prod init` 이, 나머지는 대시보드에서 처리해요.
+백업이 불가능해 손으로 다시 잡아야 해요. 다만 Tunnel·DNS 는 `infra init` + `prod init` 이, 나머지는 대시보드에서 처리해요.
 
 - Tunnel `<your-tunnel-name>` — cert 만 있으면 같은 tunnel 로 재연결 가능
 - DNS CNAME records
@@ -975,7 +975,8 @@ MinIO NAS 와 Cloudflare 클라우드 자산이 남아 있다는 전제에서, �
 대부분은 `prod init` 이 자동으로 처리하고, 손으로 확인해야 하는 항목만 남겨 뒀어요.
 
 - [ ] 파생 레포 생성 — GitHub 의 "Use this template"
-- [ ] 로컬 clone 후 운영 환경 셋업 — `cp .env.prod.example .env.prod` 한 뒤 REQUIRED 값 채우기 (BASE_DOMAIN·SUBDOMAIN·CLOUDFLARE_API_TOKEN·DB_URL·DB_USER·GHCR_TOKEN·SSH_PRIVATE_KEY 등). 로컬 dev 를 분리해 쓸 거면 `cp .env.example .env` 도 따로
+- [ ] 공유 인프라 셋업 — `<repo> infra init` 1회차 후 `.env.infra` 의 REQUIRED 채우기 (BASE_DOMAIN·CLOUDFLARE_API_TOKEN·DEPLOY_HOST·DEPLOY_SSH_USER·SSH_PRIVATE_KEY·GHCR_TOKEN) → 2회차 실행
+- [ ] 로컬 clone 후 운영 환경 셋업 — `cp .env.prod.example .env.prod` 한 뒤 REQUIRED 값 채우기 (SUBDOMAIN·DB_URL·DB_USER·DB_PASSWORD). 로컬 dev 를 분리해 쓸 거면 `cp .env.example .env` 도 따로
 - [ ] Mac mini SSH 키:
   - [ ] `ssh-keygen -t ed25519 -f ~/.ssh/gha_deploy -C "gha-deploy@<파생레포>" -N ""`
   - [ ] `cat ~/.ssh/gha_deploy.pub >> ~/.ssh/authorized_keys`

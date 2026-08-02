@@ -158,14 +158,31 @@ management:
 # 도그푸딩 환경 셋업: 한 줄
 bash tools/dogfooding/setup.sh
 
-# 파생 레포 부팅: 두 줄 (local 셋업 + prod 셋업)
+# 파생 레포 부팅: 세 줄 (로컬 + 공유 인프라 + 환경)
 bash tools/init/init-local.sh
-bash tools/init/init-prod.sh
+bash tools/init/init-infra.sh
+bash tools/init/init-prod.sh     # 또는 init-dev.sh — 둘은 서로 순서 무관
 ```
 
 "README 를 자주 업데이트한다" 는 약속보다, 스크립트가 의도대로 동작한다는 게 더 신뢰 가능.
 
-### 적용 5 — CI 는 빨간불 아니면 초록불
+### 적용 5 — 자격의 소유자는 자격이 속한 곳
+
+셋업 스크립트를 환경(local·dev·prod)으로 나누면 자연스러워 보이지만, 모든 자격이 환경에 속하지는 않습니다. Mac mini 한 대, Cloudflare 계정 하나, GitHub 계정 하나, tailnet 하나는 dev 도 prod 도 아닌 **계정/호스트의 것**이고, 두 환경이 같은 것을 씁니다.
+
+이 구분을 무시하고 공유 자격을 `prod init` 에 얹어 두면 세 가지가 따라옵니다.
+
+- dev 만 쓰는 레포가 prod 셋업을 강제로 거쳐야 합니다. "인디 앱은 dev 하나로 충분" 이라는 전제와 정면으로 어긋납니다.
+- 접미사가 없는 시크릿 한 벌을 두 워크플로가 보므로, 나중에 실행한 쪽이 앞선 값을 덮어씁니다.
+- 문서에 "dev 는 `.env.prod` 에서 fallback" 같은 문장이 생깁니다. 읽기만 되고 쓰기는 안 되는 반쪽 fallback 이라, 겉으로는 순서 무관해 보이는데 실제로는 순서 의존입니다.
+
+그래서 소유자를 셋으로 나눕니다 — `.env` (로컬), `.env.infra` (계정/호스트), `.env.<env>` (환경). `<repo> infra init` 이 공유 자격을 접미사 없이 한 벌만 올리고, `dev init` 과 `prod init` 은 각자의 환경 값만 다룹니다. dev 와 prod 는 서로를 선행 조건으로 요구하지 않습니다.
+
+읽기는 `load_infra_env` 하나로 모읍니다. `.env.infra` 를 먼저 깔고 환경 파일을 뒤에 얹으므로, 같은 키가 양쪽에 있으면 환경 파일이 이깁니다 — 특정 환경만 다른 자격을 써야 할 때의 탈출구가 남고, `.env.infra` 가 없는 레포도 그대로 동작합니다.
+
+솔로 운영에서 이게 중요한 이유는, **한 사람이 셋업 순서를 기억할 필요가 없어지기** 때문입니다. 어느 쪽을 먼저 하든 같은 결과가 나오면 순서는 문서에 적을 대상조차 아닙니다.
+
+### 적용 6 — CI 는 빨간불 아니면 초록불
 
 ```yaml
 # .github/workflows/ci.yml 발췌
@@ -290,7 +307,8 @@ K8s · 마이크로서비스 · 분산 추적을 거절할 때, "지금 이 순�
 - [`tools/app/new-app.sh`](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 앱 스캐폴딩 한 줄
 - [`tools/dogfooding/setup.sh`](https://github.com/storkspear/template-spring/blob/main/tools/dogfooding/setup.sh) — 도그푸딩 환경 9단계 자동화
 - [`tools/init/init-local.sh`](https://github.com/storkspear/template-spring/blob/main/tools/init/init-local.sh) — 파생 레포 로컬 셋업 (rename · .env · docker)
-- [`tools/init/init-prod.sh`](https://github.com/storkspear/template-spring/blob/main/tools/init/init-prod.sh) — 파생 레포 운영 셋업 (.env.prod · Cloudflare · Secrets)
+- [`tools/init/init-infra.sh`](https://github.com/storkspear/template-spring/blob/main/tools/init/init-infra.sh) — 공유 인프라 셋업 (.env.infra · Cloudflare ID · 접미사 없는 Secrets · 관측 스택)
+- [`tools/init/init-prod.sh`](https://github.com/storkspear/template-spring/blob/main/tools/init/init-prod.sh) — 파생 레포 운영 셋업 (.env.prod · DNS · Secrets)
 
 **CI 정책**:
 - [`.github/workflows/ci.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/ci.yml) — 전체 빌드/테스트/ArchUnit

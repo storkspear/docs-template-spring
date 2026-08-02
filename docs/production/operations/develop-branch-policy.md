@@ -154,7 +154,7 @@ dev-server 와 prod 는 같은 Mac mini 한 대 위에서 돕니다. Kamal 의 s
 | MinIO endpoint·key | 운영값 | 별도 dev 값 | `APP_STORAGE_MINIO_ENDPOINT_DEV` 등 |
 | 관측성 (Loki·Grafana) | 공유 인스턴스, label `env=prod` | 공유 인스턴스, label `env=dev` | `LOKI_URL_DEV` |
 
-표에서 한 가지만 짚고 넘어갈게요. 운영 자격은 거의 전부 dev 전용 값으로 분리됩니다. DB 와 bucket 뿐 아니라 MinIO endpoint·key, JWT, Resend, PortOne, Discord 까지 모두 `_DEV` 시크릿으로 따로 올라가요. prod 와 진짜로 공유되는 건 GHCR 인증용 `GHCR_TOKEN` 같은 인프라 시크릿 정도입니다. 관측성은 조금 결이 달라요. Loki·Grafana 인스턴스 자체는 한 대를 공유하되 `env` 라벨로 대시보드를 구분하고, 접속 URL 시크릿(`LOKI_URL`)은 `LOKI_URL_DEV` 로 분리해 둡니다.
+표에서 한 가지만 짚고 넘어갈게요. 운영 자격은 거의 전부 dev 전용 값으로 분리됩니다. DB 와 bucket 뿐 아니라 MinIO endpoint·key, JWT, Resend, PortOne, Discord 까지 모두 `_DEV` 시크릿으로 따로 올라가요. prod 와 진짜로 공유되는 건 `.env.infra` 가 소유하고 `infra init` 이 접미사 없이 올리는 인프라 자격 — `GHCR_TOKEN` · `SSH_PRIVATE_KEY` · `TS_OAUTH_*` · `DEPLOY_HOST` · `DEPLOY_SSH_USER` — 뿐입니다. 이것들은 Mac mini 한 대, Cloudflare 계정 하나를 두 환경이 함께 쓰기 때문에 나눌 대상이 아니에요. 관측성은 조금 결이 달라요. Loki·Grafana 인스턴스 자체는 한 대를 공유하되 `env` 라벨로 대시보드를 구분하고, 접속 URL 시크릿(`LOKI_URL`)은 `LOKI_URL_DEV` 로 분리해 둡니다.
 
 dev 환경 셋업 절차는 [`deployment.md`](../deploy/deployment.md#dev-환경-자동-배포-opt-in) 의 opt-in 섹션에 단계별로 정리돼 있어요.
 

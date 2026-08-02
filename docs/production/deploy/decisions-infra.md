@@ -518,7 +518,7 @@ ADR-037 이전에는 `CoreDataSourceConfig` 가 `@Primary` 로 core schema 와 �
 | 파생레포 2개 이상 동시 운영 | I-09 Kamal 배포 | 서브도메인별 host 매핑 분리 |
 | blue/green 스왑 실패 관측 | I-09 Kamal 배포 | Kamal healthcheck 튜닝, nginx 앞단화 검토 |
 | Kamal upstream 단종·라이선스 변경 | I-09 Kamal 배포 | 커스텀 bash 또는 Docker Swarm 이관 |
-| GitHub PAT expiration 임박 (90일 주기) | I-10 GHCR_TOKEN | 새 PAT 발급 + setup 재실행 |
+| GitHub PAT expiration 임박 (90일 주기) | I-10 GHCR_TOKEN | 새 PAT 발급 + `.env.infra` 갱신 → `infra init` 재실행 |
 | GHCR storage 한도 임박 (500MB) | I-10, I-12 | image cleanup 강화 (keep-2 → keep-1) 또는 retention 단축 |
 | `--skip-push` flag deprecation | I-13 | kamal build 활성화 또는 다른 deploy tool |
 | Tailscale OAuth API scope 이름 변경 | I-14 | OAuth client 재발급 + 가이드 §3.2 갱신 |

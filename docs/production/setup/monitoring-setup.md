@@ -14,7 +14,7 @@ Mac mini 운영 호스트에서 관측성 스택을 기동하고 운영하는 �
 
 ## 개요
 
-**목표**는 운영 Mac mini 에서 관측성 스택을 띄우고, 외부에서 안전하게 Grafana 에 접속하고, 알림을 받는 상태까지 도달하는 거예요. **대상 독자**는 이미 한 번 운영 배포를 해 본 운영자예요. **예상 시간**은 처음 셋업 기준 20~30분이고, `prod init` 자동화를 쓰면 더 짧아요.
+**목표**는 운영 Mac mini 에서 관측성 스택을 띄우고, 외부에서 안전하게 Grafana 에 접속하고, 알림을 받는 상태까지 도달하는 거예요. **대상 독자**는 이미 한 번 운영 배포를 해 본 운영자예요. **예상 시간**은 처음 셋업 기준 20~30분이고, `infra init` 자동화를 쓰면 더 짧아요.
 
 이 가이드는 운영 호스트에서만 필요해요. 로컬 개발 환경에서는 관측성 스택을 띄우지 않습니다. 메모리와 docker 리소스 부담에 비해 쓰는 빈도가 낮아서예요. 로컬 compose 인 `infra/docker-compose.local.yml` 은 Postgres 와 MinIO 만 제공합니다. 대시보드나 쿼리 동작을 검증해야 하면 운영 Mac mini 의 Grafana 에서 확인하세요.
 
@@ -23,7 +23,7 @@ Mac mini 운영 호스트에서 관측성 스택을 기동하고 운영하는 �
 - Mac mini (macOS, Apple Silicon 권장)
 - OrbStack 설치 — Docker Desktop 대체재로, 메모리 효율이 더 좋아요
 - 파생 레포 checkout 상태 — 관측성 compose 는 파생 레포의 `infra/docker-compose.observability.yml` 에 있어요
-- `infra/.env` 에 다음 값을 준비 — compose 를 `-f infra/docker-compose.observability.yml` 로 띄우면 project directory 가 `infra/` 가 되어 **레포 루트 `.env` 는 읽히지 않아요**. 관측성 compose 가 보간하는 env 는 반드시 `infra/.env` 에 둡니다. `prod init` (Step 9.5) 을 쓰면 webhook 값 2종 (`DISCORD_WEBHOOK_URL`, `ALERT_WEBHOOK_CRITICAL_URL`) 은 `.env.prod` 에서 자동으로 생성돼요:
+- `infra/.env` 에 다음 값을 준비 — compose 를 `-f infra/docker-compose.observability.yml` 로 띄우면 project directory 가 `infra/` 가 되어 **레포 루트 `.env` 는 읽히지 않아요**. 관측성 compose 가 보간하는 env 는 반드시 `infra/.env` 에 둡니다. `infra init` 을 쓰면 webhook 값 2종 (`DISCORD_WEBHOOK_URL`, `ALERT_WEBHOOK_CRITICAL_URL`) 은 `.env.prod` 에서 자동으로 생성돼요:
   - `GRAFANA_ADMIN_PASSWORD` — 기본값 `admin` 을 대체하는 운영 비밀번호 (운영 필수, 수동 추가)
   - `DISCORD_WEBHOOK_URL` — 알림 발송용. 비워 두면 Alertmanager 가 무음으로 동작해요
 
@@ -50,10 +50,10 @@ docker compose -f infra/docker-compose.observability.yml ps
 ## Discord webhook 발급 (알림 수신)
 
 1. Discord 서버 설정 → 연동 → 웹후크 → 새 웹후크
-2. URL 복사 후 Mac mini `infra/.env` 에 `DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/<id>/<token>/slack` 형태로 저장 (루트 `.env` 가 아니에요 — compose project dir 가 `infra/` 라 `infra/.env` 만 읽힙니다). 로컬 `.env.prod` 에 채워 두고 `prod init` 을 재실행하면 Step 9.5 가 원격 `infra/.env` 를 자동 생성해요. URL 끝에 `/slack` 을 붙여야 해요. Discord 가 제공하는 Slack 호환 엔드포인트를 Alertmanager 의 Slack 알림이 그대로 쓰기 때문이에요
+2. URL 복사 후 Mac mini `infra/.env` 에 `DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/<id>/<token>/slack` 형태로 저장 (루트 `.env` 가 아니에요 — compose project dir 가 `infra/` 라 `infra/.env` 만 읽힙니다). 로컬 `.env.prod` 에 채워 두고 `infra init` 을 재실행하면 원격 `infra/.env` 가 자동 생성돼요. URL 끝에 `/slack` 을 붙여야 해요. Discord 가 제공하는 Slack 호환 엔드포인트를 Alertmanager 의 Slack 알림이 그대로 쓰기 때문이에요
 3. Alertmanager 를 profile 로 활성: `docker compose -f infra/docker-compose.observability.yml --profile alertmanager up -d`
 
-`DISCORD_WEBHOOK_URL` 이 비어 있으면 Alertmanager 의 webhook URL 도 빈 문자열이 돼 컨테이너가 restart loop 에 빠져요. 그래서 profile 로 분리해 두고, URL 이 채워졌을 때만 켜요. `prod init` 자동화는 이 값이 있을 때만 Alertmanager 를 같이 띄웁니다.
+`DISCORD_WEBHOOK_URL` 이 비어 있으면 Alertmanager 의 webhook URL 도 빈 문자열이 돼 컨테이너가 restart loop 에 빠져요. 그래서 profile 로 분리해 두고, URL 이 채워졌을 때만 켜요. `infra init` 자동화는 이 값이 있을 때만 Alertmanager 를 같이 띄웁니다.
 
 ## 외부 접근 — Cloudflare Tunnel + Access
 
@@ -181,11 +181,11 @@ vm_stat        # 또는 top -o mem 으로 메모리 확인
 
 그래도 빠듯하면 Prometheus retention 을 줄이거나 (`--storage.tsdb.retention.time=3d` 등), Loki retention 을 줄여요. Loki retention 은 보안 조사·compliance 우선으로 1년 (`infra/loki/loki-config.yml` 의 `retention_period: 8760h`, 2026-07-21 결정) 이라 메모리보다 디스크가 먼저 압박받아요. 디스크 사용 증가가 관측되면 I-06 재검토 트리거에 도달한 거라, retention 단축 또는 관측성 스택의 NAS 분리를 고려하세요.
 
-## Lifecycle — `prod init` / `prod clear` 자동화 + multi-repo 안전
+## Lifecycle — `infra init` / `prod clear` 자동화 + multi-repo 안전
 
-### 자동 deploy (`prod init`)
+### 자동 deploy (`infra init`)
 
-`<repo> prod init` 의 Step 9.5 가 Mac mini 측 관측성 스택을 자동 배포해요. 동작 순서는 다음과 같아요.
+`<repo> infra init` 이 Mac mini 측 관측성 스택을 자동 배포해요. dev 와 prod 가 같은 스택을 `env` 라벨로만 구분해 공유하므로, 환경 셋업이 아니라 공유 인프라 셋업에 속해요. 동작 순서는 다음과 같아요.
 
 ```
 infra/ 디렉토리를 DEPLOY_HOST 로 rsync
@@ -228,10 +228,10 @@ multi-repo 환경에서 `--include-observability` 는 다른 backend 의 관측�
 
 ```bash
 <repo> prod clear --include-observability   # 관측성도 함께 destroy
-<repo> prod init                            # 관측성 자동 재배치 (Step 9.5)
+<repo> infra init                           # 관측성 자동 재배치
 ```
 
-도그푸딩이나 backend 1개 운영이라면 매 reset 마다 flag 를 명시해요. `prod init` 이 자동으로 재배치하므로 사이클이 짧아요.
+도그푸딩이나 backend 1개 운영이라면 매 reset 마다 flag 를 명시해요. `infra init` 이 자동으로 재배치하므로 사이클이 짧아요.
 
 ## 다음 단계
 

@@ -7,7 +7,8 @@ template 에서 "Use this template" 으로 만든 파생레포를 Mac mini 홈�
 > ⚡ **자동화 흐름 (권장)** — 아래 §1~§5 는 한 단계씩 손으로 하는 수동 안내예요. 같은 흐름을 한 번에 자동화한 명령은 다음과 같아요.
 > ```bash
 > ./factory init <owner>/<repo>     # = local init (.env / docker / verify-local)
-> <repo> prod init                  # = §2~§3 (Cloudflare Tunnel / DNS / GitHub Secrets push / verify-server)
+> <repo> infra init                 # = §2.2·§3 의 공유 자격 (SSH / Cloudflare / GHCR / Tailscale) — dev·prod 공통 1회
+> <repo> prod init                  # = §2~§3 의 운영 몫 (DNS / 운영 Secrets push / verify-server)
 > <repo> prod deploy                # = §5 (origin/main SHA → kamal build/push/blue-green)
 > ```
 > 자동 흐름의 자세한 설명은 두 문서에 있어요.
@@ -208,23 +209,31 @@ launchctl load ~/Library/LaunchAgents/site.<파생레포>.cloudflared.plist
 
 배포 workflow 가 읽을 값을 GitHub 에 등록해요. 공개해도 되는 구성값은 Variables 로, 시크릿은 Secrets 로 나눠 둬요.
 
+등록 주체가 둘로 나뉘어요. **접미사 없는** `SSH_PRIVATE_KEY` · `GHCR_TOKEN` · `TS_OAUTH_*` · `DEPLOY_HOST` · `DEPLOY_SSH_USER` 는 계정/호스트에 속하는 자산이라 `<repo> infra init` 이 한 벌만 올려요. 나머지 환경별 값은 `prod init` 이 그대로, `dev init` 이 `_DEV` 접미사를 붙여 올려요. 아래 `gh` 명령들은 그 자동화가 안에서 무엇을 하는지 보여주는 참고예요.
+
 ### 3.1 Repository Variables (공개 가능한 구성값)
 
 ```bash
+# infra init 이 올리는 공유 값 (접미사 없음 — dev·prod 공용)
+gh variable set DEPLOY_HOST --body '100.x.x.x'          # Mac mini Tailscale IP
+gh variable set DEPLOY_SSH_USER --body '<mac-mini-계정>'  # 미설정 시 root 로 폴백 → SSH 접속 실패 함정
+
+# prod init 이 올리는 운영 값
 gh variable set DEPLOY_ENABLED --body 'true'
 gh variable set KAMAL_SERVICE_NAME --body '<파생레포-slug>'
-gh variable set DEPLOY_HOST --body '100.x.x.x'          # Mac mini Tailscale IP
 gh variable set PUBLIC_HOSTNAME --body 'server.<도메인>'
-gh variable set DEPLOY_SSH_USER --body '<mac-mini-계정>'  # 미설정 시 root 로 폴백 → SSH 접속 실패 함정
 ```
 
 ### 3.2 Repository Secrets (시크릿)
 
 ```bash
+# infra init 이 올리는 공유 값 (접미사 없음 — dev·prod 공용)
 gh secret set TS_OAUTH_CLIENT_ID --body '<tailscale-oauth-client-id>'
 gh secret set TS_OAUTH_SECRET --body '<tailscale-oauth-secret>'
 gh secret set SSH_PRIVATE_KEY < ~/.ssh/gha_deploy        # §2.2 에서 생성한 key
+gh secret set GHCR_TOKEN < ~/.secrets/ghcr-pat           # 아래 'GHCR 토큰' 참고
 
+# prod init 이 올리는 운영 값
 gh secret set DB_URL --body 'postgresql://...'
 gh secret set DB_USER --body 'postgres.<ref>'
 gh secret set DB_PASSWORD --body '<supabase-pw>'
@@ -242,7 +251,7 @@ gh secret set DISCORD_WEBHOOK_URL --body 'https://discord.com/api/webhooks/...'
 
 Tailscale OAuth client 는 Tailscale admin → Settings → OAuth clients → `Generate` 로 발급해요. scope 는 `Devices → Core → Write` 와 `Keys → Auth Keys → Write` **두 개를 모두** 체크하고 각각 `tag:ci` 를 부여합니다 — 하나라도 빠지면 배포 시 403 이 나요 ([`decisions-infra.md I-14`](./decisions-infra.md) · [`dogfood-setup §3.2`](../../start/dogfood-setup.md)).
 
-**GHCR 토큰** — `secrets.GITHUB_TOKEN` 자동 주입만으론 부족합니다. 첫 GHCR 패키지 push 시 repo 와 package 가 자동 연결되지 않아 403 이 나거든요. `write:packages`·`read:packages`·`delete:packages`·`repo` 네 scope 의 Classic PAT 를 발급해 `GHCR_TOKEN` secret 으로 등록해야 합니다 (`delete:packages` 는 배포 끝의 이미지 cleanup step 에 필요해요). `init-prod.sh` 가 `.env.prod` 의 `GHCR_TOKEN` 을 GitHub Secrets 로 자동 push 하므로, 운영자는 PAT 발급과 `.env.prod` 채우기만 하면 끝이에요. 자세한 배경은 [`decisions-infra.md I-10`](./decisions-infra.md) 과 [`dogfood-pitfalls.md #7`](../../start/dogfood-pitfalls.md) 의 함정 사례를 참고하세요.
+**GHCR 토큰** — `secrets.GITHUB_TOKEN` 자동 주입만으론 부족합니다. 첫 GHCR 패키지 push 시 repo 와 package 가 자동 연결되지 않아 403 이 나거든요. `write:packages`·`read:packages`·`delete:packages`·`repo` 네 scope 의 Classic PAT 를 발급해 `GHCR_TOKEN` secret 으로 등록해야 합니다 (`delete:packages` 는 배포 끝의 이미지 cleanup step 에 필요해요). `init-infra.sh` 가 `.env.infra` 의 `GHCR_TOKEN` 을 GitHub Secrets 로 자동 push 하므로, 운영자는 PAT 발급과 `.env.infra` 채우기만 하면 끝이에요. dev·prod 가 같은 GHCR repo 를 쓰므로 토큰도 한 벌이에요. 자세한 배경은 [`decisions-infra.md I-10`](./decisions-infra.md) 과 [`dogfood-pitfalls.md #7`](../../start/dogfood-pitfalls.md) 의 함정 사례를 참고하세요.
 
 ---
 
@@ -323,15 +332,15 @@ curl -I https://log.<도메인>                                   # 302 (CF Acce
 
 ## dev 환경 자동 배포 (opt-in)
 
-prod 셋업 완료 후, 같은 Mac mini 에 `dev-server.<도메인>` 을 격리 운영하고 싶을 때 (사내·외주 검증용) 쓰는 선택 흐름이에요. kamal service 이름 (`server-dev`) 으로 컨테이너와 docker network 가 자동 분리되므로 host 충돌이 없어요.
+같은 Mac mini 에 `dev-server.<도메인>` 을 격리 운영하고 싶을 때 (사내·외주 검증용) 쓰는 선택 흐름이에요. **prod 셋업과 순서 관계가 없어요** — `infra init` 만 끝나 있으면 prod 없이 dev 만 올려도 완결돼요. kamal service 이름 (`server-dev`) 으로 컨테이너와 docker network 가 자동 분리되므로 host 충돌이 없어요.
 
 격리 모델은 [`develop-branch-policy.md §5`](../operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델) 에 정리돼 있어요.
 
 ### 추가 셋업 (1회)
 
-1. `.env.dev` 를 채워요 — `.env.dev.example` 참고. 직접 채울 dev 전용 값은 `BASE_DOMAIN`, `SUBDOMAIN`, `DB_URL` (별도 Supabase dev 계정), `DB_USER`, `DB_PASSWORD` 예요. storage 를 쓰면 `APP_STORAGE_MINIO_BUCKETS_0` (같은 MinIO 인스턴스의 dev 전용 bucket) 도 채워요 — 이 키는 OPTIONAL 그룹이라 비워도 부팅은 됩니다 (InMemory fallback).
+1. `.env.dev` 를 채워요 — `.env.dev.example` 참고. 직접 채울 dev 전용 값은 `SUBDOMAIN`, `DB_URL` (별도 Supabase dev 계정), `DB_USER`, `DB_PASSWORD` 예요. storage 를 쓰면 `APP_STORAGE_MINIO_BUCKETS_0` (같은 MinIO 인스턴스의 dev 전용 bucket) 도 채워요 — 이 키는 OPTIONAL 그룹이라 비워도 부팅은 됩니다 (InMemory fallback).
    `.env.dev` 안의 키 이름은 `.env.prod` 와 동일해요 (suffix 없음). `init-dev.sh` 가 GitHub Secrets/Variables 로 push 할 때만 `_DEV` suffix 를 자동으로 붙여요.
-   공유 인프라 자격 (Cloudflare · TS_OAUTH · SSH · GHCR · DEPLOY_HOST) 은 `.env.dev` 가 비어 있으면 `.env.prod` 에서 자동 fallback 합니다.
+   공유 인프라 자격 (`BASE_DOMAIN` · Cloudflare · TS_OAUTH · SSH · GHCR · DEPLOY_HOST) 은 `.env.dev` 에 없어요 — `.env.infra` 가 소유하고 `infra init` 이 올려요.
 
 2. `<repo> dev init` 을 실행해요 — Cloudflare DNS / Tunnel ingress 등록 + GitHub Secrets/Variables (`_DEV` suffix) push.
 
@@ -350,7 +359,7 @@ prod 셋업 완료 후, 같은 Mac mini 에 `dev-server.<도메인>` 을 격리 
    gh secret set APP_STORAGE_MINIO_BUCKETS_0_DEV     # dev bucket
    ```
 
-   나머지 운영 자격 (JWT · RESEND · PortOne · MinIO ENDPOINT·KEY · APP_DOMAIN · LOKI_URL · DISCORD_WEBHOOK_URL) 도 전부 `_DEV` suffix 의 별도 secret 이에요 — `init-dev.sh` 가 `.env.dev` 값을 `_DEV` suffix 로 push 하고, `deploy-dev.yml` 이 컨테이너 안에서 일반 이름으로 export 합니다. prod 와 공용인 것은 `GHCR_TOKEN` · `SSH_PRIVATE_KEY` · `TS_OAUTH_*` 뿐이에요 ([`develop-branch-policy §5`](../operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델) 의 격리 모델과 일치).
+   나머지 운영 자격 (JWT · RESEND · PortOne · MinIO ENDPOINT·KEY · APP_DOMAIN · LOKI_URL · DISCORD_WEBHOOK_URL) 도 전부 `_DEV` suffix 의 별도 secret 이에요 — `init-dev.sh` 가 `.env.dev` 값을 `_DEV` suffix 로 push 하고, `deploy-dev.yml` 이 컨테이너 안에서 일반 이름으로 export 합니다. prod 와 공용인 것은 `infra init` 이 접미사 없이 올린 `GHCR_TOKEN` · `SSH_PRIVATE_KEY` · `TS_OAUTH_*` · `DEPLOY_HOST` · `DEPLOY_SSH_USER` 뿐이에요 ([`develop-branch-policy §5`](../operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델) 의 격리 모델과 일치).
 
 ### 자동 배포
 

@@ -153,7 +153,7 @@ clone 직후 가장 먼저 할 일은 `factory` 를 설치하는 거예요. `fac
 
 직접 단계를 손으로 확인하고 싶다면 [§2.6 수동 기동](#26-수동으로-한-단계씩-기동하고-싶다면) 을 참고하세요. 보통은 `<repo> init` 하나로 충분해요.
 
-> **로컬은 한 번, 운영은 두 번이에요.** 이 "한 번으로 끝" 은 로컬 기준이에요. 운영(`prod init`)은 1회차에 `.env.prod` 를 만들어 두고 "REQUIRED 값을 채우세요" 하며 멈췄다가, 값을 채운 뒤 같은 명령을 한 번 더 돌려 GitHub Secrets 까지 push 하는 2회차 흐름이에요. 그래서 운영은 `.env.prod` 를 한 번 채워 넣는 단계가 끼어요. 운영 셋업은 배포 단계에서 따로 다뤄요 ([도그푸딩 셋업 가이드](./dogfood-setup.md)).
+> **로컬은 한 번, 인프라와 운영은 두 번이에요.** 이 "한 번으로 끝" 은 로컬 기준이에요. `infra init` 과 `prod init` 은 1회차에 각자의 `.env` 파일을 만들어 두고 "REQUIRED 값을 채우세요" 하며 멈췄다가, 값을 채운 뒤 같은 명령을 한 번 더 돌려 GitHub Secrets 까지 push 하는 2회차 흐름이에요. 그래서 두 명령 모두 파일을 한 번 채워 넣는 단계가 끼어요. `infra init` 은 계정/호스트 자산(Mac mini SSH·Cloudflare·GHCR·tailnet)을 맡아 dev·prod 어느 쪽을 쓰든 먼저 한 번만 돌리면 돼요. 운영 셋업은 배포 단계에서 따로 다뤄요 ([도그푸딩 셋업 가이드](./dogfood-setup.md)).
 
 ### 2.5 첫 앱을 올리고 검증
 
@@ -388,7 +388,7 @@ cd <repo>
 
 핵심은 **두 번째 노트북은 외부 DB 자격이 전혀 필요 없다** 는 점이에요. 로컬 docker postgres 만 쓰고, 앱 schema 는 `<repo> new <slug>` 가 결정적 Flyway 마이그레이션(V001~V027)으로 동일하게 재생성해요. `.env` 는 `.gitignore` 라 머신마다 각자 생성되니 자격 충돌도 없어요.
 
-> `.env.prod` 는 커밋되지 않으므로(secret 보호) 두 번째 노트북엔 없어요. 로컬 개발엔 불필요하고, 운영 변경(`prod init` / Secrets 갱신)은 **첫 작업자(운영자) 한 명** 이 맡는 걸 권장해요. 만약 두 번째 개발자가 `prod init` 을 돌려도, `.env.prod` 가 없는 머신에서는 운영 secret 을 GitHub 에 push 하는 단계가 자동으로 건너뛰어져 운영자의 secret 을 덮어쓰지 않아요. 바로 이 `.env.prod` 유무가 운영 secret push 의 안전장치예요(로컬 셋업 모드 판별과는 별개).
+> `.env.prod` 와 `.env.infra` 는 커밋되지 않으므로(secret 보호) 두 번째 노트북엔 없어요. 로컬 개발엔 불필요하고, 운영 변경(`infra init` / `prod init` / Secrets 갱신)은 **첫 작업자(운영자) 한 명** 이 맡는 걸 권장해요. 만약 두 번째 개발자가 `prod init` 을 돌려도, `.env.prod` 가 없는 머신에서는 운영 secret 을 GitHub 에 push 하는 단계가 자동으로 건너뛰어져 운영자의 secret 을 덮어쓰지 않아요. 바로 이 `.env.prod` 유무가 운영 secret push 의 안전장치예요(로컬 셋업 모드 판별과는 별개).
 
 ---
 

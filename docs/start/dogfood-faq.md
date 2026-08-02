@@ -159,7 +159,7 @@ curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
 
 단서 1·2 만으로 `init-local.sh` 가 rename·README 단계를 건너뛰어요 — 로컬 셋업 판단은 `.env.prod` 유무와 무관해요. 단서 3 은 `init-prod.sh` 만 추가로 봐요. 운영 secret push 를 건너뛸지의 판단이라, `.env.prod` 가 있는 운영자 본인 머신에서는 push 가 정상 진행돼요.
 
-이 모드에서는 `init-prod.sh` 의 운영 셋업 단계(.env.prod 생성, Secrets push, observability 배포, verify-server)와 `init-local.sh` 의 rename · README 교체 단계를 자동으로 건너뛰고, **로컬 환경(.env + docker compose + postgres ready)만 준비해요**.
+이 모드에서는 `init-prod.sh` 의 운영 셋업 단계(.env.prod 생성, Secrets push, verify-server)와 `init-local.sh` 의 rename · README 교체 단계를 자동으로 건너뛰고, **로컬 환경(.env + docker compose + postgres ready)만 준비해요**. `.env.infra` 선행 확인도 이 모드에서는 면제돼요 — 공유 자격은 첫 작업자가 이미 GitHub 에 올렸으니 두 번째 머신에 그 파일이 있을 이유가 없어요. 같은 이유로 `infra init` 도 두 번째 작업자는 돌릴 필요가 없어요.
 
 ```bash
 # 두 번째 이상의 작업자: REPO 인자 없이 실행 가능
@@ -222,7 +222,7 @@ REQUIRED 가 실패하면 즉시 중단해요(운영 backend 가 응답하지 �
 
 판정에 쓰이는 값은 이래요.
 
-- **사용자가 직접 채워야 하는 값** — `BASE_DOMAIN` · `SUBDOMAIN`(이 둘로 `APP_DOMAIN` · `PUBLIC_HOSTNAME` 자동 합성), `DB_URL`, `DB_USER`, `DB_PASSWORD`, `GHCR_TOKEN`, `DEPLOY_HOST`, `DEPLOY_SSH_USER`, `SSH_PRIVATE_KEY` 예요. 운영 배포를 켤 거라면 `CLOUDFLARE_API_TOKEN` 과 Tailscale OAuth 값도 채워요.
+- **사용자가 직접 채워야 하는 값** — `SUBDOMAIN`(`.env.infra` 의 `BASE_DOMAIN` 과 합쳐져 `APP_DOMAIN` · `PUBLIC_HOSTNAME` 자동 합성), `DB_URL`, `DB_USER`, `DB_PASSWORD` 예요. 도메인·Cloudflare·SSH·GHCR·Tailscale 은 `.env.infra` 가 소유하고 `infra init` 이 같은 1·2회차 방식으로 다뤄요.
 - **자동으로 발급되는 값** — `JWT_SECRET`, `KAMAL_SERVICE_NAME`, `DEPLOY_ENABLED`(기본 `false`), `GHCR_USERNAME`, `KAMAL_IMAGE`, Cloudflare ID, PortOne webhook secret 은 `init-prod.sh` 가 채워요. `DB_PASSWORD` 는 **자동 발급이 아니에요** — 외부 DB(Supabase 등)가 발급한 비밀번호를 사용자가 직접 입력해야 해요(Spring 자동 접속과 SSH 수동 접속이 같은 값을 써야 하거든요).
 - **멱등 보장** — `.env`(init-local)와 `.env.prod`(init-prod) 모두 "이미 있으면 건너뜀"으로 동작하고, `gh secret set` 은 덮어쓰기, husky 훅도 이미 활성화돼 있으면 건너뛰어요.
 

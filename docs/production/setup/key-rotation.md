@@ -18,7 +18,7 @@
 
 - **노출 시 즉시 폐기 + 재발급** — 채팅·public commit·로그 출력 등 어떤 경로로든 평문이 외부에 보였다면 무조건 폐기합니다.
 - **주기적 rotation** — 노출이 없어도 정해진 주기마다 갱신합니다.
-- **재발급 후 `prod init` 재실행** — 새 값을 `.env.prod` 에 채우고 `<repo> prod init` 을 다시 돌리면 GitHub Secrets 가 덮어쓰기로 갱신됩니다. 다음 배포부터 새 키가 주입돼요.
+- **재발급 후 init 재실행** — 새 값을 소유 파일에 채우고 그 파일의 init 을 다시 돌리면 GitHub Secrets 가 덮어쓰기로 갱신됩니다. 다음 배포부터 새 키가 주입돼요. 소유 파일은 둘로 나뉘어요 — 계정/호스트 자격(GHCR·SSH·Tailscale·Cloudflare)은 `.env.infra` + `<repo> infra init`, 환경별 값(DB·JWT·PortOne 등)은 `.env.prod` + `<repo> prod init`.
 
 > 이 문서는 *파생 레포 운영자* 기준입니다. 명령은 `<repo> prod init`(= `tools/init/init-prod.sh`)·`<repo> prod deploy` 처럼 적었어요. `<repo>` 자리에는 본인 레포 별칭(예: `myapp-backend`)이 들어갑니다.
 
@@ -47,16 +47,17 @@
 ```
 옛 키 폐기 (외부 콘솔)
    ↓
-새 키 발급 → .env.prod 의 해당 변수 갱신
-   ↓
-<repo> prod init        (GitHub Secrets 덮어쓰기 push)
+새 키 발급 → 소유 파일의 해당 변수 갱신
+   ↓                     .env.infra  → <repo> infra init
+<repo> {infra|prod} init   .env.prod   → <repo> prod init
+   ↓                     (GitHub Secrets 덮어쓰기 push)
    ↓
 <repo> prod deploy      (blue/green 으로 새 컨테이너에 주입)
    ↓
 <repo> prod test        (배포 후 health 확인)
 ```
 
-`<repo> prod init` 은 `.env.prod` 의 REQUIRED 키를 항상 GitHub Secrets 로 다시 push 하고, `gh secret set` 이 overwrite 라 재실행은 멱등합니다 ([`키 발급 통합 §5`](./key-issuance.md#5-발급-후--4-stage-동기화)). 단 `JWT_SECRET`·`GHCR_TOKEN` 처럼 `config/deploy.yml`·`.kamal/secrets.example`·`deploy.yml` 에 이미 등록된 키는 4 곳 동기화를 새로 손댈 필요가 없어요 — *값만* 바뀌고 *키 이름* 은 그대로니까요.
+두 init 모두 소유한 REQUIRED 키를 항상 GitHub Secrets 로 다시 push 하고, `gh secret set` 이 overwrite 라 재실행은 멱등합니다. dev 도 쓰는 레포라면 공유 자격 교체 시 `infra init` 한 번이면 끝이에요 — 접미사 없는 한 벌이라 dev·prod 양쪽이 동시에 새 값을 받아요 ([`키 발급 통합 §5`](./key-issuance.md#5-발급-후--4-stage-동기화)). 단 `JWT_SECRET`·`GHCR_TOKEN` 처럼 `config/deploy.yml`·`.kamal/secrets.example`·`deploy.yml` 에 이미 등록된 키는 4 곳 동기화를 새로 손댈 필요가 없어요 — *값만* 바뀌고 *키 이름* 은 그대로니까요.
 
 ---
 
@@ -69,8 +70,8 @@
 **재발급**: [`키 발급 통합 §3.1`](./key-issuance.md#31-ghcr_token--github-personal-access-token-classic) 의 절차로 새 classic PAT 를 발급해요. 네 scope(`write:packages`·`read:packages`·`delete:packages`·`repo`)를 모두 체크합니다.
 
 **적용**:
-1. 새 토큰 값 → `.env.prod` 의 `GHCR_TOKEN` 갱신
-2. `<repo> prod init` 실행 (GitHub Secrets overwrite)
+1. 새 토큰 값 → `.env.infra` 의 `GHCR_TOKEN` 갱신
+2. `<repo> infra init` 실행 (GitHub Secrets overwrite)
 
 **확인**: 다음 배포(`<repo> prod deploy` 또는 main push)의 GHCR push 가 성공하면 새 키가 정상 동작합니다.
 
@@ -83,8 +84,8 @@
 - ACL 의 `tagOwners` 가 이미 정의돼 있으면 그대로 두면 됩니다 (재정의 불필요).
 
 **적용**:
-1. 새 Client ID + Secret → `.env.prod` 의 `TS_OAUTH_CLIENT_ID`·`TS_OAUTH_SECRET` 갱신
-2. `<repo> prod init` 실행
+1. 새 Client ID + Secret → `.env.infra` 의 `TS_OAUTH_CLIENT_ID`·`TS_OAUTH_SECRET` 갱신
+2. `<repo> infra init` 실행
 
 ### 3. 운영 서버 SSH 키 (`SSH_PRIVATE_KEY`)
 
@@ -106,8 +107,8 @@ ssh-keygen -t ed25519 -f ~/.ssh/deploy_key -C "deploy@$(hostname)" -N ""
 
 **적용**:
 1. 새 공개키를 운영 서버 `authorized_keys` 에 등록
-2. 새 private key **전체 내용**(BEGIN/END 라인 포함)을 `.env.prod` 의 `SSH_PRIVATE_KEY` 에 갱신
-3. `<repo> prod init` 실행
+2. 새 private key **전체 내용**(BEGIN/END 라인 포함)을 `.env.infra` 의 `SSH_PRIVATE_KEY` 에 갱신
+3. `<repo> infra init` 실행
 
 **확인**: `verify-server.sh` Step 3 (SSH + Tailscale) 이 PASS 면 정상입니다.
 
@@ -179,8 +180,8 @@ cosign generate-key-pair      # 새 암호 입력 → 새 cosign.key + cosign.pu
 ```
 □ 노출된 키 종류 확인 (위 표)
 □ 즉시 폐기 (해당 절차)
-□ 새 키 발급 → .env.prod 갱신
-□ <repo> prod init  (GitHub Secrets 덮어쓰기)
+□ 새 키 발급 → 소유 파일 갱신 (.env.infra 또는 .env.prod)
+□ <repo> infra init / prod init  (GitHub Secrets 덮어쓰기)
 □ <repo> prod deploy → <repo> prod test  (배포 + health 확인)
 □ (외부 서비스의) audit log 확인 — 폐기 전 의심 활동이 있었나
 □ git history grep — 노출 키가 commit 에 들어간 적 없나 (있으면 history 재작성 검토)
@@ -193,7 +194,7 @@ cosign generate-key-pair      # 새 암호 입력 → 새 cosign.key + cosign.pu
 
 - **PAT expiration 알림** — GitHub Settings 의 expiration 만료 알림 이메일을 켜 두면 90일 주기를 놓치지 않아요.
 - **Tailscale audit log** — admin → Logs 를 정기 검토합니다.
-- **password manager** — `.env.prod` 같은 파일 대신 password manager 에 원본을 보관합니다.
+- **password manager** — `.env.infra`·`.env.prod` 같은 파일 대신 password manager 에 원본을 보관합니다.
 - **dependabot / renovate** — GHA action 버전(예: `tailscale/github-action@v4`)을 자동 PR 로 추적합니다.
 
 ---
@@ -202,7 +203,7 @@ cosign generate-key-pair      # 새 암호 입력 → 새 cosign.key + cosign.pu
 
 ### 키 교체 후 앱이 기동 안 됨
 
-- **원인**: 새 키가 모든 경로에 반영되지 않았어요 (GitHub Secrets·`.env.prod`·외부 콘솔 중 누락). 4-Stage 동기화 한 곳이 빠진 경우가 많아요.
+- **원인**: 새 키가 모든 경로에 반영되지 않았어요 (GitHub Secrets·`.env.infra`/`.env.prod`·외부 콘솔 중 누락). 4-Stage 동기화 한 곳이 빠진 경우가 많아요. 공유 자격을 `.env.prod` 에서 고치고 `.env.infra` 를 안 고쳤다면, 읽기 순서상 환경 파일이 이기므로 로컬 배포는 새 값으로 되는데 GitHub Secrets 는 옛 값 그대로예요 — GHA 배포만 실패합니다.
 - **확인**: `docker logs <container>` 에서 authentication·JWT·HikariCP 관련 예외를 검색합니다.
 - **조치**: 누락된 위치에 새 키를 주입한 뒤 `<repo> prod deploy` 로 재배포해요. 4 곳 매핑은 [`Secret Chain 4-Stage`](./secret-chain-4stage.md) 를 참고하세요.
 

@@ -35,6 +35,7 @@
 | `local` | 개발자 맥북의 docker-compose 환경 | postgres·minio·spring·wiremock 컨테이너. application-local.yml — WireMock fallback 내장 |
 | `dev`   | Mac mini dev 서버 (사내·외주 검증용) | 별도 Supabase + MinIO 의 dev bucket + Cloudflare Tunnel `dev-server.<도메인>`. application-dev.yml — production-like, 실 OAuth + strict `${VAR}` |
 | `prod`  | 운영 | Mac mini + Supabase prod + NAS MinIO + Cloudflare Tunnel `server.<도메인>`. application-prod.yml |
+| `infra` | 환경이 아니라 **계정/호스트** — dev 와 prod 가 함께 쓰는 자산 | Mac mini 한 대, Cloudflare 계정 하나, GitHub 계정 하나, tailnet 하나. `init` 만 지원돼요 |
 | `all` | local 과 prod 를 sequential 로 (dev 는 미포함) | init·start·test 에서 지원돼요 |
 
 > `dev` 와 `prod` 는 같은 Mac mini host 위에서 kamal service 이름만 다르게 격리돼요 — `server` vs `server-dev`. 자세한 격리 모델은 [`develop-branch-policy.md §5`](../production/operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델) 를 참고하세요.
@@ -46,6 +47,7 @@
 | verb | local | dev | prod | all |
 |---|---|---|---|---|
 | **init** | `.env` + docker + verify-local + symlink 등록 | `.env.dev` + Cloudflare 자동 등록 + GitHub Secrets·Variables(`_DEV`) push | `.env.prod` + Cloudflare + Secrets·Variables push + verify-server | local → prod 순차 (dev 미포함) |
+| **init** (`infra`) | — | — | — | `.env.infra` + Cloudflare ID 추출 + 접미사 없는 Secrets·Variables push + 관측 스택 배포. dev·prod 어느 쪽을 쓰든 **먼저 한 번** |
 | **start** | docker 컨테이너 기동 | `kamal app boot -c config/deploy-dev.yml` — 마지막 dev image 로 재기동 | `kamal app boot` — 마지막 prod image 로 재기동 (장애 복구용) | local → prod 순차 |
 | **stop** | 전체 컨테이너 stop (postgres·minio·wiremock·spring — 데이터는 보존) | `kamal app stop` — dev 컨테이너 정지 (이미지·데이터 보존) | `kamal app stop` — prod 컨테이너 정지 (이미지·데이터 보존) | ❌ |
 | **restart** | spring 컨테이너 *재빌드* + 재기동 — `new app` 직후 새 코드 반영 | `kamal app boot` — 마지막 dev image 로 recreate (빌드 X) | `kamal app boot` — 마지막 prod image 로 recreate (빌드 X) | ❌ |
@@ -132,11 +134,34 @@
    → 끝나면: <repo> local restart   (새 코드 반영)
 ```
 
-### 2. dev-server 셋업 (사내/외주 검증용 — 선택)
+### 2. 공유 인프라 셋업 (dev·prod 중 무엇을 하든 최초 1회)
 
-prod 환경 셋업 후 같은 Mac mini 에 dev-server 를 격리 운영하고 싶을 때.
+Mac mini · Cloudflare 계정 · GHCR · tailnet 은 dev 의 것도 prod 의 것도 아니라 **둘이 함께 쓰는 자산**이에요. 그래서 환경 셋업에서 떼어내 `infra init` 이 단독으로 소유해요. 이 덕분에 dev 와 prod 가 서로를 선행 조건으로 요구하지 않아요.
 
-먼저 `.env.dev` 의 REQUIRED 키를 채워요 — `BASE_DOMAIN`, `SUBDOMAIN`, `DB_URL`(별도 Supabase), `APP_STORAGE_MINIO_BUCKETS_0`(dev bucket). `.env.dev` 의 키 이름은 `.env.prod` 와 똑같고, `init-dev.sh` 가 GitHub 에 push 할 때만 `_DEV` suffix 를 자동으로 붙여요. Cloudflare·Tailscale·SSH 같은 공유 자격은 `.env.dev` 가 비어 있으면 `.env.prod` 에서 자동으로 fallback 돼요.
+```bash
+# 1회차 — .env.infra 생성 (기존 .env.prod/.env.dev 에 값이 있으면 자동 이관)
+<repo> infra init
+   → .env.infra 생성 후 [REQUIRED] 안내하고 종료
+
+# .env.infra 채우기 — BASE_DOMAIN, CLOUDFLARE_API_TOKEN, DEPLOY_HOST,
+#                     DEPLOY_SSH_USER, SSH_PRIVATE_KEY, GHCR_TOKEN
+#                     (TS_OAUTH_* 는 GHA 자동 배포를 쓸 때만)
+
+# 2회차 — 실제 등록
+<repo> infra init
+   → CLOUDFLARE_API_TOKEN 으로 ZONE_ID/ACCOUNT_ID/TUNNEL_ID 자동 추출
+   → GitHub Secrets(접미사 없음): GHCR_TOKEN · SSH_PRIVATE_KEY · TS_OAUTH_*
+   → GitHub Variables(접미사 없음): DEPLOY_HOST · DEPLOY_SSH_USER
+   → 관측 스택(Prometheus·Loki·Grafana) 배포 — dev·prod 가 env 라벨로 구분해 공유
+```
+
+몇 번을 다시 돌려도 결과가 같아요(멱등). 키를 교체했을 때도 같은 명령으로 다시 push 해요 — [`key-rotation.md`](../production/setup/key-rotation.md).
+
+### 3. dev-server 셋업 (사내/외주 검증용 — 선택)
+
+사내·외주 검증용 dev-server 를 Mac mini 에 띄울 때. **`prod` 셋업과 순서 관계가 없어요** — dev 만 쓰고 prod 는 영영 안 만들어도 완결돼요. 선행 조건은 `infra init` 하나뿐이에요.
+
+먼저 `.env.dev` 의 REQUIRED 키를 채워요 — `SUBDOMAIN`, `DB_URL`(별도 Supabase), `DB_USER`, `DB_PASSWORD`. 도메인·SSH·GHCR 같은 공유 자격은 `.env.infra` 가 소유하므로 여기 다시 적지 않아요. `.env.dev` 의 키 이름은 `.env.prod` 와 똑같고, `init-dev.sh` 가 GitHub 에 push 할 때만 `_DEV` suffix 를 자동으로 붙여요.
 
 ```bash
 # dev init — dev 환경 자동 셋업
@@ -159,9 +184,9 @@ prod 환경 셋업 후 같은 Mac mini 에 dev-server 를 격리 운영하고 �
 
 자세한 격리 모델은 [`develop-branch-policy.md §5`](../production/operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델) 를 참고하세요.
 
-### 3. 운영 셋업 (로컬 익숙해진 후)
+### 4. 운영 셋업 (로컬 익숙해진 후)
 
-먼저 `.env.prod` 의 REQUIRED 키를 채워요 — `BASE_DOMAIN`, `SUBDOMAIN`, `CLOUDFLARE_API_TOKEN`, `DB_URL`, `DB_USER`, `DB_PASSWORD`, `GHCR_TOKEN`, `SSH_PRIVATE_KEY`, `DEPLOY_HOST`, `DEPLOY_SSH_USER`.
+먼저 `.env.prod` 의 REQUIRED 키를 채워요 — `SUBDOMAIN`, `DB_URL`, `DB_USER`, `DB_PASSWORD`. 도메인·Cloudflare·SSH·GHCR 는 `.env.infra` 가 소유해요(`infra init` 이 선행). `dev` 와 마찬가지로 순서 관계가 없어서, dev 없이 prod 만 셋업해도 돼요.
 
 ```bash
 # 4) prod init — 운영 환경 자동 셋업
@@ -182,7 +207,7 @@ prod 환경 셋업 후 같은 Mac mini 에 dev-server 를 격리 운영하고 �
 <repo> prod logs           # 실시간 로그
 ```
 
-### 4. CI 검증 (push 전)
+### 5. CI 검증 (push 전)
 
 GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 5 단계를 로컬에서 미리 수행할 수 있어요.
 
@@ -304,7 +329,8 @@ GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 5 단
 ## 디렉터리 구조로 진행 단계 시각화
 
 ```
-파생 레포 클론 직후:        .env.example · .env.dev.example · .env.prod.example 만 있음
+파생 레포 클론 직후:        .env.example · .env.infra.example · .env.dev.example · .env.prod.example 만 있음
+infra init 후:              + .env.infra (공유 인프라 셋업 완료 — dev·prod 공통 선행)
 local init 후:              + .env (로컬 셋업 완료)
 dev init 후:                + .env.dev (dev-server 셋업 완료)
 prod init 후:               + .env.prod (운영 셋업 완료)
@@ -323,6 +349,7 @@ dev force-clear · prod force-clear: 모든 자원 영구 삭제 (clean slate)
 | `template-spring test` | 메타 레포 안내 + 진행 |
 | `template-spring ci-test` | 정상 동작 (template 자체 검증) |
 | `template-spring prod *` | ⚠ "파생 레포에서 진행하세요" 안내 + exit (메타 레포는 운영하지 않음) |
+| `template-spring infra *` | ⚠ 동일 — 실 자격을 GitHub 에 올리므로 파생 레포 전용 |
 
 운영 셋업과 배포는 반드시 파생 레포에서 진행해야 해요. template-spring 자체에서는 template 의 자체 검증, 즉 도그푸딩 흐름만 동작해요.
 
@@ -331,6 +358,7 @@ dev force-clear · prod force-clear: 모든 자원 영구 삭제 (clean slate)
 `factory` wrapper 를 거치지 않고도 다음과 같이 직접 호출할 수 있어요.
 
 ```bash
+bash tools/init/init-infra.sh <owner>/<repo>         # infra init 본체
 bash tools/init/init-local.sh <owner>/<repo>         # local init 본체
 bash tools/init/init-prod.sh  <owner>/<repo>         # prod init 본체
 bash tools/init/init-dev.sh                          # dev init 본체
