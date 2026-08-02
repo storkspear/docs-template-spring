@@ -13,33 +13,37 @@
 
 ## 1. 개요
 
-운영 환경에서 쓰는 모든 외부 자격 증명을 한 곳에 모은 통합 가이드예요. 키마다 발급처가 다르고 권한 범위가 다르기 때문에, 어느 콘솔에서 어떤 권한을 골라야 하는지를 잊기 쉬워요. 이 문서가 그 단일 진입점이에요. 각 키마다 세 가지를 다뤄요 — 무엇에 쓰는지, 어디서 어떻게 발급하는지, `.env.prod` 의 어디에 채우는지.
+운영 환경에서 쓰는 모든 외부 자격 증명을 한 곳에 모은 통합 가이드예요. 키마다 발급처가 다르고 권한 범위가 다르기 때문에, 어느 콘솔에서 어떤 권한을 골라야 하는지를 잊기 쉬워요. 이 문서가 그 단일 진입점이에요. 각 키마다 세 가지를 다뤄요 — 무엇에 쓰는지, 어디서 어떻게 발급하는지, 어느 파일에 채우는지.
 
-이 가이드는 [`.env.prod.example`](../../../.env.prod.example) 의 주석을 보충하는 역할이에요. 주석은 `.env.prod` 를 직접 수정할 때 곁눈질로 보는 현장 메모이고, 이 문서는 발급 절차를 책상에서 따라가는 단계별 안내예요. 두 가지를 함께 펼쳐 놓고 채우면 됩니다.
+채우는 파일은 둘로 나뉘어요. **계정/호스트에 속하는 자산**(도메인·Cloudflare·SSH·GHCR·Tailscale)은 `.env.infra` 가 소유하고 `<repo> infra init` 이 접미사 없이 한 벌만 올려요 — Mac mini 한 대, Cloudflare 계정 하나를 dev 와 prod 가 함께 쓰니까요. **환경별로 달라지는 값**(DB·JWT·기능별 자격)은 `.env.prod` 가 갖고 `prod init` 이 올려요. 각 절 제목 옆에 소유 파일을 표시해 뒀어요.
+
+이 가이드는 [`.env.infra.example`](../../../.env.infra.example) 과 [`.env.prod.example`](../../../.env.prod.example) 의 주석을 보충하는 역할이에요. 주석은 파일을 직접 수정할 때 곁눈질로 보는 현장 메모이고, 이 문서는 발급 절차를 책상에서 따라가는 단계별 안내예요. 두 가지를 함께 펼쳐 놓고 채우면 됩니다.
 
 키 발급에 익숙하지 않은 첫 배포자라면 [`도그푸딩 환경 셋업 가이드`](../../start/dogfood-setup.md) 를 먼저 한 번 훑은 뒤 이 문서로 돌아오는 흐름을 권장해요. 도그푸딩 가이드가 *언제 발급해야 하는지* 의 흐름을, 이 문서가 *무엇을 어떻게 발급하는지* 의 절차를 설명해요.
 
 ### 발급 매트릭스
 
-| 분류 | 키 | 발급처 | 활성 조건 |
-|---|---|---|---|
-| 필수 — 앱 부팅 | `BASE_DOMAIN`, `SUBDOMAIN`, `APP_DOMAIN` | 도메인 등록 대행 (Cloudflare, Namecheap 등) | 항상 |
-|  | `CLOUDFLARE_API_TOKEN` 외 3개 | dash.cloudflare.com | Tunnel 사용 시 (사실상 항상) |
-|  | `JWT_SECRET` | `init-prod.sh` 자동 발급 | 항상 |
-|  | `DB_URL`, `DB_USER`, `DB_PASSWORD` | Supabase, RDS, Fly Postgres 등 | 항상 |
-| 필수 — 배포 | `GHCR_TOKEN` | github.com/settings/tokens | 항상 |
-|  | `SSH_PRIVATE_KEY` | 로컬 `ssh-keygen` + 운영 서버 등록 | 항상 |
-| 선택 — 기능별 | `APP_STORAGE_MINIO_*` | MinIO 콘솔, `mc admin user add` | `feature=storage` |
-|  | `RESEND_*` | resend.com | `feature=email` |
-|  | `COOLSMS_*` | solapi.com | `feature=sms`, `feature=phone-auth` |
-|  | `APP_CREDENTIALS_<SLUG>_*` | Google, Apple, Kakao, Naver 콘솔 | `feature=social-auth` |
-|  | `TS_OAUTH_*` | login.tailscale.com | `DEPLOY_ENABLED=true` 시 |
-|  | `LOKI_URL` | Loki 호스트 (자체 또는 Grafana Cloud) | `feature=logging` |
-|  | `DISCORD_WEBHOOK_URL` | Discord 채널 통합 | `feature=alertmanager` |
-|  | `APP_PAYMENT_PORTONE_*` | portone.io 콘솔 | `feature=payment` |
-|  | `APP_IAP_APPLE_*` | App Store Connect | `feature=iap` (iOS) |
-|  | `APP_IAP_GOOGLE_*` | Google Cloud Console | `feature=iap` (Android) |
-| 선택 — 배포 | `COSIGN_KEY_PATH`·`COSIGN_PASSWORD` | 로컬 `cosign generate-key-pair` | 로컬 배포 이미지 서명 opt-in 시 (§3.3) |
+| 분류 | 키 | 소유 파일 | 발급처 | 활성 조건 |
+|---|---|---|---|---|
+| 필수 — 앱 부팅 | `BASE_DOMAIN` | `.env.infra` | 도메인 등록 대행 (Cloudflare, Namecheap 등) | 항상 |
+|  | `SUBDOMAIN`, `APP_DOMAIN` | `.env.prod` / `.env.dev` | 위 도메인의 하위 이름 (환경별로 다름) | 항상 |
+|  | `CLOUDFLARE_API_TOKEN` 외 3개 | `.env.infra` | dash.cloudflare.com | Tunnel 사용 시 (사실상 항상) |
+|  | `JWT_SECRET` | `.env.prod` | `init-prod.sh` 자동 발급 | 항상 |
+|  | `DB_URL`, `DB_USER`, `DB_PASSWORD` | `.env.prod` | Supabase, RDS, Fly Postgres 등 | 항상 |
+| 필수 — 배포 | `GHCR_TOKEN` | `.env.infra` | github.com/settings/tokens | 항상 |
+|  | `SSH_PRIVATE_KEY` | `.env.infra` | 로컬 `ssh-keygen` + 운영 서버 등록 | 항상 |
+|  | `DEPLOY_HOST`, `DEPLOY_SSH_USER` | `.env.infra` | 운영 서버의 Tailnet IP / 계정 | 항상 |
+| 선택 — 기능별 | `APP_STORAGE_MINIO_*` | `.env.prod` | MinIO 콘솔, `mc admin user add` | `feature=storage` |
+|  | `RESEND_*` | `.env.prod` | resend.com | `feature=email` |
+|  | `COOLSMS_*` | `.env.prod` | solapi.com | `feature=sms`, `feature=phone-auth` |
+|  | `APP_CREDENTIALS_<SLUG>_*` | `.env.prod` | Google, Apple, Kakao, Naver 콘솔 | `feature=social-auth` |
+|  | `TS_OAUTH_*` | `.env.infra` | login.tailscale.com | GHA 자동 배포 시 |
+|  | `LOKI_URL` | `.env.prod` | Loki 호스트 (자체 또는 Grafana Cloud) | `feature=logging` |
+|  | `DISCORD_WEBHOOK_URL` | `.env.prod` | Discord 채널 통합 | `feature=alertmanager` |
+|  | `APP_PAYMENT_PORTONE_*` | `.env.prod` | portone.io 콘솔 | `feature=payment` |
+|  | `APP_IAP_APPLE_*` | `.env.prod` | App Store Connect | `feature=iap` (iOS) |
+|  | `APP_IAP_GOOGLE_*` | `.env.prod` | Google Cloud Console | `feature=iap` (Android) |
+| 선택 — 배포 | `COSIGN_KEY_PATH`·`COSIGN_PASSWORD` | `.env.prod` | 로컬 `cosign generate-key-pair` | 로컬 배포 이미지 서명 opt-in 시 (§3.3) |
 
 선택 키는 비워두면 해당 기능이 자동으로 비활성화되며 Spring 부팅에는 영향을 주지 않습니다 ([`ADR-034 · Feature Toggle Lite mode`](../../philosophy/adr-034-feature-toggle-lite-mode.md) 참조). 단 PortOne 은 *일부만* 채우면 부팅이 막히는 예외가 있어요. 자세한 가드 규칙은 §4.7 에 있어요.
 
@@ -47,24 +51,30 @@
 
 ## 2. 필수 — 앱 부팅 자격
 
-### 2.1 도메인 — `BASE_DOMAIN`·`SUBDOMAIN`·`APP_DOMAIN`
+### 2.1 도메인 — `BASE_DOMAIN`(infra)·`SUBDOMAIN`·`APP_DOMAIN`(env)
 
 **발급 목적**. 운영 백엔드의 외부 접근 주소예요. `BASE_DOMAIN` 과 `SUBDOMAIN` 을 분리한 이유는 한 사람이 여러 파생 레포를 운영할 때 같은 도메인을 재사용하기 위해서예요. 예를 들어 `example.com` 아래에 `api.example.com`·`admin.example.com`·`log.example.com` 을 각각 다른 레포로 운영하는 식이에요. `init-prod.sh` 가 두 값을 합쳐서 `APP_DOMAIN=https://${SUBDOMAIN}.${BASE_DOMAIN}` 을 자동으로 조립하므로 `APP_DOMAIN` 을 직접 채울 필요는 없어요.
 
 **발급 절차**. 도메인은 어떤 등록 대행이든 가능해요. Cloudflare 에 등록해두면 다음 단계의 API Token 발급과 자연스럽게 이어져요. 도메인을 새로 사는 경우라면 Cloudflare 의 *Add a site* 메뉴에서 도메인을 추가하고 네임서버를 변경하는 절차까지 마쳐야 해요.
 
-**`.env.prod` 채울 위치**:
+**채울 위치**. 도메인 자체는 계정 전체가 공유하므로 `.env.infra` 에, 하위 이름은 환경별로 다르므로 각 환경 파일에 둬요.
 ```bash
+# .env.infra
 BASE_DOMAIN=example.com
+
+# .env.prod
 SUBDOMAIN=server
 # APP_DOMAIN 은 비워둠 — init-prod.sh 가 https://server.example.com 으로 자동 조립
+
+# .env.dev
+SUBDOMAIN=dev-server
 ```
 
 **검증**. `init-prod.sh` 1회차가 자동 조립한 `APP_DOMAIN` 값을 `.env.prod` 에서 확인하세요. 직접 채워야 한다면 그 값이 우선해요.
 
-### 2.2 Cloudflare API Token + ID 4종
+### 2.2 Cloudflare API Token + ID 4종 — `.env.infra`
 
-**발급 목적**. `init-prod.sh` 가 `${SUBDOMAIN}.${BASE_DOMAIN}` 의 DNS CNAME 과 Tunnel ingress 를 자동으로 등록하고 정리하기 위해 필요해요. Token 하나만 채우면 `ZONE_ID`·`ACCOUNT_ID`·`TUNNEL_ID` 는 `BASE_DOMAIN` 을 단서로 자동 추출돼요. Cloudflare Tunnel 을 쓰지 않고 IP 를 직접 노출해 운영한다면 이 절을 건너뛸 수 있지만, Mac mini 같은 가정용 회선 환경에서는 Tunnel 사용이 사실상 필수예요.
+**발급 목적**. init 스크립트가 `${SUBDOMAIN}.${BASE_DOMAIN}` 의 DNS CNAME 과 Tunnel ingress 를 자동으로 등록하고 정리하기 위해 필요해요. Token 하나만 채우면 `ZONE_ID`·`ACCOUNT_ID`·`TUNNEL_ID` 는 `BASE_DOMAIN` 을 단서로 자동 추출돼요. Cloudflare Tunnel 을 쓰지 않고 IP 를 직접 노출해 운영한다면 이 절을 건너뛸 수 있지만, Mac mini 같은 가정용 회선 환경에서는 Tunnel 사용이 사실상 필수예요.
 
 **발급 절차**.
 1. [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) 에 접속해요.
@@ -75,16 +85,16 @@ SUBDOMAIN=server
 4. **Zone Resources** 는 *Specific zone* 을 선택하고 본인의 `BASE_DOMAIN` 을 지정해요. *All zones* 로 두면 다른 사이트까지 접근 가능해져요.
 5. *Continue to summary* → *Create token* 후 표시되는 토큰 값을 즉시 복사해요. 한 번만 표시돼요.
 
-**`.env.prod` 채울 위치**:
+**`.env.infra` 채울 위치**:
 ```bash
 CLOUDFLARE_API_TOKEN=<발급한 토큰 값>
-# 나머지 3개는 비워두면 init-prod.sh 가 자동 추출
+# 나머지 3개는 비워두면 infra init 이 자동 추출
 CLOUDFLARE_ZONE_ID=
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_TUNNEL_ID=
 ```
 
-**검증**. `init-prod.sh` 2회차가 토큰으로 `ZONE_ID`·`ACCOUNT_ID`·`TUNNEL_ID` 를 자동 추출하고 결과를 표시해요 (Step 5.7). 추출이 실패하면 토큰 권한과 Zone Resources 설정을 다시 확인하세요.
+**검증**. `infra init` 2회차가 토큰으로 `ZONE_ID`·`ACCOUNT_ID`·`TUNNEL_ID` 를 자동 추출하고 결과를 표시해요 (Step 3). 추출이 실패하면 토큰 권한과 Zone Resources 설정을 다시 확인하세요.
 
 ### 2.3 JWT_SECRET
 
@@ -159,9 +169,12 @@ DB_PASSWORD=<2단계에서 복사한 Supabase password>
    - `repo` — `write:packages` 가 의존하는 권한이며 docs sync PR 생성에도 필요해요
 5. *Generate token* 을 누르고 표시되는 토큰을 즉시 복사해요. 한 번만 표시돼요.
 
-**`.env.prod` 채울 위치**:
+**채울 위치**. 토큰은 GitHub 계정에 속하므로 `.env.infra` 에, 사용자명은 레포의 git remote 에서 파생되므로 `.env.prod` 에 둬요.
 ```bash
+# .env.infra
 GHCR_TOKEN=ghp_<토큰 값>
+
+# .env.prod
 GHCR_USERNAME=
 # GitHub Actions 가 github.actor 로 자동 주입하므로 GHCR_USERNAME 은 보통 비워둠.
 # 로컬에서 kamal 을 직접 실행할 때만 본인 GitHub 계정명을 채움.
@@ -169,7 +182,7 @@ GHCR_USERNAME=
 
 **검증**. `init-prod.sh` 2회차가 PAT 로 GHCR 로그인을 시도하고, GHA 의 첫 deploy workflow 실행 시 push 가 성공하면 권한 설정이 정상이에요.
 
-### 3.2 SSH_PRIVATE_KEY — 운영 서버 접근 키
+### 3.2 SSH_PRIVATE_KEY — 운영 서버 접근 키 — `.env.infra`
 
 **발급 목적**. Kamal deploy 가 운영 서버 (Mac mini 등) 에 SSH 로 접속해 컨테이너를 갱신할 때 쓰는 private key 예요. GHA runner 도 이 키를 통해 운영 서버에 도달해요.
 
@@ -189,15 +202,19 @@ GHCR_USERNAME=
    ssh -i ~/.ssh/deploy_key <운영서버계정>@<운영서버IP> 'echo connected'
    ```
 
-**`.env.prod` 채울 위치**. private key (`~/.ssh/deploy_key`) 의 **전체 내용** 을 BEGIN/END 라인까지 포함해 그대로 붙여넣어요. 줄바꿈이 깨지지 않도록 주의하세요.
+**`.env.infra` 채울 위치**. private key (`~/.ssh/deploy_key`) 의 **전체 내용** 을 BEGIN/END 라인까지 포함해 큰따옴표로 감싸 붙여넣어요. 줄바꿈이 깨지지 않도록 주의하고, 값과 같은 줄에 주석을 달지 마세요 — 셸은 빈 값으로 읽지만 init 의 값 추출은 주석 문자열까지 값으로 읽어요.
 ```bash
-SSH_PRIVATE_KEY=-----BEGIN OPENSSH PRIVATE KEY-----
+SSH_PRIVATE_KEY="-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 ... (전체 내용)
------END OPENSSH PRIVATE KEY-----
+-----END OPENSSH PRIVATE KEY-----"
+
+# 같은 파일의 운영 서버 좌표
+DEPLOY_HOST=100.X.X.X
+DEPLOY_SSH_USER=<운영서버계정>
 ```
 
-`gh secret set` 이 다중행 값을 자동 처리하므로 `init-prod.sh` 가 큰 수정 없이 GitHub Secrets 로 push 해요.
+`infra init` 이 이 값을 접미사 없는 `SSH_PRIVATE_KEY` secret 으로 push 해요 — dev·prod 워크플로가 같은 키를 봐요.
 
 **검증**. `verify-server.sh` Step 3 (SSH + Tailscale) 가 PASS 면 정상이에요.
 
@@ -313,7 +330,7 @@ APP_CREDENTIALS_MYNEWAPP_NAVER_CLIENT_ID=<문자열>
 
 **검증**. 프론트에서 각 provider 의 로그인 버튼을 눌렀을 때 백엔드가 JWT 를 정상 발급하면 동작 확인 완료예요. 키 발급 전에는 [`소셜 로그인 설정 가이드`](../../start/social-auth-setup.md) 의 dev-mock 모드로 e2e 흐름을 미리 시연할 수 있어요.
 
-### 4.4 Tailscale OAuth (`DEPLOY_ENABLED=true` 시 필수)
+### 4.4 Tailscale OAuth (GHA 자동 배포 시 필수) — `.env.infra`
 
 **발급 목적**. GHA runner (GitHub 의 ubuntu VM) 가 운영 Mac mini (Tailnet 사설 IP `100.x.x.x`) 에 도달하려면, 매 배포마다 일회성 ephemeral device 로 tailnet 에 join 해야 해요. 그때 쓰는 자격이에요. 운영 서버를 Tailscale 로 접근하지 않는다면 이 절을 건너뛸 수 있어요.
 
@@ -332,13 +349,15 @@ APP_CREDENTIALS_MYNEWAPP_NAVER_CLIENT_ID=<문자열>
 5. 다른 scope (Posture, Routes, OAuth Keys 등) 는 모두 체크 해제해요.
 6. *Generate credential* 을 누르고 표시되는 Client ID 와 Secret 을 즉시 복사해요.
 
-**`.env.prod` 채울 위치**:
+**`.env.infra` 채울 위치**:
 ```bash
 TS_OAUTH_CLIENT_ID=<발급한 Client ID>
 TS_OAUTH_SECRET=<발급한 Secret>
-DEPLOY_HOST=100.X.X.X     # Mac mini 의 Tailnet IP (Variables 영역)
+DEPLOY_HOST=100.X.X.X     # Mac mini 의 Tailnet IP (Variables 로 push)
 DEPLOY_SSH_USER=<Mac mini 계정명>
 ```
+
+둘 중 하나만 채우면 `infra init` 이 쌍 전체를 건너뛰어요 — 반쪽 자격은 배포 시점에 403 으로 터지니, 아예 안 올려 GHA 게이트가 명확히 멈추게 합니다. 비워두면 GHA 자동 배포만 꺼지고 로컬 `dev deploy`·`prod deploy` 는 그대로 동작해요.
 
 **검증**. `verify-server.sh` Step 3 (SSH + Tailscale) 가 PASS 면 정상이에요. GHA deploy workflow 가 ephemeral device 로 join → SSH → exit 흐름을 자동으로 수행해요.
 
@@ -520,11 +539,11 @@ COOLSMS_FROM=01012345678          # SOLAPI 에 사전등록한 발신번호 (국
 
 ## 5. 발급 후 — 4-Stage 동기화
 
-`.env.prod` 채우기는 발급한 키가 컨테이너에 도달하는 4 단계 중 첫 번째일 뿐이에요. 새 키를 추가했다면 나머지 3 단계를 함께 갱신해야 부팅 시 주입돼요.
+`.env.infra`·`.env.prod` 채우기는 발급한 키가 컨테이너에 도달하는 4 단계 중 첫 번째일 뿐이에요. 새 키를 추가했다면 나머지 3 단계를 함께 갱신해야 부팅 시 주입돼요.
 
 → **상세 절차**: [`Secret Chain 4-Stage 동기화`](./secret-chain-4stage.md)
 
-`init-prod.sh` 가 `.env.prod` 에서 GitHub Secrets 까지는 자동으로 처리하지만, `config/deploy.yml` 의 `env.secret:` 목록, `.kamal/secrets.example` 의 `KEY=$VAR` 매핑, `.github/workflows/deploy.yml` 의 `env:` 블록은 현재 수동이에요 ([`도그푸딩 FAQ Q17`](../../start/dogfood-faq.md#q17) 참조).
+init 스크립트가 각자 소유한 파일에서 GitHub Secrets 까지는 자동으로 처리하지만, `config/deploy.yml` 의 `env.secret:` 목록, `.kamal/secrets.example` 의 `KEY=$VAR` 매핑, `.github/workflows/deploy.yml` 의 `env:` 블록은 현재 수동이에요 ([`도그푸딩 FAQ Q17`](../../start/dogfood-faq.md#q17) 참조).
 
 ---
 

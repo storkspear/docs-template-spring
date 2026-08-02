@@ -21,6 +21,7 @@
 세 가지를 순서대로 해요.
 
 - 외부 리소스 발급 — GitHub PAT, Tailscale OAuth, Mac mini SSH 키, Supabase 연결 정보를 준비해요 (§3).
+- `infra init` — 계정/호스트에 속하는 공유 자격을 `.env.infra` 에 모아 한 벌만 올려요 (§3.7).
 - `init-prod.sh` 1·2회차 — `.env.prod` 를 자동 생성하고, 채운 뒤 다시 돌려서 GitHub Secrets·Variables 를 push 해요 (§4 ~ §6).
 - 검증 — `verify-server.sh` 7단계로 운영 인프라를 확인하고, 로컬에서 Spring 이 UP 까지 뜨는지 확인해요 (§7 ~ §8).
 
@@ -38,9 +39,10 @@
 | 단계 | 예상 시간 |
 |---|---|
 | 외부 리소스 발급 (한 번) | ~20분 |
+| `.env.infra` 채우기 + `infra init` (한 번) | ~5분 |
 | `.env.prod` 채우기 | ~5분 |
 | `init-prod.sh` 1·2회차 + `verify-server.sh` | ~10분 |
-| **합계** | **~35분** (외부 리소스가 이미 있으면 ~15분) |
+| **합계** | **~40분** (외부 리소스가 이미 있으면 ~15분) |
 
 ### 1.5 공동 작업자 모드 (fresh clone)
 
@@ -56,6 +58,8 @@ git clone <derived-repo>.git && cd <derived-repo>
 
 - settings.gradle rename 이 끝나 있고 `PROJECT_README_TEMPLATE.md` 가 없음 (= 이미 셋업된 레포)
 - `.env.prod` 가 없음 (= 이 머신엔 운영 자격이 없음)
+
+이 모드는 `.env.infra` 선행 확인도 면제받아요. 공유 자격은 첫 작업자가 이미 GitHub 에 올린 상태라, 두 번째 작업자의 머신에 `.env.infra` 가 있을 이유가 없어요.
 
 이 모드에서는 운영 셋업 단계(Step 5/6/9.5/10)를 자동으로 건너뛰어요. 운영 Secrets 는 첫 작업자가 이미 GitHub 에 올린 상태라, 자격 없는 머신에서 다시 push 해 덮어쓰는 사고를 막아요. 분기 로직은 [`FAQ Q12`](./dogfood-faq.md#q12) 와 [`FAQ Q14`](./dogfood-faq.md#q14) 에 정리돼 있어요.
 
@@ -73,13 +77,15 @@ git clone <derived-repo>.git && cd <derived-repo>
 | Supabase 프로젝트 (Seoul region 권장) | supabase.com | §3.5 |
 | 도메인 + Cloudflare 계정 (선택) | — | 외부 도메인 접근이 필요할 때만 (§3.6) |
 
+위 다섯 중 GitHub PAT · SSH · Tailscale · 도메인/Cloudflare 네 가지는 **환경이 아니라 계정/호스트에 속하는 자산**이라 `.env.infra` 가 소유해요 (§3.7). Supabase 연결 정보만 환경별로 달라 `.env.prod` · `.env.dev` 가 각자 가져요.
+
 도구(JDK 21~25 · Docker · Node · `gh` CLI 등)가 다 깔려 있는지는 [`onboarding §1`](./onboarding.md#1-도구-설치) 의 `./factory doctor` 로 한 번에 확인할 수 있어요.
 
 ---
 
 ## 3. 외부 리소스 발급
 
-여기서 발급한 값은 §5 의 `.env.prod` 에 채워 넣어요.
+여기서 발급한 값 중 GitHub PAT · Tailscale OAuth · SSH 키 · Cloudflare 토큰은 §3.7 의 `.env.infra` 에, Supabase 연결 정보는 §5 의 `.env.prod` 에 채워 넣어요.
 
 이 절은 도그푸딩에 꼭 필요한 다섯 가지(PAT · Tailscale · SSH · workflow 권한 · Supabase)만 다뤄요. 운영에서 쓰는 나머지 키(Cloudflare · Resend · MinIO · PortOne · IAP · Loki · Discord)의 발급 목적·절차·채울 위치를 한곳에서 보려면 [`운영 키 발급 통합 가이드`](../production/setup/key-issuance.md) 를 참고하세요. 이 §3 은 그 통합 가이드에서 도그푸딩 핵심 다섯 항목만 발췌한 거예요.
 
@@ -97,7 +103,7 @@ GHCR 에 docker 이미지를 push 할 권한이 필요해요. 워크플로우 �
    - `read:packages`
    - `delete:packages` — 정리용
    - `repo` — `write:packages` 가 의존
-5. "Generate token" → 즉시 복사해요 (한 번만 보여요). 이 값을 `.env.prod` 의 `GHCR_TOKEN` 에 넣어요.
+5. "Generate token" → 즉시 복사해요 (한 번만 보여요). 이 값을 `.env.infra` 의 `GHCR_TOKEN` 에 넣어요.
 
 ### 3.2 Tailscale OAuth client
 
@@ -124,11 +130,11 @@ Save 를 누르세요. 이 단계를 건너뛰면 다음 OAuth 발급 화면의 
   - Keys → Auth Keys → **Write** + Tags 에 `tag:ci` 추가
 - 다른 scope(Posture, Routes, OAuth Keys 등)는 모두 체크 해제해요.
 - "Generate credential" 을 눌러요.
-- Client ID 와 Secret 을 즉시 복사해 `.env.prod` 의 `TS_OAUTH_CLIENT_ID` 와 `TS_OAUTH_SECRET` 에 넣어요.
+- Client ID 와 Secret 을 즉시 복사해 `.env.infra` 의 `TS_OAUTH_CLIENT_ID` 와 `TS_OAUTH_SECRET` 에 넣어요.
 
 ### 3.3 Mac mini SSH 키 준비
 
-GitHub Actions 가 Mac mini 로 SSH 할 때 쓸 private key 가 필요해요. `.env.prod` 의 `SSH_PRIVATE_KEY` 에 private key 의 전체 내용(`-----BEGIN OPENSSH PRIVATE KEY-----` 부터 `-----END OPENSSH PRIVATE KEY-----` 까지)을 그대로 넣어요.
+GitHub Actions 가 Mac mini 로 SSH 할 때 쓸 private key 가 필요해요. `.env.infra` 의 `SSH_PRIVATE_KEY` 에 private key 의 전체 내용(`-----BEGIN OPENSSH PRIVATE KEY-----` 부터 `-----END OPENSSH PRIVATE KEY-----` 까지)을 그대로 넣어요.
 
 **옵션 A — 이미 키가 있다면 (권장)**
 
@@ -136,7 +142,7 @@ GitHub Actions 가 Mac mini 로 SSH 할 때 쓸 private key 가 필요해요. `.
 ssh -i ~/.ssh/macmini storkspear@100.X.X.X 'echo connected'
 ```
 
-이 명령이 성공하면 그 키를 그대로 써요. `.env.prod` 에는 `SSH_PRIVATE_KEY=$(cat ~/.ssh/macmini)` 의 출력처럼 키 내용을 다중행 값으로 넣어요 (`gh secret set` 이 다중행을 알아서 처리해요).
+이 명령이 성공하면 그 키를 그대로 써요. `.env.infra` 에는 `SSH_PRIVATE_KEY=$(cat ~/.ssh/macmini)` 의 출력처럼 키 내용을 다중행 값으로 넣되, **큰따옴표로 감싸고 값과 같은 줄에 주석을 달지 않아요**. 셸은 같은 줄 주석을 빈 값으로 읽지만 init 의 값 추출은 주석 문자열까지 값으로 읽어, 잘린 키가 그대로 GitHub 에 올라가요.
 
 **옵션 B — 키가 없다면**
 
@@ -213,9 +219,41 @@ GYMLOG_DB_PASSWORD=
 
 내부 Tailscale IP 만으로 검증할 거면 건너뛰어도 돼요. 외부에서 `https://server.<도메인>` 으로 접근하려면 [`운영 배포 가이드 §2.3 ~ §2.6`](../production/deploy/deployment.md) 을 참고하세요.
 
-`.env.prod` 의 도메인은 `BASE_DOMAIN` 과 `SUBDOMAIN` 두 값만 채우면 돼요. 그러면 `init-prod.sh` 가 `APP_DOMAIN` 과 `PUBLIC_HOSTNAME` 을 자동으로 합성해요. cloudflared 를 깔지 않더라도 `PUBLIC_HOSTNAME` 은 kamal-proxy 의 host-based routing 에 쓰이니 placeholder 라도 채워져 있어야 해요.
+도메인은 두 파일로 나뉘어요. 계정 전체가 공유하는 `BASE_DOMAIN` 은 `.env.infra` 가, 환경별로 다른 `SUBDOMAIN` 은 `.env.prod`(`server`) 와 `.env.dev`(`dev-server`) 가 각자 가져요. 둘이 합쳐져 `APP_DOMAIN` 과 `PUBLIC_HOSTNAME` 이 자동 합성돼요. cloudflared 를 깔지 않더라도 `PUBLIC_HOSTNAME` 은 kamal-proxy 의 host-based routing 에 쓰이니 placeholder 라도 채워져 있어야 해요.
 
-`CLOUDFLARE_API_TOKEN` 까지 채우면 `init-prod.sh` 가 Zone·Account·Tunnel ID 를 자동 추출하고 DNS CNAME 과 Tunnel ingress 까지 등록해줘요. 토큰 발급은 [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) 에서 하고, 권한은 Zone DNS Edit + Account Cloudflare Tunnel Edit 이 필요해요.
+`.env.infra` 의 `CLOUDFLARE_API_TOKEN` 까지 채우면 `infra init` 이 Zone·Account·Tunnel ID 를 자동 추출하고, 이후 `prod init`·`dev init` 이 각자의 DNS CNAME 과 Tunnel ingress 를 등록해줘요. 토큰 발급은 [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) 에서 하고, 권한은 Zone DNS Edit + Account Cloudflare Tunnel Edit 이 필요해요.
+
+### 3.7 `infra init` — 공유 자격 한 벌 등록
+
+§3.1 ~ §3.3 · §3.6 에서 받은 값은 dev 의 것도 prod 의 것도 아니에요. Mac mini 한 대, Cloudflare 계정 하나, GitHub 계정 하나, tailnet 하나를 두 환경이 함께 쓰거든요. 그래서 `.env.infra` 가 소유하고 `infra init` 이 단독으로 GitHub 에 올려요. 이 분리 덕에 dev 와 prod 는 서로를 선행 조건으로 요구하지 않아요 — dev 만 쓰는 레포도, prod 만 쓰는 레포도 완결돼요.
+
+```bash
+<repo> infra init          # 1회차 — .env.infra 생성 후 안내하고 종료
+$EDITOR .env.infra         # [REQUIRED] 채우기
+<repo> infra init          # 2회차 — 추출 + push + 관측 스택
+```
+
+| 키 | 값 출처 | 그룹 |
+|---|---|---|
+| `BASE_DOMAIN` | 본인 도메인 (예: `example.com`) | REQUIRED |
+| `CLOUDFLARE_API_TOKEN` | §3.6 의 Cloudflare 토큰 | REQUIRED |
+| `DEPLOY_HOST` | Mac mini Tailscale IP (`100.X.X.X`) | REQUIRED |
+| `DEPLOY_SSH_USER` | Mac mini 계정 (예: `storkspear`). `root` 는 macOS SSH 비활성이라 실패해요 ([`pitfalls #8`](./dogfood-pitfalls.md)) | REQUIRED |
+| `SSH_PRIVATE_KEY` | §3.3 의 Mac mini private key 전체 내용 | REQUIRED |
+| `GHCR_TOKEN` | §3.1 의 GitHub PAT | REQUIRED |
+| `TS_OAUTH_CLIENT_ID` · `TS_OAUTH_SECRET` | §3.2 의 Tailscale OAuth. 비우면 GHA 자동 배포만 꺼지고, 로컬 `dev deploy`·`prod deploy` 는 그대로 동작해요 | OPTIONAL |
+| `CLOUDFLARE_ZONE_ID` · `ACCOUNT_ID` · `TUNNEL_ID` | 2회차가 TOKEN 으로 자동 추출 | AUTO |
+
+2회차가 하는 일이에요.
+
+1. `[REQUIRED]` 검증 + Cloudflare ID 3종 자동 추출
+2. GitHub Secrets **접미사 없이** push — `GHCR_TOKEN` · `SSH_PRIVATE_KEY` · (둘 다 채웠으면) `TS_OAUTH_CLIENT_ID` · `TS_OAUTH_SECRET`
+3. GitHub Variables 접미사 없이 push — `DEPLOY_HOST` · `DEPLOY_SSH_USER`
+4. 관측 스택(Loki · Grafana · Prometheus, Discord 있으면 Alertmanager) 배포 — dev·prod 가 `env` 라벨로 구분해 공유해요
+
+멱등이라 몇 번을 다시 돌려도 결과가 같아요. 키를 교체했을 때도 같은 명령으로 다시 push 해요.
+
+> **기존 레포 마이그레이션** — 이미 `.env.prod` 나 `.env.dev` 에 이 값들을 채워둔 레포라면, 1회차가 그 값을 `.env.infra` 로 자동으로 옮겨 담고 **어떤 키를 옮겼는지 이름만** 출력해요(값은 찍지 않아요). 원본은 지우지 않아요 — 읽기 순서상 환경 파일이 뒤에 얹히므로 중복이 있어도 동작이 같아요.
 
 ---
 
@@ -230,7 +268,7 @@ bash tools/init/init-prod.sh <owner>/<repo>
 
 1회차에서 `init-prod.sh` 가 하는 일이에요.
 
-1. **Step 1** — prereqs 검증 (JDK 21~25 · Docker · Node 18+ · `gh` CLI)
+1. **Step 1** — prereqs 검증 (JDK 21~25 · Docker · Node 18+ · `gh` CLI) + `.env.infra` 선행 확인. 없으면 `<repo> infra init` 을 먼저 돌리라고 안내하고 중단해요 (공동 작업자 모드는 면제).
 2. **Step 5** — `.env.prod.example` → `.env.prod` 복사 + 자동 채움. `JWT_SECRET`(openssl 랜덤), `KAMAL_SERVICE_NAME`(레포명), `DEPLOY_ENABLED=false`, PortOne webhook secret, `GHCR_USERNAME`/`KAMAL_IMAGE`(git remote 에서 derive)가 빈 자리에 들어가요.
 3. **Step 5.5** — `BASE_DOMAIN` + `SUBDOMAIN` 이 채워져 있으면 `APP_DOMAIN`·`PUBLIC_HOSTNAME` 을 자동 합성해요.
 4. **Step 6 진입** — `.env.prod` 의 REQUIRED 키가 아직 비어 있으니, 채우라고 안내한 뒤 정상 종료(`exit 0`)해요.
@@ -251,16 +289,12 @@ $EDITOR .env.prod
 
 | 키 | 값 출처 |
 |---|---|
-| `BASE_DOMAIN` | 본인 도메인 (예: `example.com`). `SUBDOMAIN` 과 합쳐 `APP_DOMAIN`·`PUBLIC_HOSTNAME` 자동 합성 |
+| `SUBDOMAIN` | 운영 서브도메인 (기본 `server`). `.env.infra` 의 `BASE_DOMAIN` 과 합쳐 `APP_DOMAIN`·`PUBLIC_HOSTNAME` 자동 합성 |
 | `DB_URL` | §3.5 의 Supabase JDBC URL (`jdbc:postgresql://...` — `jdbc:` prefix 필수) |
 | `DB_USER` | §3.5 의 Supabase user (`postgres.<ref>`) |
 | `DB_PASSWORD` | §3.5 의 Supabase 실제 비밀번호 (자동 발급 안 됨) |
-| `GHCR_TOKEN` | §3.1 의 GitHub PAT |
-| `DEPLOY_HOST` | Mac mini Tailscale IP (`100.X.X.X`) |
-| `DEPLOY_SSH_USER` | Mac mini 계정 (예: `storkspear`). `root` 는 macOS SSH 비활성이라 실패해요 ([`pitfalls #8`](./dogfood-pitfalls.md)) |
-| `SSH_PRIVATE_KEY` | §3.3 의 Mac mini private key 전체 내용 |
-| `TS_OAUTH_CLIENT_ID` · `TS_OAUTH_SECRET` | §3.2 의 Tailscale OAuth (배포 활성화 시 필수) |
-| `CLOUDFLARE_API_TOKEN` | §3.6 의 Cloudflare 토큰 (외부 도메인 쓸 때만) |
+
+도메인·Cloudflare·SSH·GHCR·Tailscale 은 여기 없어요. `.env.infra` 가 소유하고 `infra init` 이 올려요 (§3.7). 같은 키를 `.env.prod` 에도 두면 그 값이 이기지만, 두 곳을 따로 관리하게 되니 특정 환경만 다른 자격을 써야 할 때만 쓰세요.
 
 `JWT_SECRET`·`KAMAL_SERVICE_NAME`·`APP_DOMAIN`·`PUBLIC_HOSTNAME`·`APP_FLYWAY_MODE` 등은 [AUTO] 그룹이라 1회차가 채워둬요. 직접 값을 넣으면 그 값이 우선해요.
 
@@ -308,14 +342,14 @@ bash tools/init/init-prod.sh <owner>/<repo>
 
 이번엔 Step 5.5 이후까지 끝까지 진행돼요.
 
-1. **Step 5.7/5.8** — `CLOUDFLARE_API_TOKEN` 이 있으면 Zone·Account·Tunnel ID 자동 추출 + DNS·Tunnel 등록 (멱등).
+1. **Step 5.7/5.8** — `.env.infra` 의 Cloudflare 자격으로 운영 DNS·Tunnel ingress 등록 (멱등).
 2. **Step 6** — `.env.prod` 검증 후 GitHub 에 push.
-   - REQUIRED Secrets 8개: `APP_DOMAIN`, `DB_PASSWORD`, `DB_URL`, `DB_USER`, `GHCR_TOKEN`, `JWT_SECRET`, `SSH_PRIVATE_KEY`, `APP_FLYWAY_MODE`
-   - 활성 OPTIONAL 기능의 키들(스토리지·이메일·결제·tailscale·로깅·알림) — 그룹별로 모두 채워졌을 때만 push, 하나라도 비면 그 기능은 비활성으로 안내
+   - REQUIRED Secrets 6개: `APP_DOMAIN`, `DB_PASSWORD`, `DB_URL`, `DB_USER`, `JWT_SECRET`, `APP_FLYWAY_MODE`
+   - 활성 OPTIONAL 기능의 키들(스토리지·이메일·결제·관리자 콘솔·로깅·알림) — 그룹별로 모두 채워졌을 때만 push, 하나라도 비면 그 기능은 비활성으로 안내
    - 소셜 로그인 자격(`APP_CREDENTIALS_*`) — `.env.prod` 에 있는 만큼 자동 발견·push
-   - Variables 5개: `DEPLOY_ENABLED`, `DEPLOY_HOST`, `DEPLOY_SSH_USER`, `KAMAL_SERVICE_NAME`, `PUBLIC_HOSTNAME`
-3. **Step 9.5** — `DEPLOY_HOST`·`DEPLOY_SSH_USER` 가 있으면 Mac mini 에 observability 스택(Loki·Grafana·Prometheus, Discord 있으면 Alertmanager 포함)을 docker compose 로 배포 (멱등).
-4. **Step 10** — `verify-server.sh --init-mode` 자동 호출. 아직 배포 전이라 backend health 는 SKIP 하고, DB·SSH·Cloudflare·MinIO·Email·Loki 등 인프라만 검증해요 (다음 §7).
+   - Variables 3개: `DEPLOY_ENABLED`, `KAMAL_SERVICE_NAME`, `PUBLIC_HOSTNAME`
+   - 공유 자격(`GHCR_TOKEN`·`SSH_PRIVATE_KEY`·`TS_OAUTH_*`·`DEPLOY_HOST`·`DEPLOY_SSH_USER`)은 여기서 다루지 않아요 — `infra init` 이 접미사 없이 이미 올렸어요.
+3. **Step 10** — `verify-server.sh --init-mode` 자동 호출. 아직 배포 전이라 backend health 는 SKIP 하고, DB·SSH·Cloudflare·MinIO·Email·Loki 등 인프라만 검증해요 (다음 §7).
 
 > 부분 실패를 놓치지 마세요. 일부 secret push 가 실패해도 후속 step 이 조용히 건너뛰어질 수 있어요. init 종료 후 `gh secret list -R <repo>` 로 등록된 개수를 직접 확인하는 걸 권장해요. 자세한 함정은 [`도그푸딩 walkthrough §4.7`](./dogfood-walkthrough.md) 에 있어요.
 

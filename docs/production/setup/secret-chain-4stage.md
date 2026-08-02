@@ -16,12 +16,14 @@
 
 | 등록처 | 파일 | 역할 |
 |---|---|---|
-| 입력 폼 | `.env.prod.example` → `.env.prod` | 운영자가 실제 값을 채우는 곳 |
+| 입력 폼 | `.env.prod.example` → `.env.prod` | 운영자가 환경별 값을 채우는 곳 (공유 자격은 `.env.infra`) |
 | 컨테이너 주입 목록 | `config/deploy.yml` 의 `env.secret` | Kamal 이 컨테이너에 주입할 secret 이름 목록 (이름만) |
 | 값 매핑 | `.kamal/secrets.example` | `KEY=$ENV_VAR` 매핑. Kamal 이 호스트 환경변수에서 값을 resolve |
 | 자격 export | `.github/workflows/deploy.yml` 의 `env:` 블록 | GitHub Secrets → GHA 호스트 환경변수로 export |
 
 GitHub Secrets store 자체는 다섯 번째 자리가 아니라, `.env.prod` 의 값이 흘러 들어가는 *저장소* 예요. `init-prod.sh` 가 `.env.prod` 의 값을 읽어 GitHub Secrets 와 Variables 에 push 하고, 그 값이 위 네 곳을 거쳐 컨테이너에 도달합니다.
+
+계정/호스트에 속하는 자격(`GHCR_TOKEN`·`SSH_PRIVATE_KEY`·`TS_OAUTH_*`·`DEPLOY_HOST`·`DEPLOY_SSH_USER`)만 출처가 달라요. `.env.infra` 에서 `init-infra.sh` 가 **접미사 없이** 한 벌만 올리고, dev·prod 워크플로가 같은 값을 봐요. 이 키들은 컨테이너 안으로 주입되는 게 아니라 배포 파이프라인 자체가 쓰는 자격이라 4-Stage 를 타지 않아요.
 
 ### 흐름 — 자격이 컨테이너에 도달하기까지
 
@@ -100,7 +102,7 @@ gh secret set MY_NEW_KEY --repo <owner>/<repo>
 # stdin 으로 값 입력, 또는 --body 로 전달
 ```
 
-또는 `<your-backend> prod init` 을 다시 실행하면 `.env.prod` 의 채워진 값을 자동으로 push 합니다. `init-prod.sh` 는 REQUIRED 8 개 키를 항상 push 하고, OPTIONAL 기능은 *그룹의 키가 모두 채워졌을 때만* push 합니다. 하나라도 비면 그 기능은 운영에서 꺼진 채로 남아요.
+또는 `<your-backend> prod init` 을 다시 실행하면 `.env.prod` 의 채워진 값을 자동으로 push 합니다. `init-prod.sh` 는 REQUIRED 6 개 키를 항상 push 하고, OPTIONAL 기능은 *그룹의 키가 모두 채워졌을 때만* push 합니다. 하나라도 비면 그 기능은 운영에서 꺼진 채로 남아요.
 
 ---
 
@@ -157,7 +159,7 @@ bash tools/docs/docs-contract-test.sh
 # → ✅ C4 (deploy-secrets-sync) PASS
 ```
 
-`.env.prod.example` 과 `.kamal/secrets.example` 는 1:1 이 아니에요. `.env.prod.example` 은 로컬 초기화·프로비저닝용 키까지 포함해 컨테이너 주입 대상보다 훨씬 큽니다 (실측 53 vs 22 키). 그래서 양방향 diff 는 항상 수십 개 차이가 나고, 의미 있는 검증은 한 방향이에요 — **컨테이너에 주입되는 키 (`.kamal/secrets.example`) 가 전부 `.env.prod.example` 에 존재하는가**.
+`.env.prod.example` 과 `.kamal/secrets.example` 는 1:1 이 아니에요. `.env.prod.example` 은 로컬 초기화·프로비저닝용 키까지 포함해 컨테이너 주입 대상보다 큽니다 (실측 43 vs 22 키). 그래서 양방향 diff 는 항상 수십 개 차이가 나고, 의미 있는 검증은 한 방향이에요 — **컨테이너에 주입되는 키 (`.kamal/secrets.example`) 가 전부 `.env.prod.example` 에 존재하는가**.
 
 ```bash
 comm -23 <(grep -E '^[A-Z]' .kamal/secrets.example | cut -d= -f1 | sort) \
@@ -181,7 +183,9 @@ GHA 배포에서는 GitHub Secrets store 가 값의 출처예요. 로컬 배포�
 
 ## 관련 문서
 
-- [`dogfood-setup §5`](../../start/dogfood-setup.md) — `.env.prod` REQUIRED 8 + OPTIONAL 기능
+- [`dogfood-setup §5`](../../start/dogfood-setup.md) — `.env.prod` REQUIRED 4 + OPTIONAL 기능
+- [`dogfood-setup §3.7`](../../start/dogfood-setup.md) — `.env.infra` 공유 자격
 - [`FAQ Q17`](../../start/dogfood-faq.md#q17) — `APP_CREDENTIALS_<SLUG>_*` 수동 추가 흐름
-- `tools/init/init-prod.sh` — GitHub Secrets push 자동화
+- `tools/init/init-prod.sh` — 운영 GitHub Secrets push 자동화
+- `tools/init/init-infra.sh` — 공유 자격 push 자동화 (접미사 없음)
 - `tools/deploy/deploy.sh` — 로컬 배포 진입점

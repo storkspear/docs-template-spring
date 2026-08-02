@@ -181,12 +181,14 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 
 ## 외부 서비스
 
-각 서비스가 비어 있을 때의 동작은 `.env.example` (로컬) · `.env.dev.example` · `.env.prod.example` 의 주석에 정리돼 있어요. 대부분의 선택 서비스는 키가 비면 fallback 어댑터로 동작합니다.
+각 서비스가 비어 있을 때의 동작은 `.env.example` (로컬) · `.env.dev.example` · `.env.prod.example` · `.env.infra.example` (공유 인프라) 의 주석에 정리돼 있어요. 대부분의 선택 서비스는 키가 비면 fallback 어댑터로 동작합니다.
+
+Cloudflare · Tailscale · GHCR 세 줄은 소유 파일이 달라요. 계정/호스트에 속하는 자산이라 `.env.infra` 에 두고 `<repo> infra init` 이 dev·prod 공용으로 한 벌만 올립니다.
 
 | 서비스 | 역할 | 관련 환경변수 |
 |---|---|---|
 | **Supabase** | 운영 Postgres (대안: 자체 호스트, AWS RDS, Fly.io) | `DB_URL`, `DB_USER`, `DB_PASSWORD` |
-| **Cloudflare** | Tunnel · DNS · Access | `CLOUDFLARE_API_TOKEN` (init 이 ZONE/ACCOUNT/TUNNEL ID 자동 추출) |
+| **Cloudflare** | Tunnel · DNS · Access | `CLOUDFLARE_API_TOKEN` (`.env.infra` — `infra init` 이 ZONE/ACCOUNT/TUNNEL ID 자동 추출) |
 | **Cloudflare R2** | S3 호환 오브젝트 스토리지 (선택) | `APP_STORAGE_MINIO_*` 재사용 |
 | **FCM (Firebase)** | Android/iOS 푸시 | `APP_CREDENTIALS_<SLUG>_FCM_SERVICE_ACCOUNT_JSON` (앱별) |
 | **APNs (Apple)** | iOS 인증 토큰 RS256 검증 (소셜 로그인) | `APP_CREDENTIALS_<SLUG>_APPLE_BUNDLE_ID` |
@@ -207,8 +209,8 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 | **Rate Limit** | 분당 요청 한도 (Bucket4j). prod 기본 60/10, local·dev 1000/100 | `APP_RATE_LIMIT_ENABLED`, `APP_RATE_LIMIT_DEFAULT_RPM`, `APP_RATE_LIMIT_STRICT_RPM` |
 | **Flyway 모드** | dev/prod 마이그레이션 정책 (ADR-033). prod default VALIDATE_ONLY, dev default AUTO | `APP_FLYWAY_MODE` |
 | **Discord** | Alertmanager 알림 채널 | `DISCORD_WEBHOOK_URL` |
-| **Tailscale** | GHA 에서 Mac mini VPN | `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET` |
-| **GHCR** | 컨테이너 이미지 호스팅 | `GHCR_TOKEN` |
+| **Tailscale** | GHA 에서 Mac mini VPN | `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET` (`.env.infra`) |
+| **GHCR** | 컨테이너 이미지 호스팅 | `GHCR_TOKEN` (`.env.infra`) |
 | **Synology NAS** | 백업 대상 (선택) | — |
 
 ## 모듈 인벤토리
