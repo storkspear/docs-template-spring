@@ -362,7 +362,7 @@ APP_CREDENTIALS_<SLUG_UPPER>_IAP_GOOGLE_PACKAGE_NAME=<app-package>
 APP_CREDENTIALS_<SLUG_UPPER>_FCM_SERVICE_ACCOUNT_JSON=
 ```
 
-`<app-package>` 는 `.env` 의 `APP_PACKAGE_PREFIX` 나 `BASE_DOMAIN` 을 보고 `cloud.storkspear.<slug>` 같은 형태로 추정해 채워요. 둘 다 없으면 `com.example.<slug>` placeholder 가 들어가는데, 로컬 테스트엔 무방하지만 실제 스토어 등록 전에는 본인 값으로 바꿔야 해요. 실제 값 발급 방법은 [`소셜 로그인 설정 가이드`](./social-auth-setup.md) 를 참고하세요. `FCM_SERVICE_ACCOUNT_JSON` 은 비워 두면 푸시 발송이 graceful no-op 이라, 푸시를 쓸 때만 채우면 돼요.
+`<app-package>` 는 `APP_PACKAGE_PREFIX` 를 먼저 보고, 없으면 `BASE_DOMAIN` 을 뒤집어 `cloud.storkspear.<slug>` 같은 형태로 추정해 채워요. 탐색 순서는 소유 순서를 따라 `.env` → `.env.prod` → `.env.infra` 예요 — `BASE_DOMAIN` 은 계정 전체가 공유하는 값이라 평소엔 `.env.infra` 에만 있어요. 둘 다 없으면 `com.example.<slug>` placeholder 가 들어가는데, 로컬 테스트엔 무방하지만 실제 스토어 등록 전에는 본인 값으로 바꿔야 해요. 실제 값 발급 방법은 [`소셜 로그인 설정 가이드`](./social-auth-setup.md) 를 참고하세요. `FCM_SERVICE_ACCOUNT_JSON` 은 비워 두면 푸시 발송이 graceful no-op 이라, 푸시를 쓸 때만 채우면 돼요.
 
 ### 4.4 멱등성 — 이미 있는 키는 skip
 

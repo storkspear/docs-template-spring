@@ -16,6 +16,28 @@ dev 는 배포 경로 기준으로 AUTO 예요 — `deploy-dev.yml` 이 `APP_FLY
 
 스위치는 `app.flyway.mode` 프로퍼티 (`AUTO` / `VALIDATE_ONLY` / `DISABLED`) 이고, `APP_FLYWAY_MODE` 환경변수로 override 합니다. 결정 근거는 [`ADR-033 · Flyway Hybrid Policy`](../../philosophy/adr-033-flyway-hybrid-policy.md) 에 있어요.
 
+### 운영이 AUTO 로 남아 있으면 배포가 알려줘요
+
+`.env.prod.example` 은 `APP_FLYWAY_MODE=AUTO` 로 시작해요. 빈 schema 에 VALIDATE_ONLY 를 걸면
+`flyway_schema_history` 가 없어 부팅이 거부되기 때문에, **첫 배포에는 AUTO 가 필요해요.**
+
+문제는 그 다음이에요. 그대로 두면 두 가지가 조용히 꺼져요.
+
+- 운영 schema 가 부팅마다 자동 적용돼요 — ADR-033 이 금지하는 바로 그 동작이에요
+- `prod deploy` 의 **미적용 마이그레이션 검사**가 통째로 건너뛰어져요 (조건이 AUTO 를 제외해요)
+
+그래서 `prod deploy` 는 운영이 AUTO 로 도는데 `flyway_schema_history` 가 이미 있으면 —
+즉 초기 부팅이 끝났으면 — 전환하라고 경고해요. 막지는 않아요(정당한 첫 배포를 가둘 순 없으니까요).
+
+```bash
+# 첫 배포가 끝났으면
+$EDITOR .env.prod          # APP_FLYWAY_MODE=VALIDATE_ONLY
+<repo> prod init           # GitHub Secrets 갱신
+```
+
+dev 는 이 경고 대상이 아니에요. `deploy-dev.yml` 이 AUTO 를 고정 주입하는 환경이라, 매 배포마다
+경고하면 소음이 되고 소음이 되면 읽히지 않아요.
+
 > 📌 **core schema 는 폐기됐어요 ([ADR-037](../../philosophy/adr-037-core-schema-deprecation.md)).** 예전에는 `core` schema 에 `users` / `auth` / `device` 공통 테이블을 두고 각 슬러그 schema 와 둘로 나눴는데, 지금은 `core` schema 자체가 PostgreSQL 에 없습니다. 공통 테이블은 각 슬러그 schema 안에 V001~V006 으로 생성되고, `core/core-*-impl` 의 Java 코드는 라이브러리로만 남아 슬러그 schema 의 같은 테이블에서 동작해요. 그래서 이 런북의 모든 schema 작업은 **슬러그 단위** 입니다.
 
 ---
@@ -203,13 +225,14 @@ dev / prod 부팅 시 Flyway 는 validate 만 하고 schema 를 바꾸지 않습
 vi apps/app-gymlog/src/main/resources/db/migration/gymlog/V026__add_foo.sql
 
 # 2. dry-run 으로 미리보기 (실제 적용 X)
-<repo> prod migrate gymlog V026__add_foo --dry-run
+#    V스크립트는 *파일 경로* 로 넘긴다 — 버전 이름만 주면 "✗ V스크립트 없음" 으로 끝난다.
+<repo> prod migrate gymlog apps/app-gymlog/src/main/resources/db/migration/gymlog/V026__add_foo.sql --dry-run
 # 또는 직접:
 bash tools/deploy/migrate-prod.sh --target=prod gymlog \
   apps/app-gymlog/src/main/resources/db/migration/gymlog/V026__add_foo.sql --dry-run
 
-# 3. 실제 적용 (prompt 에 yes 입력)
-<repo> prod migrate gymlog V026__add_foo
+# 3. 실제 적용 (prompt 에 'yes' 를 전부 입력 — y 는 거부된다)
+<repo> prod migrate gymlog apps/app-gymlog/src/main/resources/db/migration/gymlog/V026__add_foo.sql
 
 # 4. 결과 확인 (스크립트가 자동 출력)
 #    installed_rank | version | description | success | installed_on

@@ -349,7 +349,7 @@ bash tools/init/init-prod.sh <owner>/<repo>
    - 소셜 로그인 자격(`APP_CREDENTIALS_*`) — `.env.prod` 에 있는 만큼 자동 발견·push
    - Variables 3개: `DEPLOY_ENABLED`, `KAMAL_SERVICE_NAME`, `PUBLIC_HOSTNAME`
    - 공유 자격(`GHCR_TOKEN`·`SSH_PRIVATE_KEY`·`TS_OAUTH_*`·`DEPLOY_HOST`·`DEPLOY_SSH_USER`)은 여기서 다루지 않아요 — `infra init` 이 접미사 없이 이미 올렸어요.
-3. **Step 10** — `verify-server.sh --init-mode` 자동 호출. 아직 배포 전이라 backend health 는 SKIP 하고, DB·SSH·Cloudflare·MinIO·Email·Loki 등 인프라만 검증해요 (다음 §7).
+3. **Step 10** — `verify-server.sh --init-mode` 자동 호출. 아직 배포 전이라 backend health 는 SKIP 하고, DB·SSH·Cloudflare·Email·Loki 등 인프라를 검증해요 (다음 §7). MinIO 도 이 시점엔 SKIP 이에요 — 버킷은 첫 배포 때 `BucketProvisioner` 가 만들거든요.
 
 > 부분 실패를 놓치지 마세요. 일부 secret push 가 실패해도 후속 step 이 조용히 건너뛰어질 수 있어요. init 종료 후 `gh secret list -R <repo>` 로 등록된 개수를 직접 확인하는 걸 권장해요. 자세한 함정은 [`도그푸딩 walkthrough §4.7`](./dogfood-walkthrough.md) 에 있어요.
 
@@ -370,7 +370,7 @@ bash tools/init/init-prod.sh <owner>/<repo>
 | 1 | REQUIRED | backend health (kamal-proxy → `/actuator/health`) | 운영 Spring 컨테이너가 응답. `--init-mode` 에선 배포 전이라 SKIP |
 | 2 | REQUIRED | DB 연결 (psql 직접 ping) | backend 와 무관하게 psql `SELECT 1` 성공 |
 | 3 | OPTIONAL: deploy | SSH + Tailscale (`kamal app version`) | GitHub Actions → Mac mini Tailscale 도달 OK |
-| 4 | OPTIONAL: storage | MinIO 업로드 (PUT/STAT/DEL) | 스토리지 기능 활성 시 |
+| 4 | OPTIONAL: storage | MinIO 업로드 (PUT/STAT/DEL) | 스토리지 기능 활성 시. `--init-mode` 에선 버킷이 아직 없어 SKIP — 첫 배포 부팅 때 `BucketProvisioner` 가 만들고, 그 뒤 `prod test` 에서 PASS 로 바뀌어요 |
 | 5 | OPTIONAL: email | Resend API 발송 | 이메일 기능 활성 시 (`RESEND_TEST_ADMIN_USER_EMAIL` 도 채워야 PASS) |
 | 6 | OPTIONAL: logging | Loki readiness | 로깅 기능 활성 시 |
 | 7 | OPTIONAL: alertmanager | Alertmanager 컨테이너 Up | 알림 기능 활성 시 (Discord 도착은 기술적으로 검증 불가) |

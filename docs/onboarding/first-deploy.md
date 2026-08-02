@@ -224,7 +224,7 @@ git push origin main
 - 배포는 이미지 빌드 · 레지스트리 업로드 · 서버 교체 · 헬스 체크의 흐름이에요.
 - Blue/Green 은 사용자 요청을 끊지 않는 무중단 전환의 표준 패턴이에요.
 - Flyway 는 로컬·dev 에서는 기동 시 자동 적용되지만, 운영에서는 기본이 검증만(VALIDATE_ONLY) 이고 마이그레이션은 따로 적용해요.
-- 배포가 실패하면 `prod rollback` 한 줄로 직전 버전으로 되돌려요.
+- 배포가 실패하면 되돌리는 길이 세 갈래예요 ([`runbook 롤백`](../production/deploy/runbook.md)). `prod rollback` 이 가장 빠르지만 직전 컨테이너가 호스트에 남아 있을 때만 동작하니, 실패하면 GHA `workflow_dispatch` 재배포로 넘어가세요.
 - 이 레포는 맥미니 홈서버와 GitHub Actions 자동화를 기본 조합으로 써요.
 
 ## 다음
