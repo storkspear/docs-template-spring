@@ -340,13 +340,16 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 
 ### 4-8. `GET /api/admin/analytics/{metric}` — 분석 시계열
 
-`metric` 은 경로변수, `slug` 는 **선택** 쿼리 파라미터예요(v1.7 — 이전엔 필수였습니다). 지원 metric 은 3종류. 지원하지 않는 값은 400 `ADMIN_002`.
+`metric` 은 경로변수이고 `slug` 는 **선택** 쿼리 파라미터예요. 지원하는 metric 은 여섯 종류이고, 그 밖의 값을 주면 400 `ADMIN_002` 로 돌아와요.
 
 | metric | 데이터 소스 | 의미 |
 |---|---|---|
 | `dau` | `user_activity_days` | 일별 distinct 활동 유저 수 |
 | `signups` | `users.created_at` | 일별 신규 가입자 수 |
 | `revenue` | `payment_history` | 일별 매출(§5 gross 시맨틱) |
+| `refunds` | `payment_refunds` | 일별 환불액 |
+| `net` | `payment_history` − `payment_refunds` | 일별 순매출 (환불이 많은 날은 음수) |
+| `failures` | `audit_logs` (`result='FAILURE'`) | 일별 실패 액션 수 |
 
 ```json
 {
