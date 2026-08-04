@@ -839,7 +839,7 @@ Tailscale admin console → Settings → OAuth clients → Generate 에서 CI �
 
 ### 18.1 현재
 
-등록된 cron 은 없어요. Cloudflare Tunnel 로 전환한 뒤로 DuckDNS cron 이 불필요해져서, 도그푸딩 정리 단계에서 제거했어요.
+등록된 cron 은 없어요 — Cloudflare Tunnel 구조에서는 DuckDNS 갱신 같은 주기 작업이 필요 없어요 ([`decisions-infra.md I-05`](../deploy/decisions-infra.md)).
 
 ### 18.2 Phase 2 로 유예된 것
 

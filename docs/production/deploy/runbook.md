@@ -330,7 +330,7 @@ docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 
 `force-clear` 는 모든 슬러그를 한꺼번에 정리할 때를 위해 관측성까지 삭제하는 옵션을 제공해요. 슬러그를 지정하지 않은 `prod force-clear` 단독 호출이 그 시나리오에 해당합니다.
 
-> **⚠ 슬러그 지정 시의 현재 한계** — `prod force-clear <slug>` 로 특정 슬러그만 정리하려는 경우에도 `[3/5]` 관측성 단계가 동일한 confirm prompt 를 띄워요. 여기서 'y' 를 입력하면 다른 슬러그의 관측성 히스토리까지 모두 삭제됩니다. 슬러그를 지정했다면 `[3/5]` 단계에서 반드시 'n' 으로 건너뛰어야 해요. 슬러그별 분리 정리는 backlog 에 등록돼 있고 후속 사이클에 보강될 예정입니다.
+슬러그를 지정한 `prod force-clear <slug>` 에서는 `[3/5]` 관측성 단계가 confirm 없이 자동으로 건너뜁니다 — 관측성 스택은 전 슬러그 공유라 전체 모드에서만 confirm 을 띄워요. slug 모드에선 관측성 SSH 조회조차 하지 않습니다.
 
 운영자 본인의 정적 페이지 (`homepage-nginx`) 와 다른 도메인의 DNS 레코드, bluebirds NAS 같은 다른 머신은 어느 명령으로도 영향받지 않아요. 자세한 동작은 `tools/cleanup/cleanup-server.sh` 와 `tools/cleanup/force-clear-server.sh` 의 첫 30줄 주석에서 확인할 수 있습니다.
 

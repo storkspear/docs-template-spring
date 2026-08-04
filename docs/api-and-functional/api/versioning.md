@@ -52,7 +52,7 @@ optional 필드 추가가 안전한 이유는 직렬화 정책에 있어요. 응
 | `/api/apps/{appSlug}/*` | 앱별 엔드포인트 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md)) | `/api/apps/{appSlug}/auth/email/signup` |
 | `/api/admin/*` | 크로스 앱 운영 콘솔 (core-admin, RBAC 4티어) | `/api/admin/dashboard/metrics` |
 
-`ApiEndpoints.APP_BASE` 가 `/api/apps/{appSlug}` 이고, 공유 core 도메인이 전부 그 아래로 붙어요. 유저 프로필(`/api/apps/{appSlug}/users/me`)도 격리·경로 일관성과 path slug ↔ JWT slug 검증을 위해 앱별 경로로 통일했어요. `/api/core/*` prefix 는 **존재하지 않아요** — 한때 예약으로 문서화됐지만, 크로스 앱 엔드포인트는 `/api/admin/*`(`ApiEndpoints.Admin`)로 실체화됐습니다.
+`ApiEndpoints.APP_BASE` 가 `/api/apps/{appSlug}` 이고, 공유 core 도메인이 전부 그 아래로 붙어요. 유저 프로필(`/api/apps/{appSlug}/users/me`)도 격리·경로 일관성과 path slug ↔ JWT slug 검증을 위해 앱별 경로로 통일했어요. `/api/core/*` prefix 는 **존재하지 않아요** — 크로스 앱 엔드포인트는 `/api/admin/*`(`ApiEndpoints.Admin`)예요 ([`ADR-039`](../../philosophy/adr-039-admin-module.md)).
 
 ### 도입 경로 (경로 A 권장)
 

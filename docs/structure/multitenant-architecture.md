@@ -110,7 +110,7 @@ public static LocalContainerEntityManagerFactoryBean buildEntityManagerFactory(
 
 여기가 가장 헷갈리기 쉬운 지점이에요. Hibernate 에 `hibernate.default_schema` 를 박는 흔한 방식 대신, 템플릿은 그 속성을 **의도적으로 비워 둡니다.** 엔티티는 `@Table(name = "users")` 처럼 schema 없이 테이블 이름만 선언하고, 실제 schema 는 connection 의 search_path — 즉 각 앱 DataSource URL 의 `currentSchema=<slug>` 파라미터 — 가 정해요. `gymlog` connection 위에서 실행하면 `gymlog.users` 로, `sumtally` connection 위에서 실행하면 `sumtally.users` 로 같은 SQL 이 흘러가요.
 
-> **왜 default_schema 를 안 쓰나요?** ADR-005 초기에는 `hibernate.default_schema=<slug>` 한 줄로 schema 를 박았어요. ADR-037 에서 core schema 가 사라지면서 EMF 가 부팅 시점에 특정 schema 에 고정될 수 없게 됐고 (slug 는 요청마다 ThreadLocal 로 들어오니까), schema 결정을 connection 쪽으로 옮겼습니다. 이 진화의 근거는 [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 *교훈* 절과 [`ADR-018`](../philosophy/adr-018-schema-routing-datasource.md) 에 정리돼 있어요.
+> **왜 default_schema 를 안 쓰나요?** slug 는 요청마다 ThreadLocal 로 들어와 EMF 가 부팅 시점에 특정 schema 에 고정될 수 없으므로, schema 결정은 connection 의 몫이에요. 근거는 [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 *교훈* 절과 [`ADR-018`](../philosophy/adr-018-schema-routing-datasource.md) 에 정리돼 있어요.
 
 `hbm2ddl.auto` 는 `none` 이에요. schema 정합은 Flyway 의 `flyway_schema_history` 가 이미 보장하므로 Hibernate 가 부팅 시 다시 validate 하지 않아요. 운영 schema 와 엔티티의 sync 검증은 통합 테스트 (Testcontainers + slug 별 schema) 가 맡습니다. `hibernate.dialect` 를 명시하고 `allow_jdbc_metadata_access=false` 로 둔 이유는, 라우팅 EMF 가 부팅 시점에 어떤 slug 의 connection 도 못 잡는 상태에서도 dialect 를 결정할 수 있게 하기 위해서예요.
 

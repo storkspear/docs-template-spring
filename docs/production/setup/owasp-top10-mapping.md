@@ -176,7 +176,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `core/core-iap-impl/.../AppleJwsVerifier.java:1-227` — Apple JWS 검증. ES256 (SHA256withECDSA) 서명 + X.509 cert chain (Apple Root CA G3, classpath embedded `apple-root-ca-g3.cer`)
 - `core/core-auth-impl/.../service/GoogleSignInService.java:117-156` — Google id token 을 Google `/tokeninfo` endpoint 에 위임 검증 (RS256 + aud/iss/exp 를 Google 측에서 처리)
 - `core/core-iap-impl/.../google/GoogleJwksClient.java:1-101` — Google webhook Bearer JWT 검증. JWKS 캐시 1시간. 4 단계 (RS256 서명 / audience / email service account allowlist / exp). ADR-032 참조
-- `tools/deploy/migrate-prod.sh` — Flyway migration checksum (zlib CRC32) 사전 등록. 부팅 시 VALIDATE_ONLY 모드로 재검증
+- `tools/deploy/migrate-prod.sh` — Flyway migration checksum 사전 등록 (Flyway 의 ChecksumCalculator 와 동일한 줄 단위 CRC32 누적 — 부호 있는 32비트). 부팅 시 VALIDATE_ONLY 모드로 재검증
 - `.github/workflows/deploy.yml` — Docker image `:${sha}` 태그 (commit SHA 추적)
 - Kamal `--skip-push` — GHA deploy job 이 빌드·push 한 이미지를 그대로 사용, kamal 자체 재빌드 금지
 
@@ -189,7 +189,6 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 **Gap**:
 - **Docker image signing 부재** — cosign / Sigstore 같은 서명이 없어요. GHCR 의 image 가 진짜 우리 CI 에서 왔는지 검증할 수 없어요
 - **Gradle dependency verification 미구성** — A06 와 동일한 무결성 gap
-- **`migrate-prod.sh` checksum 1:1 검증 부재** — Python3 `zlib.crc32` 가 Flyway 의 `ResourceProvider` 알고리즘과 정확히 일치하는지 검증이 없어요. mismatch 시 운영자가 `schema_history.checksum` 을 수동 UPDATE 합니다 (`flyway-runbook.md §4-3`). backlog 에 등재되어 있어요
 
 ---
 

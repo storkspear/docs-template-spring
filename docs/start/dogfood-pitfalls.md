@@ -65,10 +65,7 @@ _artifact/:
 
 원인은 gradle `bootJar` 가 fat jar 인 `bootstrap.jar` 와 plain jar 인 `bootstrap-plain.jar` 두 개를 만든다는 데 있어요. CI 가 둘 다 artifact 로 올리니 배포 측의 `ls _artifact/*.jar` 가 두 줄을 출력하고, 그 두 줄이 `JAR=$(...)` 변수에 한꺼번에 담겨요. 그러면 `[ ! -f "$JAR" ]` 가 여러 줄짜리 문자열을 단일 경로로 보려다 실패해요. 여기에 더해 처음 작성한 `JAR=$(ls A 2>/dev/null || ls B | head -1)` 는 `head -1` 이 `||` 뒤에만 걸려서, 두 파일이 다 존재하면 첫 줄만 고르는 효과가 사라지는 함정도 겹쳐 있었어요.
 
-해결은 두 군데를 손봤어요.
-
-- `ci.yml` 의 upload-artifact path 를 `bootstrap.jar` 로 좁혀 plain jar 를 제외했어요.
-- `deploy.yml` 의 Locate step 을 `find bootstrap/build/libs -maxdepth 1 -name '*.jar' -not -name '*-plain.jar' | head -1` 로 안전하게 바꿨어요.
+지금은 `deploy.yml` 이 jar 를 직접 빌드하고 (CI artifact 를 재사용하지 않는 배경은 [`I-12`](../production/deploy/decisions-infra.md)), Locate step 이 `find bootstrap/build/libs -maxdepth 1 -name '*.jar' -not -name '*-plain.jar' | head -1` 로 fat jar 하나만 골라요.
 
 이 함정은 워크플로우 코드 자체에 박혀 있어서, 새 파생 레포에서 다시 만나지 않아요. `setup.sh` 와는 무관해요.
 

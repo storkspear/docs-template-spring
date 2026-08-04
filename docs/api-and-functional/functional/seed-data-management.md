@@ -36,7 +36,7 @@
 
 dev 자동배포(`deploy-dev.yml`)는 `APP_FLYWAY_MODE=AUTO` 를 고정 주입하므로 그 경로만 쓰면 1단계가 자동으로 충족돼요. prod 와 그 밖의 부팅 경로는 직접 지정해야 합니다.
 
-`tools/app/reset-schema.sh` 가 dev 스키마를 비운 뒤 안내하는 절차와 같은 형태예요 — 수동 SQL 재적용은 checksum mismatch 위험이라 지원하지 않습니다.
+`tools/app/reset-schema.sh` 도 dev 스키마를 비운 뒤 대상 환경의 `APP_FLYWAY_MODE` 를 읽어 같은 형태로 안내해요 — AUTO 면 `restart` 만으로 부팅 Flyway 가 재적용하고, VALIDATE_ONLY 면 AUTO 1회 재배포를 안내합니다 (수동 SQL 재적용은 checksum mismatch 위험이라 지원하지 않아요).
 
 ---
 

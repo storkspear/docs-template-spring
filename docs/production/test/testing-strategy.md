@@ -429,13 +429,13 @@ PG 결제(PortOne)는 풀 e2e 를 하나의 테스트로 강제하면 안 돼요
 핵심은 headless 백엔드 smoke test 가 `impUid` 를 만들 수 없다는 점이에요(프론트 영역). 그래서 환경별로 검증 범위가 달라집니다.
 
 - **local** — WireMock 이 임의 `impUid` 를 paid 로 stub 하므로 결제 생성→검증 풀플로우까지 검증돼요(mock 이라 의미 있음). dev·prod 에 WireMock 은 무의미해요. 실 통합 검증이 목적이니까요.
-- **dev/prod** — 실 PortOne(`api.iamport.kr`)에 붙어요. 가짜 `impUid` 는 거부되지만, 그 응답 코드로 백엔드 책임을 정직하게 판별합니다.
+- **dev** — 실 PortOne(`api.iamport.kr`)에 붙어요. 가짜 `impUid` 는 거부되지만, 그 응답 코드로 백엔드 책임을 정직하게 판별합니다.
   - `422 PAY_009`(`PORTONE_BUSINESS_ERROR`) = PortOne 도달·인증·왕복은 성공했고 가짜 `impUid` 만 거부된 경우입니다. 백엔드 연결·인증 책임은 PASS 예요(실 결제 e2e 는 앱 영역).
   - `502 PAY_005`(`PORTONE_API_ERROR`) 또는 `502 PAY_006`(`PORTONE_AUTH_FAILED`) = PortOne 연결·인증 실패라 진짜 FAIL 입니다.
 
-이 구분을 위해 `PortOneApiClient` 는 네트워크 실패(`IOException` → `PORTONE_API_ERROR`, 502)와 PortOne 응답 거부(`code != 0` → `PORTONE_BUSINESS_ERROR`, 422)를 다른 예외로 던져요. 즉 `tools/verify/api-smoke-test.sh` 의 `[7] PG 결제` 단계는 "풀 결제" 가 아니라 "백엔드가 책임진 만큼" 을 검증합니다.
+이 구분을 위해 `PortOneApiClient` 는 네트워크 실패(`IOException` → `PORTONE_API_ERROR`, 502)와 PortOne 응답 거부(`code != 0` → `PORTONE_BUSINESS_ERROR`, 422)를 다른 예외로 던져요. 즉 `tools/verify/api-smoke-test.sh` 의 `[7] PG 결제` 단계는 dev 에서 "풀 결제" 가 아니라 "백엔드가 책임진 만큼" 을 검증합니다. prod 에서는 이 단계가 돌지 않아요 — 회원가입·결제 등 운영 데이터를 만드는 단계(1~7·9)는 전부 SKIP 되고, 서명 거부(8·10)와 비파괴 단계(12~16)만 돌아 배포가 살아있는지 확인합니다.
 
-이 스크립트는 11단계 e2e smoke(회원가입 → 인증 → 결제 → 환불 → audit)로, `[7] PG 결제` 외에도 webhook·IAP·audit 까지 한 흐름으로 태워요. `--target=local|dev|prod` 로 환경을 골라 같은 흐름을 환경별 책임 범위에 맞게 검증합니다.
+이 스크립트는 16단계 e2e smoke(회원가입 → 인증 → 결제 → 환불 → audit)로, `[7] PG 결제` 외에도 webhook·IAP·audit 까지 한 흐름으로 태워요. `--target=local|dev|prod` 로 환경을 골라 같은 흐름을 환경별 책임 범위에 맞게 검증합니다.
 
 ---
 
