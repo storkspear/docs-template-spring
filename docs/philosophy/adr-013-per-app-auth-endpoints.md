@@ -384,10 +384,10 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 ## Code References
 
 **엔드포인트 경로 정의**:
-- [`common/common-web/ApiEndpoints.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) — `APP_BASE`, `Auth.BASE`, 11개 경로 상수 + `PUBLIC_PATTERNS`
+- [`common/common-web/ApiEndpoints.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/ApiEndpoints.java) — `APP_BASE`, `Auth.BASE` · `Auth.BASE_PATTERN` + 개별 경로 상수 23개 (email 4 · 소셜 4 · refresh · withdraw · email verify 2 · password 3 · 2FA 5 · phone 3) + `PUBLIC_PATTERNS`
 
 **Port + Service**:
-- [`core-auth-api/AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 20개 메서드 인터페이스
+- [`core-auth-api/AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 21개 메서드 인터페이스
 - [`core-auth-impl/AuthServiceImpl.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthServiceImpl.java) — 서비스 위임, `@Transactional`
 - [`core-auth-impl/AuthAutoConfiguration.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/AuthAutoConfiguration.java) — `AuthController` 를 `@Bean` + `@ConditionalOnMissingBean` 으로 등록
 

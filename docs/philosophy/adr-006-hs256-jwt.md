@@ -6,7 +6,7 @@
 
 ## 결론부터
 
-우리가 쓰는 JWT 는 가장 단순한 서명 방식인 HS256 (대칭키) 입니다. 비밀 키 **하나** 로 서명도 하고 검증도 해요. 공개키와 개인키 쌍 같은 비대칭 구조는 없습니다. 이유는 단 하나 — 우리는 한 JVM 프로세스 안에서 토큰을 만들고 같은 프로세스에서 검증하기 때문. 마이크로서비스가 여러 개 있고 각자가 토큰을 독립적으로 검증해야 하는 상황이 아니라면, RS256 의 공개키 배포 이점은 쓸 데가 없습니다. access 는 15분, refresh 는 30일. claims 는 `sub`·`email`·`appSlug`·`role`·`iss`·`iat`·`exp` 입니다.
+우리가 쓰는 JWT 는 가장 단순한 서명 방식인 HS256 (대칭키) 입니다. 비밀 키 **하나** 로 서명도 하고 검증도 해요. 공개키와 개인키 쌍 같은 비대칭 구조는 없습니다. 이유는 단 하나 — 우리는 한 JVM 프로세스 안에서 토큰을 만들고 같은 프로세스에서 검증하기 때문. 마이크로서비스가 여러 개 있고 각자가 토큰을 독립적으로 검증해야 하는 상황이 아니라면, RS256 의 공개키 배포 이점은 쓸 데가 없습니다. 앱 유저 access 는 15분, refresh 는 30일이고, 운영 콘솔 access 만 12시간으로 따로 둡니다. claims 는 `sub`·`email`·`appSlug`·`role`·`iss`·`iat`·`exp` 이고, 콘솔 토큰에 한해 `permissions` 가 더 붙어요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -104,8 +104,9 @@ runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 
 | 토큰 | TTL | 근거 |
 |---|---|---|
-| access | 15분 (`PT15M`) | 짧을수록 탈취 피해 최소. 15분이면 유저 UX 저해 없음 + refresh 로 투명 갱신 |
+| access (앱 유저) | 15분 (`PT15M`) | 짧을수록 탈취 피해 최소. 15분이면 유저 UX 저해 없음 + refresh 로 투명 갱신 |
 | refresh | 30일 (`P30D`) | 재로그인 주기. "거의 매달 한 번은 로그인" 수준이 합리적 |
+| access (운영 콘솔) | 12시간 (`${JWT_ADMIN_ACCESS_TTL:PT12H}`) | `JwtService.issueAdminAccessToken` 전용. 운영자가 콘솔 작업 중 15분마다 재로그인하지 않도록 분리 ([`ADR-039`](./adr-039-admin-module.md)) |
 
 ### 서명 + claim 구조
 
@@ -146,6 +147,7 @@ app:
     access-token-ttl: PT15M
     refresh-token-ttl: P30D
     issuer: ${JWT_ISSUER:app-factory}
+    admin-access-token-ttl: ${JWT_ADMIN_ACCESS_TTL:PT12H}
 ```
 
 ```yaml
@@ -169,15 +171,38 @@ app:
 - **local** (개발자 맥북 docker): 개발 편의를 위한 고정 기본값 (32자 이상). 프로덕션 키 아님.
 
 ```java
-// JwtProperties compact constructor — 부팅 시 길이 검증
-public JwtProperties {
-    Objects.requireNonNull(secret, "JWT secret is required");
-    if (secret.length() < 32) {
-        throw new IllegalStateException(
-            "JWT secret must be at least 32 characters (HS256 requires 256 bits)");
+// common-security/jwt/JwtProperties.java — 부팅 시 필수 보안 조건 검증
+@ConfigurationProperties("app.jwt")
+public record JwtProperties(
+    String secret,
+    Duration accessTokenTtl,
+    Duration refreshTokenTtl,
+    String issuer,
+    Duration adminAccessTokenTtl
+) {
+    public JwtProperties {
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalArgumentException(
+                "app.jwt.secret must be at least 32 characters (256 bits) for HS256");
+        }
+        if (accessTokenTtl == null || accessTokenTtl.isZero() || accessTokenTtl.isNegative()) {
+            throw new IllegalArgumentException("app.jwt.access-token-ttl must be positive");
+        }
+        if (refreshTokenTtl == null || refreshTokenTtl.isZero() || refreshTokenTtl.isNegative()) {
+            throw new IllegalArgumentException("app.jwt.refresh-token-ttl must be positive");
+        }
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalArgumentException("app.jwt.issuer must not be blank");
+        }
+        if (adminAccessTokenTtl == null || adminAccessTokenTtl.isZero()
+                || adminAccessTokenTtl.isNegative()) {
+            throw new IllegalArgumentException("app.jwt.admin-access-token-ttl must be positive");
+        }
     }
 }
 ```
+
+검증 대상은 secret 길이만이 아니에요. 세 TTL 이 모두 양수인지, issuer 가 비어 있지 않은지까지 compact constructor 가 확인하므로, 잘못된 설정은 첫 요청이 아니라 **부팅 시점** 에 `IllegalArgumentException` 으로 드러납니다. 필드 단위 설명은 [`JWT 인증`](../structure/jwt-authentication.md) 참고.
 
 ### 검증 경로 — `JwtAuthFilter`
 
@@ -249,9 +274,9 @@ try {
 짧은 `JWT_SECRET` (예: `dev-secret`, 11자) 은 jjwt 가 내부에서 길이 불충분 에러를 던집니다. 다만 에러 메시지가 약간 모호해서 원인 파악에 시간이 걸리는 게 문제예요. 그래서 `JwtProperties` compact constructor 에서:
 
 ```java
-if (secret.length() < 32) {
-    throw new IllegalStateException(
-        "JWT secret must be at least 32 characters (HS256 requires 256 bits)");
+if (secret == null || secret.length() < 32) {
+    throw new IllegalArgumentException(
+        "app.jwt.secret must be at least 32 characters (256 bits) for HS256");
 }
 ```
 

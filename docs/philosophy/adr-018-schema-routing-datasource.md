@@ -65,7 +65,10 @@ public DataSource dataSource(Map<String, DataSource> allDataSources) {
     SchemaRoutingDataSource routing = new SchemaRoutingDataSource();
     Map<Object, Object> targets = new HashMap<>();
     allDataSources.forEach((beanName, ds) -> {
-        if (beanName.endsWith("DataSource") && !beanName.equals("dataSource")) {
+        // adminDataSource 는 admin 콘솔 전용 고정 DS — 라우팅 대상 아님
+        if (beanName.endsWith("DataSource")
+                && !beanName.equals("dataSource")
+                && !beanName.equals("adminDataSource")) {
             String slug = beanName.substring(0, beanName.length() - "DataSource".length());
             targets.put(slug, ds);
         }
@@ -76,6 +79,10 @@ public DataSource dataSource(Map<String, DataSource> allDataSources) {
     return routing;
 }
 ```
+
+**`adminDataSource` 제외는 fail-secure 가드예요.** 이름 규약만 보고 수집하면 `adminDataSource` 가 슬러그 `"admin"` 으로 라우팅 맵에 등록됩니다. 그러면 `appSlug` claim 이 `"admin"` 고정값인 superadmin 토큰 ([`ADR-039`](./adr-039-admin-module.md)) 이 `/api/apps/admin/...` 경로를 통과했을 때 `AppSlugVerificationFilter` 가 "슬러그 일치" 로 판정하고, `SlugContext` 가 `"admin"` 이 되어 **앱 데이터용 요청이 admin 스키마로 라우팅되는** 사고가 납니다. 등록 자체를 막아 두면 `"admin"` 은 미등록 슬러그가 되어 `UnknownAppSlugFilter` 의 404 나 `SchemaRoutingDataSource` 의 `IllegalStateException` 에서 끊깁니다 — 조건 하나를 빼먹었을 때 열리는 게 아니라 닫히는 쪽으로 설계한 겁니다.
+
+이 발췌는 설명용 축약본이에요. **정본은 [`RoutingDataSourceConfig`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/java/com/factory/bootstrap/config/RoutingDataSourceConfig.java) 의 `dataSource(...)`** 이고, `SchemaRoutingDataSource` javadoc 의 예제도 같은 이유로 그쪽을 정본으로 가리킵니다. 가드 조건을 고칠 일이 생기면 정본만 고치면 돼요.
 
 ### `AppSlugMdcFilter` — request 진입 시 SlugContext.set + finally clear
 

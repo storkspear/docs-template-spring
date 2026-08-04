@@ -16,7 +16,7 @@
 
 검증에 필요한 *Google 의 공개 검증 키* 는 1 시간 동안 캐시해서 사용해요. Google 이 키를 주기적으로 바꾸기 때문에 *영구 저장* 은 위험하고, 매 알림마다 Google 에 키를 다시 묻기에는 *비용과 응답 시간* 이 부담이라 *1 시간 정도가 균형* 이에요 (Google 공식 권장). 검증 자체는 *운영 환경에서만 활성화* 되도록 옵션을 둬서, *개발·테스트 환경* 에서는 검증을 끄고 부담 없이 webhook 을 시뮬레이션할 수 있어요.
 
-이 ADR 의 범위는 *왜 단순한 IP 주소 화이트리스트로는 안 되는지*, *Google 이 보낸 알림의 디지털 서명이 어떻게 작동하는지*, *4 단계 검증의 각 단계가 어떤 공격을 막는지*, *공개 키를 어떻게 캐시할지*, 그리고 *Apple 알림과의 차이 (Apple 은 알림 자체에 서명이 내장된 형태라 별도 인증 단계가 필요 없음)* 까지입니다.
+이 ADR 의 범위는 *왜 단순한 IP 주소 화이트리스트로는 안 되는지*, *Google 이 보낸 알림의 디지털 서명이 어떻게 작동하는지*, *4 단계 검증의 각 단계가 어떤 공격을 막는지*, *공개 키를 어떻게 캐시할지*, 그리고 *Apple 알림과의 차이 (Apple 은 알림 자체에 서명이 내장된 형태라 별도 bearer token 단계가 필요 없음 — 다만 그 서명은 발신자가 Apple 임까지만 증명하고 앱 바인딩은 확인하지 않아요)* 까지입니다.
 
 > **용어 짧은 정리** — *webhook* 은 외부 시스템이 우리 서버에 *어떤 사건이 일어났음* 을 알려주려고 호출하는 endpoint. *Pub/Sub* 은 Google Cloud 의 메시지 전달 서비스로, RTDN (Real-Time Developer Notifications) 알림이 이 위에서 동작해요. *JWT (JSON Web Token)* 는 *서명이 들어간 작은 정보 토큰* 이고, *RS256* 은 그 서명에 쓰는 알고리즘 이름이에요 (RSA + SHA-256). *JWKS* 는 *Google 이 공개한 검증 키 묶음* 이 모여 있는 endpoint 예요.
 
@@ -32,7 +32,7 @@
 
 운영 보안 audit 측면에서도 부담이 커요. *PCI-DSS* 나 *ISO 27001* 같은 표준은 *webhook endpoint 에 대한 인증 메커니즘* 을 요구하고, *인증 부재* 는 audit 에서 *compliance 미달* 로 분류돼요. 결제 관련 시스템이 audit 를 통과하지 못하면 *PG 측 약관 위반* 이나 *카드사 수수료 협상의 마이너스 요인* 이 될 수 있습니다.
 
-Apple webhook 은 이 영역이 *자동으로* 해결되어 있어요. Apple App Store Server Notifications V2 의 페이로드는 *JWS (이중 서명)* 형태라 *우리 백엔드가 페이로드를 디코드하면서 자연스럽게 cert chain + ES256 서명 검증* 을 수행하고, 이 검증을 통과하지 못하면 페이로드 자체가 무효해집니다. *별도 인증 단계 없이도 인증이 페이로드에 내장* 된 형태예요. Google RTDN 은 이런 내장 검증이 없어 *별도 Bearer JWT 인증* 을 추가해야 같은 수준의 안전성을 확보할 수 있습니다.
+Apple webhook 은 이 영역이 *부분적으로* 해결되어 있어요. Apple App Store Server Notifications V2 의 페이로드는 *JWS (이중 서명)* 형태라 *우리 백엔드가 페이로드를 디코드하면서 자연스럽게 cert chain + ES256 서명 검증* 을 수행하고, 이 검증을 통과하지 못하면 페이로드 자체가 무효해집니다. *발신자 진위 확인이 페이로드에 내장* 된 형태예요. 다만 그것이 증명하는 범위는 *발신자가 Apple 임* 까지입니다 — 이 알림이 *이 슬러그의 앱 것임* (= Google 쪽 audience 에 해당하는 축) 은 증명하지 않아요. Google RTDN 은 발신자 진위조차 내장돼 있지 않아 *별도 Bearer JWT 인증* 을 추가해야 최소한 같은 수준의 안전성을 확보할 수 있습니다.
 
 해결책의 후보로 *IP allowlist* 같은 단순한 형태도 있어요. *Google Pub/Sub 의 발송 IP 범위만 허용* 하는 방식인데, 이는 두 가지 한계가 있습니다. 첫째, *Google Pub/Sub IP 범위* 는 *모든 GCP 사용자가 공유* 해서 *같은 GCP 의 다른 프로젝트* 도 우리 IP allowlist 를 통과할 수 있어요. 둘째, 우리 인프라가 *Cloudflare Tunnel·Kamal proxy* 를 거치면 *원본 IP 가 가짜화* 되어 IP 검증 자체가 무력화됩니다.
 
@@ -171,7 +171,7 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub@my-project.iam.gser
 
 ## 안 다루는 범위
 
-- **Apple webhook** — JWS 자체 검증으로 자동 차단 (AppleJwsVerifier). bearer token 별도 필요 X
+- **Apple webhook** — 발신자 위조는 JWS 자체 검증으로 차단돼요 (`AppleJwsVerifier` 의 cert chain + ES256). bearer token 은 별도로 필요 없습니다. 단 JWS 가 보장하는 건 *발신자가 Apple 임* 뿐이고 앱 바인딩 (`bundleId`) 은 검증하지 않아요 — `AppleNotificationDecoder` 가 `data.bundleId` 를 읽지 않고 webhook 경로에 슬러그 credential 조회 자체가 없습니다. 여기서는 Google 의 audience·email 에 해당하는 축이 비어 있고, 슬러그 격리는 `BillingServiceImpl.resolveIapPaymentRecord` 의 `external_id` 정확 매칭 (Apple 은 폴백 없음) 에 의존해요 ([`ADR-022`](./adr-022-iap-server-notifications.md) 의 「webhook 경로의 슬러그 격리 범위」)
 - **Slack / 다른 webhook 검증** — 발신자별 다른 패턴. 별도 filter
 - **Replay 차단 (nonce)** — JWT 의 jti claim + DB nonce 저장. 현재는 audience + 5분 기본 exp 로 충분
 - **JWKS 키 prerotation** — Google 이 미리 새 키 publish. 현재 graceful refresh 로 cover

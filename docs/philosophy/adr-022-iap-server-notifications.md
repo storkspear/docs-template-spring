@@ -44,12 +44,16 @@ raw 이벤트 type 도 platform 마다 분류가 다릅니다. Apple 은 *DID_RE
 |---|---|---|
 | **통합 모델** | `IapNotification` (platform/type/transactionId/originalTxId/productId/...) | 정책 layer (BillingPort) 가 platform 분기 안 함 |
 | **통합 type enum** | `IapNotificationType` (DID_RENEW/REFUND/EXPIRED/DID_FAIL_TO_RENEW/REVOKE/OTHER) | Apple/Google raw type 을 비즈니스 의도로 추상화 |
-| **Apple endpoint** | `/api/apps/<slug>/iap/apple/webhook` (per-slug — bundle_id 매칭) | ADR-020 의 슬러그별 schema 격리 정합 |
+| **Apple endpoint** | `/api/apps/<slug>/iap/apple/webhook` (per-slug — 경로 슬러그가 schema 만 결정) | ADR-020 의 슬러그별 schema 격리 정합. 페이로드-앱 바인딩은 없어요 (아래 참고) |
 | **Google endpoint** | `/api/apps/<slug>/iap/google/webhook` | 동일 |
 | **Apple 검증** | `AppleJwsVerifier` 재활용 (cert chain + ES256) | D-secure 이미 구현 |
 | **Google 검증** | Pub/Sub bearer token (별도 filter, 옵션) | 결정 당시 decode 만 — 이후 [`ADR-032`](./adr-032-google-webhook-auth.md) 의 `GoogleWebhookAuthFilter` 로 구현 완료 |
 | **진입점** | `BillingPort.handleIapNotification(IapNotification)` | PG webhook (`handleWebhook`) 와 분리 — 형식 너무 다름 |
 | **Idempotency** | webhook_events 테이블 재활용 (source="iap-ios"/"iap-android", externalId=notificationId — Apple notificationUUID / Google messageId) | ADR-020 의 동일 mechanism |
+
+> **webhook 경로의 슬러그 격리 범위** — 경로의 `<slug>` 는 `SlugContext` 를 통해 *어느 schema 에 쓸지* 만 결정해요. 도착한 페이로드가 정말 그 슬러그의 앱 것인지는 검증하지 않습니다. `AppleJwsVerifier.verifyChain` 은 leaf → intermediate → Apple Root CA G3 의 신뢰 체인과 ES256 서명만 확인하고 leaf cert 의 앱 식별자를 대조하지 않고, `AppleNotificationDecoder` 도 payload 의 `data.bundleId` 를 읽지 않아요. `IapAdapter.handleAppleWebhook` 은 decode 후 곧장 `BillingPort.handleIapNotification` 을 부르는 두 줄이라 슬러그 credential 조회 자체가 없습니다 — 같은 클래스의 `verifyReceipt` 가 슬러그 credential 의 `bundleId` 를 Apple 에 넘기는 것과 대비돼요. 즉 다른 앱의 *진짜* Apple 알림을 이 슬러그 경로로 보내도 서명 검증은 통과해요.
+>
+> 실질 격리는 `BillingServiceImpl.resolveIapPaymentRecord` 가 담당합니다. Apple 은 `external_id` 정확 매칭만 허용하고 `customer_uid` 폴백을 막아두었기 때문에, 그 슬러그 schema 에 없는 transactionId 의 알림은 warn 로그만 남기고 no-op 으로 끝나요. Google 은 RTDN 이 orderId 를 싣지 않아 폴백이 주 경로이지만, 폴백도 그 schema 안의 `(channel=IAP, customer_uid)` 조회라 범위가 슬러그 schema 를 벗어나지 않아요.
 
 ---
 
@@ -61,7 +65,7 @@ raw 이벤트 type 도 platform 마다 분류가 다릅니다. Apple 은 *DID_RE
 |---|---|---|
 | `DID_RENEW` | DID_RENEW | activateFromIap (새 sub) |
 | `SUBSCRIBED` (subtype=RESUBSCRIBE) | DID_RENEW | 동일 |
-| `REFUND` | REFUND | record.markRefunded + sub.cancel |
+| `REFUND` | REFUND | record.markRefunded + sub.cancel (만료까지 권한 유지) |
 | `EXPIRED` | EXPIRED | noop (cron 처리) |
 | `DID_FAIL_TO_RENEW` | DID_FAIL_TO_RENEW | log only (Apple 자동 재시도) |
 | `REVOKE` | REVOKE | sub.cancel (가족 공유 해지 등) |
@@ -75,8 +79,10 @@ raw 이벤트 type 도 platform 마다 분류가 다릅니다. Apple 은 *DID_RE
 | 3 (CANCELED) | REVOKE | sub.cancel (만료까지 권한 유지) |
 | 4 (PURCHASED) | OTHER | 신규 구매는 IapPort.verifyReceipt 별도 흐름 |
 | 5 (ON_HOLD), 6 (IN_GRACE_PERIOD) | DID_FAIL_TO_RENEW | log only |
-| 12 (REVOKED) | REFUND | record.markRefunded + sub.cancel |
+| 12 (REVOKED) | REFUND | record.markRefunded + sub.cancel (만료까지 권한 유지) |
 | 13 (EXPIRED) | EXPIRED | noop |
+
+> **REFUND·REVOKE 의 권한 회수 시점** — 두 type 모두 `Subscription.cancel(reason)` 만 호출해요. `cancel` 은 `status=CANCELLED` + `cancelledAt` + `cancelReason` 만 세팅하고 `expiresAt` 은 건드리지 않습니다. 권한 조회 (`SubscriptionRepository.findEntitledByUserId`) 는 `status IN (ACTIVE, CANCELLED) AND (expires_at IS NULL OR expires_at > now)` 이라, **환불이 확정돼도 만료 시각까지는 유료 권한이 그대로 유지** 돼요 — 이건 ADR-020 의 Spotify/Netflix 식 정책과 같은 형태이고, cancel 이 실제로 멈추는 것은 다음 주기의 자동 갱신입니다 (`findExpiringWithin` 이 ACTIVE 만 고르므로 CANCELLED 는 갱신 대상에서 빠져요). 계약 테스트 `cancelledButNotExpired_stillReturned` 와 `activeSubscription_cancelled_keepsExpiresAt` 가 이 동작을 고정해요.
 
 ---
 
@@ -103,8 +109,8 @@ BillingPort.handleIapNotification(notification)
   type 별 분기 (NOT_SUPPORTED outer + 내부 phase TX)
      │
      ┌── DID_RENEW → IapPort.verifyReceipt + activateFromIap
-     ├── REFUND → record.markRefunded + sub.cancel("iap_refund")
-     ├── REVOKE → sub.cancel("iap_revoke") (record 는 그대로)
+     ├── REFUND → record.markRefunded + sub.cancel("iap_refund") (만료까지 권한 유지)
+     ├── REVOKE → sub.cancel("iap_revoke") (record 는 그대로, 만료까지 권한 유지)
      ├── EXPIRED → noop (cron 처리)
      ├── DID_FAIL_TO_RENEW → log only
      └── OTHER → log only
@@ -140,7 +146,7 @@ long userId = existing.getUserId();
 
 ### 시그너처 검증
 
-- **Apple** — D-secure 사이클의 `AppleJwsVerifier` 를 재활용해요. cert chain (leaf → intermediate → Apple Root CA G3) + ES256 으로 검증해요. signedPayload (이중 JWS) 의 outer 와 inner 모두 동일하게 검증합니다.
+- **Apple** — D-secure 사이클의 `AppleJwsVerifier` 를 재활용해요. cert chain (leaf → intermediate → Apple Root CA G3) + ES256 으로 검증해요. signedPayload (이중 JWS) 의 outer 와 inner 모두 동일하게 검증합니다. 다만 이 검증이 증명하는 것은 *발신자가 Apple 임* 까지예요 — bundleId 대조가 없어 *이 알림이 이 슬러그의 앱 것임* 은 증명하지 않습니다 (위 「webhook 경로의 슬러그 격리 범위」 참고).
 - **Google** — Pub/Sub push 는 `Authorization: Bearer <JWT>` 로 발송돼요. Google service account 의 RS256 + JWKS 검증이 정석이에요. 본 사이클은 decode 만 다뤘고, 검증 filter 는 이후 [`ADR-032`](./adr-032-google-webhook-auth.md) 의 `GoogleWebhookAuthFilter` 로 구현 완료됐어요 (ConditionalOnProperty 옵션화).
 
 ### Idempotency
@@ -155,7 +161,7 @@ long userId = existing.getUserId();
 
 ---
 
-## Contract Test (9개)
+## Contract Test (13개)
 
 `AbstractBillingPortContractTest$HandleIapNotification`:
 
@@ -164,10 +170,14 @@ long userId = existing.getUserId();
 3. `didRenew_duplicateTransaction_distinctNotificationId_isBenignNoop` — 중복 갱신 알림 no-op
 4. `refund_duplicateNotification_isIdempotent` — 중복 환불 알림이 refundedAt 을 덮어쓰지 않음
 5. `refund_marksRefundedAndCancelsSubscription` — REFUND 흐름
-6. `revoke_cancelsSubscriptionWithoutRefundMark` — REVOKE 는 record 그대로
-7. `duplicateTransactionId_idempotencySkipsSecondCall` — 같은 notificationId 재전송 skip
-8. `sameTransactionId_distinctNotificationIds_bothProcessed` — 같은 tx·다른 notificationId 는 각각 처리
-9. `expired_isNoop` — EXPIRED 는 record/sub 변화 X
+6. `refund_resolvesRecordByCustomerUid_whenExternalIdDiffers` — Android 환불의 customer_uid 폴백
+7. `revoke_resolvesRecordByCustomerUid_whenExternalIdDiffers` — Android 취소의 customer_uid 폴백
+8. `refund_applePlatform_externalIdMiss_isNoop_noCustomerUidFallback` — Apple 은 폴백 없음, 미매치는 no-op
+9. `refund_androidFallback_touchesOnlyLatestRecordOfSameCustomerUid` — 폴백 사정거리는 같은 customer_uid 의 최신 1건
+10. `revoke_cancelsSubscriptionWithoutRefundMark` — REVOKE 는 record 그대로
+11. `duplicateTransactionId_idempotencySkipsSecondCall` — 같은 notificationId 재전송 skip
+12. `sameTransactionId_distinctNotificationIds_bothProcessed` — 같은 tx·다른 notificationId 는 각각 처리
+13. `expired_isNoop` — EXPIRED 는 record/sub 변화 X
 
 ---
 

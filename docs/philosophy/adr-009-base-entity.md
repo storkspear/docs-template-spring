@@ -1,6 +1,6 @@
 # ADR-009 · BaseEntity 공통 슈퍼클래스
 
-**Status**: Accepted. `common-persistence/entity/BaseEntity.java` 에 구현돼 있고, `@Entity` 는 BaseEntity 상속이 기본입니다. 단 예외 7개 — 만료시각 기반 인증 토큰·코드류 (`AuthRefreshToken` · `AuthPasswordResetToken` · `AuthEmailVerificationToken` · `AuthEmailVerificationCode` · `AuthPhoneVerificationCode`) 와 `AuthSocialIdentity` · `AnalyticsEvent` — 는 자체 필드 설계로 미상속이에요.
+**Status**: Accepted. `common-persistence/entity/BaseEntity.java` 에 구현돼 있고, `@Entity` 는 BaseEntity 상속이 기본입니다. 전체 19 개 엔티티 중 11 개가 상속하고, 예외는 8 개예요 — ① 만료시각 기반 인증 토큰·코드류 5 개 (`AuthRefreshToken` · `AuthPasswordResetToken` · `AuthEmailVerificationToken` · `AuthEmailVerificationCode` · `AuthPhoneVerificationCode`), ② `AuthSocialIdentity` · `AnalyticsEvent`, ③ `PaymentRefund` — 는 append-only 불변 원장이라 테이블에 `updated_at` 컬럼 자체가 없어 `@PreUpdate` 를 상속받을 이유가 없습니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -319,7 +319,14 @@ pendingUsers.add(new User("a@test.com"));  // 위와 같은 이메일, 다른 �
 
 **BaseEntity 를 상속하는 엔티티 예시**:
 - [`User.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-impl/src/main/java/com/factory/core/user/impl/entity/User.java) — `extends BaseEntity`
-- [`core-auth-impl/entity/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/entity) — RefreshToken, EmailVerificationToken 등
+- [`core-billing-impl/entity/`](https://github.com/storkspear/template-spring/tree/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/entity) — `Subscription` · `SubscriptionPlan` · `SubscriptionRenewal` · `PaymentHistory` · `PaymentWebhookEvent` · `NotificationSetting` (같은 패키지의 `PaymentRefund` 만 미상속)
+- `Post` · `Device` · `AttachmentFile` · `AuditLog`
+
+**미상속 엔티티 (예외 8 개)**:
+- [`core-auth-impl/entity/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/entity) — `AuthRefreshToken` · `AuthPasswordResetToken` · `AuthEmailVerificationToken` · `AuthEmailVerificationCode` (만료시각 기반). `core-phone-auth-impl` 의 `AuthPhoneVerificationCode` 도 같은 성격
+- [`AuthSocialIdentity.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-impl/src/main/java/com/factory/core/user/impl/entity/AuthSocialIdentity.java) · [`AnalyticsEvent.java`](https://github.com/storkspear/template-spring/blob/main/core/core-analytics-impl/src/main/java/com/factory/core/analytics/impl/entity/AnalyticsEvent.java)
+- [`PaymentRefund.java`](https://github.com/storkspear/template-spring/blob/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/entity/PaymentRefund.java) — append-only 원장. `payment_refunds` 테이블에 `updated_at` 컬럼이 없어요
+- 전수 확인: `grep -rn "^@Entity" core/ --include="*.java" | grep /src/main/` 로 엔티티를 모으고 각 파일에 `extends BaseEntity` 가 있는지 보면 돼요
 
 **모듈 위치 근거**:
 - [`common/common-persistence/build.gradle`](https://github.com/storkspear/template-spring/blob/main/common/common-persistence/build.gradle) — `factory.common-module` plugin + JPA 의존

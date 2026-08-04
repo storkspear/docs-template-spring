@@ -389,14 +389,14 @@ Grafana Cloud 를 쓸 때는 basic auth 를 별도 환경변수로 추가해야 
 **발급 절차**.
 1. Discord 서버에서 알림을 받을 채널을 고르고 채널 설정 → *연동* → *웹후크* → *새 웹후크* 를 선택해요.
 2. webhook 이름을 적당히 정하고 *URL 복사* 를 눌러 URL 을 기록해요.
-3. URL 끝에 `/slack` 을 붙여요. Discord 의 Slack 호환 endpoint 를 Alertmanager 가 쓰기 때문이에요. 예를 들면 `https://discord.com/api/webhooks/<id>/<token>/slack` 형태가 돼요.
+3. URL 끝에 `/slack` 을 붙여요. Alertmanager 의 receiver 가 `slack_configs` 로 Slack 포맷 메시지를 보내고, Discord 는 그 포맷을 `/slack` 엔드포인트에서만 받기 때문이에요. 예를 들면 `https://discord.com/api/webhooks/<id>/<token>/slack` 형태가 돼요. `/slack` 을 빼면 Discord 가 본문을 읽지 못해 메시지가 도착하지 않아요.
 
 **`.env.prod` 채울 위치**:
 ```bash
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/<id>/<token>/slack
 ```
 
-**검증**. Alertmanager 컨테이너의 `/api/v2/status` 가 정상 응답하고 (`verify-server.sh` Step 7), Prometheus 에서 임의 알람을 수동으로 발화시켜 Discord 채널에 메시지가 도착하는지 확인하세요.
+**검증**. 컨테이너가 떠 있다는 것만으로는 알림이 도착한다는 뜻이 아니에요. 한 번은 실제로 발사해서 채널을 확인하세요 — 명령 한 줄짜리 절차를 [`관측성 셋업 · 알림 도착 확인`](./monitoring-setup.md#알림-도착-확인) 에 적어 두었어요. `verify-server.sh` Step 7 은 컨테이너 기동 여부까지만 봅니다.
 
 ### 4.7 PortOne PG 결제 (`feature=payment`)
 

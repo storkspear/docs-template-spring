@@ -121,7 +121,7 @@ PasswordResetConfirmRequest   @ValidPassword newPassword
 
 ---
 
-## 검증 (단위 테스트 14건)
+## 검증 (단위 테스트 15건)
 
 `PasswordValidatorTest`:
 
@@ -129,6 +129,7 @@ PasswordResetConfirmRequest   @ValidPassword newPassword
 - `shorterThanMinLength_invalid`
 - `exactMinLength_valid`
 - `longerThanMax72_invalid`
+- `multibyteOver72Bytes_invalid` — bcrypt 한계는 문자 수가 아니라 바이트 수
 - `nullPassword_passes` (`@NotBlank` 가 별도)
 
 **ComplexityPolicy**:

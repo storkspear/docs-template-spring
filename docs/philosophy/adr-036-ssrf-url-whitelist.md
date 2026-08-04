@@ -10,9 +10,9 @@
 
 SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL 로 요청을 보내게 만드는* 취약점이에요. 클라우드 환경에서는 *내부 메타데이터 endpoint* (예: AWS `169.254.169.254`) 접근으로 *credential 탈취* 가 가능하고, 내부 사설망에서는 *DB·관리 API* 우회 접근이 가능해요. *공개되면 안 될 IP·도메인* 으로의 요청을 막는 것이 방어의 핵심이에요.
 
-본 프로젝트의 모든 외부 HTTP 호출은 *authority (scheme + host) 가 고정 상수 (hardcode) 또는 운영자가 통제하는 환경변수* 로만 결정돼요. path 일부엔 *검증된 식별자* (예: Apple/Google receiptData 의 transactionId·purchaseToken, PortOne 의 impUid) 가 들어가지만, *host 를 사용자 입력으로 결정하거나* redirect 가 자동 따라가는 지점이 *코드 어디에도 없어요*. authority 가 고정이라 *내부 IP·메타데이터 endpoint 로의 host pivot 이 불가능* 하고, SSRF 의 일반적 공격 벡터가 *설계상 차단* 됩니다.
+본 프로젝트의 모든 외부 HTTP 호출은 *authority (scheme + host) 가 고정 상수 (hardcode) 또는 운영자가 통제하는 환경변수* 로만 결정돼요. path 일부엔 *검증된 식별자* (예: Apple/Google receiptData 의 transactionId·purchaseToken, PortOne 의 impUid) 가 들어가지만, *host 를 사용자 입력으로 결정하는* 지점이 *코드 어디에도 없어요*. authority 가 고정이라 *내부 IP·메타데이터 endpoint 로의 host pivot 이 불가능* 하고, SSRF 의 일반적 공격 벡터가 *설계상 차단* 됩니다. 부수 방어인 redirect 는 클라이언트 종류에 따라 상태가 갈려요 — `java.net.http.HttpClient` 를 쓰는 9 건은 default 인 `NEVER` 로 따라가지 않지만, `java.net.HttpURLConnection` 을 쓰는 3 건 (Resend·PortOne·CoolSMS) 은 default 가 follow 라 3xx 를 따라갑니다 (나머지 2 건은 SDK 내부 클라이언트라 우리 통제 밖이에요. 아래 인벤토리 참고).
 
-이 정책의 핵심은 *명문화* 와 *향후 확장 가이드* 예요. 현재 14 곳의 외부 호출 (Apple JWKS·Google tokeninfo·Google JWKS(IAP webhook)·Kakao API 2종·Naver API·Resend·Apple App Store Server API·Google Play Developer API·Google OAuth·PortOne·MinIO·FCM·CoolSMS) 모두 정책 부합 상태이지만, 새 외부 호출을 추가하는 개발자가 *별생각 없이 사용자 입력으로 URL 을 만드는 케이스* 를 사전에 차단해야 해요. ADR 에 정책을 박아두면 코드 review·ArchUnit·향후 본인의 future-self 에게 같은 message 를 일관되게 전달할 수 있어요.
+이 정책의 핵심은 *명문화* 와 *향후 확장 가이드* 예요. 현재 14 곳의 외부 호출 (Apple JWKS·Google tokeninfo·Google JWKS(IAP webhook)·Kakao API 2종·Naver API·Resend·Apple App Store Server API·Google Play Developer API·Google OAuth·PortOne·MinIO·FCM·CoolSMS) 이 authority·timeout 정책에 부합하고 redirect 만 클라이언트별로 갈리는 상태인데, 새 외부 호출을 추가하는 개발자가 *별생각 없이 사용자 입력으로 URL 을 만드는 케이스* 를 사전에 차단해야 해요. ADR 에 정책을 박아두면 코드 review·ArchUnit·향후 본인의 future-self 에게 같은 message 를 일관되게 전달할 수 있어요.
 
 ---
 
@@ -40,7 +40,7 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 |---|---|---|
 | **URL 결정 방식** | authority (scheme + host) 는 hardcode (소스 상수) 또는 환경변수 (운영자 통제) | 사용자 입력으로 host 결정 금지. path 엔 검증된 식별자만 허용 |
 | **timeout** | connect ≤ 5s, request ≤ 10s | 응답 안 오는 endpoint 가 서버 스레드 점유하는 것 차단 |
-| **redirect** | 자동 follow 비활성 (Java HttpClient default) | redirect 체인을 통한 우회 차단 |
+| **redirect** | `java.net.http.HttpClient` — default `NEVER` 라 자동 follow 안 함 (9건). `java.net.HttpURLConnection` — default 가 follow 라 끄려면 `setInstanceFollowRedirects(false)` 명시 필요, 현재 3건(#7·#11·#14) 모두 미명시 | redirect 체인을 통한 우회 차단 |
 | **private IP 차단** | 명시 정책 없음 (추후 도입 검토) | 현 호출 모두 public cloud endpoint 라 현실 위험 낮음 |
 | **DNS rebinding 방어** | 명시 정책 없음 (추후 도입 검토) | TOCTOU 공격 매우 낮은 확률 |
 | **새 호출 추가 시** | 본 ADR 의 가이드라인 4 항목 모두 충족 | review 시 검증 |
@@ -50,9 +50,9 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 새 third-party API 통합을 추가할 때 *반드시* 다음 4 가지를 충족해야 해요:
 
 1. **URL 의 authority (scheme + host) 는 hardcode 또는 환경변수**. 사용자 입력이 host 를 결정하면 안 됨. path 세그먼트에 식별자를 넣어야 한다면 *검증된 값* (예: 우리가 발급/정규화한 transactionId·impUid) 만 사용하고, raw 사용자 입력은 query parameter / body 에만.
-2. **HttpClient 에 connectTimeout = 5s 명시**. `HttpClient.newHttpClient()` 의 기본값에 의존하지 말 것.
-3. **HttpRequest 에 timeout = 10s 명시**. per-request 단위.
-4. **redirect 자동 follow 활성화하지 말 것**. `HttpClient.Builder.followRedirects(NEVER)` 가 default 여서 명시 불필요하지만, 실수로 `ALWAYS` 로 변경 금지.
+2. **connect timeout = 5s 명시**. `java.net.http.HttpClient` 는 `HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))`, `java.net.HttpURLConnection` 은 `conn.setConnectTimeout(5000)`. 어느 쪽이든 기본값에 의존하지 말 것.
+3. **request timeout = 10s 명시**. `java.net.http` 는 `HttpRequest.timeout(Duration.ofSeconds(10))` 로 per-request, `HttpURLConnection` 은 `conn.setReadTimeout(10000)`.
+4. **redirect 자동 follow 활성화하지 말 것**. `java.net.http.HttpClient` 는 `followRedirects(NEVER)` 가 default 여서 명시가 불필요하지만 실수로 `ALWAYS` 로 변경 금지. **`java.net.HttpURLConnection` 은 반대로 default 가 follow** 라 `conn.setInstanceFollowRedirects(false)` 를 명시해야 꺼져요 — `ResendEmailAdapter` 패턴을 복제해 새 발송사 어댑터를 만들 때 ([`ADR-038`](./adr-038-sms-phone-auth.md) 이 권장하는 경로) 특히 주의할 지점입니다.
 
 InterruptedException 처리도 표준 패턴 따름 — `Thread.currentThread().interrupt()` 로 인터럽트 상태 복원 후 application 예외로 변환 (`AuthException`, `EmailException` 등).
 
@@ -62,30 +62,32 @@ InterruptedException 처리도 표준 패턴 따름 — `Thread.currentThread().
 
 본 ADR 인벤토리 (코드 정합 기준):
 
-| # | 호출 | 파일 (식별자) | URL 결정 | timeout |
-|---|---|---|---|---|
-| 1 | Apple JWKS | `AuthAutoConfiguration` → `AppleJwksClient` | 설정 주입 `app.oauth.apple.jwks-url` | connect 5s |
-| 2 | Google tokeninfo | `AuthAutoConfiguration` → `GoogleSignInService` | 설정 주입 `app.oauth.google.tokeninfo-url` | connect 5s, req 10s |
-| 3 | Google JWKS (IAP webhook) | `core-iap-impl/google/GoogleJwksClient.DEFAULT_JWKS_URL` | **hardcode** | connect 5s |
-| 4 | Kakao token info | `AuthAutoConfiguration` → `KakaoSignInService` | 설정 주입 `app.oauth.kakao.token-info-url` | connect 5s, req 10s |
-| 5 | Kakao user/me | `AuthAutoConfiguration` → `KakaoSignInService` | 설정 주입 `app.oauth.kakao.user-me-url` | connect 5s, req 10s |
-| 6 | Naver user info | `AuthAutoConfiguration` → `NaverSignInService` | 설정 주입 `app.oauth.naver.user-me-url` | connect 5s, req 10s |
+| # | 호출 | 파일 (식별자) | 클라이언트 (redirect) | URL 결정 | timeout |
+|---|---|---|---|---|---|
+| 1 | Apple JWKS | `AuthAutoConfiguration` → `AppleJwksClient` | `java.net.http` 자체 생성 (follow 안 함) | 설정 주입 `app.oauth.apple.jwks-url` | connect 5s, req 10s |
+| 2 | Google tokeninfo | `AuthAutoConfiguration` → `GoogleSignInService` | `java.net.http` 자체 생성 (follow 안 함) | 설정 주입 `app.oauth.google.tokeninfo-url` | connect 5s, req 10s |
+| 3 | Google JWKS (IAP webhook) | `core-iap-impl/google/GoogleJwksClient.DEFAULT_JWKS_URL` | `java.net.http` 자체 생성 (follow 안 함) | **hardcode** | connect 5s, req 10s |
+| 4 | Kakao token info | `AuthAutoConfiguration` → `KakaoSignInService` | `java.net.http` 자체 생성 (follow 안 함) | 설정 주입 `app.oauth.kakao.token-info-url` | connect 5s, req 10s |
+| 5 | Kakao user/me | `AuthAutoConfiguration` → `KakaoSignInService` | `java.net.http` 자체 생성 (follow 안 함) | 설정 주입 `app.oauth.kakao.user-me-url` | connect 5s, req 10s |
+| 6 | Naver user info | `AuthAutoConfiguration` → `NaverSignInService` | `java.net.http` 자체 생성 (follow 안 함) | 설정 주입 `app.oauth.naver.user-me-url` | connect 5s, req 10s |
 
 설정 주입 5건은 `application.yml` 에 운영 기본값이 있고, `application-local.yml` 이 wiremock 으로 오버라이드해요(`${APP_OAUTH_*_URL:http://wiremock:8080/...}`). 각 서비스 클래스의 `DEFAULT_*_URL` 상수는 **URL 인자를 받지 않는 편의 생성자의 fallback** 으로만 남아 있고 프로덕션 경로는 `@Value` 주입이에요 — 화이트리스트를 논할 때 설정값이 실질 통제점이라는 뜻입니다. 3번(IAP JWKS)만 상수 직결이에요.
-| 7 | Resend 이메일 | `ResendEmailAdapter.RESEND_API_URL` | hardcode | connect 5s, req 10s |
-| 8 | Apple App Store Server API | `AppleAppStoreAdapter` (`config.apiUrl()` + `/inApps/v1/transactions/{txId}`) | env (slug별 `IapProperties.apple.apiUrl`) | connect 5s, req 10s |
-| 9 | Google Play Developer API | `GooglePlayAdapter` (`config.apiUrl()` + `/androidpublisher/v3/.../tokens/{token}`) | env (slug별 `IapProperties.google.apiUrl`) | connect 5s, req 10s |
-| 10 | Google OAuth (Play API token) | `GooglePlayAdapter.OAUTH_URL` | hardcode | connect 5s, req 10s |
-| 11 | PortOne 결제 API | `PortOneApiClient` (`properties.apiUrl()` + path) | env (`app.payment.portone.api-url`) | connect 5s, req 10s |
-| 12 | MinIO 스토리지 | (MinIO SDK 내부) | `APP_STORAGE_MINIO_ENDPOINT` (env) | SDK default |
-| 13 | FCM 푸시 | (Firebase Admin SDK 내부) | SDK 내부 관리 | SDK default |
-| 14 | CoolSMS(SOLAPI) 문자 | `CoolSmsAdapter.apiUrl()` (`CoolSmsProperties.apiUrl`) | env (`app.sms.coolsms.api-url`) | connect 5s, read 10s |
+| 7 | Resend 이메일 | `ResendEmailAdapter.RESEND_API_URL` | **`HttpURLConnection`** (follow 기본 ON — 미명시) | hardcode | connect 5s, read 10s |
+| 8 | Apple App Store Server API | `AppleAppStoreAdapter` (`config.apiUrl()` + `/inApps/v1/transactions/{txId}`) | `java.net.http` — `iapHttpClient` Bean (follow 안 함) | env (slug별 `IapProperties.apple.apiUrl`) | connect 5s, req 10s |
+| 9 | Google Play Developer API | `GooglePlayAdapter` (`config.apiUrl()` + `/androidpublisher/v3/.../tokens/{token}`) | `java.net.http` — `iapHttpClient` Bean (follow 안 함) | env (slug별 `IapProperties.google.apiUrl`) | connect 5s, req 10s |
+| 10 | Google OAuth (Play API token) | `GooglePlayAdapter.OAUTH_URL` | `java.net.http` — `iapHttpClient` Bean (follow 안 함) | hardcode | connect 5s, req 10s |
+| 11 | PortOne 결제 API | `PortOneApiClient` (`properties.apiUrl()` + path) | **`HttpURLConnection`** (follow 기본 ON — 미명시) | env (`app.payment.portone.api-url`) | connect 5s, read 10s |
+| 12 | MinIO 스토리지 | (MinIO SDK 내부) | MinIO SDK 내부 클라이언트 | `APP_STORAGE_MINIO_ENDPOINT` (env) | SDK default |
+| 13 | FCM 푸시 | (Firebase Admin SDK 내부) | Firebase Admin SDK 내부 클라이언트 | SDK 내부 관리 | SDK default |
+| 14 | CoolSMS(SOLAPI) 문자 | `CoolSmsAdapter.apiUrl()` (`CoolSmsProperties.apiUrl`) | **`HttpURLConnection`** (follow 기본 ON — 미명시) | env (`app.sms.coolsms.api-url`) | connect 5s, read 10s |
 
-> connect timeout 은 `iapHttpClient` Bean (`IapAutoConfiguration`) 과 `paymentHttpClient` Bean (`PaymentAutoConfiguration`) 에서 일괄 5s. 개별 어댑터는 request timeout 만 명시.
+> connect timeout 의 *설정 지점* 은 클라이언트마다 달라요. IAP 3건 (#8·#9·#10) 만 `IapAutoConfiguration` 의 `iapHttpClient` Bean 에서 5s 를 공유받고, 나머지 `java.net.http` 호출 (#1~#6) 은 각 서비스가 생성자에서 `HttpClient.newBuilder().connectTimeout(5s)` 로 자기 클라이언트를 만들어요. `HttpURLConnection` 3건 (#7·#11·#14) 은 어댑터가 호출 지점에서 `setConnectTimeout(5000)` + `setReadTimeout(10000)` 을 직접 지정합니다. request timeout 은 `java.net.http` 경로에서 `HttpRequest.timeout(10s)` 로 요청마다 명시해요.
 
 > 식별자 (상수명) 로 인벤토리화 — line number 는 코드 편집 빈번하므로 자동 outdated 위험. 정확한 위치는 `grep -rn '<상수명>' core/` 로 즉시 파악 가능.
 
-모두 정책 부합. authority (scheme + host) 가 사용자 입력으로 결정되는 지점 0건 — host pivot 불가. (#8·#9·#11 은 검증된 식별자가 path 세그먼트에 들어가지만 host 는 고정 const/env.)
+authority 정책은 14건 모두 부합해요 — 사용자 입력으로 authority (scheme + host) 가 결정되는 지점 0건이라 host pivot 불가입니다. (#8·#9·#11 은 검증된 식별자가 path 세그먼트에 들어가지만 host 는 고정 const/env.) timeout 값 (connect 5s / request·read 10s) 도 우리가 직접 호출을 만드는 12건 전부 정합해요 (#12·#13 은 SDK default 라 우리 통제 밖).
+
+redirect 는 갈려요. `java.net.http.HttpClient` 를 쓰는 9건은 default `NEVER` 라 정책대로 따라가지 않지만, `HttpURLConnection` 을 쓰는 #7·#11·#14 는 `setInstanceFollowRedirects(false)` 가 없어 default 인 follow 상태예요. 세 곳 모두 authority 가 고정 const/env 라 *첫 요청* 의 host pivot 은 여전히 불가능하고, 위험은 "해당 third-party 가 3xx 로 다른 host 를 가리키면 우리 서버가 그리로 한 번 더 간다" 는 2차 경로로 한정됩니다 (JDK 구현은 http↔https 처럼 프로토콜이 바뀌는 redirect 는 따라가지 않아요). 실제로 끌지는 별도 판단이 필요한 사안이라 본 ADR 은 현 상태를 기록만 합니다.
 
 ---
 

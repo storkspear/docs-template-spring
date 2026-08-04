@@ -126,7 +126,7 @@ public void record(AuditEvent event) {
 
 ---
 
-## 검증 (단위 테스트 13건)
+## 검증 (단위 테스트 15건)
 
 `AuditAspectTest`:
 
@@ -134,15 +134,17 @@ public void record(AuditEvent event) {
 2. `auditedWithoutValue_usesClassMethodName` — default action 명명
 3. `adminOnlyMethod_alsoAudited_evenWithoutAuditedAnnotation` — `@AdminOnly` 자동 감사
 4. `throwingMethod_recordsFailure_andRethrows` — 예외 처리
-5. `recordFailure_doesNotPropagate_logOnly` — 실패 격리
-6. `noAuthentication_actorIsNull` — 익명 액션 (시스템 등)
-7. `noSlugContext_slugIsNull` — slug 없는 호출
-8. `principalNotAuthenticatedUser_actorIsNull` — Principal 이 AuthenticatedUser 가 아닐 때
-9. `ipAddress_xForwardedForSingleValue_capturedAsIs` — X-Forwarded-For 단일 값
-10. `ipAddress_xForwardedForCommaSeparated_takesFirstHop` — 첫 hop 만 사용
-11. `ipAddress_noForwardedHeader_fallsBackToRemoteAddr` — 헤더 없으면 RemoteAddr fallback
-12. `ipAddress_blankForwardedHeader_fallsBackToRemoteAddr` — blank 헤더 fallback
-13. `truncate_longExceptionMessageInFailureDetails` — 긴 예외 메시지 truncate (500자)
+5. `failureDetails_isValidJsonObject` — 실패 details 가 파싱 가능한 JSON object
+6. `failureDetails_escapesSpecialCharacters` — 예외 메시지의 특수문자 escape
+7. `recordFailure_doesNotPropagate_logOnly` — 실패 격리
+8. `noAuthentication_actorIsNull` — 익명 액션 (시스템 등)
+9. `noSlugContext_slugIsNull` — slug 없는 호출
+10. `principalNotAuthenticatedUser_actorIsNull` — Principal 이 AuthenticatedUser 가 아닐 때
+11. `ipAddress_xForwardedForSingleValue_capturedAsIs` — X-Forwarded-For 단일 값
+12. `ipAddress_xForwardedForCommaSeparated_takesFirstHop` — 첫 hop 만 사용
+13. `ipAddress_noForwardedHeader_fallsBackToRemoteAddr` — 헤더 없으면 RemoteAddr fallback
+14. `ipAddress_blankForwardedHeader_fallsBackToRemoteAddr` — blank 헤더 fallback
+15. `truncate_longExceptionMessageInFailureDetails` — 긴 예외 메시지 truncate (500자)
 
 `AspectJProxyFactory` 로 target 객체에 aspect wrap → fake `AuditPort` 가 호출 캡처. ADR-014 (delegation mock 금지, fake adapter).
 

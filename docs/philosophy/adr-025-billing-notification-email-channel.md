@@ -114,9 +114,9 @@ app.billing.notification:
 
 ---
 
-## 검증 (단위 테스트 13건)
+## 검증 (본 사이클 13건 — 현재 총 23건)
 
-`SubscriptionNotificationListenerTest`:
+`SubscriptionNotificationListenerTest` 는 지금 `@Test` 23건이고, 그중 본 사이클이 다루는 13건은 이거예요 (나머지는 [`ADR-026`](./adr-026-billing-notification-metrics.md) 의 메트릭 6건, [`ADR-031`](./adr-031-notification-preferences.md) 의 preference 3건, SlugContext 복원 1건):
 
 1. `renewalSucceeded_sendsPushAndEmail` — 둘 다 발송
 2. `renewalFailed_sendsPushAndEmail_withFailedTemplate` — 템플릿 정확
@@ -175,4 +175,4 @@ app.billing.notification:
 - `core/core-billing-impl/.../listener/SubscriptionNotificationListener.java` — ObjectProvider + UserPort + EmailPort
 - `core/core-billing-impl/.../BillingNotificationProperties.java` — emailSubject/emailHtml 추가
 - `core/core-billing-impl/.../BillingAutoConfiguration.java` — `AnyNestedCondition` 적용
-- `core/core-billing-impl/src/test/.../SubscriptionNotificationListenerTest.java` — 13건으로 확장
+- `core/core-billing-impl/src/test/.../SubscriptionNotificationListenerTest.java` — 본 사이클 13건 (현재 총 23건)

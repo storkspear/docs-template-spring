@@ -83,11 +83,19 @@ public class XxxSignInService {
 | Google | `id_token` (JWT) | `/tokeninfo?id_token=...` | `aud` ∈ `googleClientIds[]` | 1 |
 | Apple | `identity_token` (JWT) | JWKS + 직접 RS256 검증 | `aud` == `appleBundleId` | 1 (JWKS 캐시) |
 | Kakao | `access_token` (opaque) | `/v1/user/access_token_info` + `/v2/user/me` | `app_id` == `kakaoAppId` | 2 |
-| Naver | `access_token` (opaque) | `/v1/nid/me` | (Naver 자체 검증) `naverClientId` 등록만 확인 | 1 |
+| Naver | `access_token` (opaque) | `/v1/nid/me` | **없음** — 응답에 client 식별자가 없어 대조 불가. `naverClientId` 는 설정 존재 여부만 확인 | 1 |
 
 Kakao 가 두 호출인 이유: `/v1/user/access_token_info` 는 `app_id` + `id` 만 반환, `/v2/user/me` 는 `email` + `nickname` 반환. 보안 (app_id 검증) + 정보 (email) 가 분리되어 있어 두 호출 필요. 단일 호출로는 `app_id` 검증 누락 위험.
 
-Naver 가 단일 호출인 이유: Naver 는 `/v1/nid/me` 호출 시 토큰 발급 client 를 자체 검증해 다른 client 의 토큰은 401 을 반환합니다. 즉 우리가 client_id 비교 endpoint 를 별도로 호출할 필요가 없어요. 우리 측은 `naverClientId` 가 등록되어 있는지만 확인합니다 (운영 의도 명시).
+Naver 가 단일 호출인 이유이자 **audience 검증이 비어 있는 이유**: Naver 의 `/v1/nid/me` 는 `Authorization: Bearer <access_token>` 만 받고 응답으로 `resultcode` · `response.{id, email, name, nickname}` 을 돌려줍니다. 우리 client_id/secret 을 함께 보내지도 않고, 응답 어디에도 **그 토큰이 어느 Naver 앱에서 발급됐는지 알려주는 필드가 없어요**. Google 의 `aud`, Kakao 의 `app_id`, Apple 의 `aud` 에 해당하는 값이 존재하지 않으니, 우리 측에서 대조할 대상 자체가 없습니다.
+
+그래서 `NaverSignInService.signIn` 이 `getNaverClientId()` 로 하는 일은 **설정 존재 확인** 이에요 — 값이 null/blank 면 `SOCIAL_AUTH_FAILED` 로 거절해서 "Naver 로그인을 켜지 않은 앱" 에 요청이 들어오는 걸 막습니다. 읽은 값을 토큰과 비교하지는 않아요. 이 한계를 감안한 Naver 쪽 방어선은 셋입니다:
+
+1. **토큰 유효성** — `/v1/nid/me` 가 200 + `resultcode == "00"` 이 아니면 즉시 거절. 위조·만료 토큰은 여기서 걸려요.
+2. **email 필수** — Naver 가 검증한 email 이 응답에 없으면 (`reason=email_required`) 거절. 유저 식별의 최소 조건을 provider 응답에서만 받습니다.
+3. **설정 게이트** — Naver 를 쓰지 않는 앱은 `naver-client-id` 를 비워 두는 것만으로 이 경로가 닫혀요. 위의 설정 존재 확인이 그대로 on/off 스위치 역할을 합니다.
+
+남는 잔여 위험은 *다른 Naver 앱에 발급된 유효한 access token 을 우리 endpoint 로 재생(replay)하는* 케이스예요. 이때 우리 코드가 걸러낼 수단은 없고, Naver 서버가 그 토큰을 거절해 주기를 기대하는 상태입니다. 영향 범위는 "그 사람이 자기 Naver 계정으로 우리 앱에 가입된다" 이지 다른 유저 계정 탈취나 앱 간 데이터 접근은 아니에요 — 앱 경계 자체는 `AppSlugVerificationFilter` 와 schema 라우팅 ([`ADR-012`](./adr-012-per-app-user-model.md), [`ADR-018`](./adr-018-schema-routing-datasource.md)) 이 별도로 지킵니다. Naver 가 client 대조용 필드를 노출하면 Kakao 와 같은 형태로 검증을 추가할 자리예요.
 
 ### `social_identities` 테이블 (DB 변경 0)
 
@@ -167,7 +175,7 @@ Google / Apple / Kakao / Naver 모두 *자체적으로 이메일 검증* 을 거
 
 **외부 의존성이 0 이에요.** JDK 의 `HttpClient` (java.net.http) 와 JJWT 0.13.0 만으로 모든 provider 가 통합돼요. `spring-security-oauth2-client` 같은 무거운 라이브러리를 도입하지 않아 *application.yml 의 provider 별 설정 분산* 도, *프레임워크 학습 곡선* 도 없습니다. 의존성 트리가 가벼워서 빌드 시간과 jar 크기에도 직접 도움이 돼요.
 
-**앱별 credential 이 깔끔히 격리됩니다.** 한 앱의 Google client ID 가 다른 앱의 토큰 검증을 통과하지 못해요. 각 SignInService 가 `getByAppSlug(appSlug)` 로 자기 앱의 credential 만 조회하므로, *cross-app 토큰 위조* 가 구조적으로 차단됩니다. [`ADR-012`](./adr-012-per-app-user-model.md) 의 `appSlug` 격리와 자연스럽게 연결돼요.
+**앱별 credential 이 깔끔히 격리됩니다.** 각 SignInService 가 `getByAppSlug(appSlug)` 로 자기 앱의 credential 만 조회하고, **Google · Apple · Kakao 세 provider 는 그 값을 토큰과 실제로 대조** 해요 — `googleClientIds.contains(aud)`, `requireAudience(appleBundleId)`, `app_id.equals(kakaoAppId)`. 그래서 이 셋은 한 앱의 토큰이 다른 앱의 백엔드를 통과하는 *cross-app 토큰 재사용* 이 구조적으로 차단됩니다. **Naver 는 예외** 예요 — `/v1/nid/me` 응답에 client 식별자가 없어 대조가 불가능하고, `naverClientId` 는 설정 존재 확인용으로만 쓰입니다 (위 [Provider 별 검증 차이](#provider-별-검증-차이) 의 상세). [`ADR-012`](./adr-012-per-app-user-model.md) 의 `appSlug` 격리는 provider 와 무관하게 별도로 작동해요.
 
 **provider 별 미세 차이가 캡슐화됩니다.** Apple 의 *Hide My Email* 처리, Kakao 의 *이메일 동의 거부* 분기, Naver 의 *단일 endpoint 검증* — 이런 비표준 케이스가 각 SignInService 안에서 해당 provider 의 맥락 안에서 처리돼요. 다른 provider 의 코드를 건드리지 않으므로, 한 provider 의 변경이 다른 provider 의 동작에 영향을 주지 않는 *격리* 도 따라옵니다.
 

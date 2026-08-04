@@ -185,7 +185,7 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 }
 ```
 
-필터 체인 순서: `JwtAuthFilter → AppSlugMdcFilter → AppSlugVerificationFilter → (실제 Controller)`. 등록 위치는 `common-security/SecurityConfig.java` L67-69.
+필터 체인 순서: `JwtAuthFilter → AppSlugMdcFilter → AppSlugVerificationFilter → (실제 Controller)`. 등록은 `common-security/SecurityConfig.java` 의 `securityFilterChain(HttpSecurity)` 안에서 `addFilterBefore(jwtAuthFilter, ...)` → `addFilterAfter(appSlugMdcFilter, JwtAuthFilter.class)` → `addFilterAfter(appSlugVerificationFilter, AppSlugMdcFilter.class)` 순으로 이뤄져요.
 
 예: sumtally 에서 발급된 JWT 로 `/api/apps/rny/users/me` 를 호출 → `pathSlug = "rny"`, `user.appSlug() = "sumtally"` → 즉시 403.
 
@@ -286,9 +286,9 @@ DB 마이그레이션과 달리 JWT 스키마 변경은 **rollout 경로가 없�
 - [`AuthenticatedUser.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/AuthenticatedUser.java) — `appSlug: String` 단일 필드
 
 **경계 강제 필터**:
-- [`AppSlugVerificationFilter.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/AppSlugVerificationFilter.java) — L39-70 (검증 로직)
-- [`SecurityConfig.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java) — L67-69 (필터 체인 등록)
-- [`AppSlugExtractor.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/AppSlugExtractor.java) — URL path 에서 `<slug>` 추출
+- [`AppSlugVerificationFilter.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/AppSlugVerificationFilter.java) — `doFilterInternal()` 에 검증 로직 전체
+- [`SecurityConfig.java`](https://github.com/storkspear/template-spring/blob/main/common/common-security/src/main/java/com/factory/common/security/SecurityConfig.java) — `securityFilterChain(HttpSecurity)` 에서 필터 체인 등록
+- [`AppSlugExtractor.java`](https://github.com/storkspear/template-spring/blob/main/common/common-web/src/main/java/com/factory/common/web/AppSlugExtractor.java) — URL path 에서 `<slug>` 추출. `common-security` 가 아니라 **`common-web`** 에 있어요 (`common-security` 가 `common-web` 을 의존)
 
 **Controller (ADR-013 B 로 공유 전환)**:
 - [`core-auth-impl/controller/AuthController.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-impl/src/main/java/com/factory/core/auth/impl/controller/AuthController.java) — 공유 런타임 빈 (`{appSlug}` path 변수로 모든 앱 처리)

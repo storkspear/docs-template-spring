@@ -214,12 +214,12 @@ dependencies {
   config : implementation
   depends: :core:core-auth-impl
   reason : forbidden pattern
-See docs/conventions/module-dependencies.md
+See docs/structure/module-dependencies.md
 
 > FAILURE: Build failed with an exception.
 ```
 
-> ※ 위 메시지는 `DependencyRules.groovy` 실물 그대로예요. 메시지가 가리키는 `docs/conventions/module-dependencies.md` 는 실존하지 않는 낡은 경로고 (실제 문서는 [`docs/structure/module-dependencies.md`](../structure/module-dependencies.md)), 코드 쪽 메시지도 수정 예정이에요.
+> ※ 위 메시지는 `DependencyRules.groovy` 의 `buildMessage()` 실물 그대로예요. 마지막 줄이 가리키는 [`docs/structure/module-dependencies.md`](../structure/module-dependencies.md) 에 허용 의존 목록이 있어요.
 
 컴파일 단계 이전 `afterEvaluate` 에서 차단되어 **클래스 파일 자체가 만들어지지 않습니다**. 개발자는 즉시 `core-auth-api` 만 의존하도록 수정해야 해요.
 

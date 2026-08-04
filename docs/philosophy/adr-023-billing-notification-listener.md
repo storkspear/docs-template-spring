@@ -2,7 +2,7 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
-**Status**: Accepted. `core-billing-impl/listener/SubscriptionNotificationListener` 가 결제 도메인 이벤트를 push 알림으로 변환해요. `app.billing.notification.enabled` + `PushPort` bean 조건으로 opt-in 등록됩니다.
+**Status**: Accepted. `core-billing-impl/listener/SubscriptionNotificationListener` 가 결제 도메인 이벤트를 push 알림으로 변환해요. 등록 조건은 `app.features.billing-notification` 와 `app.billing.notification.enabled` 가 둘 다 true 이고 `PushPort` 또는 `EmailPort` 중 하나 이상이 있는 것인데, 두 property 모두 default 가 true 라 **실효 기본값은 opt-out** 입니다 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.md)). 채널은 이후 [`ADR-025`](./adr-025-billing-notification-email-channel.md) 에서 email 까지 확장됐어요.
 
 ---
 
@@ -12,7 +12,7 @@
 
 본 ADR 은 결제 도메인이 발행하는 이벤트들 — 갱신 성공·갱신 실패·갱신 포기(Abandoned)·IAP REFUND·IAP REVOKE — 를 push 알림으로 변환하는 listener 를 정의합니다. 위치는 정책 layer `core-billing-impl` 안의 `SubscriptionNotificationListener` 이고, *어떤 이벤트에 어떤 메시지를 보낼지* 의 알림 정책도 같은 모듈에서 관리해요. 채널은 push(FCM) 만 다루고, email 채널은 [`ADR-025`](./adr-025-billing-notification-email-channel.md) 에서 별도로 추가합니다. push 인프라 (`PushPort`, `FcmPushAdapter`) 가 이미 갖춰져 있는 반면, email 은 별도 도메인 [`ADR-024`](./adr-024-email-domain-extraction.md) 로 추출해야 했기 때문이에요.
 
-이 ADR 이 다루는 범위는 다섯 가지예요. listener 의 등록 조건 (`@ConditionalOnBean` + `@ConditionalOnProperty`), 이벤트별 처리 매핑, 발행 시점이 write TX commit 이후가 되도록 하는 수동 phase 경계 (`@EventListener` + `TransactionTemplate` 커밋 후 publishEvent), 슬러그 컨텍스트 처리, 그리고 알림 발송 실패가 비즈 로직을 막지 않게 하는 격리 정책입니다. 슬러그 컨텍스트는 push token 이 슬러그별 schema 에 있으므로 listener 시작 시 `SlugContext.set` 으로 셋업하고 finally 에서 정리해요.
+이 ADR 이 다루는 범위는 다섯 가지예요. listener 의 등록 조건 (발송 채널 bean 존재 + feature property — 현재 코드는 `@Conditional(PushOrEmailPresent)` + `@ConditionalOnExpression`), 이벤트별 처리 매핑, 발행 시점이 write TX commit 이후가 되도록 하는 수동 phase 경계 (`@EventListener` + `TransactionTemplate` 커밋 후 publishEvent), 슬러그 컨텍스트 처리, 그리고 알림 발송 실패가 비즈 로직을 막지 않게 하는 격리 정책입니다. 슬러그 컨텍스트는 push token 이 슬러그별 schema 에 있으므로 listener 시작 시 `SlugContext.set` 으로 셋업하고 finally 에서 정리해요.
 
 ---
 
@@ -39,7 +39,7 @@
 | **채널** | **push (FCM) 우선**, email 은 별도 사이클 | core-push 인프라 이미 갖춰짐 (FcmPushAdapter). email 은 SMTP/SendGrid 통합 비용 별도 |
 | **listener 위치** | `core-billing-impl/listener/SubscriptionNotificationListener` | 정책 layer 안 — 알림 정책 (어떤 이벤트에 알림? 메시지 내용?) 도 billing 책임 |
 | **메시지 템플릿** | `BillingNotificationProperties` (`app.billing.notification.*`) | 한국어 default + 운영자 override |
-| **활성화** | `app.billing.notification.enabled=true` + `PushPort` bean 존재 시 | 명시적 opt-in (운영자 결정) |
+| **활성화** | `app.features.billing-notification` AND `app.billing.notification.enabled` (둘 다 default true) + `PushPort` 또는 `EmailPort` 등록 시 | 실효 opt-out — 끄려면 둘 중 하나를 명시적으로 false 로 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.md)) |
 | **실패 정책** | listener 가 PushPort throw 캐치 + log only | 알림 실패가 비즈로직을 막으면 안 됩니다 |
 | **SlugContext** | listener 시작 시 이벤트의 `appSlug` 로 셋업 + finally 정리 | push token 조회가 슬러그별 schema (ADR-018) |
 
@@ -90,16 +90,19 @@
 ## Conditional 활성화
 
 ```java
-@ConditionalOnBean(PushPort.class)              // PushPort 등록된 환경 (= core-push-impl 클래스패스 + FCM/NoOp)
-@ConditionalOnProperty(...notification.enabled = true)  // 운영자 명시적 opt-in
+@Conditional(PushOrEmailPresent.class)          // PushPort 또는 EmailPort 중 하나 이상 (AnyNestedCondition)
+@ConditionalOnExpression(                       // 두 property 다 default true → 실효 opt-out
+        "${app.features.billing-notification:true} and ${app.billing.notification.enabled:true}")
 @ConditionalOnMissingBean                       // 사용자 override 시 우선
 ```
 
 → 4가지 시나리오:
-- PushPort 있음 + enabled=true → listener 등록, 알림 발송
-- PushPort 있음 + enabled=false → listener 등록 X (이벤트는 발행되지만 noop)
-- PushPort 없음 → listener 등록 X (FCM 미통합 환경)
+- PushPort 또는 EmailPort 있음 + 두 property 다 미설정 (= default true) → listener 등록, 알림 발송
+- 두 property 중 하나라도 false → listener 등록 X (이벤트는 발행되지만 noop)
+- PushPort·EmailPort 둘 다 없음 → listener 등록 X (발송 채널 미통합 환경)
 - 사용자가 자기 listener 등록 → 그것이 우선이에요
+
+`BillingNotificationProperties.enabled` 필드는 값 바인딩용이라 게이팅에 직접 쓰이지 않아요 — 위 `@ConditionalOnExpression` 이 raw property 를 읽기 때문에, 필드 초기값이 `false` 여도 property 를 안 적으면 listener 는 등록됩니다.
 
 ---
 
@@ -158,6 +161,6 @@
 
 - `core/core-billing-api/.../event/IapNotificationProcessedEvent.java` — 신규 이벤트 (I 사이클 분기 후 발행)
 - `core/core-billing-impl/.../listener/SubscriptionNotificationListener.java` — 5종 listener
-- `core/core-billing-impl/.../BillingNotificationProperties.java` — 템플릿 + opt-in
+- `core/core-billing-impl/.../BillingNotificationProperties.java` — 템플릿 (+ `enabled` 값 바인딩)
 - `core/core-billing-impl/.../BillingServiceImpl.java#handleIapRenew/Refund/Cancel` — 이벤트 발행 추가
-- `core/core-billing-impl/.../BillingAutoConfiguration.java` — listener bean (ConditionalOnBean + Property)
+- `core/core-billing-impl/.../BillingAutoConfiguration.java` — listener bean (`PushOrEmailPresent` + `@ConditionalOnExpression`)

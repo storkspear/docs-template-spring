@@ -59,7 +59,7 @@
 | **server-test** | `verify-local.sh` — Spring 부팅 + actuator health | `verify-server.sh --target=dev` — dev-server actuator | `verify-server.sh` — prod actuator | ❌ |
 | **api-test** | `api-smoke-test.sh` — 16 단계 deep e2e (WireMock 활성) | `api-smoke-test.sh --target=dev` — dev-server 대상 | 비파괴 부분집합 — 회원가입·결제 등 데이터 생성 단계는 skip, 서명 거부(8·10)와 하드닝(15) 중심 | ❌ |
 | **test** | `server-test` + `api-test` + `ci-test` 3단계 순차 | `server-test` + `api-test` 순차 | `server-test` + `api-test` 순차 | local + prod 순차 (dev 미포함) |
-| **ci-test** | GitHub Actions CI 동일 7-stage 로컬 검증 — push 전 사전 통과 보장 | (env 무관) | (env 무관) | (env 무관) |
+| **ci-test** | GitHub Actions CI 동일 검증 + 로컬 전용 가드, 8-stage — push 전 사전 통과 보장 | (env 무관) | (env 무관) | (env 무관) |
 
 ### 배포 / 운영
 
@@ -209,20 +209,23 @@ Mac mini · Cloudflare 계정 · GHCR · tailnet 은 dev 의 것도 prod 의 것
 
 ### 5. CI 검증 (push 전)
 
-GitHub Actions 의 CI·docs-check·Security Scan 워크플로와 동일한 7 단계를 로컬에서 미리 수행할 수 있어요.
+GitHub Actions 의 CI·docs-check·contract-snapshot·Security Scan 워크플로와 동일한 검증에 로컬 전용 가드 2개를 더해 8 단계를 push 전에 미리 수행할 수 있어요.
 
 ```bash
 <repo> ci-test
-   → [1/7] Spotless apply (자동 fix, strict 모드는 --strict)
-   → [2/7] Build (compile + unit test + ArchUnit r1~r22 (r12 예약, 활성 21) + jacoco)
-   → [3/7] Docs contract test (env-var 일관성 · broken link · deploy-secrets-sync)
-   → [4/7] Docs-check 자체의 unit test
-   → [5/7] users 스키마 드리프트 가드 (test fixture ↔ new-app.sh)
-   → [6/7] 공유 인프라 키 소유권 가드 (.env.infra 밖에서 읽는 코드)
-   → [7/7] gitleaks (secret scan)
+   → [1/8] Spotless apply (자동 fix, strict 모드는 --strict)
+   → [2/8] Build (compile + unit test + ArchUnit r1~r22 (r12 예약, 활성 21) + jacoco)
+   → [3/8] Docs contract test (env-var 일관성 · broken link · deploy-secrets-sync)
+   → [4/8] Docs-check 자체의 unit test
+   → [5/8] Contract snapshot (gen-snapshot.sh 재생성 후 git diff)
+   → [6/8] users 스키마 드리프트 가드 (test fixture ↔ new-app.sh) — 로컬 전용
+   → [7/8] 공유 인프라 키 소유권 가드 (.env.infra 밖에서 읽는 코드) — 로컬 전용
+   → [8/8] gitleaks (secret scan)
 ```
 
-7 단계가 모두 PASS 면 안전하게 push 할 수 있고, fail 이 나면 어떤 명령으로 해결해야 하는지를 출력 끝에서 안내해요.
+8 단계가 모두 PASS 면 안전하게 push 할 수 있고, fail 이 나면 어떤 명령으로 해결해야 하는지를 출력 끝에서 안내해요.
+
+단계가 SKIP 으로 표시되면 그건 통과가 아니라 "검사하지 않음" 이에요. 그래서 SKIP 이 하나라도 있으면 "CI 통과 예상" 대신 결과를 예측할 수 없다고 알려줘요. `--strict` 로 돌리면 미실행 단계를 FAIL 로 판정해요.
 
 > 단, ci-test 는 content 검증만 해요. `.github/workflows/*.yml` 의 runtime 의존성 — 등록되지 않은 secret 참조 같은 것 — 은 잡지 못해요. 워크플로 YAML 정적 검증(actionlint)은 검토 결과 실익이 낮아 도입하지 않기로 했어요(CHANGELOG 2026-05-27).
 

@@ -1,6 +1,6 @@
 # ADR-008 · API 버전 관리는 Phase 0 에서 미도입
 
-**Status**: Accepted. 모든 API 경로에서 `/v1/` 같은 버전 접두사를 쓰지 않아요. 현재 경로는 `/api/apps/{appSlug}/*` (앱별) 과 `/api/admin` (운영 콘솔 — [ADR-039](./adr-039-admin-module.md)) prefix 로 나뉘고, `/api/core/*` 는 예약만 남아 실사용 0건이에요. 미래 도입 경로는 열려 있어요 — **경로 A (Cloudflare 재작성)** 는 코드 0줄로 공유 core·앱별 컨트롤러를 균일하게 덮어서 권장. **경로 B (코드 prefix 변경)** 는 `common-web APP_BASE` 한 곳이 아니라 각 앱의 `<Slug>ApiEndpoints.BASE` 까지 손봐야 해요 (앱별 endpoint 는 ADR-013 격리 원칙상 코어 카탈로그를 참조하지 않기 때문).
+**Status**: Accepted. 모든 API 경로에서 `/v1/` 같은 버전 접두사를 쓰지 않아요. 현재 경로는 `/api/apps/{appSlug}/*` (앱별) 과 `/api/admin` (운영 콘솔 — [ADR-039](./adr-039-admin-module.md)) prefix 로 나뉘고, `/api/core/*` 는 예약만 남아 실사용 0건이에요. 미래 도입 경로는 둘 다 열려 있어요 — **경로 A (Cloudflare 재작성)** 는 코드 0줄, **경로 B (코드 prefix 변경)** 는 `common-web` 의 `APP_BASE` · `APP_BASE_PATTERN` 두 상수 + 앱마다 `<Slug>ApiEndpoints.BASE` 한 줄이에요. 앱별 파일에는 health 같은 앱 고유 경로만 있고 auth/payment/iap 경로는 `ApiEndpoints.{Auth, Payment, Iap}` 에 모여 있어서, 경로 B 의 비용도 앱 수에 크게 비례하지 않습니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -128,17 +128,20 @@ public final class ApiEndpoints {
 **경로 B** — 코드 prefix 변경 (한 줄이 아니라 *손댈 곳이 둘*):
 
 ```java
-// (1) common-web/ApiEndpoints.java — 공유 core(user/device/notif) + SecurityConfig 패턴
+// (1) common-web/ApiEndpoints.java — auth/user/device/payment/iap 등 core 공유 컨트롤러
+//     전부 + SecurityConfig 패턴. 여기 두 줄이 대부분을 덮는다.
 public static final String APP_BASE = "/api/v1/apps/{appSlug}";
 public static final String APP_BASE_PATTERN = "/api/v1/apps/*";
 
-// (2) 각 앱 <Slug>ApiEndpoints.java — auth/payment/iap 등 앱별 생성 컨트롤러 (앱마다 1곳)
+// (2) 각 앱 <Slug>ApiEndpoints.java — 앱 고유 엔드포인트(health 등) 의 base (앱마다 1곳)
 public static final String BASE = "/api/v1/apps/<slug>";
 ```
 
-장점: URL 이 코드 레벨에서 v1 으로 드러나고 Flutter `base_url` 도 `/api/v1` 로 명시 가능해요. 단점: **앱별 `<Slug>ApiEndpoints.BASE` 가 ADR-013 격리 원칙상 코어 `APP_BASE` 를 참조하지 않으므로**, 공유 core 1곳 + 앱마다 1곳을 모두 고쳐야 해요 (앱이 늘면 그만큼). 배포 시 Flutter 도 같이 올려야 해요.
+`<Slug>ApiEndpoints` 가 담는 건 `BASE` + `System.HEALTH` 같은 **앱 고유 경로뿐** 이에요. auth·payment·iap 는 [`ADR-013`](./adr-013-per-app-auth-endpoints.md) B 이후 core 공유 컨트롤러가 처리하고 경로 상수도 `ApiEndpoints.{Auth, Payment, Iap}` 에 있어서, `new-app.sh` 가 생성하는 파일에는 들어가지 않습니다 (스크립트 주석이 이 사실을 명시해요).
 
-실제 도입 시점에는 **대개 경로 A (Cloudflare)** 가 정합이에요 — 코드 0줄로 공유 core·앱별 컨트롤러를 한 번에 균일하게 덮고, 앱별 격리 원칙도 그대로 유지되기 때문이에요. 경로 B 는 "URL 의 v1 을 코드·로그에 그대로 드러내고 싶다" 가 명확한 경우에만 골라요.
+장점: URL 이 코드 레벨에서 v1 으로 드러나고 Flutter `base_url` 도 `/api/v1` 로 명시 가능해요. 단점: **앱별 `<Slug>ApiEndpoints.BASE` 가 ADR-013 격리 원칙상 코어 `APP_BASE` 를 참조하지 않으므로**, 공유 core 1곳 + 앱마다 1곳을 모두 고쳐야 해요. 배포 시 Flutter 도 같이 올려야 해요.
+
+두 경로 중 어느 쪽이 나은지는 **한쪽으로 크게 기울지 않아요**. 경로 B 의 실제 작업량은 `ApiEndpoints` 의 두 상수 + 앱 수만큼의 한 줄짜리 `BASE` 이고, 앱마다 고칠 게 health 경로 하나뿐이라 "앱이 늘수록 부담이 커진다" 는 걱정은 생각보다 작습니다. 경로 A 는 여전히 코드 변경 0 이라는 확실한 장점이 있지만, URL 재작성이 리버스 프록시에만 있어서 애플리케이션 로그와 실제 외부 URL 이 어긋나는 비용을 집니다. 도입 시점에 "로그·코드에 v1 이 드러나야 하는가" 를 기준으로 고르면 되고, 이 ADR 이 한쪽을 미리 권고하지는 않아요.
 
 ### 전환 기간이 필요해지면 (멀티 버전 공존)
 

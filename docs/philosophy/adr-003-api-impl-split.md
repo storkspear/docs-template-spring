@@ -122,7 +122,7 @@ core/
 `-api` 모듈의 인터페이스는 `*Port` 접미사를 사용합니다 (Hexagonal Architecture 용어). 실제 예시 ([`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java)):
 
 ```java
-// core-auth-api/AuthPort.java 발췌 — 전체 20 메서드 중 일부
+// core-auth-api/AuthPort.java 발췌 — 전체 21 메서드 중 일부
 public interface AuthPort {
     AuthResponse signUpWithEmail(SignUpRequest request);
     AuthResponse signInWithEmail(SignInRequest request);
@@ -130,11 +130,11 @@ public interface AuthPort {
     AuthResponse signInWithGoogle(GoogleSignInRequest request);
     AuthTokens refresh(RefreshRequest request);
     void withdraw(long userId, WithdrawRequest request);
-    void requestPasswordReset(PasswordResetRequest request);
+    Optional<String> requestPasswordReset(PasswordResetRequest request);
     void confirmPasswordReset(PasswordResetConfirmRequest request);
     void changePassword(long userId, ChangePasswordRequest request);
     void verifyEmail(VerifyEmailRequest request);
-    void resendVerificationEmail(long userId);
+    Optional<String> resendVerificationEmail(long userId);
 }
 ```
 
@@ -270,7 +270,7 @@ references class <com.factory.core.user.impl.entity.User>
 
 **DTO ↔ Entity 변환 비용** — Port 가 Entity 반환을 금지하므로 `-impl` 내부에서 Entity 를 DTO 로 변환해야 해요. 완화: ADR-016 (DTO Mapper 금지, Entity 메서드 패턴) 이 이 비용을 최소화해요.
 
-**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **20 메서드** 예요. 가입 전 이메일 인증코드 2개 (발송·검증), email 가입과 다섯 가지 로그인 (이메일·Apple·Google·Kakao·Naver), refresh·탈퇴, password reset 3개 (요청·확인·변경), email verify 2개 (검증·재발송), 2FA TOTP 관리 3개 (setup·verifyAndEnable·disable) 와 2FA 로그인 1개, 휴대폰 점유인증 1개를 한데 담고 있어요. 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 돼요. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 책임 기반 분할을 고려해요. 현재 20 메서드는 관리 가능한 수준이에요.
+**Port 인터페이스가 커지는 경향** — AuthPort 가 현재 **21 메서드** 예요. 가입 전 이메일 인증코드 2개 (발송·검증), email 가입과 다섯 가지 로그인 (이메일·Apple·Google·Kakao·Naver) 6개, refresh·탈퇴 2개, password reset 3개 (요청·확인·변경), email verify 2개 (검증·재발송), 2FA TOTP 관리 4개 (setup·verifyAndEnable·disable·regenerateBackupCodes) 와 2FA 로그인 1개, 휴대폰 점유인증 1개를 한데 담고 있어요. 이 인터페이스 하나가 "인증 도메인의 전체 수퍼집합" 이 돼요. 완화: 인터페이스가 30+ 메서드로 성장하면 그때 `EmailAuthPort`, `SocialAuthPort`, `PasswordResetPort` 같은 책임 기반 분할을 고려해요. 현재 21 메서드는 관리 가능한 수준이에요.
 
 ### 감당 가능성 판단
 
@@ -298,7 +298,7 @@ references class <com.factory.core.user.impl.entity.User>
 ## Code References
 
 **Port 인터페이스** (모두 `-api` 모듈):
-- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 20 메서드, JavaDoc 풍부.
+- [`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java) — 21 메서드, JavaDoc 풍부.
 - [`UserPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/UserPort.java)
 - [`PushPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-push-api/src/main/java/com/factory/core/push/api/PushPort.java)
 - [`EmailPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-email-api/src/main/java/com/factory/core/email/api/EmailPort.java) — 간결. Secondary Adapter 의 대상.

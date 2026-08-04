@@ -109,6 +109,17 @@
 // commitlint.config.mjs
 export default {
     extends: ['@commitlint/config-conventional'],
+    plugins: [
+        {
+            rules: {
+                // AI co-author trailer 차단 — husky/commit-msg 의 grep 과 이중 안전망
+                'no-ai-coauthor': ({ raw }) => { /* /^Co-Authored-By:\s*Claude/im 검사 */ },
+                // 백틱 밖 @식별자 차단 — `@Audited` 를 그냥 쓰면 GitHub 이 @멘션으로 파싱해
+                // 무관한 실제 계정으로 링크된다. 코드펜스 안·이메일·경로는 제외
+                'no-bare-mention': ({ raw }) => { /* 백틱 밖 @xxx 수집 */ },
+            },
+        },
+    ],
     rules: {
         'type-enum': [2, 'always', [
             'feat', 'fix', 'docs', 'style', 'refactor',
@@ -127,6 +138,8 @@ export default {
         'subject-max-length': [2, 'always', 72],
         'body-leading-blank': [2, 'always'],
         'footer-leading-blank': [2, 'always'],
+        'no-ai-coauthor': [2, 'always'],
+        'no-bare-mention': [2, 'always'],
     }
 };
 ```
@@ -134,6 +147,7 @@ export default {
 - **10개 type** — feat, fix 는 버전 영향 (minor/patch), 나머지는 문서·내부
 - **23개 scope** — 경고 레벨 (2=error, 1=warning). 새 모듈 추가 시 warning 발생하면 리스트 업데이트
 - **72자 제한** — git log 의 한 줄 표시 가독성
+- **커스텀 plugin 룰 2개** — 둘 다 error 레벨. `no-ai-coauthor` 는 husky 훅과 같은 판정을 commitlint 안에서 한 번 더 하고, `no-bare-mention` 은 백틱 없는 `@식별자` 를 막아요 (`@Audited` 를 그대로 쓰면 GitHub 이 `github.com/Audited` 같은 무관한 계정 멘션으로 파싱해요)
 
 ### husky commit-msg 훅
 
@@ -152,7 +166,7 @@ npx --no -- commitlint --edit "$1"
 1. **AI coauthor 차단** — Claude·GPT 같은 LLM coauthor 트레일러를 로컬 레벨에서 거부 (정책 판단: 책임 소재 명확화 + 외부 검토 시 신뢰)
 2. **commitlint 실행** — 포맷 검증 실패 시 커밋 거부
 
-로컬 차단 + CI 재검증의 **이중 방어**.
+AI coauthor 트레일러는 여기에 더해 `commitlint.config.mjs` 의 `no-ai-coauthor` plugin 룰이 한 번 더 걸러요. 훅의 grep · commitlint 룰 · CI 재검증의 **3중 방어** 입니다 — husky 를 설치하지 않은 clone 에서도 commitlint 와 CI 가 남고, `--no-verify` 로 훅을 건너뛰어도 CI 가 남아요.
 
 ### template-v* 태그 + 릴리스 자동화
 
@@ -386,7 +400,7 @@ r20 이 빌드 실패로 강제하므로:
 ## Code References
 
 **commitlint / 커밋 검증**:
-- [`commitlint.config.mjs`](https://github.com/storkspear/template-spring/blob/main/commitlint.config.mjs) — 10 type + 19 scope + 72자 제한
+- [`commitlint.config.mjs`](https://github.com/storkspear/template-spring/blob/main/commitlint.config.mjs) — 10 type + 23 scope + 72자 제한 + 커스텀 plugin 룰 2개 (`no-ai-coauthor` · `no-bare-mention`)
 - [`.husky/commit-msg`](https://github.com/storkspear/template-spring/blob/main/.husky/commit-msg) — AI coauthor 차단 + commitlint 실행
 - [`package.json`](https://github.com/storkspear/template-spring/blob/main/package.json) — commitlint 19 · husky 9 · commitizen 4.3
 

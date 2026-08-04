@@ -215,7 +215,7 @@ git push origin main
 |---|---|---|
 | 로그 | `log.<domain>` 의 [`Grafana`](../reference/glossary.md#관측성--로깅) | [`Loki`](../reference/glossary.md#관측성--로깅) 쿼리로 실시간 필터링 |
 | 메트릭 | Grafana 대시보드 | [`Prometheus`](../reference/glossary.md#관측성--로깅) 가 `/actuator/prometheus` 를 수집 (요청량 · 에러율 · p95 지연) |
-| 알림 | Discord | [`Alertmanager`](../reference/glossary.md#관측성--로깅) 가 5xx 에러율 · p95 지연 · 백엔드 다운 · MinIO 디스크 임계 초과 시 발송 |
+| 알림 | Discord | [`Alertmanager`](../reference/glossary.md#관측성--로깅) 가 5xx 에러율 · p95 지연 · rate-limit 급증 · 백엔드 다운 시 발송. NAS MinIO 디스크는 scrape 경로가 없어 아직 감시 대상이 아니에요 ([`관측성 셋업`](../production/setup/monitoring-setup.md#알림-튜닝) 참조) |
 
 이 관측성 스택은 운영(Mac mini)에서만 띄워요. 로컬에서는 메모리 부담이 커서 켜지 않고, 로그는 콘솔로 메트릭은 `/actuator/prometheus` 로 충분히 확인해요. 운영 셋업 방법은 [`운영 모니터링 셋업 가이드`](../production/setup/monitoring-setup.md) 에 있어요.
 

@@ -198,7 +198,7 @@ cp .env.example .env       # (없으면)
 | 4 | OPTIONAL: storage | [MinIO](../reference/glossary.md#운영--인프라) 업로드 (PUT · STAT · DEL) | 스토리지 기능 정상 |
 | 5 | OPTIONAL: email | [Resend](../reference/glossary.md#운영--인프라) API 발송 | 이메일 기능 정상 |
 | 6 | OPTIONAL: logging | [Loki](../reference/glossary.md#관측성--로깅) readiness | 로깅 기능 정상 |
-| 7 | OPTIONAL: alertmanager | [Alertmanager](../reference/glossary.md#관측성--로깅) 컨테이너 Up 확인 | 컨테이너는 떠 있음 — Discord 도착은 기술적으로 검증 불가라, 알람을 수동으로 발생시킨 뒤 채널에서 확인 |
+| 7 | OPTIONAL: alertmanager | [Alertmanager](../reference/glossary.md#관측성--로깅) 컨테이너 Up 확인 | 컨테이너가 떠 있다는 것까지만. 채널 도착 여부는 이 스크립트가 볼 수 없으니, [`관측성 셋업 · 알림 도착 확인`](../production/setup/monitoring-setup.md#알림-도착-확인) 의 한 줄로 테스트 알람을 직접 발사해 확인 |
 
 REQUIRED 가 실패하면 즉시 중단해요(운영 backend 가 응답하지 않는 상태). OPTIONAL 이 실패하면 경고만 남기고 계속 진행해요.
 

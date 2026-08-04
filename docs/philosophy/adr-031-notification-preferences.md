@@ -107,7 +107,7 @@ private void sendPush(long userId, NotificationKind notificationKind, ...) {
 
 ---
 
-## 검증 (단위 테스트 3건 추가 — 총 22건)
+## 검증 (단위 테스트 3건 추가 — `SubscriptionNotificationListenerTest` 현재 총 23건)
 
 `SubscriptionNotificationListenerTest`:
 - `preference_pushOff_skipsPush_emailStillSent` — push 만 OFF

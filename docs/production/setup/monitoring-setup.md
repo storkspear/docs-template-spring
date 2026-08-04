@@ -55,6 +55,21 @@ docker compose -f infra/docker-compose.observability.yml ps
 
 `DISCORD_WEBHOOK_URL` 이 비어 있으면 Alertmanager 의 webhook URL 도 빈 문자열이 돼 컨테이너가 restart loop 에 빠져요. 그래서 profile 로 분리해 두고, URL 이 채워졌을 때만 켜요. `infra init` 자동화는 이 값이 있을 때만 Alertmanager 를 같이 띄웁니다.
 
+`infra/alertmanager/config.yml` 의 receiver 는 `slack_configs` 를 씁니다. `/slack` 엔드포인트는 Slack 포맷 (`text` / `attachments`) 만 받기 때문이에요. `webhook_configs` 로 두면 Alertmanager 고유의 제네릭 JSON 이 나가서 이 엔드포인트가 본문을 읽지 못하고, 컨테이너는 정상인데 메시지만 도착하지 않아요. `title` 과 `text` 를 명시하는 것도 같은 이유예요 — Alertmanager 의 기본 `slack.default.text` 는 빈 문자열이라, 생략하면 본문 없는 메시지가 되어 Discord 가 거절합니다.
+
+### 알림 도착 확인
+
+컨테이너가 `Up` 인 것과 메시지가 도착하는 것은 다른 사실이에요. 한 번은 실제로 발사해서 채널에 뜨는지 확인하세요. Mac mini 에서 다음 한 줄이면 테스트 알람이 Alertmanager 를 거쳐 Discord 까지 갑니다.
+
+```bash
+curl -s -XPOST http://127.0.0.1:9093/api/v2/alerts \
+  -H 'Content-Type: application/json' \
+  -d '[{"labels":{"alertname":"DeliveryTest","severity":"warning","app":"test"},
+       "annotations":{"summary":"delivery test","description":"채널 도착 확인용 수동 알람"}}]'
+```
+
+30초 (`group_wait`) 안에 채널에 뜨면 경로가 살아 있는 거예요. 안 뜨면 `docker logs observability-alertmanager` 에서 전송 실패 로그를 확인하세요. 이 알람은 발신 조건이 없어 스스로 해소되지 않으므로, 확인이 끝나면 Alertmanager UI 나 `amtool` 로 silence 를 걸거나 컨테이너를 재기동해 정리해요.
+
 ## 외부 접근 — Cloudflare Tunnel + Access
 
 Grafana 를 외부 공개 도메인에서 보려면 Cloudflare Tunnel 의 ingress 규칙에 추가해요. 관리자 외 접근을 막으려면 Cloudflare Access 정책으로 이메일 OTP 게이팅을 걸어요.
@@ -107,7 +122,7 @@ sum(rate(http_server_requests_seconds_count{env="prod", status=~"5.."}[5m])) by 
 
 Grafana 대시보드에 `$env` variable 을 추가하면 dev / prod 토글이 가능해요. 기본 대시보드 4종은 `env` 필터가 아예 없어서 dev·prod 데이터가 함께 보이니, 구분이 필요하면 대시보드 JSON 의 쿼리에 `env` 라벨 필터나 `$env` variable 을 추가해 재provision 하세요.
 
-> ⚠ 알람 규칙 `infra/prometheus/rules.yml` 은 현재 env 필터를 적용하지 않아요. dev 도 prod 규칙으로 평가됩니다. Discord webhook 을 연결했다면 ([위 발급 절](#discord-webhook-발급-알림-수신) 참조) dev 발 알림도 그대로 발송되니, 필요하면 rule expression 에 `env="prod"` 필터를 명시적으로 추가하세요.
+> ⚠ 알람 규칙 `infra/prometheus/rules.yml` 은 애플리케이션 메트릭 기반 규칙 (`HighErrorRate`·`HighLatencyP95`·`RateLimitSpike`) 에 `env="prod"` 필터를 걸어 dev 발 알림을 막아요. 다만 `BackendDown` 은 예외예요. 이 규칙이 보는 `up` 시리즈는 Prometheus 가 만드는 것이라 애플리케이션의 공통 태그 (`env`) 가 붙지 않고, dev-server 와 prod 는 Kamal service 이름 (`KAMAL_SERVICE_NAME`) 으로만 갈리는데 그 값은 파생 레포마다 달라 template 에 고정할 수 없어요. dev 컨테이너의 기동 지연까지 critical 로 받고 싶지 않다면 파생 레포에서 `up{job="spring-backend",service="<prod service 이름>"}` 으로 좁히세요.
 
 ## Passive monitoring 정책
 
@@ -125,14 +140,16 @@ Grafana panel 의 alert 기능은 본 프로젝트에서 쓰지 않아요 (사�
 
 ## 알림 튜닝
 
-`infra/prometheus/rules.yml` 에서 임계치를 조정해요. 현재 정의된 규칙은 8개입니다. 5xx 에러율을 보는 `HighErrorRate`, p95 지연을 보는 `HighLatencyP95`, 429 빈발을 보는 `RateLimitSpike`, scrape 실패를 보는 `BackendDown`, MinIO 도달 실패를 보는 `MinioDown`, 그리고 NAS 디스크 사용률 70 / 85 / 95% 세 단계예요.
+`infra/prometheus/rules.yml` 에서 임계치를 조정해요. **실제로 발사될 수 있는 규칙은 5개**입니다. 5xx 에러율을 보는 `HighErrorRate`, p95 지연을 보는 `HighLatencyP95`, 429 빈발을 보는 `RateLimitSpike`, scrape 실패를 보는 `BackendDown`, 그리고 MinIO 감시가 구성돼 있지 않다는 사실을 알리는 `MinioMonitoringDisabled` 예요.
 
 임계치 조정 예시는 다음과 같아요.
 
 - 트래픽이 적은 초기엔 `HighErrorRate` 를 5% 로 완화 (현재 기본값은 1%)
 - MAU 가 늘면 다시 1% 로 엄격하게
 
-> ⚠ `BackendDown` 규칙은 `up{job="app-factory-backend"}` 를 보지만, `prometheus.yml` 의 실제 scrape job 이름은 `spring-backend` 예요. 라벨이 어긋나 현재로선 발사되지 않아요. Mac mini 자체 down 알림에 의존하려면 rule 의 job 이름을 `spring-backend` 로 맞춰야 합니다 — **아직 미수정**이에요.
+**MinIO 알람은 지금 꺼져 있어요.** NAS MinIO 는 관측성 compose 와 같은 docker network 밖 (Tailscale 너머) 이라 `prometheus.yml` 의 minio job 이 주석 처리돼 있고, 그래서 `minio_*` 시리즈가 하나도 없어요. Prometheus 에서 "시리즈 없음" 은 "정상" 과 구분되지 않기 때문에, MinIO down 과 디스크 3단계 규칙을 그대로 두면 NAS 가 가득 차도 조용합니다. 그래서 그 네 규칙은 `rules.yml` 에 주석으로 대기시키고, 대신 `MinioMonitoringDisabled` 하나가 `absent(up{job=~"minio-.*"})` 로 **감시 공백 자체** 를 알려요. minio job 을 실제로 붙이면 이 알람이 저절로 해소되고, 주석 블록을 풀어 네 규칙을 되살리면 됩니다.
+
+`MinioMonitoringDisabled` 는 구성이 바뀌기 전까지 계속 발화하는 성격이라 `alertmanager/config.yml` 에서 재알림 주기를 30일로 따로 잡아 뒀어요. 기본값 3시간이면 같은 메시지가 하루 여덟 번 옵니다.
 
 수정한 뒤 Prometheus 를 reload 해요.
 

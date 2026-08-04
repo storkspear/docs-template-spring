@@ -169,7 +169,7 @@ app:
    │   └── 실패 시 ROLLBACK + 에러 보고
    │
    ▼
-3) git tag deploy/v<sha> 후 GHA deploy.yml trigger
+3) gh workflow run deploy.yml -f version=<sha>  (GHA deploy.yml 재배포 dispatch)
    │
    ▼
 4) Spring Boot 부팅 (prod profile)

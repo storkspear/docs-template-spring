@@ -1,6 +1,6 @@
 # ADR-011 · 모듈 안 레이어드 아키텍처 + 포트/어댑터 패턴
 
-**Status**: Accepted. `core-*-impl` 16 개 모듈 모두 동일한 레이어 구조를 따릅니다. ArchUnit 규칙 r13, r14, r15, r17, r21 이 클래스 위치를 강제해요. *(갱신: 본문 구조도·교훈의 「`AuthController` = 스캐폴딩 소스, 런타임 bean 아님」 서술은 [ADR-013](./adr-013-per-app-auth-endpoints.md) B 로 **공유 런타임 빈** 으로 대체됐어요 — 각 위치의 갱신 노트 참조.)*
+**Status**: Accepted. `core-*-impl` 16 개 모듈이 같은 **레이어 규약** 을 공유합니다 — `controller/` · `entity/` · `repository/` 라는 이름이 뜻하는 바가 모든 모듈에서 동일하고, ArchUnit 규칙 r13, r14, r15, r17, r21 이 클래스 위치를 강제해요. 다만 **하위 패키지 구성은 모듈마다 달라요**. 도메인이 작으면 패키지를 아예 안 파고 (`core-email-impl` · `core-payment-impl` · `core-push-impl` · `core-sms-impl` · `core-storage-impl` 은 impl 루트에 클래스만), 필요한 레이어만 파기도 합니다 (`core-iap-impl` 은 `google/` 하나). 규약은 "이 이름의 패키지가 있으면 이 뜻" 이지 "모든 패키지가 항상 있다" 가 아니에요. *(갱신: 본문 구조도·교훈의 「`AuthController` = 스캐폴딩 소스, 런타임 bean 아님」 서술은 [ADR-013](./adr-013-per-app-auth-endpoints.md) B 로 **공유 런타임 빈** 으로 대체됐어요 — 각 위치의 갱신 노트 참조.)*
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -68,38 +68,60 @@ controller·service·repository·entity 의 4층 구조. Spring Boot 공식 가�
 
 ### 모듈 내부 구조
 
+가장 레이어가 많은 `core-auth-impl` 을 기준으로 보면 이렇습니다 (`com/factory/core/auth/impl/` 아래).
+
 ```
 core-auth-impl/                          ← core-auth 도메인 구현 라이브러리
-├── service/                             ← 비즈니스 계층
-│   └── AuthServiceImpl.java             ← Primary Adapter (AuthPort 구현)
+├── AuthServiceImpl.java                 ← Primary Adapter (AuthPort 구현). 모듈 루트
+├── AuthAutoConfiguration.java           ← @AutoConfiguration. 루트
+├── AppCredentialProperties.java         ← @ConfigurationProperties. 루트
+├── LockoutProperties.java               ← @ConfigurationProperties. 루트
+├── service/                             ← AuthServiceImpl 이 위임하는 하위 서비스들
+│   ├── EmailAuthService.java
+│   ├── AppleSignInService.java          ← Google/Kakao/Naver 도 여기 (ADR-017)
+│   ├── RefreshTokenService.java
+│   └── dev/MockAppleSignInService.java
+├── totp/                                ← 2FA (ADR-030)
+│   ├── TotpService.java
+│   └── TwoFactorService.java
 ├── entity/                              ← JPA 엔티티
-│   ├── RefreshToken.java
-│   ├── EmailVerificationToken.java
-│   └── PasswordResetToken.java
+│   ├── AuthRefreshToken.java
+│   ├── AuthEmailVerificationToken.java
+│   ├── AuthEmailVerificationCode.java
+│   └── AuthPasswordResetToken.java
 ├── repository/                          ← 데이터 접근 계층
-│   ├── RefreshTokenRepository.java
-│   └── EmailVerificationTokenRepository.java
-│   (email 발송 Secondary Adapter 는 ADR-024 로 core-email-impl 에 분리
-│    — ResendEmailAdapter · ResendProperties)
-├── config/                              ← Spring 설정
-│   ├── AuthAutoConfiguration.java
-│   └── AppCredentialProperties.java
+│   ├── AuthRefreshTokenRepository.java
+│   └── AuthEmailVerificationTokenRepository.java
+├── scheduler/                           ← 만료 토큰 정리
+│   └── RefreshTokenCleanupScheduler.java
 └── controller/
     └── AuthController.java              ← 공유 런타임 bean (ADR-013 B)
                                            AuthAutoConfiguration 이 @Bean 등록,
                                            /api/apps/{appSlug}/auth/* 를 모든 앱이 공유
+
+(email 발송 Secondary Adapter 는 ADR-024 로 core-email-impl 에 분리
+ — ResendEmailAdapter · ResendProperties)
 ```
+
+여기서 눈여겨볼 지점이 둘 있어요.
+
+**Port 구현체와 설정 클래스는 모듈 루트에 둡니다.** `AuthServiceImpl` 이 `service/` 가 아니라 루트에 있는 건 그 클래스가 *모듈의 얼굴* 이기 때문이에요 — `service/` 안의 클래스들은 `AuthServiceImpl` 이 위임하는 부품이고, 루트의 `AuthServiceImpl` 만 `AuthPort` 를 구현합니다. 같은 이유로 `AuthAutoConfiguration` 과 `*Properties` 도 루트에 있어요. `config/` 패키지를 실제로 가진 core impl 모듈은 `core-admin-impl` 하나뿐이고, 거기 들어 있는 것도 `AdminDataSourceConfig` 하나입니다 (`AdminAutoConfiguration` 은 역시 루트).
+
+**모든 모듈이 이 패키지를 다 갖지는 않아요.** 위 구조는 `core-auth-impl` 이 가장 많은 레이어를 가진 경우고, 도메인이 작으면 패키지를 파지 않습니다 — `core-email-impl` 은 하위 패키지 없이 `EmailAutoConfiguration` · `ResendEmailAdapter` · `LoggingEmailAdapter` · `ResendProperties` 네 클래스가 impl 루트에 있고, `core-iap-impl` 은 `google/` 하나만 둡니다. 공유되는 건 *패키지 이름의 의미* 지 *패키지의 존재* 가 아니에요.
 
 **각 레이어의 역할**:
 
 | 레이어 | 책임 | 예시 |
 |---|---|---|
-| `service/` | 비즈니스 로직. **Port 구현체** (Primary Adapter) 가 여기에 위치. | `AuthServiceImpl implements AuthPort` |
-| `entity/` | JPA `@Entity` 클래스. DB 테이블과 1:1 매핑. | `RefreshToken`, `User` |
-| `repository/` | Spring Data JPA `*Repository` 인터페이스. CRUD + 커스텀 쿼리. | `RefreshTokenRepository extends JpaRepository` |
-| `email/`, `push/` 등 | **Secondary Adapter**. 외부 시스템 (Resend, FCM 등) 호출 구현체. | `ResendEmailAdapter implements EmailPort` |
-| `config/` | `@AutoConfiguration`, `@ConfigurationProperties`, `@Bean` 선언. | `AuthAutoConfiguration` |
+| 모듈 루트 | **Port 구현체** (Primary Adapter) 와 `@AutoConfiguration` · `@ConfigurationProperties`. | `AuthServiceImpl implements AuthPort`, `AuthAutoConfiguration`, `AppCredentialProperties` |
+| `service/` | Port 구현체가 위임하는 하위 비즈니스 서비스. | `EmailAuthService`, `AppleSignInService` |
+| `entity/` | JPA `@Entity` 클래스. DB 테이블과 1:1 매핑. | `AuthRefreshToken`, `User` |
+| `repository/` | Spring Data JPA `*Repository` 인터페이스. CRUD + 커스텀 쿼리. | `AuthRefreshTokenRepository extends JpaRepository` |
+| 외부 연동 Adapter | **Secondary Adapter**. 외부 시스템 (Resend, FCM 등) 호출 구현체. 별도 모듈이거나 impl 루트. | `ResendEmailAdapter implements EmailPort` (`core-email-impl` 루트) |
+| `scheduler/` | `@Scheduled` 배치 — 만료 데이터 정리 등. | `RefreshTokenCleanupScheduler` |
 | `controller/` | 공유 컨트롤러 — `AuthAutoConfiguration` 이 `@Bean` 등록 ([`ADR-013`](./adr-013-per-app-auth-endpoints.md) B). | `AuthController.java` (공유 런타임 bean) |
+
+실제 배치는 `find core/core-*-impl/src/main/java -type d` 로 언제든 확인할 수 있어요.
 
 ### 앱 모듈의 구조
 
@@ -107,13 +129,17 @@ core-auth-impl/                          ← core-auth 도메인 구현 라이�
 
 ```
 apps/app-<slug>/                         ← 앱별 도메인 모듈
+├── <SlugPascal>ApiEndpoints.java        ← 앱 고유 경로 상수 (BASE + System.HEALTH)
 ├── controller/                          ← 앱 전용 API (예: health, 도메인 endpoint)
 │   └── <SlugPascal>HealthController.java
 ├── service/                             ← 앱 도메인 서비스
 ├── entity/                              ← 앱 도메인 엔티티
 ├── repository/
 └── config/
+    └── <SlugPascal>AppAutoConfiguration.java
 ```
+
+`new-app.sh` 가 만드는 건 `<SlugPascal>ApiEndpoints` · `<SlugPascal>HealthController` · `<SlugPascal>AppAutoConfiguration` 셋이고, `service/` · `entity/` · `repository/` 는 빈 디렉터리로 자리만 잡아 둡니다.
 
 **Controller 위치**:
 - **앱 전용 Controller** (예: `GymlogHealthController`, 도메인 로직) → `apps/app-<slug>/controller/` — `new-app.sh` 는 HealthController 만 생성해요
@@ -132,8 +158,8 @@ apps/app-<slug>/                         ← 앱별 도메인 모듈
 | 개념 | 위치 | 역할 |
 |---|---|---|
 | **Port** | `core-*-api/` 의 인터페이스 | 도메인의 공개 계약 (`AuthPort`, `UserPort`, `EmailPort`) |
-| **Primary Adapter (Inbound)** | `core-*-impl/service/*ServiceImpl` | Port 를 구현하고 비즈니스 로직 수행 |
-| **Secondary Adapter (Outbound)** | `core-*-impl/email/*Adapter`, `core-*-impl/push/*Adapter` | 외부 시스템에 연결 (HTTP, SDK 호출) |
+| **Primary Adapter (Inbound)** | `core-*-impl` 루트의 `*ServiceImpl` | Port 를 구현하고 비즈니스 로직 수행 (`AuthServiceImpl`, `UserServiceImpl`, `BillingServiceImpl` …) |
+| **Secondary Adapter (Outbound)** | `core-*-impl` 루트의 `*Adapter` | 외부 시스템에 연결 (HTTP, SDK 호출). `ResendEmailAdapter`, `FcmPushAdapter`, `MinIOStorageAdapter` |
 | **Port 사용자** | core 공유 `AuthController` 같은 컨트롤러, 다른 `*ServiceImpl` 내부 | Port 를 주입받아 호출 |
 
 ### 런타임 호출 흐름
@@ -147,10 +173,10 @@ apps/app-<slug>/                         ← 앱별 도메인 모듈
        │
        │ Spring DI
        ▼
-[AuthServiceImpl]            — "Primary Adapter" (core-auth-impl/service/)
+[AuthServiceImpl]            — "Primary Adapter" (core-auth-impl 루트)
        │
-       ├─► [RefreshTokenRepository]  — Spring Data JPA (core-auth-impl/repository/)
-       │       └─► [RefreshToken Entity]  — JPA (core-auth-impl/entity/)
+       ├─► [AuthRefreshTokenRepository]  — Spring Data JPA (core-auth-impl/repository/)
+       │       └─► [AuthRefreshToken Entity]  — JPA (core-auth-impl/entity/)
        │
        ├─► [EmailPort]        — Secondary Port (core-email-api/, ADR-024)
        │       │ Spring DI
@@ -203,7 +229,7 @@ ADR-004 의 22규칙 중 **5개가 이 결정과 연관** 됩니다.
 
 **레이어 간 의존 방향이 Gradle 수준 강제 X** — Controller 가 Repository 를 직접 import 해도 컴파일 성공. 완화: ArchUnit r13 (Spring 빈 위치) 과 코드 리뷰 관행으로 간접 방어. 실제로 이 관행 위반이 많지 않은 이유는, 패키지 구분이 명확해서 "controller 에서 repository 호출" 이 시각적으로 부자연스러워 보이기 때문.
 
-**feature 단위 탐색이 필요할 때 불편** — "이메일 인증 전체" 를 보려면 `service/EmailVerificationService` + `entity/EmailVerificationToken` + `repository/EmailVerificationTokenRepository` 3곳을 왔다 갔다. 완화: 현재 스케일에서는 각 feature 가 3~5 파일 수준이라 탐색 부담 작음. IDE 의 "Find Usages" 와 파일명 탭 검색으로 충분.
+**feature 단위 탐색이 필요할 때 불편** — "이메일 인증 전체" 를 보려면 `service/EmailVerificationService` + `entity/AuthEmailVerificationToken` + `repository/AuthEmailVerificationTokenRepository` 3곳을 왔다 갔다. 완화: 현재 스케일에서는 각 feature 가 3~5 파일 수준이라 탐색 부담 작음. IDE 의 "Find Usages" 와 파일명 탭 검색으로 충분.
 
 ### 감당 가능성 판단
 

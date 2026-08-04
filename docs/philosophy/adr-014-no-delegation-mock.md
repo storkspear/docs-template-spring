@@ -1,12 +1,12 @@
 # ADR-014 · Delegation mock 테스트 금지
 
-**Status**: Accepted. (정량 snapshot — 2026-04-29 기준 430 테스트 중 Mockito ~30건; 본 문서의 정량 수치는 작성 시점 snapshot 으로 신규 cycle 마다 변동. 최신 카운트는 `./gradlew test` build report 또는 `grep -rE 'when\(.+\)\.thenReturn|verify\(' --include='*.java' test/` 참조.) Mockito 사용처는 외부 인프라 모킹 + 비결정 의존성 고정으로 제한돼 있어요. "A 가 B.foo() 를 호출하는가" 같은 내부 위임 검증은 두지 않아요. Port 계약 테스트 + Integration 테스트가 주력 검증 메커니즘이에요.
+**Status**: Accepted. 주력 검증 메커니즘은 Port 계약 테스트 + Integration 테스트예요. Mockito 는 외부 시스템 격리·비결정 의존성 고정·Port 경계 검증에 한정해 쓰고, `@ExtendWith(MockitoExtension.class)` 는 레포 전체에 0 건 (필요한 곳에서 `Mockito.mock()` 을 직접 호출하는 방식). 다만 "내부 위임 검증 0" 은 목표이지 현재 상태가 아니에요 — `core/` + `common/` 테스트에 Mockito `verify(...)` 가 133 건 남아 있고 그중 55 건이 모듈 내부 협력자 (Repository·내부 Service·내부 Adapter) 를 향합니다. 실측 기준은 「[현재 mock 사용 실측](#현재-mock-사용-실측)」 절에 있고, 정량 수치는 cycle 마다 변하니 최신 값은 그 절의 grep 으로 다시 세면 돼요.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
 ## 결론부터
 
-테스트는 **외부에서 관측 가능한 행위** 만 검증합니다. "A 가 B.foo() 를 호출하는가?" 같은 **내부 위임 경로** 는 mock 으로 검증하지 않습니다. 예를 들어 `AuthController.signUp()` 이 내부적으로 `EmailAuthService.signUp()` 을 호출하는지 `verify(emailAuthService).signUp(...)` 로 체크하는 걸 금지해요. 대신 `AuthPort` 의 실제 행위 (유저가 DB 에 저장되고, 검증 이메일이 발송되고, JWT 가 반환되는지) 를 검증. Mock 은 외부 시스템 격리 (FCM, Resend) 와 비결정 의존성 고정 (Clock, TokenGenerator) 에만 허용. 규모는 430 테스트 중 ~30 건으로 제한됨.
+테스트는 **외부에서 관측 가능한 행위** 만 검증합니다. "A 가 B.foo() 를 호출하는가?" 같은 **내부 위임 경로** 는 mock 으로 검증하지 않습니다. 예를 들어 `AuthController.signUp()` 이 내부적으로 `EmailAuthService.signUp()` 을 호출하는지 `verify(emailAuthService).signUp(...)` 로 체크하는 걸 금지해요. 대신 `AuthPort` 의 실제 행위 (유저가 DB 에 저장되고, 검증 이메일이 발송되고, JWT 가 반환되는지) 를 검증. Mock 은 외부 시스템 격리 (FCM, Resend), 비결정 의존성 고정 (Clock, TokenGenerator), 그리고 **모듈 경계인 `*Port` 인터페이스** 에 한해 허용합니다. 모듈 *안쪽* 의 Repository·하위 Service 를 `verify()` 로 확인하는 건 이 규칙이 금지하는 형태이고, 실제로 아직 55 건 남아 있어요 (「[현재 mock 사용 실측](#현재-mock-사용-실측)」).
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -212,17 +212,33 @@ void rotate_expiredToken_returnsNewToken() {
 - Contract Port 실패: Port 행위 계약 위반
 - Integration 실패: HTTP/Security/Transaction 레벨 문제
 
-### 현재 테스트 분포 (2026-04-24 기준)
+### 현재 mock 사용 실측
 
-| 층 | 개수 (대략) | 비중 |
-|---|---|---|
-| Unit (순수 알고리즘) | 45 | 10% |
-| Contract (JSON) | 65 | 15% |
-| Contract (Port) | 180 | 42% |
-| Integration | 140 | 33% |
-| **합계** | **~430** | 100% |
+층별 개수는 cycle 마다 바뀌니 `./gradlew test` 의 build report 를 보는 게 정확해요. 대신 이 ADR 이 실제로 지키려는 것 — **mock 이 어디에 얼마나 쓰이는가** — 는 grep 으로 언제든 셀 수 있습니다.
 
-Contract (Port) 가 절반에 가까움. delegation mock 테스트 = 0.
+```bash
+# 1) Mockito 를 쓰는 테스트 파일
+grep -rl "org.mockito" core/ common/ --include="*.java"
+
+# 2) Mockito verify 호출 (도메인 메서드 `x.verify(...)` 는 앞의 점으로 걸러짐)
+grep -rnE "(^|[^.A-Za-z0-9_])verify\(" core/ common/ --include="*.java" | grep "/src/test/"
+
+# 3) 이 레포가 쓰지 않는 패턴
+grep -rE "@ExtendWith\(MockitoExtension" . --include="*.java"
+```
+
+| 지표 | 실측 |
+|---|---|
+| `org.mockito` 를 import 하는 테스트 파일 | 48 |
+| Mockito `verify(...)` 호출 (`core/` + `common/` 테스트) | 133 |
+| ㄴ `*Port` 인터페이스 대상 — **허용** | 66 |
+| ㄴ 외부 시스템 대상 (HTTP client, WireMock, Flyway, `JdbcTemplate`) — **허용** | 12 |
+| ㄴ 모듈 내부 협력자 대상 (Repository 36 · 내부 Service 15 · 내부 Adapter 4) — **규칙 위반, 잔존** | 55 |
+| `@ExtendWith(MockitoExtension.class)` | 0 |
+
+허용 범주의 기준은 **경계** 예요. `*Port` 는 [`ADR-011`](./adr-011-layered-port-adapter.md) 이 정한 모듈 바깥 계약이라 그 호출을 검증하는 건 "내부 구조를 계약으로 굳히는" 행위가 아니고, HTTP client·Flyway·`JdbcTemplate` 은 테스트에서 실제로 때릴 수 없는 외부 시스템이에요.
+
+잔존 55 건은 그 경계 안쪽 — `RefreshTokenServiceTest` 의 `verify(refreshTokenRepository)`, `AuthServiceImplPasswordChangeTest` 의 `verify(refreshTokenService).revokeAllForUser(42L)`, `AdminFilesControllerTest` 의 `verify(service)` 처럼 **한 모듈 안의 협력자 호출** 을 확인합니다. 이 규칙이 지목하는 바로 그 형태라, 해당 검증이 Port 계약 테스트로 옮겨질 수 있는지 리팩토링 때마다 따져 보는 게 맞아요. 새 테스트를 쓸 때는 이 55 건을 선례로 삼지 마세요.
 
 ## 이 선택이 가져온 것
 
@@ -234,7 +250,7 @@ Contract (Port) 가 절반에 가까움. delegation mock 테스트 = 0.
 
 **리팩토링 회피 현상 소거** — "테스트 고치기 귀찮아서 내부 구조 안 고침" 이라는 안티패턴이 없어요. 구조 개선을 결정할 때 "테스트 얼마나 고쳐야 하지?" 같은 걱정이 사라져요.
 
-**테스트 유지 비용 낮음** — 430 테스트 중 대부분이 Contract/Integration. 이들은 Port 계약 (변경 드문 경계) 을 검증하므로 코드 리팩토링에 강함. "Port 계약 변경" 시에만 테스트 업데이트.
+**테스트 유지 비용 낮음** — 테스트 대부분이 Contract/Integration 이에요. 이들은 Port 계약 (변경 드문 경계) 을 검증하므로 코드 리팩토링에 강함. "Port 계약 변경" 시에만 테스트 업데이트.
 
 **새 앱 추가 시 기본 테스트 자동 확보** — 앱 모듈이 `AuthPort` 주입받으면 Port 계약 테스트가 그 앱 DataSource 에 대해서도 작동. `new-app.sh` 가 생성하는 기본 Contract 테스트 fixture 만 추가하면 끝.
 
@@ -340,9 +356,11 @@ delegation mock 허용 시의 trade-off — 작성 속도는 빨라 보입니다
 - [`Testing Strategy`](../production/test/testing-strategy.md) — 4층 전략 전체
 - [`계약 테스트 (Contract Testing)`](../production/test/contract-testing.md) — Port 계약 테스트 상세 + Mock 허용/금지 가이드
 
-**부재 확인 (delegation mock 없음)**:
-- `grep -rE "verify\(.*\)\.[a-z]+\(" core/ common/` — delegation 검증 패턴 0건 (외부 시스템 verify 제외)
-- `org.mockito` 직접 사용 — 약 40개 테스트 파일 (`@ExtendWith(MockitoExtension.class)` 는 0건 — `Mockito.mock()` 직접 호출 패턴), 모두 외부 시스템 격리 또는 순수 알고리즘 비결정 고정
+**mock 사용 실측 (재현용 grep — 수치는 「[현재 mock 사용 실측](#현재-mock-사용-실측)」 표)**:
+- `grep -rnE "(^|[^.A-Za-z0-9_])verify\(" core/ common/ --include="*.java" | grep "/src/test/"` — 137 줄이 나오고, 그중 4 줄은 `FakePaymentPort` · `FakeAdminPaymentPort` 가 구현한 도메인 메서드 `verify(String impUid)` 의 선언·javadoc 이라 실제 Mockito 호출은 133 건 / 27 파일이에요. 정규식 앞의 `[^.]` 는 `verifier.verify(req)` 같은 호출부를 걸러냅니다
+- `grep -rl "org.mockito" core/ common/ --include="*.java"` — 48 개 테스트 파일
+- `grep -rE "@ExtendWith\(MockitoExtension" . --include="*.java"` — 0 건. mock 이 필요한 곳에서 `Mockito.mock()` 을 직접 호출하는 방식이라 클래스 레벨 확장이 없어요
+- 133 건 중 78 건은 허용 범주 (`*Port` 66 + 외부 시스템 12), 55 건은 모듈 내부 협력자 대상이라 이 ADR 이 줄이려는 잔존분입니다
 
 **관련 ADR**:
 - [`ADR-003 · -api / -impl 분리`](./adr-003-api-impl-split.md) — Port 가 계약 단위

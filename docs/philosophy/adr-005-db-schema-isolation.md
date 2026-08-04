@@ -113,11 +113,13 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA ${APP_SLUG} TO ${APP_ROLE};
 ALTER DEFAULT PRIVILEGES IN SCHEMA ${APP_SLUG}
     GRANT ALL ON TABLES TO ${APP_ROLE};
 
--- 5중 방어선의 핵심: public schema 접근 원천 차단
+-- app role 에 직접 걸린 public schema 권한 회수
 REVOKE ALL ON SCHEMA public FROM ${APP_ROLE};
 ```
 
 role 명 패턴: `<slug>_app` (예: `sumtally_app`). Supabase 프로덕션도 동일 스크립트 실행.
+
+> ⚠ 마지막 `REVOKE` 는 public schema 접근을 실제로 막지 못해요. Postgres 가 role 에게 public schema 권한을 주는 경로는 `PUBLIC` 의사 role 에 대한 grant 이고, 특정 role 을 대상으로 한 `REVOKE` 는 그 항목을 건드리지 않기 때문이에요. 자세한 사정과 이 문장을 그대로 두는 이유는 아래 [`교훈 — public schema 접근 차단`](#public-schema-접근-차단은-명시적으로-할-것) 에 적어 두었어요. 격리의 실질은 앱 schema 별 role 과 GRANT 범위가 담당합니다.
 
 ### 방어선 2 — Spring DataSource 분리
 
@@ -211,14 +213,24 @@ r2 · r3 · r11 이 schema 격리를 기계적으로 강제합니다.
 
 ### public schema 접근 차단은 명시적으로 할 것
 
-role-only 격리 (자기 schema 에만 GRANT) 는 Postgres < 15 의 public schema 권한 모델 때문에 불충분합니다. Postgres 는 **기본적으로 모든 role 에게 `public` schema 의 `CREATE` 권한을 줍니다** (PostgreSQL < 15 기준). 앱 role 이 `public` schema 에 테이블을 만들 수 있어 데이터 오염 가능성이 있어요.
+role-only 격리 (자기 schema 에만 GRANT) 는 Postgres 의 public schema 권한 모델 때문에 불충분합니다. Postgres 는 `public` schema 권한을 개별 role 이 아니라 **`PUBLIC` 이라는 의사 role** 에 줘요. PostgreSQL < 15 에서는 `USAGE` 와 `CREATE` 를 함께 줬고, 15 부터는 `USAGE` 만 남았습니다.
+
+여기서 실수하기 쉬운 지점이 회수 대상이에요. app role 을 대상으로 회수하면 아무 일도 일어나지 않아요. 그 role 은 애초에 public schema 에 직접 grant 를 받은 적이 없고, 특정 role 대상 `REVOKE` 는 `PUBLIC` 항목을 건드리지 않기 때문이에요.
 
 ```sql
--- 필수 한 줄
+-- 아무것도 회수하지 못한다 (app role 에는 직접 grant 가 없다)
 REVOKE ALL ON SCHEMA public FROM <app_role>;
+
+-- 실제로 회수하려면 대상이 PUBLIC 이어야 한다
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
 ```
 
-**교훈**: RBAC 는 "허용된 것만 준다" 가 아니라 "기본 허용 + 선별적 회수" 로 동작할 수 있다. Postgres 의 default privileges 를 반드시 명시 회수해야 경계가 완성된다.
+`infra/scripts/init-app-schema.sql` 은 지금 위쪽 형태를 실행하고, **그대로 둡니다**. 아래 형태로 바꾸지 않는 이유는 두 가지예요.
+
+- **영향 범위가 database 전역이에요.** 앱 하나를 프로비저닝하면서 같은 database 의 다른 모든 role — 다른 앱 role, Supabase 의 `anon`·`authenticated`·`service_role` 등 — 의 권한까지 바꾸게 돼요. 이 스크립트는 `new-app.sh --provision-db` 를 통해 운영 Supabase 에도 그대로 실행됩니다. 앱 단위 스크립트가 낼 부작용으로는 너무 커요.
+- **PostgreSQL 15 부터 위험의 핵심이 이미 사라졌어요.** 본 문단이 걱정하던 `CREATE` 권한은 15 부터 서버 기본값에서 `PUBLIC` 에게 부여되지 않아요. local (`postgres:16`) 과 Supabase 모두 15 이상이라 앱 role 이 public schema 에 테이블을 만들 수는 없습니다. 남는 것은 `USAGE` 뿐인데, 이것만으로는 테이블을 읽지 못해요 — 테이블 단위 권한이 따로 있어야 합니다.
+
+**교훈**: 권한을 회수할 때는 "누구에게 걸린 grant 인가" 를 먼저 확인해야 한다. Postgres 의 public schema 처럼 `PUBLIC` 의사 role 에 걸린 권한은 개별 role 을 회수 대상으로 삼으면 조용한 no-op 이 된다. 그리고 전역 권한 문장은 앱 단위 프로비저닝 스크립트에 넣지 않는다.
 
 ### Hibernate schema 결정 방식의 진화 — `default_schema` 명시 → connection URL `currentSchema`
 

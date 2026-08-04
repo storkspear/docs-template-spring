@@ -118,7 +118,7 @@ billing_notification_sent_total{channel="push",kind="renewal_succeeded",result="
 
 ---
 
-## 검증 (단위 테스트 6건 추가, 총 19건)
+## 검증 (단위 테스트 6건 추가 — `SubscriptionNotificationListenerTest` 현재 총 23건)
 
 ```java
 // SimpleMeterRegistry 사용 — 테스트 환경에서 메트릭 캡처
