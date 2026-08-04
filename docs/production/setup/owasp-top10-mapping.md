@@ -104,6 +104,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `bootstrap/.../application-prod.yml:44-48` — prod 도 동일 정책 (override 없음)
 - `application.yml:40` — `management.endpoint.health.show-details: never` (health 최소 정보)
 - `GlobalExceptionHandler.java:154-161` — fallback 시 stacktrace 비노출
+- `bootstrap/.../application.yml:15-25` — `spring.web.error.*` 로 `include-stacktrace` · `include-message` · `include-binding-errors` 를 `never`, `include-exception` 을 `false` 로 전 프로파일 고정 (Spring Boot 4 에서 `server.error.*` 는 바인딩되지 않아요)
 - `application-prod.yml` 모든 민감값 `${ENV_VAR}` 플레이스홀더
 
 **검증**:
@@ -114,7 +115,6 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 **Gap (남은 항목)**:
 - **CORS 미설정 가이드 부재** — 의도적 결정이에요 (모바일 전제). 단 파생 레포가 브라우저 client 를 추가할 때 자동 안내가 없어요
-- **`server.error.include-stacktrace` 명시 부재** — 환경별 기본값이 달라요 (dev=ALWAYS, prod=ON_PARAM). prod 안전을 위해 `never` 명시를 권장해요
 - **Admin credential 시드 변경 강제 부재** — `new-app.sh --seed-admin` 이 admin 계정을 시드해요 (기본은 미생성, 비밀번호는 랜덤 발급). 첫 로그인 시 비밀번호 변경을 강제하는 로직이 없어요
 - **`/actuator/info` 정보 노출** — `permitAll` + `app.dogfood.message` 등 버전 정보를 공개해요. 공격자의 fingerprinting 을 보조할 수 있어요
 
@@ -292,7 +292,6 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - **A02.1 TLS 내부 통신 정책** — `sslmode=require` 명시 + 문서화
 - **A04.1 404 vs 500 convention** — `exception-handling.md` 에 service 레이어 권장 패턴 명시
 - **A05.1 CORS 가이드** — 파생 레포 브라우저 client 추가 시 안내
-- **A05.2 `server.error.include-stacktrace=never` 명시**
 
 ---
 

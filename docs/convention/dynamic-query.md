@@ -283,7 +283,7 @@ public Page<AuditLog> search(AuditLogSearchRequest request) {
 
 `PathBuilder<EntityType>` 만으로도 `selectFrom()` 을 호출할 수 있어요. core-impl 모듈에 QueryDsl APT 가 설정돼 있지 않아도 동작합니다. 대신 필드명을 문자열로 다루기 때문에 컴파일 타임 타입 안전성은 약해져요.
 
-도메인이 안정화되면 core-impl 에 `querydsl-apt` 를 추가하고 `QAuditLog.auditLog` 로 교체할 수 있어요. `QueryDslPredicateBuilder.build` 는 `Path<T>` 도 받으므로 호출부 변경이 거의 없습니다.
+도메인이 안정화되면 core-impl 에 `annotationProcessor "io.github.openfeign.querydsl:querydsl-apt:${libs.versions.querydsl.get()}:jpa"` 를 추가하고 `QAuditLog.auditLog` 로 교체할 수 있어요. `QueryDslPredicateBuilder.build` 는 `Path<T>` 도 받으므로 호출부 변경이 거의 없습니다.
 
 ---
 

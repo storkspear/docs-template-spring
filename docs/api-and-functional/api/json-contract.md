@@ -22,7 +22,7 @@ JSON 계약 테스트는 프로젝트 정책을 재현한 `ObjectMapper` 로 직
 |---|---|---|
 | null 필드 직렬화 | `NON_NULL` 으로 생략 | 모바일 대역폭 절약, REST 관습 |
 | 알 수 없는 필드 역직렬화 | `FAIL_ON_UNKNOWN_PROPERTIES=false` 로 무시 | 클라이언트 버전 호환 (forward compat) |
-| Date·Time | ISO-8601 문자열 (`JavaTimeModule`) | 숫자 timestamp 금지 |
+| Date·Time | ISO-8601 문자열 (Jackson 3 코어 내장 java.time 지원) | 숫자 timestamp 금지 |
 | 날짜 timestamp | `WRITE_DATES_AS_TIMESTAMPS=false` | ISO-8601 강제 |
 | Enum | `name()` 문자열 | `ordinal` 금지 — 순서 바뀌면 값이 어긋나요 |
 | 필드 네이밍 | camelCase (record 컴포넌트 이름 그대로) | `@JsonProperty` 없이 |
@@ -178,7 +178,7 @@ class AuthResponseJsonTest extends AbstractJsonContractTest<AuthResponse> {
 
 ## 샘플 — Instant 필드
 
-날짜·시간은 ISO-8601 문자열로 직렬화돼요. `JavaTimeModule` 이 등록돼 있어서 `@JsonFormat` 이 필요 없어요.
+날짜·시간은 ISO-8601 문자열로 직렬화돼요. Jackson 3 는 java.time 지원이 코어에 내장돼 있고 `spring.jackson.datatype.datetime.write-dates-as-timestamps: false` 가 걸려 있어서 `@JsonFormat` 이 필요 없어요.
 
 ```java
 @Override protected UserProfile sample() {
