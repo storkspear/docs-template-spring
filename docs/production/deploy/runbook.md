@@ -119,6 +119,14 @@ blue/green 스왑을 거치면 이전 컨테이너 이름 뒤에 `_replaced_<has
 <repo> prod rollback <previous-sha>
 ```
 
+지금 무엇이 떠 있는지는 두 경로로 볼 수 있어요. `prod status` 는 SSH 로 컨테이너를 조회하고,
+`/actuator/info` 는 **앱이 직접** 자기 빌드 정보를 말해요 — SSH 가 막힌 상황에서도 닿습니다.
+
+```bash
+curl -s https://<도메인>/actuator/info | jq .build
+# → {"commit":"509dfe5", "version":"template-v1.0.0-137-g509dfe5e", ...}
+```
+
 `prod rollback` 은 실행 후 돌고 있는 컨테이너 이름에 목표 SHA 가 들어있는지 직접 확인하고,
 아니면 실패로 끝내요. `kamal rollback` 은 내부적으로 실패해도 종료코드 0 을 내기 때문이에요.
 **실패했다면 곧장 옵션 B 로 가세요** — 대개 이 경로가 정답입니다.
