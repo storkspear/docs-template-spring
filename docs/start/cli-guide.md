@@ -57,7 +57,7 @@
 | verb | local | dev | prod | all |
 |---|---|---|---|---|
 | **server-test** | `verify-local.sh` — Spring 부팅 + actuator health | `verify-server.sh --target=dev` — dev-server actuator | `verify-server.sh` — prod actuator | ❌ |
-| **api-test** | `api-smoke-test.sh` — 11 단계 deep e2e | `api-smoke-test.sh --target=dev` — dev-server 대상 | 운영 환경 deep e2e (WireMock 활성) | ❌ |
+| **api-test** | `api-smoke-test.sh` — 16 단계 deep e2e (WireMock 활성) | `api-smoke-test.sh --target=dev` — dev-server 대상 | 비파괴 부분집합 — 회원가입·결제 등 데이터 생성 단계는 skip, 서명 거부(8·10)와 하드닝(15) 중심 | ❌ |
 | **test** | `server-test` + `api-test` + `ci-test` 3단계 순차 | `server-test` + `api-test` 순차 | `server-test` + `api-test` 순차 | local + prod 순차 (dev 미포함) |
 | **ci-test** | GitHub Actions CI 동일 7-stage 로컬 검증 — push 전 사전 통과 보장 | (env 무관) | (env 무관) | (env 무관) |
 
@@ -92,8 +92,8 @@
 
 | verb | local | dev | prod | 비고 |
 |---|---|---|---|---|
-| **migrate** `<slug> <V*>`<br>`<slug> --all-pending` | 부팅 시 auto (ADR-033) — 명령 없음 | dev DB 에 V스크립트 적용. `--all-pending`(미적용 일괄 승격) 지원 | **무조건 수동 적용** — 운영자가 `<V*>` 단건을 `--dry-run` 검토 후 직접 적용. **`--all-pending` 미지원**(자동 일괄 금지). 자동 백업 전략 없어 되돌릴 수 없으니 적용 전 수동 스냅샷 권장 | [`flyway-runbook`](../production/deploy/flyway-runbook.md) — `migrate-prod.sh --env={local,dev,prod}`. checksum 근사값 주의 |
-| **reset** `<slug>` | 스키마 통째 비우고 **spring 재시작→Flyway AUTO 재migrate**(올바른 checksum). 설계 중 마이그레이션 반복 편집용. `--fixtures`·`--with-storage`·`--no-restart`·`--force` | 스키마만 비우고 `APP_FLYWAY_MODE=AUTO` 재배포 **안내**(수동 SQL 재적용 안 함 — checksum mismatch 방지) | ❌ 미지원 (운영 데이터 파괴) | `tools/app/reset-schema.sh`. `db/seed/<slug>.dev.sql` 있으면 `--fixtures` 로 로드 |
+| **migrate** `<slug> <V*>`<br>`<slug> --all-pending` | 부팅 시 auto (ADR-033) — 명령 없음 | dev DB 에 V스크립트 적용. `--all-pending`(미적용 일괄 승격) 지원 | **무조건 수동 적용** — 운영자가 `<V*>` 단건을 `--dry-run` 검토 후 직접 적용. **`--all-pending` 미지원**(자동 일괄 금지). 자동 백업 전략 없어 되돌릴 수 없으니 적용 전 수동 스냅샷 권장 | [`flyway-runbook`](../production/deploy/flyway-runbook.md) — `migrate-prod.sh --env={local,dev,prod}`. checksum 은 Flyway 와 동일 계산이라 부팅 validate 를 그대로 통과해요 |
+| **reset** `<slug>` | 스키마 통째 비우고 **spring 재시작→Flyway AUTO 재migrate**(올바른 checksum). 설계 중 마이그레이션 반복 편집용. `--fixtures`·`--with-storage`·`--no-restart`·`--force` | 스키마만 비우고 대상 env 의 `APP_FLYWAY_MODE` 를 읽어 **안내** — AUTO 면 `restart` 만, VALIDATE_ONLY 면 AUTO 1회 재배포 (수동 SQL 재적용 안 함 — checksum mismatch 방지) | ❌ 미지원 (운영 데이터 파괴) | `tools/app/reset-schema.sh`. `db/seed/<slug>.dev.sql` 있으면 `--fixtures` 로 로드 |
 | **truncate** `<slug>` | 스키마 **데이터만** TRUNCATE (스키마·`flyway_schema_history` 유지, 재migrate 불필요). `--with-storage`·`--force` | 동일 (dev DB) | ❌ 미지원 | `tools/app/truncate-schema.sh`. 스키마 안정 후 "데이터만 리프레시" |
 | **clear** | ❌ 미지원 | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/cleanup/dev-cleanup.sh`, prod 는 `tools/cleanup/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
 | **force-clear** `[slug]` | ❌ 미지원 | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거 + `:dev-*` 태그 이미지 rmi. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |

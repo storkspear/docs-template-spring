@@ -898,7 +898,7 @@ apps/app-<slug>/config/<Slug>DataSourceConfig (slug="<slug>", @Profile("!test"))
 
 ### 레이어 4 — 포트 인터페이스 의존 (Gradle)
 
-`apps/*` 는 `core-*-api` 만 의존해요. `core-*-impl` 에 접근하는 코드는 **Gradle configuration 단계에서 거절** 돼요 — 컴파일 시작 전에 잡혀요. 구현은 `build-logic/factory.app-module.gradle` 에 있습니다.
+`apps/*` 는 `core-*-api` 만 의존해요. `core-*-impl` 에 접근하는 코드는 **Gradle configuration 단계에서 거절** 돼요 — 컴파일 시작 전에 잡혀요. 구현은 `build-logic/src/main/groovy/factory.app-module.gradle` 에 있습니다.
 
 ### 레이어 5 — ArchUnit CI
 

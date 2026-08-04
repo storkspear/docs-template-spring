@@ -26,7 +26,7 @@
 
 여기서 한 가지 짚어 둘 게 있어요. CI 와 deploy 는 **각자 gradle 빌드를 한 번씩** 돌려요. CI 는 spotless · 테스트 · ArchUnit 까지 포함한 full build 를, deploy 는 `-x test` 로 jar 만 빠르게 패키징하는 build 를 합니다. CI 의 산출물을 artifact 로 넘겨 재사용하지 않는 이유는 storage 한도 때문인데, 자세한 배경은 [§4 시간 분석](#4-시간-분석--billed-8분의-정체) 과 [`I-12`](./decisions-infra.md) 에 정리돼 있어요.
 
-> 💡 **push 전 검증** — `<repo> ci-test` 명령이 GitHub Actions 의 5단계(Spotless · Build · Docs contract · Docs-check unit · gitleaks)를 로컬에서 동일하게 돌려, push 전에 사전 통과를 보장해요. 자세한 흐름은 [`CLI 가이드 §4 CI 검증`](../../start/cli-guide.md) 을 참조하세요.
+> 💡 **push 전 검증** — `<repo> ci-test` 명령이 GitHub Actions 의 7단계(Spotless · Build · Docs contract · Docs-check unit · users 스키마 드리프트 가드 · 공유 인프라 키 소유권 가드 · gitleaks)를 로컬에서 동일하게 돌려, push 전에 사전 통과를 보장해요. 자세한 흐름은 [`CLI 가이드 §4 CI 검증`](../../start/cli-guide.md) 을 참조하세요.
 
 ---
 

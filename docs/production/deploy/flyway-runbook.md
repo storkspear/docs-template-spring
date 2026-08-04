@@ -38,7 +38,7 @@ $EDITOR .env.prod          # APP_FLYWAY_MODE=VALIDATE_ONLY
 dev 는 이 경고 대상이 아니에요. `deploy-dev.yml` 이 AUTO 를 고정 주입하는 환경이라, 매 배포마다
 경고하면 소음이 되고 소음이 되면 읽히지 않아요.
 
-> 📌 **core schema 는 폐기됐어요 ([ADR-037](../../philosophy/adr-037-core-schema-deprecation.md)).** 예전에는 `core` schema 에 `users` / `auth` / `device` 공통 테이블을 두고 각 슬러그 schema 와 둘로 나눴는데, 지금은 `core` schema 자체가 PostgreSQL 에 없습니다. 공통 테이블은 각 슬러그 schema 안에 V001~V006 으로 생성되고, `core/core-*-impl` 의 Java 코드는 라이브러리로만 남아 슬러그 schema 의 같은 테이블에서 동작해요. 그래서 이 런북의 모든 schema 작업은 **슬러그 단위** 입니다.
+> 📌 **core schema 는 폐기됐어요 ([ADR-037](../../philosophy/adr-037-core-schema-deprecation.md)).** `core` schema 는 PostgreSQL 에 없습니다. 공통 테이블은 각 슬러그 schema 안에 V001~V006 으로 생성되고, `core/core-*-impl` 의 Java 코드는 라이브러리로만 남아 슬러그 schema 의 같은 테이블에서 동작해요. 그래서 이 런북의 모든 schema 작업은 **슬러그 단위** 입니다.
 
 ---
 
@@ -51,7 +51,7 @@ dev 는 이 경고 대상이 아니에요. `deploy-dev.yml` 이 AUTO 를 고정 
 | `flyway_schema_history` 에 `success = false` 행 | 마지막 마이그레이션 실패 | 실패 entry 제거 후 정정 V스크립트 재적용 | [§3](#3-부팅-시-마이그레이션-실패) |
 | `FlywayException` + SQL 에러 | V스크립트 충돌 / 데이터 충돌 | 새 V스크립트로 정정 | [§3.A](#a-sql-syntax--데이터-충돌) |
 | `Waiting for changelog lock....` | advisory lock 미해제 | holder 식별 후 좀비만 강제 종료 | [§3.B](#b-advisory-lock-충돌) |
-| `Migration checksum mismatch` (부팅) | 적용된 V스크립트 수정 또는 checksum 알고리즘 불일치 | 새 V스크립트 정정 또는 history checksum 갱신 | [§3.C](#c-checksum-불일치) · [§5.3](#5-3-부팅-시-validate-실패-대응) |
+| `Migration checksum mismatch` (부팅) | 적용된 V스크립트 수정 | 새 V스크립트 정정 또는 history checksum 갱신 | [§3.C](#c-checksum-불일치) · [§5.3](#5-3-부팅-시-validate-실패-대응) |
 | `Resolved migration not applied` (prod 부팅) | classpath 에는 있는데 schema_history 에 없음 | `migrate-prod.sh` 미실행 → 실행 후 재배포 | [§5.3](#5-3-부팅-시-validate-실패-대응) |
 | `Applied migration not resolved` (prod 부팅) | schema_history 에는 있는데 classpath 에 없음 | V스크립트가 jar 에 빠짐 → build 검증 | [§5.3](#5-3-부팅-시-validate-실패-대응) |
 | validate 가 부팅 자체를 막음 | schema_history 손상 | `APP_FLYWAY_MODE=DISABLED` 로 긴급 우회 | [§5.4](#5-4-긴급-우회--disabled) |
@@ -226,6 +226,7 @@ vi apps/app-gymlog/src/main/resources/db/migration/gymlog/V026__add_foo.sql
 
 # 2. dry-run 으로 미리보기 (실제 적용 X)
 #    V스크립트는 *파일 경로* 로 넘긴다 — 버전 이름만 주면 "✗ V스크립트 없음" 으로 끝난다.
+#    이미 적용된 version 을 다시 넘기면 dry-run 에서 거부하고 멈춘다 — 새 V 번호로 올릴 것.
 <repo> prod migrate gymlog apps/app-gymlog/src/main/resources/db/migration/gymlog/V026__add_foo.sql --dry-run
 # 또는 직접:
 bash tools/deploy/migrate-prod.sh --target=prod gymlog \
@@ -253,23 +254,29 @@ git push origin main
 
 1. `.env.<target>` 에서 `DB_URL` / `DB_USER` / `DB_PASSWORD` 를 로드하고 JDBC URL 을 psql 형식으로 변환합니다.
 2. V스크립트 파일명에서 version 과 description 을 추출하고 (`V026__add_foo.sql` → `26`, `add foo`) SQL 미리보기를 출력한 뒤 적용을 묻습니다 (`--force` 면 skip).
-3. 단일 transaction 으로 `BEGIN; <SQL>; INSERT INTO <slug>.flyway_schema_history ...; COMMIT;` 을 실행합니다. SQL 적용과 history INSERT 가 같은 transaction 이라, 둘 중 하나가 실패하면 둘 다 롤백돼 schema 와 history 의 inconsistent state 를 막아요.
-4. 적용 후 `success = true` 행을 출력해 결과를 확인시킵니다.
+3. 그 version 이 대상 schema 의 `flyway_schema_history` 에 이미 있으면 거부하고 종료합니다. 같은 V 를 다시 적용하면 이력에 같은 version 행이 하나 더 생겨 다음 부팅에서 Flyway validate 가 앱을 거부하기 때문이에요 — dry-run 에서도 동일하게 알립니다.
+4. 단일 transaction 으로 `BEGIN; <SQL>; INSERT INTO <slug>.flyway_schema_history ...; COMMIT;` 을 실행합니다. SQL 적용과 history INSERT 가 같은 transaction 이라, 둘 중 하나가 실패하면 둘 다 롤백돼 schema 와 history 의 inconsistent state 를 막아요.
+5. 적용 후 `success = true` 행을 출력해 결과를 확인시킵니다.
 
-> ⚠️ **checksum 알고리즘이 Flyway 와 1:1 일치하지 않습니다.** 이 도구는 CRLF 를 LF 로 바꾼 뒤 zlib CRC32 로 checksum 을 계산하는데, Flyway 의 내부 알고리즘과 정확히 같지 않아요. 그래서 부팅 시 validate 가 `Migration checksum mismatch` 를 낼 수 있고, 그때는 [§5.3](#5-3-부팅-시-validate-실패-대응) 의 history checksum 갱신으로 정정합니다. 근본 해결(Flyway 라이브러리를 직접 호출하는 helper)은 **아직 미구현**이에요.
+> ✅ **checksum 은 Flyway 와 일치합니다.** 이 도구는 Flyway 의 `ChecksumCalculator` 와 같은 방식 — 파일을 utf-8-sig 로 읽어 줄 단위로 UTF-8 바이트의 CRC32 를 누적하고 부호 있는 32비트로 내는 계산 — 을 쓰므로, 부팅 시 validate 를 그대로 통과해요. 그래도 mismatch 가 나면 (적용된 V스크립트를 나중에 수정한 경우 등) [§5.3](#5-3-부팅-시-validate-실패-대응) 의 history checksum 갱신으로 정정합니다.
 
 > ⚠️ V스크립트 안에서 직접 `BEGIN` / `COMMIT` 을 쓰면 이 도구의 transaction wrap 과 충돌합니다. V스크립트는 raw DDL 만 담으세요.
 
 ### 4-3. checksum 알고리즘 같이 보기
 
-`migrate-prod.sh` 가 쓰는 계산은 다음과 같아요. Flyway 와 다른 지점이 바로 이 단순화된 CRC32 입니다.
+`migrate-prod.sh` 가 쓰는 계산은 다음과 같아요. Flyway 의 `ChecksumCalculator` 와 동일한 계산이에요.
 
 ```python
 # tools/deploy/migrate-prod.sh 발췌 (checksum 계산부)
-import zlib
-with open(SQL_FILE, 'rb') as f:
-    data = f.read().replace(b'\r\n', b'\n')   # CRLF → LF
-print(zlib.crc32(data) & 0xFFFFFFFF)
+import zlib, sys
+# Flyway 의 ChecksumCalculator 와 동일하게 계산한다 — 파일을 줄 단위로 읽어 각 줄의 UTF-8
+# 바이트로 CRC32 를 누적하고 부호 있는 32비트로 낸다(줄바꿈은 포함하지 않는다).
+# BOM 은 utf-8-sig 로 제거한다.
+text = open(sys.argv[1], 'rb').read().decode('utf-8-sig')
+crc = 0
+for line in text.splitlines():
+    crc = zlib.crc32(line.encode('utf-8'), crc)
+print(crc - 0x100000000 if crc > 0x7FFFFFFF else crc)
 ```
 
 ---

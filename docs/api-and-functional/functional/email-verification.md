@@ -332,7 +332,7 @@ public Optional<String> sendVerificationEmail(long userId, String email) {
 발송이 실패했을 때의 갈림길이 운영 안전성의 핵심이에요. `EmailPreVerificationService.sendCode` 도 같은 정책을 씁니다.
 
 - dev·local 처럼 `dev-fallback-raw` 가 true 면, 발송이 실패해도 raw 코드를 반환하고 플로우를 그대로 진행합니다. 외부 메일 장애가 로컬 개발을 막지 않게 하려는 거예요.
-- 운영처럼 false 면 예외를 그대로 다시 던져요. 호출자가 이 예외를 삼키지 않으므로 요청이 명시적으로 실패합니다. 예전에 이 자리를 try/catch 로 삼켰다가 rollback-only 마크와 충돌해 회귀가 났던 이력이 있어, 지금은 의도적으로 전파해요.
+- 운영처럼 false 면 예외를 그대로 다시 던져요. 호출자가 이 예외를 삼키지 않으므로 요청이 명시적으로 실패합니다 — 여기서 삼키면 rollback-only 마크와 충돌하므로 의도적인 전파예요.
 
 저장 규칙도 한 줄로 못 박을 수 있어요. raw 6자리는 이메일 본문에만 들어가고, DB 에는 SHA-256 해시만 저장합니다. DB 가 유출돼도 해시에서 raw 코드를 되돌릴 수 없어요.
 
@@ -382,7 +382,7 @@ public class AuthEmailVerificationToken {
 
 ### 사용자가 6자리를 입력하면 검증 — verify-email
 
-사용자가 메일에서 받은 6자리 코드를 앱에 입력하면, 클라이언트가 `POST /api/apps/{appSlug}/auth/verify-email` 을 body `{"email": "user@example.com", "token": "042193"}` 으로 호출해요. `email` 은 필수예요 — 시도 횟수를 주체(사용자) 단위로 계상하기 위한 스코프 키입니다. 예전에는 token 하나만 받아 전역 hash 조회를 했는데, 그 구조에서는 오답을 특정 사용자에게 귀속시킬 수 없었어요 (전역 계상은 비인증 5회 요청으로 임의 피해자의 유효 토큰까지 무효화하는 **집단(collateral) DoS** 라 기각 — 2026-07-21 리뷰).
+사용자가 메일에서 받은 6자리 코드를 앱에 입력하면, 클라이언트가 `POST /api/apps/{appSlug}/auth/verify-email` 을 body `{"email": "user@example.com", "token": "042193"}` 으로 호출해요. `email` 은 필수예요 — 시도 횟수를 주체(사용자) 단위로 계상하기 위한 스코프 키입니다. 전역 계상은 비인증 5회 요청으로 임의 피해자의 유효 토큰까지 무효화하는 **집단(collateral) DoS** 가 되기 때문이에요.
 
 ```java
 // core/core-auth-impl/.../service/EmailVerificationService.java 발췌

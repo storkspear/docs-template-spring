@@ -134,7 +134,7 @@
 
 §4.1 의 `GHCR_TOKEN` 미등록 함정이 드러나기 전, 사용자는 며칠 동안 모든 push 가 빨갛게 뜨는 상태로 작업하고 있었어요. 빨간 표시가 붙은 워크플로 이름이 바로 `sync-docs` 였어요.
 
-**왜 발생했나요?** `sync-docs.yml` 은 docs 변경분을 `docs-template-spring` 레포로 PR 보내고, 이 cross-repo 동작에 PAT 가 필요해요. 이 PAT 는 secret 이름 `GHCR_TOKEN` 으로 함께 씁니다(이름이 GHCR 인 건 주 용도가 GHCR push 라서예요). 그런데 ci-test 5단계(spotless · build · docs-contract · docs-unit · gitleaks)는 내용을 검증할 뿐, 워크플로 YAML 자체의 런타임 의존성, 예컨대 등록되지 않은 secret 참조까지는 보지 않아요. 그래서 secret 누락이 CI 를 통과해 버린 거예요.
+**왜 발생했나요?** `sync-docs.yml` 은 docs 변경분을 `docs-template-spring` 레포로 PR 보내고, 이 cross-repo 동작에 PAT 가 필요해요. 이 PAT 는 secret 이름 `GHCR_TOKEN` 으로 함께 씁니다(이름이 GHCR 인 건 주 용도가 GHCR push 라서예요). 그런데 ci-test 7단계(spotless · build · docs-contract · docs-unit · users 스키마 드리프트 가드 · 공유 인프라 키 소유권 가드 · gitleaks)는 내용을 검증할 뿐, 워크플로 YAML 자체의 런타임 의존성, 예컨대 등록되지 않은 secret 참조까지는 보지 않아요. 그래서 secret 누락이 CI 를 통과해 버린 거예요.
 
 **무엇이 정착됐나요?** 사용자가 `gh secret set GHCR_TOKEN -R <repo>` 로 등록하고 정상화했어요. actionlint 통합도 후보로 검토됐지만, GHA 자체가 YAML 구문을 검증하고 secret 부재 같은 런타임 에러는 actionlint 도 못 잡아 2026-05-27 에 도입하지 않기로 종결됐어요. actionlint 는 GitHub Actions 워크플로의 정적 검증 도구로, `.github/workflows/*.yml` 의 YAML 구문, 잘못된 action 버전, job dependency 누락 등을 잡아 줍니다. 다만 secret 부재 같은 런타임 에러는 actionlint 도 못 잡아요. 그건 워크플로 시작 시 토큰 존재를 검증하고 없으면 graceful skip 하는, 별개의 보강이 필요한 영역이에요.
 

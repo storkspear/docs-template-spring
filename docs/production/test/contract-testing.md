@@ -279,7 +279,7 @@ Port 계약으로 환원되지 않는 고유 내부 로직은 단위 테스트�
 
 ### 삭제 대상 예시 (delegation mock)
 
-단순 위임만 검증하던 아래 테스트들은 Port 계약과 100% 중복이라 제거했어요. 현재 코드베이스에는 남아 있지 않습니다.
+아래 테스트들은 단순 위임 검증이 Port 계약과 100% 중복이라 현재 코드베이스에 없어요 ([`ADR-014`](../../philosophy/adr-014-no-delegation-mock.md)).
 
 - `AuthServiceImplTest` — 모든 method 가 단순 위임 검증
 - `EmailAuthServiceTest` — AuthPort 계약과 중복

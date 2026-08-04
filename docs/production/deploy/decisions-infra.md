@@ -292,7 +292,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 - **결정일**: 2026-04-19, 2026-05 ADR-037 반영
 - **결정**: 각 앱 모듈이 `AbstractAppDataSourceConfig` (common-persistence) 를 상속한 `<Slug>DataSourceConfig` 를 소유합니다. template 은 abstract 구현과 `new-app.sh` 자동 생성 로직만 제공해요. bootstrap 의 `RoutingDataSourceConfig` 가 모든 `<slug>DataSource` 를 모아 `SchemaRoutingDataSource` 로 라우팅하고, `@Primary` 로 통합 EntityManagerFactory 와 TransactionManager 를 묶습니다.
 
-ADR-037 이전에는 `CoreDataSourceConfig` 가 `@Primary` 로 core schema 와 앱 schema 를 공존시켰어요. core schema 폐기 후에는 [`RoutingDataSourceConfig`](../../philosophy/adr-037-core-schema-deprecation.md) 가 routing 과 JPA 통합 레이어만 담당하고, slug 없는 DB 접근은 `IllegalStateException` 으로 막는 fail-secure 가 됐습니다.
+지금은 `RoutingDataSourceConfig` 가 routing 과 JPA 통합 레이어만 담당하고, slug 없는 DB 접근은 `IllegalStateException` 으로 막는 fail-secure 예요 — core schema 폐기 경위는 [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md) 에 있어요.
 
 - **근거**:
   - [`ADR-003 (core -api/-impl 분리)`](../../philosophy/adr-003-api-impl-split.md) 정신과 일치해요. 앱이 자기 인프라를 책임집니다
