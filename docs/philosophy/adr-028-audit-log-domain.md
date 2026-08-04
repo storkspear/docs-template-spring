@@ -219,7 +219,7 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id)
 
 수정:
 - `settings.gradle` — 새 모듈 등록
-- `bootstrap/build.gradle` — core-audit-impl + spring-boot-starter-aop 의존
+- `bootstrap/build.gradle` — core-audit-impl + spring-boot-starter-aspectj 의존
 - 기존 server-factory 슬러그 (testsvc/helloworld/rny) — V012 retro 적용
 
 ---

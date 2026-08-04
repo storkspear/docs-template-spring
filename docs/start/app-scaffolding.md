@@ -127,11 +127,11 @@ dependencies {
     implementation project(':common:common-persistence')
     implementation project(':common:common-security')
 
-    // QueryDsl
-    implementation "com.querydsl:querydsl-jpa:${libs.versions.querydsl.get()}:jakarta"
-    annotationProcessor "com.querydsl:querydsl-apt:${libs.versions.querydsl.get()}:jakarta"
+    // QueryDsl — openfeign 포크. jpa 는 classifier 없이, apt 는 :jpa 로 배포돼요.
+    implementation "io.github.openfeign.querydsl:querydsl-jpa:${libs.versions.querydsl.get()}"
+    annotationProcessor "io.github.openfeign.querydsl:querydsl-apt:${libs.versions.querydsl.get()}:jpa"
 
-    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:postgresql'
     // ...

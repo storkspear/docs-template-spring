@@ -108,7 +108,7 @@ DTO 의 JSON 직렬화·역직렬화 계약을 검증합니다. 클라이언트(
 - 위치: `core-*-api/src/test/java/.../dto/<Dto>JsonTest.java`
 - Spring 컨텍스트 없이 순수 ObjectMapper 만 사용
 
-`AbstractJsonContractTest` 는 서브클래스마다 자동으로 3개의 테스트를 돌려요. round-trip(`serialize_roundTripsToSample` — DTO → JSON → DTO 왕복), canonical JSON 파싱(`deserialize_parsesCanonicalJson`), unknown field 무시(`deserialize_ignoresUnknownField`) 세 가지입니다. 사용하는 ObjectMapper 는 전역 Jackson 정책과 같게 설정돼 있어서(`NON_NULL`, `FAIL_ON_UNKNOWN_PROPERTIES=false`, `JavaTimeModule`, `WRITE_DATES_AS_TIMESTAMPS=false`), 실제 응답과 동일한 직렬화 규칙으로 검증돼요. 민감 필드 처리 규칙까지 포함한 상세는 [`계약 테스트 (Contract Testing)`](./contract-testing.md) 에서 다루고, 여기서는 존재한다는 사실만 기억하면 됩니다.
+`AbstractJsonContractTest` 는 서브클래스마다 자동으로 3개의 테스트를 돌려요. round-trip(`serialize_roundTripsToSample` — DTO → JSON → DTO 왕복), canonical JSON 파싱(`deserialize_parsesCanonicalJson`), unknown field 무시(`deserialize_ignoresUnknownField`) 세 가지입니다. 사용하는 ObjectMapper 는 전역 Jackson 정책과 같게 설정돼 있어서(`NON_NULL`, `FAIL_ON_UNKNOWN_PROPERTIES=false`, `DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS=false` — Jackson 3 는 java.time 이 코어 내장이라 datatype 모듈 등록이 없어요), 실제 응답과 동일한 직렬화 규칙으로 검증돼요. 민감 필드 처리 규칙까지 포함한 상세는 [`계약 테스트 (Contract Testing)`](./contract-testing.md) 에서 다루고, 여기서는 존재한다는 사실만 기억하면 됩니다.
 
 ---
 

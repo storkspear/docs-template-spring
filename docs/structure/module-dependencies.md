@@ -151,7 +151,7 @@ dependencies {
     api project(':common:common-security')
     api project(':common:common-persistence')
 
-    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
     runtimeOnly 'org.postgresql:postgresql'
 
     // 다른 impl 을 보는 test 전용 의존은 허용됨

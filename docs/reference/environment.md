@@ -73,7 +73,7 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 | **Testcontainers BOM** | 2.0.5 | 실제 Postgres · MinIO 컨테이너로 테스트 (Spring Boot BOM 이 관리하는 버전과 동일) |
 | **Testcontainers PostgreSQL · JUnit5 · MinIO** | 2.0.5 | 각 리소스별 컨테이너 — 2.x 부터 아티팩트명이 `testcontainers-*` 접두사로 통일됐어요 |
 | **ArchUnit JUnit5** | 1.4.2 | 아키텍처 규칙 테스트 (r1~r22) |
-| **Jackson Databind · JSR310** | Spring Boot BOM | 계약 테스트 JSON 비교 |
+| **Jackson Databind (tools.jackson)** | Spring Boot BOM | 계약 테스트 JSON 비교 — Jackson 3 는 java.time 이 코어 내장이라 별도 datatype 모듈이 없어요 |
 | **WireMock standalone** | 3.10.0 | OAuth provider HTTP mock (테스트 전용, Jetty/Jackson 충돌 회피용 standalone) |
 | **PIT (Pitest) plugin** | 1.15.0 | Mutation testing Gradle plugin |
 | **PIT core** | 1.17.0 | Mutation testing 엔진 |

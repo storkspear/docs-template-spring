@@ -70,9 +70,9 @@ class SignUpRequestJsonTest extends AbstractJsonContractTest<SignUpRequest> {
 
 테스트 `ObjectMapper` 는 `AbstractJsonContractTest` 의 `contractObjectMapper()` 가 직접 구성합니다. 적용되는 정책은 네 가지예요.
 
-- `@JsonInclude(NON_NULL)` 으로 null 필드 직렬화를 생략합니다.
+- `@JsonInclude(NON_NULL)` 으로 null 필드 직렬화를 생략합니다 (Map 의 null 값도 함께 생략돼요 — value·content 양쪽에 적용).
 - `FAIL_ON_UNKNOWN_PROPERTIES=false` 로 알 수 없는 필드를 무시합니다.
-- `JavaTimeModule` 로 `Instant` · `LocalDate` 를 ISO-8601 문자열로 직렬화합니다.
+- Jackson 3 코어에 내장된 java.time 지원으로 `Instant` · `LocalDate` 를 ISO-8601 문자열로 직렬화합니다 (별도 datatype 모듈 등록 없음).
 - `WRITE_DATES_AS_TIMESTAMPS=false` 로 숫자 timestamp 를 금지합니다.
 
 DTO 에 `@JsonProperty` 나 `@JsonIgnore` 같은 어노테이션을 붙이지 말고 전역 정책을 일관되게 유지하세요. 예외가 필요하면 해당 DTO 의 JsonTest 에 단언 메서드를 따로 추가합니다.
