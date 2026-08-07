@@ -351,6 +351,8 @@ APP_STORAGE_MINIO_BUCKETS_<N>=<slug>-uploads
 
 `<N>` 은 기존 `APP_STORAGE_MINIO_BUCKETS_*` 변수들의 최대 인덱스 + 1 로 정해져요. Spring 기동 시 `BucketProvisioner` 가 `<slug>-uploads` 버킷을 [MinIO](../reference/glossary.md#운영--인프라) 에 자동 생성해요. 멱등이라 재기동해도 중복 에러가 없어요. `images`·`exports` 같은 추가 카테고리는 운영자가 `.env` 에 직접 더하면 돼요.
 
+> `.env.dev` 가 이미 있으면(dev-server 셋업 완료 상태) 같은 슬러그의 버킷을 `.env.dev` 의 `APP_STORAGE_MINIO_BUCKETS_0` 에도 등록해요(비어 있을 때만 — Kamal 은 그 슬롯 하나만 컨테이너로 배선하거든요, F11). 접두사는 `.env.dev` 의 `APP_STORAGE_BUCKET_PREFIX`(기본 `dev-`)를 따라요 — dev/prod 가 MinIO 인스턴스를 공유해서예요. 자세한 내용은 [`스토리지 버킷 격리`](../production/setup/storage-bucket-isolation.md) 를 보세요.
+
 ### 4.3 소셜 로그인·결제 Credentials
 
 ```env

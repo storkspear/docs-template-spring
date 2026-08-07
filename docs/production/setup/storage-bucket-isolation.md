@@ -54,6 +54,8 @@ bucket 네이밍은 [`I-07`](../deploy/decisions-infra.md) 에서 정한 환경�
 
 > 템플릿 레포 자체의 로컬 docker MinIO 는 `.env.example` 출하값 `basic-bucket` 을 그대로 씁니다 (템플릿 통합 테스트용). 파생 레포를 만든 뒤에 위 2-tier 규약을 적용하세요.
 
+> **dev-server(`.env.dev`) tier** — 이 2-tier 표는 "로컬 docker" vs "운영" 만 다뤄요. Mac mini 의 dev-server(develop 브랜치 자동 배포)는 셋 중 하나가 아니라 **운영과 같은 MinIO 인스턴스를 공유**하는 3번째 배포 대상이에요. 격리는 `app.storage.bucket-prefix`(env `APP_STORAGE_BUCKET_PREFIX`, dev=`dev-`)로 하고, 자세한 내용은 [`develop-branch-policy.md §5`](../operations/develop-branch-policy.md#5-dev-server-vs-prod--격리-모델) 를 보세요.
+
 object key 는 환경과 무관하게 `<appSlug>/<category>/...` 로 시작해서, 로컬과 운영 사이에 object 를 그대로 복사해도 키가 깨지지 않아요. 키 패턴의 상세는 [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md) 에 있습니다.
 
 ---
@@ -110,6 +112,8 @@ retention lifecycle 적용 (SetBucketLifecycle)
 boolean bucketExists(String bucket);
 void ensureBucket(String bucket, BucketPolicy policy);
 ```
+
+`<slug>` → 버킷명 계산 자체는 `BucketNaming`(core-storage-api, 구현은 `DefaultBucketNaming`/core-storage-impl) 한 곳으로 모여 있어요 — 앱-facing `FileController`·`AttachmentServiceImpl`·admin 콘솔의 `AdminFileService`·`AdminContentService` 4곳이 전부 이 빈을 주입받습니다. 다만 이건 **이름을 어떻게 계산하는지**를 통일한 것이지, `StoragePort` 호출 자체에 슬러그 검증을 추가한 게 아니에요 — 이 절이 말하는 "코드가 강제하지 않는다"는 여전히 유효합니다.
 
 운영의 모든 bucket 은 단일 admin 자격 (`APP_STORAGE_MINIO_ACCESS_KEY` / `SECRET_KEY`) 으로 접근해요. 애플리케이션이 잘못된 bucket 이름을 넘기면 MinIO 는 그대로 처리합니다. 즉 슬러그 간 분리를 보장하는 건 "각 앱이 자기 bucket 이름만 넘긴다" 는 컨벤션이지, IAM 정책이나 포트 레벨 검증이 아니에요.
 

@@ -151,8 +151,11 @@ dev-server 와 prod 는 같은 Mac mini 한 대 위에서 돕니다. Kamal 의 s
 | Spring profile | `prod` | `dev` | — |
 | DB | Supabase prod 계정 | 별도 Supabase dev 계정 | `DB_URL_DEV` · `DB_USER_DEV` · `DB_PASSWORD_DEV` |
 | MinIO bucket | `<slug>-uploads` | `dev-<slug>-uploads` (`init-dev.sh` 가 `dev-` prefix 강제) | `APP_STORAGE_MINIO_BUCKETS_0_DEV` |
-| MinIO endpoint·key | 운영값 | 별도 dev 값 | `APP_STORAGE_MINIO_ENDPOINT_DEV` 등 |
+| MinIO 버킷 접두사 | 빈 값(기본) | `dev-` | `APP_STORAGE_BUCKET_PREFIX_DEV` |
+| MinIO endpoint·key | 운영값 | 별도 dev 값 (보통 prod 와 **같은 MinIO 인스턴스**) | `APP_STORAGE_MINIO_ENDPOINT_DEV` 등 |
 | 관측성 (Loki·Grafana) | 공유 인스턴스, label `env=prod` | 공유 인스턴스, label `env=dev` | `LOKI_URL_DEV` |
+
+`app.storage.bucket-prefix`(env `APP_STORAGE_BUCKET_PREFIX`)는 `BucketNaming`(core-storage-api)이 런타임에 업로드 버킷명을 계산할 때 읽는 값이에요 — `<prefix><slug>-uploads`. dev/prod 가 MinIO 인스턴스를 공유하는 배포에서 이 접두사가 `APP_STORAGE_MINIO_BUCKETS_0`(`BucketProvisioner` 가 프로비저닝하는 이름)과 어긋나면, provisioning 은 `dev-<slug>-uploads` 를 만드는데 런타임은 `<slug>-uploads`(prod 버킷)에 업로드하는 사고가 나요 — `init-dev.sh` 가 두 값을 같은 접두사로 맞춰 채웁니다.
 
 표에서 한 가지만 짚고 넘어갈게요. 운영 자격은 거의 전부 dev 전용 값으로 분리됩니다. DB 와 bucket 뿐 아니라 MinIO endpoint·key, JWT, Resend, PortOne, Discord 까지 모두 `_DEV` 시크릿으로 따로 올라가요. prod 와 진짜로 공유되는 건 `.env.infra` 가 소유하고 `infra init` 이 접미사 없이 올리는 인프라 자격 — `GHCR_TOKEN` · `SSH_PRIVATE_KEY` · `TS_OAUTH_*` · `DEPLOY_HOST` · `DEPLOY_SSH_USER` — 뿐입니다. 이것들은 Mac mini 한 대, Cloudflare 계정 하나를 두 환경이 함께 쓰기 때문에 나눌 대상이 아니에요. 관측성은 조금 결이 달라요. Loki·Grafana 인스턴스 자체는 한 대를 공유하되 `env` 라벨로 대시보드를 구분하고, 접속 URL 시크릿(`LOKI_URL`)은 `LOKI_URL_DEV` 로 분리해 둡니다.
 

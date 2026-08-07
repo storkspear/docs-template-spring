@@ -86,6 +86,8 @@ APP_STORAGE_MINIO_BUCKETS_1=sumtally-avatars
 
 버킷을 직접 만들 필요는 없어요. `BucketProvisioner` 가 Spring 부팅 시 `.env` 의 이름을 읽어 없으면 생성하고 retention 을 적용합니다. 이름만 추가하고 앱을 재기동하면 끝이에요. `new-app.sh` 는 파생 레포에 슬러그를 추가할 때 `APP_STORAGE_MINIO_BUCKETS_<N>=<slug>-uploads` 한 줄을 자동으로 주입합니다 (category 는 `uploads` 가 기본값). 다른 category 가 필요하면 그 줄을 직접 늘리거나 바꿔요.
 
+**런타임의 업로드 대상 버킷명**(위 `BucketProvisioner` 가 만드는 이름과는 별개 관심사)은 `BucketNaming`(core-storage-api, 구현 `DefaultBucketNaming`)이 `<prefix><slug>-uploads` 로 계산해요 — `FileController`·`AttachmentServiceImpl`·admin 콘솔 `AdminFileService`/`AdminContentService` 4곳이 이 빈 하나를 공유합니다. `prefix` 는 `app.storage.bucket-prefix`(env `APP_STORAGE_BUCKET_PREFIX`, 기본 빈 값)예요 — dev-server 가 prod 와 MinIO 인스턴스를 공유하는 배포에서 `dev-` 로 설정해 격리합니다(`init-dev.sh` 자동 처리, 상세는 [`스토리지 버킷 격리`](../../production/setup/storage-bucket-isolation.md)). 이 prefix 는 `APP_STORAGE_MINIO_BUCKETS_*`(provisioning 이름)와 항상 일치해야 해요 — 어긋나면 provisioning 은 `dev-<slug>-uploads` 를 만드는데 런타임은 `<slug>-uploads`(prod 버킷)에 업로드하는 사고가 납니다.
+
 ## Object Key 패턴 (환경 무관, 항상 동일)
 
 ```

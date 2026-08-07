@@ -34,7 +34,7 @@ ErrorInfo (인터페이스)
     ├── IapError         ← IAP_001 ~ IAP_007 (Apple·Google IAP — ADR-022)
     ├── PaymentError     ← PAY_001 ~ PAY_009 (PortOne PG — ADR-019)
     ├── StorageError     ← STG_001 ~ STG_011 (오브젝트 스토리지)
-    ├── AttachmentError  ← ATC_001 ~ ATC_004 (앱 파일 업로드·조회 — core-attachment)
+    ├── AttachmentError  ← ATC_001 ~ ATC_005 (앱 파일 업로드·조회 — core-attachment)
     └── AdminError       ← ADMIN_001 ~ ADMIN_025 (운영 콘솔 — core-admin-impl)
 
 BaseException (부모)
@@ -228,6 +228,7 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | ATC_002 | 422 | CONTENT_TYPE_NOT_ALLOWED | content-type 화이트리스트 위반 |
 | ATC_003 | 413 | FILE_SIZE_EXCEEDED | 업로드 선언 크기 상한 초과 |
 | ATC_004 | 422 | ATTACHMENT_ASSOCIATION_INVALID | attachmentKeys 연관 확정 검증 위반 (부재·slug 불일치·비 ACTIVE·타 대상·타인 업로드) |
+| ATC_005 | 422 | ATTACHMENT_OBJECT_MISSING | (F8, `app.attachment.verify-on-associate=true` 일 때만 — 기본 off) associate 확정 직전 스토리지 오브젝트 미존재 |
 
 ### AdminError (ADMIN)
 
