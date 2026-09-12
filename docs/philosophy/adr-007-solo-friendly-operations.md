@@ -132,7 +132,7 @@ services:
   postgres:
     image: postgres:16-alpine
   minio:
-    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
+    image: quay.io/minio/minio:RELEASE.2025-01-20T14-49-07Z
 ```
 
 개발은 **로컬 Docker** 에서. 프로덕션에서 실험 금지. 설정은 환경마다 파일 단위로 분리해요 — `application-local.yml` 은 로컬 docker, `application-dev.yml` 은 Mac mini dev 서버, `application-prod.yml` 은 운영용이에요.
