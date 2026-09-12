@@ -303,7 +303,7 @@ APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID=$APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID
 
 - [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) — 정상 흐름
 - [`도그푸딩 walkthrough`](./dogfood-walkthrough.md) — 시간 순 이야기 + 정착된 패턴
-- [`도그푸딩 함정 모음 (사고 실록)`](./dogfood-pitfalls.md) — 함정 15개 자세히 (11번 시도 + JDK 26 호환성 1건 + 운영 함정 3건)
+- [`도그푸딩 함정 모음 (사고 실록)`](./dogfood-pitfalls.md) — 함정 17개 자세히 (11번 시도 + JDK 26 호환성 1건 + 운영 함정 3건 + 파생·편집기 함정 2건)
 - [`secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) — 4곳 매핑 + 체크리스트
 - [`CI / CD 전체 플로우 — commit 부터 운영 반영까지`](../production/deploy/ci-cd-flow.md) — 다이어그램
 - [`키 교체 절차 (Key Rotation)`](../production/setup/key-rotation.md) — 키 교체
@@ -313,6 +313,6 @@ APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID=$APP_CREDENTIALS_GYMLOG_APPLE_BUNDLE_ID
 
 ## 다음 단계
 
-- 함정 사례 검색: [`도그푸딩 함정 모음 (사고 실록)`](./dogfood-pitfalls.md) — 실제 겪은 함정 15개 기록
+- 함정 사례 검색: [`도그푸딩 함정 모음 (사고 실록)`](./dogfood-pitfalls.md) — 실제 겪은 함정 17개 기록
 - 시간 순 흐름: [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
 - 본 가이드 전체: [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md)
