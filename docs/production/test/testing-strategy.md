@@ -266,7 +266,7 @@ public final class PostgresTestContainer {
 }
 ```
 
-`MinioTestContainer` 는 같은 패턴으로 MinIO(`minio/minio:latest`)를 기동합니다. 스토리지 관련 테스트에서 사용해요.
+`MinioTestContainer` 는 같은 패턴으로 MinIO(`quay.io/minio/minio`, 태그 고정)를 기동합니다. 스토리지 관련 테스트에서 사용해요.
 
 `.class` 참조만으로는 컨테이너가 시작되지 않고, accessor 호출 시점(예: `getJdbcUrl()`)에 처음 기동돼요. `@DynamicPropertySource` 에 method reference 로 넘길 때 자연스럽게 연결됩니다.
 
