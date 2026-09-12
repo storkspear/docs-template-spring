@@ -634,12 +634,16 @@ IAP 결제 환불 시도 응답:
 | `POST .../content/{id}/hide` (사유 필수) | `ACTIVE → HIDDEN` | 회원에게 숨김. `CONTENT_MODERATE` |
 | `POST .../content/{id}/restore` | `HIDDEN → ACTIVE` | 숨김 해제(재공개) |
 | `POST .../content/{id}/restore-deleted` | `DELETED → ACTIVE` | 삭제 대상 복원 |
-| `DELETE .../content/{id}` (사유 필수) | `→ DELETED` (`purge_at` = now+30일) | soft-delete. `purge_at` 경과분은 `ContentPort#purgeExpired` 로 삭제 가능하나 현재 자동 스케줄러 미연동 |
+| `DELETE .../content/{id}` (사유 필수) | `→ DELETED` (`purge_at` = now+30일) | soft-delete. `purge_at` 경과분은 `ContentPurgeScheduler`(기본 03:30, `app.content.purge.enabled=true` 일 때)가 지우며, 그 글의 첨부도 함께 purge 대기로 넘어가요 |
 
 - **권한**: 조회 `CONTENT_READ`, 모더레이션 `CONTENT_MODERATE`·삭제 `CONTENT_DELETE`(둘 다 `PermissionCatalog` 의 `⇒ CONTENT_READ` 의존). RBAC 역할·권한 분리는 [`ADR-027`](../philosophy/adr-027-admin-role-authorization.md) 참고.
 - **감사로그**: `@Audited("admin.content.hide"/"restore"/"restore-deleted"/"delete")` — §4-11/§4-16 과 동일한 `SlugContext` 스왑으로 대상 앱 스키마 `audit_logs` 에 기록.
 - **대상 없음**: 존재하지 않는 `id` 는 404 `ADMIN_022`(`ADMIN_CONTENT_NOT_FOUND`).
 - **작성자 마스킹 없음**: 공개 게시물이라 작성자(`authorUserId`) 를 그대로 노출합니다(파일/유저의 PII reveal 패턴 불필요).
+- **수정 시 첨부는 집합으로 다룹니다**: `PUT .../content/{id}` 의 `attachmentIds` 는 **그 글이 가져야 할 첨부 전체**예요. 목록에 없는 첨부는 떼어내고(soft-delete, 30일 안에 파일 화면에서 복원 가능), 목록에 새로 들어온 것은 붙여요. 필드를 **생략하면**(`null`) 첨부를 손대지 않고, **빈 배열**(`[]`)은 전부 떼어냄이라 뜻이 달라요.
+  - 본문과 `properties` 에 살아 있는 `attachment://{id}` 참조는 목록에 없어도 지켜집니다 — 클라이언트가 목록을 만들다 빠뜨려도 사진이 사라지지 않아요.
+  - 작성(`POST .../content`)은 떼어낼 것이 없어 붙이기만 합니다.
+- **정리 배치는 기본이 꺼져 있어요**: `app.content.purge.enabled` · `app.attachment.purge.enabled` 를 켜지 않으면 지운 글도 떼어낸 사진도 디스크에 남아요. 순서가 중요해서 게시물(03:30)이 첨부(04:00)보다 **먼저** 돌아야 같은 밤에 저장소까지 정리됩니다.
 
 ### 4-18. `GET`/`PUT /api/admin/apps/{slug}/app-versions` — 앱 최소버전 2단계(강제/경고) 규칙 (v1.12)
 

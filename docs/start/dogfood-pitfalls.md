@@ -11,7 +11,7 @@
 
 ## 개요
 
-이 문서는 도그푸딩 배포에서 실제로 부딪힌 함정 15개를 모은 사고 실록이에요. 정상 흐름 설명은 [셋업 가이드](./dogfood-setup.md)에서 다루고, 여기서는 막혔을 때 에러 메시지로 검색해 원인과 해결을 빠르게 찾는 데 집중해요.
+이 문서는 도그푸딩 배포에서 실제로 부딪힌 함정 17개를 모은 사고 실록이에요. 정상 흐름 설명은 [셋업 가이드](./dogfood-setup.md)에서 다루고, 여기서는 막혔을 때 에러 메시지로 검색해 원인과 해결을 빠르게 찾는 데 집중해요.
 
 함정이 어디서 나왔는지부터 짚어 둘게요.
 
@@ -25,7 +25,7 @@
 
 ---
 
-## 한눈에 — 함정 15개 표
+## 한눈에 — 함정 17개 표
 
 | # | 단계 | 증상(검색 키워드) | 원인 한 줄 | 해결 한 줄 |
 |---|---|---|---|---|
@@ -45,6 +45,8 @@
 | **13** | 첫 배포 health | `target failed to become healthy ... timeout (30s)` | 원거리 콜드 DB 라 첫 Flyway 마이그레이션이 30초 초과 | `deploy_timeout: 120` (post-deploy 보강) |
 | **14** | Cloudflare 라우팅 | 배포 성공인데 외부 도메인 404, `dig` NXDOMAIN | 터널이 remote-managed + manual deploy 라 ingress·DNS 자동등록을 건너뜀 | `prod init` 로 자동등록, 또는 API 로 수동 추가 (post-deploy 보강) |
 | **15** | Loki 로그 | Grafana 로그 0, `loki4j ... ConnectException` 반복 | 앱이 Loki 보다 먼저 떠 appender 가 영구 fail | observability 를 첫 배포 전 기동, 또는 앱 컨테이너 restart (post-deploy 보강) |
+| **16** | 브라우저 → API | 큰 본문 저장 시 nginx 의 HTML 413(우리 JSON 이 아님) | 앞단 nginx `client_max_body_size` 기본 1 MiB 가 Spring 상한과 같거나 더 작음 | nginx 를 `app.request-size.max-bytes` 보다 크게 (예: `client_max_body_size 4m`) |
+| **17** | 첫 `git push` | pre-push 의 `spotlessCheck` 가 생성 코드에서 실패 | `new app` 의 포맷 단계가 의존 메타데이터보다 먼저라 gradle 호출이 죽고 warn 으로 흘렀음 | 메타데이터 갱신 뒤 재시도 (`new-app.sh` Step 15.95 — 이미 반영) |
 
 > 위 표의 "원인 한 줄"·"해결 한 줄" 칸은 빠르게 훑는 reference 라 의도적으로 명사구로 압축했어요. 표 안 명사구 허용 규정은 [`STYLE_GUIDE §3`](../reference/STYLE_GUIDE.md) 에 있어요.
 
@@ -323,6 +325,24 @@ ERROR: target failed to become healthy within configured timeout (30s)
 원인은 앱 컨테이너가 Loki(observability 스택)보다 먼저 떴다는 데 있어요. loki4j appender 는 startup 때 `loki` 호스트 연결에 실패하면 그 상태로 굳어 버려서, 이후 Loki 가 같은 docker network 에 떠도 자가복구하지 않아요.
 
 해결은 observability 를 먼저 띄우는 거예요. `infra/docker-compose.observability.yml`(Loki/Grafana/Prometheus, `kamal` 네트워크에 external join)을 첫 앱 배포 전에 기동해요. 이미 앱이 떠 있었다면 Loki 를 띄운 뒤 앱 컨테이너를 `docker restart` 하면 appender 가 새로 붙어 즉시 흘러요(`{env="dev"}` / `{env="prod"}` 로 구분). dev 와 prod 둘 다 Loki 로 push 해요(logback-common.xml).
+
+### #16. 큰 본문을 저장하면 우리 것이 아닌 413 이 온다
+
+증상은 사진이 많은 글을 저장할 때 413 이 오는데, 응답 본문이 우리 JSON(`CMN_413`)이 아니라 nginx 의 HTML 오류 페이지인 거예요. 브라우저 콘솔에는 파싱 실패만 남아서 원인이 서버 안에 있는 것처럼 보여요.
+
+원인은 요청이 Spring 에 닿기 전에 잘렸다는 데 있어요. 편집기를 서빙하는 nginx 가 `/api` 를 프록시하는 구성에서 `client_max_body_size` 기본값은 1 MiB 이고, `app.request-size.max-bytes` 기본값도 같은 1 MiB 예요. 두 값이 같으면 경계에서 어느 쪽이 먼저 자를지가 바이트 단위로 갈려요.
+
+해결은 앞단을 더 크게 두는 거예요. nginx 의 `client_max_body_size` 를 Spring 상한보다 넉넉히 잡으면(예: `4m`) 상한 판정이 항상 Spring 에서 나고, 클라이언트는 언제나 우리 JSON 오류를 받아요. 상한 자체를 올리려면 `APP_REQUEST_SIZE_MAX_BYTES` 를 바꾸고 nginx 도 같이 올려요.
+
+참고로 HTML 본문은 생각보다 작아요 — 사진 60장에 한국어 3,000자짜리 글을 실측했더니 25.6 KB 였어요. 본문에는 `attachment://{id}` 참조만 들어가고 사진 자체는 별도 저장소에 있기 때문이에요.
+
+### #17. 앱을 만들고 처음 push 하면 spotless 가 막는다
+
+증상은 `<repo> new <slug>` 직후 첫 `git push` 가 pre-push 훅의 `spotlessCheck` 에서 실패하는 거예요. 실패 파일은 전부 생성기가 방금 만든 것들이에요.
+
+원인은 생성기의 포맷 단계 순서에 있었어요. `new-app.sh` 는 Step 13.6 에서 `spotlessApply` 를 돌리는데, 그 시점에는 새 모듈이 들여오는 의존이 아직 `gradle/verification-metadata.xml` 에 없어서 gradle 호출 자체가 "Dependency verification failed" 로 죽어요. 그 실패를 warn 한 줄로 흘려 보내고 있었어요.
+
+해결은 반영돼 있어요 — 메타데이터를 갱신하는 Step 15.9 뒤에 Step 15.95 로 한 번 더 돌려요. 이미 첫 번째에서 끝났으면 두 번째는 아무 것도 하지 않아요. 옛 파생 레포에서 만났다면 `./gradlew :apps:app-<slug>:spotlessApply` 를 한 번 돌리면 돼요.
 
 ---
 
