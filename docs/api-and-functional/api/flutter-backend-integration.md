@@ -67,6 +67,7 @@
 | POST | `/api/apps/{appSlug}/auth/kakao` | 불필요 | Kakao 로그인 (`accessToken`) |
 | POST | `/api/apps/{appSlug}/auth/naver` | 불필요 | Naver 로그인 (`accessToken`) |
 | POST | `/api/apps/{appSlug}/auth/refresh` | 불필요 | 토큰 갱신 |
+| POST | `/api/apps/{appSlug}/auth/logout` | 불필요 | 로그아웃 — 이 기기 세션의 refresh token 폐기 (204) |
 | POST | `/api/apps/{appSlug}/auth/2fa/login` | 불필요 | 2FA 코드로 정식 토큰 발급 |
 | POST | `/api/apps/{appSlug}/auth/phone/**` | 불필요 | 휴대폰 점유인증 (옵트인 기능) |
 | POST | `/api/apps/{appSlug}/auth/withdraw` | 필요 | 회원 탈퇴 (204) |

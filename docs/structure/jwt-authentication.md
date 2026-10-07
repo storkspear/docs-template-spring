@@ -361,6 +361,7 @@ Path slug 추출은 `common/common-web/.../AppSlugExtractor.java` 의 정규식 
 | `/email/signup`, `/email/signin` | 이메일 가입·로그인 |
 | `/apple`, `/google`, `/kakao`, `/naver` | 소셜 로그인 (자격 증명 설정 시) |
 | `/refresh` | refresh token 회전 |
+| `/logout` | 로그아웃 — refresh token 으로 세션을 지목해 폐기 |
 | `/verify-email` | 이메일 인증 |
 | `/password-reset/**` | 비밀번호 재설정 요청·확인 |
 | `/2fa/login` | 2FA 1단계 통과 후 정식 토큰 발급 |
@@ -484,6 +485,37 @@ public AuthTokens rotate(String rawRefreshToken, String appSlug) {
 정상 회전은 `markUsedIfUnused` 의 조건부 원자 UPDATE(CAS — SQL `used_at IS NULL` 조건)로 old token 을 사용 처리해요. 같은 raw token 으로 동시 요청 2개가 들어와도 row-level lock 이 직렬화해서 정확히 하나만 `affected=1` 을 받고, `affected=0` 을 받은 쪽은 재사용 공격과 동일하게 family 전체를 revoke 합니다. 그 뒤 같은 `family_id` 로 새 token 을 발급하고 새 access token 도 함께 발급해요. 이때 최신 email 과 role 은 `UserPort` 로 조회합니다.
 
 > refresh token 의 만료·무효는 `AuthError.TOKEN_EXPIRED`(ATH_002), `AuthError.INVALID_TOKEN`(ATH_003) 으로 표현돼요. access token 의 `CMN_007`/`CMN_008` 과는 별개 코드입니다.
+
+#### 로그아웃 — `revokeSession`
+
+`POST /api/apps/{appSlug}/auth/logout` (body `{refreshToken}`, 204) 이 호출해요. 제출된 token 이 속한 `family_id` 의 active token 을 전부 무효화합니다. family 는 로그인 한 번(= 기기 하나의 세션)에 대응하므로 같은 유저의 다른 기기는 로그인 상태로 남아요.
+
+```java
+// core-auth-impl/service/RefreshTokenService.java 발췌
+public int revokeSession(String rawRefreshToken) {
+    return refreshTokenRepository
+            .findByTokenHash(TokenGenerator.sha256Hex(rawRefreshToken))
+            .map(AuthRefreshToken::getFamilyId)
+            .map(familyId -> {
+                refreshTokenRepository.lockActiveByFamilyId(familyId); // 진행 중인 회전 대기
+                return refreshTokenRepository.revokeAllByFamilyId(familyId);
+            })
+            .orElse(0);
+}
+```
+
+**회전과 겹칠 때** — 앱이 자동 refresh 응답을 저장하기 전에 로그아웃을 누르면 두 요청이 서버에서 겹쳐요. 두 군데서 막아요.
+
+- `lockActiveByFamilyId` 가 family 의 살아 있는 row 를 `FOR UPDATE` 로 먼저 잠가요. 진행 중인 회전이 커밋될 때까지 기다렸다가 revoke 하므로, 회전이 방금 발급한 token 까지 닫혀요.
+- `markUsedIfUnused` 의 조건에 `revoked_at IS NULL` 이 들어 있어요. 회전이 token 을 읽은 뒤 used 로 찍기 전에 로그아웃이 커밋되면 `affected=0` 이 되어 새 token 이 발급되지 않아요.
+
+설계에서 고른 것 세 가지예요.
+
+- **공개 경로 + refresh token 으로 지목** — 로그아웃은 access token 이 만료된 뒤에도 되어야 하고, 폐기할 대상이 refresh token 자신이에요. 그래서 `@CurrentUser` 를 요구하지 않아요.
+- **token 하나가 아니라 family 단위** — 클라이언트가 회전 응답을 저장하기 전에 로그아웃하면 손에 든 것은 이미 `used_at` 이 찍힌 옛 token 이고, 서버에 살아 있는 것은 같은 family 의 새 token 이에요. family 를 지워야 어느 쪽을 내도 세션이 닫혀요.
+- **멱등 + 무응답** — 모르는 token · 만료 token · 이미 revoke 된 token 모두 204 예요. 응답으로 token 존재 여부를 구분해 주지 않고, `rotate` 와 달리 재사용 감지도 하지 않아요 (로그아웃은 세션을 닫는 방향으로만 작용).
+
+이미 발급된 access token 은 건드리지 않아요. stateless JWT 라 자체 TTL 까지는 유효합니다.
 
 #### 전체 무효화 — `revokeAllForUser`
 
