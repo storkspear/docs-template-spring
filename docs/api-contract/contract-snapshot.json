@@ -11,6 +11,7 @@
     "/api/apps/{appSlug}/auth/email/verify-code",
     "/api/apps/{appSlug}/auth/google",
     "/api/apps/{appSlug}/auth/kakao",
+    "/api/apps/{appSlug}/auth/logout",
     "/api/apps/{appSlug}/auth/me/2fa/backup-codes/regenerate",
     "/api/apps/{appSlug}/auth/me/2fa/disable",
     "/api/apps/{appSlug}/auth/me/2fa/setup",
@@ -153,6 +154,7 @@
     "USR_002"
   ],
   "noContentEndpoints": [
+    "Auth.LOGOUT",
     "Auth.PASSWORD_CHANGE",
     "Auth.PASSWORD_RESET_CONFIRM",
     "Auth.PASSWORD_RESET_REQUEST",

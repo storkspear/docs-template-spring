@@ -41,6 +41,7 @@
 | POST | `/auth/kakao` | X | Kakao 소셜 로그인 | ADR-013 |
 | POST | `/auth/naver` | X | Naver 소셜 로그인 | ADR-013 |
 | POST | `/auth/refresh` | X (refresh) | refresh token 회전 + 새 access token 발급 | ADR-013 |
+| POST | `/auth/logout` | X (refresh) | 로그아웃 — 제출한 refresh token 의 세션(family) 폐기 (204, 멱등) | ADR-013 |
 | POST | `/auth/withdraw` | O | 계정 탈퇴 (soft delete) | ADR-013 |
 | POST | `/auth/verify-email` | X | 가입 후 메일로 받은 6자리 인증 코드 검증 (`email` + `token` 필드, 오답 5회 시 해당 사용자 토큰 무효화) | ADR-013, ADR-024 |
 | POST | `/auth/resend-verification` | O | 인증 메일 재발송 | ADR-013 |
