@@ -52,7 +52,7 @@ APP_STORAGE_MINIO_BUCKETS_0=basic-bucket
 ```yaml
 services:
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-01-20T14-49-07Z
+    image: cgr.dev/chainguard/minio@sha256:ad134b2dd572ae0d989d6807c3e45516cc75a34883a8021db2ff04be5d1d496a
     ports:
       - "9000:9000"
       - "9001:9001"

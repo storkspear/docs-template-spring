@@ -127,7 +127,7 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 | 이름 | 버전 | 용도 |
 |---|---|---|
 | **MinIO Java Client** | 9.0.3 | S3 호환 오브젝트 스토리지 — 9.x 에서 `Http.Method` · `SourceObject` · `LifecycleConfiguration` 중첩 타입으로 패키지가 재편됐어요 |
-| **MinIO** (docker) | quay.io/minio/minio:RELEASE.2025-01-20T14-49-07Z | 로컬/운영 스토리지 |
+| **MinIO** (docker) | `cgr.dev/chainguard/minio@sha256:ad134b2dd572ae0d989d6807c3e45516cc75a34883a8021db2ff04be5d1d496a` (Chainguard 빌드) | 로컬/운영 스토리지 |
 
 ## 인프라 · 배포
 
