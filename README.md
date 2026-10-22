@@ -1,13 +1,12 @@
 # docs-template-spring
 
-[`template-spring`](https://github.com/storkspear/template-spring) 의 `docs/` 를 **웹에서 보기 위한 static site** 입니다.
-`docs/` 원본은 이 레포 안에 복사본으로 들어있고, SPA (index.html + assets/*) 가 마크다운을 런타임에 렌더링합니다.
+[`template-spring`](https://github.com/storkspear/template-spring) 의 `docs/` 를 웹에서 읽을 수 있게 만든 정적 사이트입니다. 이 레포에는 `docs/` 복사본이 들어 있고, SPA (index.html + assets/*) 가 브라우저에서 마크다운을 불러와 렌더링합니다.
 
-## 🌐 라이브 URL
+## 사이트 주소
 
 **<https://storkspear.github.io/docs-template-spring/>**
 
-사이드바 네비게이션, Mermaid 다이어그램, 내부 링크 SPA 라우팅, 책 목차 / 관련 문서 분리된 footer 카드 등의 기능을 제공합니다.
+사이드바 네비게이션과 Mermaid 다이어그램, 내부 링크의 SPA 라우팅을 지원하고, 문서 아래쪽 footer 카드에서는 책 목차와 관련 문서를 나눠서 보여 줍니다.
 
 ## 구조
 
@@ -30,20 +29,20 @@ python3 -m http.server 8878
 # http://localhost:8878 접속
 ```
 
-CORS 이슈 때문에 `file://` 로 직접 열면 `fetch('docs/...')` 가 실패합니다. 반드시 로컬 서버로 서빙하세요.
+`file://` 로 직접 열면 CORS 정책 때문에 `fetch('docs/...')` 요청이 실패하므로, 반드시 로컬 서버를 띄워서 확인합니다.
 
-## 문서 수정 흐름
+## 문서를 수정하는 순서
 
-1. **원본 수정**: `template-spring/docs/` 에서 먼저 수정 후 push
-2. **이 레포에 반영**: 해당 파일(들) 을 여기 `docs/` 로 복사 (수동 또는 스크립트)
-3. **manifest.json 업데이트** (새 파일 추가 / 순서 변경 시)
-4. commit & push → GitHub Actions 가 자동으로 GitHub Pages 배포
+1. `template-spring/docs/` 에서 먼저 수정하고 push 합니다.
+2. 수정한 파일을 이 레포의 `docs/` 로 복사합니다. 직접 복사해도 되고 스크립트를 사용해도 됩니다.
+3. 새 파일을 추가했거나 문서 순서를 바꿨다면 `manifest.json` 도 함께 수정합니다.
+4. commit 하고 push 하면 GitHub Actions 가 GitHub Pages 에 배포합니다.
 
 ## 자동 배포
 
-`.github/workflows/` 의 Pages workflow 가 main push 시 자동으로 배포합니다. 별도 빌드 스텝 없이 정적 파일만 업로드.
+main 에 push 하면 `.github/workflows/` 의 Pages workflow 가 자동으로 배포합니다. 따로 빌드하는 단계 없이 정적 파일만 업로드합니다.
 
 ## 참고
 
 - 원본 레포: [`template-spring`](https://github.com/storkspear/template-spring)
-- 자매 뷰어: [`docs-template-flutter`](https://storkspear.github.io/docs-template-flutter/)
+- 다른 템플릿 문서 사이트: [`docs-template-flutter`](https://storkspear.github.io/docs-template-flutter/)
