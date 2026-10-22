@@ -114,7 +114,7 @@ sequenceDiagram
 
 | PortOne 자격 상태 | 부팅 | 동작 |
 |---|---|---|
-| v1 key·secret·webhook secret 셋 다 빔 | 통과 | fallback (prod=Stub, dev=WireMock) |
+| v1 key·secret·webhook secret 셋 다 빔 | 통과 | fallback (prod·dev 모두 `StubPaymentAdapter`, 결제 호출 시 503 `CONFIG_MISSING`) |
 | 셋 중 일부만 채움 | 차단 | `IllegalStateException` 으로 부팅 fail |
 | 셋 다 채움 | 통과 | `PortOneAdapter` + `PortOneWebhookVerifier` 등록 |
 
