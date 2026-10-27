@@ -75,7 +75,6 @@ core-auth-impl/                          ← core-auth 도메인 구현 라이�
 ├── AuthServiceImpl.java                 ← Primary Adapter (AuthPort 구현). 모듈 루트
 ├── AuthAutoConfiguration.java           ← @AutoConfiguration. 루트
 ├── AppCredentialProperties.java         ← @ConfigurationProperties. 루트
-├── LockoutProperties.java               ← @ConfigurationProperties. 루트
 ├── service/                             ← AuthServiceImpl 이 위임하는 하위 서비스들
 │   ├── EmailAuthService.java
 │   ├── AppleSignInService.java          ← Google/Kakao/Naver 도 여기 (ADR-017)

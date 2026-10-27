@@ -73,6 +73,9 @@
     "ADMIN_023",
     "ADMIN_024",
     "ADMIN_025",
+    "ADMIN_026",
+    "ADMIN_027",
+    "ADMIN_028",
     "ATC_001",
     "ATC_002",
     "ATC_003",
@@ -178,6 +181,8 @@
   "dtos": {
     "FileUploadRequest": ["filename", "contentType", "sizeBytes"],
     "NotificationSettingUpdateRequest": ["pushEnabled", "emailEnabled"],
+    "PasswordResetConfirmRequest": ["email", "token", "newPassword"],
+    "PasswordResetRequest": ["email"],
     "PostWriteRequest": ["board", "title", "body", "properties", "attachmentKeys"],
     "RegenerateBackupCodesRequest": ["password", "totpCode"],
     "SendEmailVerificationRequest": ["email"],

@@ -18,11 +18,11 @@
 {appSlug}:{principal}:{rpm}
 ```
 
-- `appSlug` 는 URL `/api/apps/{appSlug}/...` 에서 뽑아내고, 못 뽑으면 `unknown` 으로 둡니다.
-- `principal` 은 인증 여부로 갈립니다. 인증된 요청은 `user:{userId}`, 미인증 요청은 `ip:{clientIp}` 가 돼요. IP 는 신뢰 프록시(Cloudflare) 가 붙이는 헤더의 첫 IP 를 쓰고 (기본 `CF-Connecting-IP`, `app.rate-limit.trusted-client-ip-header` 로 변경), 없으면 `getRemoteAddr()` 로 떨어집니다. 클라이언트가 임의로 넣을 수 있는 `X-Forwarded-For` 는 신뢰하지 않아요 — 매 요청 헤더를 바꿔 새 버킷을 얻는 한도 우회를 막기 위해서예요.
+- `appSlug` 는 URL `/api/apps/{appSlug}/...` 에서 뽑아내고, 못 뽑으면 `unknown` 으로 둡니다(콘솔 `/api/admin/*` 도 `unknown`). 경로는 디코딩·정규화된 값(`UrlPathHelper`)으로 판정해서 `%6Cogin` 같은 퍼센트 인코딩으로 strict 매칭을 비껴갈 수 없어요.
+- `principal` 은 인증 여부로 갈립니다. 인증된 요청은 `user:{userId}`, 미인증 요청은 `ip:{clientIp}` 가 돼요. 단 **공개 민감 경로**(로그인·가입·소셜·2FA 로그인·재설정·이메일 검증·콘솔 로그인)는 토큰을 실어 보내도 항상 `ip:` 로 셉니다 — 임의 앱 토큰을 돌려 가며 principal 키를 갈라 로그인 한도를 비껴가는(password spraying) 길을 막기 위해서예요. 인증이 필요한 민감 경로(비밀번호 변경·2FA 관리·재발송·업로드 티켓)는 `user:` 로 세어 NAT 뒤 사용자들이 한도를 나눠 쓰지 않아요. IP 는 신뢰 프록시(Cloudflare) 가 붙이는 헤더의 첫 IP 를 쓰고 (기본 `CF-Connecting-IP`, `app.rate-limit.trusted-client-ip-header` 로 변경), 없으면 `getRemoteAddr()` 로 떨어집니다. 클라이언트가 임의로 넣을 수 있는 `X-Forwarded-For` 는 신뢰하지 않아요 — 매 요청 헤더를 바꿔 새 버킷을 얻는 한도 우회를 막기 위해서예요.
 - `rpm` 은 그 경로에 적용된 한도 tier(strict 또는 default 의 rpm 값)예요. 이 조각이 없으면 민감·비민감 경로가 한 버킷을 공유해, 비민감 트래픽이 먼저 만든 default 버킷이 strict 한도를 무력화합니다.
 
-이렇게 앱·유저·tier 가 키에 모두 들어가므로 버킷이 앱별·유저별·한도별로 독립합니다. 한 유저가 다른 유저의 할당량을 대신 소비할 수 없어요.
+이렇게 앱·유저·tier 가 키에 모두 들어가므로 버킷이 앱별·유저별·한도별로 독립합니다. 인증 경로에서는 한 유저가 다른 유저의 할당량을 대신 소비할 수 없고, 공개 민감 경로에서는 같은 IP 가 한도를 공유해요.
 
 ## 기본값
 
@@ -38,7 +38,7 @@ test 프로파일에는 별도 설정이 없어 `RateLimitProperties` 의 기본
 
 ## 민감 엔드포인트
 
-다음 인증 엔드포인트에는 strict 한도가 붙어요. brute-force 나 이메일 폭탄, 인증 회피 공격의 표적이 되기 쉬운 경로들이라 더 빡빡하게 잠급니다. 경로 상수는 `ApiEndpoints.Auth` 에 정의돼 있고, 필터는 요청 경로가 이 접미사로 끝나는지로 판별합니다.
+다음 엔드포인트에는 strict 한도가 붙어요. brute-force 나 이메일 폭탄, 인증 회피 공격의 표적이 되기 쉬운 경로들이라 더 빡빡하게 잠급니다. 경로 상수는 `ApiEndpoints.Auth`·`ApiEndpoints.Admin` 에 정의돼 있고, 필터는 디코딩된 요청 경로가 이 접미사로 끝나는지로 판별합니다. 공개 경로는 IP, 인증 경로는 principal 로 세요(위 키 설계).
 
 | 경로 상수 | 설명 |
 |---|---|
@@ -49,6 +49,7 @@ test 프로파일에는 별도 설정이 없어 `RateLimitProperties` 의 기본
 | `PASSWORD_RESET_REQUEST` · `PASSWORD_RESET_CONFIRM` · `PASSWORD_CHANGE` | 비밀번호 재설정·변경 |
 | `VERIFY_EMAIL` · `RESEND_VERIFICATION` | 이메일 검증·재발송 |
 | `Files.UPLOADS_SUFFIX` | 앱 파일 업로드 티켓 발급 (presigned PUT 남용·스토리지 소진 표면) |
+| `Admin.LOGIN` | 운영 콘솔 로그인 (공개 — IP 단위, 계정 잠금 `ADMIN_028` 과 별개 축). 콘솔 비밀번호 변경 `/api/admin/me/password` 는 `PASSWORD_CHANGE` 의 `/password` 접미로 이미 포함 |
 
 나머지 경로에는 default 한도가 적용돼요.
 
@@ -78,7 +79,7 @@ Content-Type: application/json
 
 ## 검증
 
-`RateLimitFilterTest` 가 필터 동작을 12개 단위 테스트로 검증해요. strict 한도까지의 정상 통과, 초과 시 429, `TOTP_LOGIN`·`KAKAO`·`NAVER`·2FA 관리 경로의 strict 적용, 앱별·IP별 버킷 분리, 비민감 경로의 default 적용, 선행 default 트래픽이 strict 한도를 무력화하지 못함, 신뢰 헤더(`CF-Connecting-IP`) 기반 버킷 키와 스푸핑된 `X-Forwarded-For` 무시, 전역 비활성화 동작을 각각 확인합니다. 초과 케이스는 strict 한도를 3으로 잡고 4번째 호출에서 429 와 `CMN_429` 가 나오는지를 봅니다.
+`RateLimitFilterTest` 가 필터 동작을 단위 테스트로 검증해요. strict 한도까지의 정상 통과, 초과 시 429, `TOTP_LOGIN`·`KAKAO`·`NAVER`·2FA 관리·콘솔 로그인 경로의 strict 적용, 퍼센트 인코딩 경로가 strict 를 비껴가지 못함, 공개 민감 경로가 인증 principal 과 무관하게 IP 로 세어짐, 인증 민감 경로가 principal 로 세어짐, 앱별·IP별 버킷 분리, 비민감 경로의 default 적용, 선행 default 트래픽이 strict 한도를 무력화하지 못함, 신뢰 헤더(`CF-Connecting-IP`) 기반 버킷 키와 스푸핑된 `X-Forwarded-For` 무시, 전역 비활성화 동작을 각각 확인합니다. 초과 케이스는 strict 한도를 3으로 잡고 4번째 호출에서 429 와 `CMN_429` 가 나오는지를 봅니다.
 
 ## 관련 문서
 

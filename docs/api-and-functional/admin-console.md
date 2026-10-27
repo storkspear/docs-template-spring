@@ -62,6 +62,27 @@ sequenceDiagram
 
 발급되는 JWT 의 `appSlug` claim 은 실제 앱 슬러그가 아니라 **고정값 `"admin"`** 이고, `role` claim 은 계정의 **RBAC 4티어 코드**(`viewer`/`support`/`admin`/`master` — `AdminRole`)입니다. 여기에 `RolePermissionService.effectivePermissions` 가 계산한 효과 권한(`PERM_*` 목록)이 **`permissions` claim** 으로 실려요 — 코드 고정 baseline(대시보드 등, master 는 계정관리 포함) ∪ `role_permissions` 표의 grant 입니다. 이 값들이 이후 모든 권한 검사의 기준이 돼요.
 
+**로그인 보호 — 앱 로그인과 같은 수준.** 세 겹이에요.
+
+| 축 | 동작 | 설정 |
+|---|---|---|
+| 시도 속도 (IP) | `POST /api/admin/auth/login` 은 `RateLimitFilter` 의 strict 경로라 IP 당 **분당 10회**(초과 시 429 `CMN_429` + `Retry-After`) | `app.rate-limit.strict-rpm` (앱 로그인과 공유, 기본 10) |
+| 계정 잠금 | 비밀번호 실패가 6시간 윈도우 안에 **5회** 누적되면 **15분** 잠금, 이후 같은 윈도우에서 5회마다 잠금 시간이 2배(30분 → 60분 → … 최대 24시간). 잠긴 동안은 비밀번호를 검증하지 않고 429 `ADMIN_028` + `Retry-After`(남은 초) 로 거부해요. 로그인에 성공하면 카운터·잠금이 즉시 풀려요 | `app.security.lockout.*` (`APP_SECURITY_LOCKOUT_MAX_ATTEMPTS`·`_WINDOW`·`_BASE_DURATION`·`_MAX_DURATION`, 앱 로그인과 같은 값) |
+| 계정 열거 방지 | 없는 이메일도 같은 cost 의 더미 BCrypt 비교를 거쳐 응답 코드(`ADMIN_001`)가 같고 응답 시간의 대부분(bcrypt)을 맞춰요. 잔여 채널은 수용해요 — 있는 계정의 실패 경로는 잠금 조회·실패 기록 트랜잭션만큼 조금 더 걸리고, 5회 이상 두드리면 있는 계정만 429 로 바뀌어 존재가 드러나요(앱 로그인과 같은 트레이드오프). 같은 이유로 이메일만 알면 그 계정을 반복해서 잠글 수 있어요(최대 24시간) — 운영자는 아래 해제 절차로 복구해요 | — |
+
+잠금은 `admin.admin_users` 의 `failed_attempts`·`last_failed_at`·`locked_until` 로 기록돼요(`AdminLoginLockoutService`, 실패 기록은 REQUIRES_NEW 라 로그인 실패 트랜잭션이 되돌아가도 남아요).
+
+**잠겼을 때 푸는 방법.** 정상은 **기다리기**예요 — 응답의 `error.details.retryAfterSeconds`(= `Retry-After` 헤더) 가 남은 초이고, 첫 잠금은 15분이에요. 잠긴 계정이 master 가 아니면 상급자(master)가 콘솔에서 그 계정의 비밀번호를 재설정(#35)하면 잠금도 함께 풀려요. 잠긴 당사자가 유일한 master 라면 운영자가 admin schema 에서 직접 풀어요:
+
+```sql
+-- 홈서버: psql 로 운영 DB 접속 후 (dogfood-setup.md 의 DB 접속 절 참고)
+SET search_path TO admin;
+UPDATE admin_users SET failed_attempts = 0, last_failed_at = NULL, locked_until = NULL
+ WHERE email = '<잠긴 계정 이메일>';
+```
+
+`app.security.lockout.enabled=false` 로 끄면 앱 로그인 잠금도 함께 꺼지니 운영에서는 끄지 마세요.
+
 콘솔 세션은 앱 유저 access token(`app.jwt.access-token-ttl`, 기본 15분)과 별도로 `app.jwt.admin-access-token-ttl`(기본 `PT12H`, 12시간)을 TTL 로 씁니다. `JwtService.issueAccessToken` 은 앱 유저 전용 TTL 만 계속 쓰고, `issueAdminAccessToken` 은 콘솔 전용 TTL 을 써서 — 운영자가 앱 유저와 같은 15분마다 재로그인하지 않게 분리했어요.
 
 ### 2-3. 권한 검사 — RBAC 4티어 + 양방향 격리
@@ -662,7 +683,7 @@ IAP 결제 환불 시도 응답:
 - **수정 시 첨부는 집합으로 다룹니다**: `PUT .../content/{id}` 의 `attachmentIds` 는 **그 글이 가져야 할 첨부 전체**예요. 목록에 없는 첨부는 떼어내고(soft-delete, 30일 안에 파일 화면에서 복원 가능), 목록에 새로 들어온 것은 붙여요. 필드를 **생략하면**(`null`) 첨부를 손대지 않고, **빈 배열**(`[]`)은 전부 떼어냄이라 뜻이 달라요.
   - 본문과 `properties` 에 살아 있는 `attachment://{id}` 참조는 목록에 없어도 지켜집니다 — 클라이언트가 목록을 만들다 빠뜨려도 사진이 사라지지 않아요.
   - 작성(`POST .../content`)은 떼어낼 것이 없어 붙이기만 합니다.
-- **정리 배치는 기본이 꺼져 있어요**: `app.content.purge.enabled` · `app.attachment.purge.enabled` 를 켜지 않으면 지운 글도 떼어낸 사진도 디스크에 남아요. 순서가 중요해서 게시물(03:30)이 첨부(04:00)보다 **먼저** 돌아야 같은 밤에 저장소까지 정리됩니다.
+- **첨부 정리 배치는 기본 켜짐, 게시물 정리 배치는 기본 꺼짐**: `app.attachment.purge.enabled`(기본 true)가 떼어낸 사진·지운 첨부를 치우고, `app.content.purge.enabled` 를 켜지 않으면 지운 글은 디스크에 남아요(그 글의 첨부도 글이 purge 될 때 비로소 purge 대기로 넘어가요). 순서가 중요해서 게시물(03:30)이 첨부(04:00)보다 **먼저** 돌아야 같은 밤에 저장소까지 정리됩니다.
 
 ### 4-18. `GET`/`PUT /api/admin/apps/{slug}/app-versions` — 앱 최소버전 2단계(강제/경고) 규칙 (v1.12)
 
@@ -851,11 +872,11 @@ Content-Type: application/json
 
 ---
 
-## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_027`
+## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_028`
 
 | 코드 | HTTP | 발생 상황 |
 |---|---|---|
-| `ADMIN_001` INVALID_CREDENTIALS | 401 | 로그인 시 이메일 또는 비밀번호 불일치 |
+| `ADMIN_001` INVALID_CREDENTIALS | 401 | 로그인 시 이메일 또는 비밀번호 불일치 (없는 이메일도 같은 코드) |
 | `ADMIN_002` UNSUPPORTED_METRIC | 400 | `/analytics/{metric}` 의 `metric` 이 지원 목록(`dau`/`signups`/`revenue`/`refunds`/`net`/`failures`)에 없음 |
 | `ADMIN_003` UNKNOWN_SLUG | 404 | 존재하지 않는 슬러그로 조회(`AdminSlugRegistry` 에 없는 slug) |
 | `ADMIN_004` INVALID_DATE_RANGE | 400 | `from`/`to` 쿼리 파라미터가 ISO-8601 형식이 아님 |
@@ -882,6 +903,7 @@ Content-Type: application/json
 | `ADMIN_025` USER_ERASED | 410 | 완전삭제(익명화)된 사용자에 export(#42)/삭제(#43) 시도 |
 | `ADMIN_026` ADMIN_PERM_GRANT_FORBIDDEN | 403 | 역할·권한 매트릭스 편집(#38)에서 호출자가 갖지 않은 권한을 하위 역할에 새로 켜려 함(master 는 제외). 이미 켜져 있던 권한을 유지·해제하는 건 허용 |
 | `ADMIN_027` FILE_KIND_FORBIDDEN | 403 | 이미지·영상·오디오 파일 삭제(#24) 시 그 종류의 삭제 권한(`FILES_IMAGE_DELETE` 등)이 없음. 문서 등 그 밖의 파일은 `FILES_DELETE` 만으로 충분 |
+| `ADMIN_028` ADMIN_ACCOUNT_LOCKED | 429 | 비밀번호 실패 누적으로 콘솔 계정 잠금. `details.retryAfterSeconds` 와 `Retry-After` 헤더에 남은 초. React 는 "N분 후 다시 시도" 안내 (§2-2) |
 
 에러 응답은 다른 모든 API 와 동일한 `ApiResponse` 래퍼를 씁니다.
 

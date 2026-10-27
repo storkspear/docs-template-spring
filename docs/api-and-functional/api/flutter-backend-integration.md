@@ -329,8 +329,8 @@ JWT access token 의 claim 구조는 다음과 같아요. 발급은 `JwtService.
 | `CMN_007` | Access token 만료 | 자동으로 `/auth/refresh` 호출 후 성공 시 원 요청 재시도 |
 | `CMN_008` | Access token 무효 (위변조 등) | 강제 로그아웃 후 로그인 화면 |
 | `ATH_001` | 이메일/비밀번호 불일치 | 입력 오류 메시지 표시 |
-| `ATH_002` | Refresh·verify·reset 토큰 만료 | 재로그인 유도 |
-| `ATH_003` | Refresh·verify·reset 토큰 무효 | 재로그인 유도 |
+| `ATH_002` | Refresh·verify·reset 토큰 만료 | `/auth/refresh` 에서 오면 재로그인 유도. 이메일 인증·비밀번호 재설정 코드 화면에서 오면 "코드가 만료됐어요 — 다시 요청" 안내 (`PasswordResetService`·`EmailVerificationService` 계약: 만료는 재요청 유도) |
+| `ATH_003` | Refresh·verify·reset 토큰 무효 | `/auth/refresh` 에서 오면 재로그인 유도. 코드 화면에서 오면 "코드가 올바르지 않아요" 입력 오류 안내 — 같은 코드로 5회 틀리면 그 코드가 무효화되므로 그 뒤에는 코드 재요청 안내 |
 | `ATH_004` | 소셜 로그인 검증 실패 | 소셜 로그인 재시도 |
 | `ATH_005` | 이메일 미인증 | 인증 안내 화면 |
 | `ATH_010` | 2FA 필요 | `twoFactorToken` 으로 2단계 코드 화면 이동 |
