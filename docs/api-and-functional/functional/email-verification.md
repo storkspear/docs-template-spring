@@ -194,7 +194,7 @@ public class EmailAutoConfiguration {
 
 로컬과 dev 자동화 테스트는 메일을 받지 않고도 인증 단계를 통과해야 해요. 그래서 서버가 만든 raw 6자리 코드를 응답으로 직접 돌려주는 길을 둡니다. 이 노출을 켜는 스위치는 두 가지이고, 둘 중 하나만 켜져도 노출돼요.
 
-- `app.email.dev-fallback-raw` 설정값. `application-local.yml` 과 `application-dev.yml` 이 둘 다 true 로 두고, 운영 yml 에는 없어 기본 false 입니다.
+- `app.email.dev-fallback-raw` 설정값. `application-local.yml` 과 `application-dev.yml` 이 둘 다 true 로 두고, 운영 yml 에는 없어 기본 false 입니다. prod profile 에서는 `.env.prod` 에 true 를 넣어도 `ProdSafetyEnvironmentPostProcessor` 가 false 로 덮어쓰고 WARN 을 남겨요.
 - 활성 어댑터의 `isDevCapture()`. `LoggingEmailAdapter` 가 true 를 반환할 때만 켜져요.
 
 dev 서버는 실제 Resend 키로 메일을 보내면서도 `dev-fallback-raw=true` 라 응답에도 같은 코드를 실어 줍니다. 그래서 자동화 e2e 가 메일함을 뒤지지 않고 인증을 진행할 수 있어요. 노출되는 자리는 엔드포인트마다 다릅니다.
@@ -446,7 +446,7 @@ public static final Duration DEFAULT_TOKEN_TTL = Duration.ofMinutes(5);
 @Value("${app.email.dev-fallback-raw:false}") boolean devFallbackRaw
 ```
 
-같은 자리에서 `dev-fallback-raw` 도 함께 주입돼요. 기본값이 false 라, 운영 yml 이 이 키를 두지 않는 한 raw 노출은 켜지지 않습니다.
+같은 자리에서 `dev-fallback-raw` 도 함께 주입돼요. 기본값이 false 이고, prod profile 에서는 환경변수로 켜도 `ProdSafetyEnvironmentPostProcessor` 가 false 로 강제하므로 운영에서 raw 노출은 켜지지 않습니다.
 
 ---
 
@@ -470,6 +470,7 @@ public Optional<String> requestReset(String email) {
 
     UserAccount user = userOpt.get();
     String rawCode = TokenGenerator.generateNumericCode(CODE_DIGITS);
+    tokenRepository.deleteActiveByUserId(user.id()); // 이전 활성 코드 폐기 — 살아 있는 코드는 항상 1개
     tokenRepository.save(new AuthPasswordResetToken(
             user.id(), TokenGenerator.sha256Hex(rawCode), Instant.now().plus(tokenTtl)));
 
@@ -491,38 +492,62 @@ public Optional<String> requestReset(String email) {
 
 이 메서드의 설계 중심은 이메일 열거 방어예요. 존재하지 않는 이메일로 요청이 와도 예외를 던지지 않고 조용히 `empty` 를 반환합니다. 응답이 동일해야 공격자가 "어떤 이메일이 가입돼 있는가" 를 탐지하지 못해요.
 
-발송 실패 처리는 가입과 정반대라는 점도 주목할 만해요. 여기서는 발송이 실패해도 토큰이 이미 저장돼 있으니, 로그만 남기고 넘어갑니다. 유저가 재요청하면 새 토큰이 나가요. raw 노출은 이메일 인증과 달리 `isDevCapture()` 한 갈래로만 결정합니다.
+발송 실패 처리는 가입과 정반대라는 점도 주목할 만해요. 여기서는 발송이 실패해도 토큰이 이미 저장돼 있으니, 로그만 남기고 넘어갑니다. 유저가 재요청하면 새 토큰이 나가고, 이전 활성 코드는 그 자리에서 폐기돼요. raw 노출은 이메일 인증과 달리 `isDevCapture()` 한 갈래로만 결정합니다.
 
 ### 2. 재설정 확인
 
-`POST /auth/password-reset/confirm` 으로 토큰과 새 비밀번호가 오면 검증·변경·세션 무효화를 한 번에 처리해요.
+`POST /auth/password-reset/confirm` 으로 `{"email", "token", "newPassword"}` 가 오면 검증·변경·세션 무효화를 한 번에 처리해요. `email` 은 필수예요 — 코드를 **그 계정의 최신 활성 코드 1개**와만 대조하고, 오답 시도도 그 계정 단위로 세기 위한 스코프 키입니다. 6자리 코드를 앱 전체의 활성 코드와 대조하면 무작위 대입 표면이 "재설정을 요청해 둔 사용자 수"만큼 넓어지기 때문이에요. 이메일 인증의 `verify-email` 과 같은 계약입니다.
 
 ```java
 // core/core-auth-impl/.../service/PasswordResetService.java 발췌
-public void confirmReset(String rawToken, String newPassword) {
-    AuthPasswordResetToken token = tokenRepository
-            .findByTokenHash(TokenGenerator.sha256Hex(rawToken))
-            .orElseThrow(() -> new AuthException(AuthError.INVALID_TOKEN));
-
-    if (token.isUsed()) {
+@Transactional(noRollbackFor = AuthException.class)
+public void confirmReset(String email, String rawToken, String newPassword) {
+    Optional<UserAccount> account = userPort.findAccountByEmail(email);
+    if (account.isEmpty()) {
+        // 계정 열거 방지 — 실제 경로와 같은 모양의 토큰 조회 후 동일 응답
+        tokenRepository.findFirstByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(ENUMERATION_GUARD_USER_ID);
         throw new AuthException(AuthError.INVALID_TOKEN);
     }
+    long userId = account.get().id();
+    AuthPasswordResetToken token = tokenRepository
+            .findFirstByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(userId)
+            .orElseThrow(() -> new AuthException(AuthError.INVALID_TOKEN));
+
     if (token.isExpired()) {
         throw new AuthException(AuthError.TOKEN_EXPIRED);
     }
+    if (token.getAttempts() >= MAX_CONFIRM_ATTEMPTS) {
+        tokenRepository.markUsedById(token.getId(), Instant.now());
+        throw new AuthException(AuthError.INVALID_TOKEN);
+    }
+    if (!TokenGenerator.constantTimeEquals(TokenGenerator.sha256Hex(rawToken), token.getTokenHash())) {
+        // 그 사용자의 활성 토큰만 원자적 +1, 5회 도달 시 폐기
+        int priorAttempts = token.getAttempts();
+        int updated = tokenRepository.incrementAttemptsIfBelow(token.getId(), MAX_CONFIRM_ATTEMPTS);
+        if (updated == 0 || priorAttempts + 1 >= MAX_CONFIRM_ATTEMPTS) {
+            tokenRepository.markUsedById(token.getId(), Instant.now());
+        }
+        throw new AuthException(AuthError.INVALID_TOKEN);
+    }
 
     token.markUsed();
-    userPort.updatePassword(token.getUserId(), passwordHasher.hash(newPassword));
+    userPort.updatePassword(userId, passwordHasher.hash(newPassword));
 
     // 계정 잠금 즉시 해제 — 재설정 = 이메일 소유 증명 = 본인 확인 완료
-    userPort.resetLockout(token.getUserId());
+    userPort.resetLockout(userId);
 
     // 모든 세션 무효화 — 보안 조치
-    refreshTokenService.revokeAllForUser(token.getUserId());
+    refreshTokenService.revokeAllForUser(userId);
 }
 ```
 
+오답은 그 계정의 토큰에만 쌓이고, 5회 도달 시 그 코드만 무효화돼요 (다른 사용자의 코드는 영향 없음). 피해자의 이메일을 아는 공격자가 오답으로 코드를 소진시키는 표적 DoS 는 남지만, 피해자가 재요청하면 새 코드로 복구되므로 이메일 인증과 같은 수용된 트레이드오프예요. 오답 거부도 attempts 증가가 commit 되어야 하므로 `noRollbackFor = AuthException.class` 를 서비스와 진입점(`AuthServiceImpl.confirmPasswordReset`) 양쪽에 선언합니다.
+
 비밀번호가 바뀌면 그 유저의 refresh token 을 전부 무효화합니다. 계정이 탈취돼 공격자가 비밀번호를 바꿨더라도, 정상 유저가 재설정을 수행하는 순간 공격자의 모든 세션이 끊기게 하려는 조치예요.
+
+### 3. 만료 토큰 정리
+
+재설정 요청마다 row 가 쌓이므로 `PasswordResetTokenCleanupScheduler` 가 만료된 토큰을 물리 삭제해요. refresh token 정리와 같은 스위치(`app.auth.cleanup.enabled`)와 cron(`app.auth.cleanup.cron`, 기본 매일 04:00)을 공유하고, 슬러그별 schema 를 순회합니다.
 
 ### TTL
 
@@ -566,8 +591,9 @@ public record VerifyEmailRequest(@Email @NotBlank String email, @NotBlank String
 // core/core-auth-api/.../dto/PasswordResetRequest.java
 public record PasswordResetRequest(@Email @NotBlank String email) {}
 
-// core/core-auth-api/.../dto/PasswordResetConfirmRequest.java
+// core/core-auth-api/.../dto/PasswordResetConfirmRequest.java — email 은 per-subject 시도 계상 스코프 키
 public record PasswordResetConfirmRequest(
+        @Email @NotBlank String email,
         @NotBlank String token,
         @NotBlank @ValidPassword String newPassword) {}
 ```
@@ -594,7 +620,7 @@ EMAIL_CONFIG_MISSING(503, "EMAIL_002", "이메일 발송 설정 누락");
 | 코드 | HTTP | 발생 상황 |
 |---|---|---|
 | `ATH_002` TOKEN_EXPIRED | 401 | 인증·재설정 토큰 만료 |
-| `ATH_003` INVALID_TOKEN | 401 | 토큰 미존재, 이미 사용됨, 조작됨 |
+| `ATH_003` INVALID_TOKEN | 401 | 토큰 미존재, 이미 사용됨, 조작됨, 요청 email 의 계정에 활성 코드 없음, 오답 5회 도달 |
 | `ATH_005` EMAIL_NOT_VERIFIED | 401 | 이메일 인증이 필요한 엔드포인트에 미인증 유저 접근 |
 | `ATH_011` INVALID_VERIFICATION_CODE | 401 | 가입 전 인증 코드 불일치·만료·재사용·시도횟수 초과 |
 | `ATH_012` VERIFICATION_PROOF_INVALID | 401 | signup 의 `proofToken` 누락·서명/만료/email·appSlug·purpose 불일치 |

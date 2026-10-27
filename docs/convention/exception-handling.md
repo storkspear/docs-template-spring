@@ -35,7 +35,7 @@ ErrorInfo (인터페이스)
     ├── PaymentError     ← PAY_001 ~ PAY_009 (PortOne PG — ADR-019)
     ├── StorageError     ← STG_001 ~ STG_011 (오브젝트 스토리지)
     ├── AttachmentError  ← ATC_001 ~ ATC_005 (앱 파일 업로드·조회 — core-attachment)
-    └── AdminError       ← ADMIN_001 ~ ADMIN_025 (운영 콘솔 — core-admin-impl)
+    └── AdminError       ← ADMIN_001 ~ ADMIN_027 (운영 콘솔 — core-admin-impl)
 
 BaseException (부모)
     ├── CommonException      ← 공통 예외 (NOT_FOUND, FORBIDDEN, JWT 토큰 등)
@@ -133,7 +133,7 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | 코드 | HTTP | enum 값 | 설명 |
 |---|---|---|---|
 | USR_001 | 404 | USER_NOT_FOUND | 유저 미발견 |
-| USR_002 | 409 | EMAIL_ALREADY_EXISTS | 이메일 중복 |
+| USR_002 | 409 | EMAIL_ALREADY_EXISTS | 이메일 중복 (이메일 가입·소셜 최초 가입 공통 — 소셜은 기존 계정에 자동 연결하지 않음) |
 
 ### BillingError (BIL) — ADR-020
 
@@ -261,6 +261,8 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | ADMIN_023 | 400 | ATTACHMENT_ASSOCIATION_FAILED | 첨부 연관 확정 실패 (부재·slug 불일치·타 게시물 소유) |
 | ADMIN_024 | 400 | USER_ALREADY_DELETED | 이미 탈퇴 처리된 사용자 (콘솔 삭제 재호출) |
 | ADMIN_025 | 410 | USER_ERASED | 완전삭제(익명화)된 사용자 (export/삭제 시도) |
+| ADMIN_026 | 403 | ADMIN_PERM_GRANT_FORBIDDEN | 본인이 갖지 않은 권한을 하위 역할에 새로 부여 시도 |
+| ADMIN_027 | 403 | FILE_KIND_FORBIDDEN | 종류별 파일 권한(이미지·영상·오디오 삭제) 없음 |
 
 ### graceful 503 패턴
 

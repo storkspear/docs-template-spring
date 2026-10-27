@@ -76,19 +76,21 @@
 
 ### 4.2 결제 모듈이 부팅을 막는다 — PortOne 부분 설정 함정
 
-파생 레포의 `.env.prod` 를 채우다가, 결제를 쓸 예정이라 PortOne 키를 일부만 먼저 넣어 뒀어요. `APP_PAYMENT_PORTONE_API_V1_KEY` 와 `API_V1_SECRET` 은 채웠는데 `WEBHOOK_SECRET` 은 비워 둔 상태였어요. 그랬더니 prod 프로파일 부팅이 거부됐어요.
+파생 레포의 `.env.prod` 를 채우다가, 결제를 쓸 예정이라 PortOne 키를 일부만 먼저 넣어 뒀어요. `APP_PAYMENT_PORTONE_API_V1_KEY` 만 채우고 `API_V1_SECRET` 은 비워 둔 상태였어요. 그랬더니 prod 프로파일 부팅이 거부됐어요.
 
-**왜 발생했나요?** 슬러그 컨트롤러는 `PaymentPort` 를 필수 의존으로 받아요. [`ADR-019`](../philosophy/adr-019-billing-iap-payment-separation.md) 가 IAP·PG·Billing 을 분리하기로 결정한 결과예요. prod 와 dev 프로파일에서는 `PortOneProdConfigGuard`(`core/core-payment-impl/.../impl/PaymentAutoConfiguration.java`)가 부팅 시 PortOne 설정을 검증하는데, 그 정책이 세 갈래예요.
+**왜 발생했나요?** 슬러그 컨트롤러는 `PaymentPort` 를 필수 의존으로 받아요. [`ADR-019`](../philosophy/adr-019-billing-iap-payment-separation.md) 가 IAP·PG·Billing 을 분리하기로 결정한 결과예요. prod 와 dev 프로파일에서는 `PortOneProdConfigGuard`(`core/core-payment-impl/.../impl/PaymentAutoConfiguration.java`)가 부팅 시 PortOne 설정을 검증해요.
 
 | PortOne 설정 상태 | 부팅 | 결과 |
 |---|---|---|
-| v1 키·secret·webhook secret **셋 다 빔** | 통과 | fallback 의도로 판단 → `StubPaymentAdapter`(prod) / WireMock(dev). 결제 호출 시 stub 응답 |
-| **일부만** 채워짐 | 차단 | strict fail. webhook 만 빠지면 위조 위험, v1 키만 빠지면 결제 불가 — 둘 다 사고라 fail-fast |
-| **셋 다** 채워짐 | 통과 | 정상. `PortOneAdapter` + webhook 검증기 등록 |
+| v1 key·secret, v2 key, webhook secret **전부 빔** | 통과 | fallback 의도로 판단 → `StubPaymentAdapter`(prod) / WireMock(dev). 결제 호출 시 stub 응답 |
+| v1 key·secret 중 **하나만** 채워짐 | 차단 | strict fail. 결제 불가인데 stub 이 조용히 뜨는 사고라 fail-fast |
+| webhook secret **만** 채워짐 | 차단 | 결제 자격이 없어 결제 불가 |
+| v2 key 는 있는데 webhook secret **없음** | 차단 | 서명된 v2 webhook 을 검증할 수 없음 |
+| v1 key·secret **둘 다** 채워짐 | 통과 | 정상. `PortOneAdapter` 등록. v1 webhook 은 서명 헤더가 없어 secret 불필요 — `imp_uid` 재조회로 검증 |
 
-핵심은 이거예요. 셋을 다 비우는 건 "결제를 의도적으로 안 쓴다" 는 명확한 신호라 허용돼요. 막히는 건 어중간하게 일부만 채운 상태예요. 사용자가 webhook secret 하나를 빠뜨린 게 바로 두 번째 줄에 걸린 거예요.
+핵심은 이거예요. 전부 비우는 건 "결제를 의도적으로 안 쓴다" 는 명확한 신호라 허용돼요. 막히는 건 반쪽만 채운 상태예요. 사용자가 v1 secret 하나를 빠뜨린 게 바로 두 번째 줄에 걸린 거예요. 처음엔 이 가드가 v1 에도 webhook secret 을 요구했는데, 포트원 v1 webhook 은 서명 헤더를 보내지 않아 그 요구가 오히려 모든 v1 webhook 을 "서명 누락" 으로 거부하게 만든다는 걸 확인하고 v2 전용으로 좁혔어요.
 
-**무엇이 정착됐나요?** 정착된 원칙은 "셋 다 채우거나, 셋 다 비우거나 — 절대 부분만 채우지 않는다" 예요. [`dogfood-setup.md`](./dogfood-setup.md) 의 환경 변수 절에 이 안내가 들어갔어요. 그리고 셋 다 비운 fallback 경로에서도 서버가 멈추지 않도록, `StubPaymentAdapter` 가 결제 호출에 graceful 503(`PAY_008`)으로 응답하는 패턴으로 통일됐어요. 같은 시점에 `StubIapAdapter` 와 패턴을 맞춰서, 결제 미설정 환경에서도 서버는 부팅하고 결제 API 만 503 으로 답합니다. 이 패턴은 commit `c982a84` 에서 정착됐어요.
+**무엇이 정착됐나요?** 정착된 원칙은 "v1 key·secret 은 짝으로 채우거나 둘 다 비우거나 — 절대 반쪽만 채우지 않는다, v2 key 는 어댑터가 들어오기 전까지 비운다" 예요. [`dogfood-setup.md`](./dogfood-setup.md) 의 환경 변수 절에 이 안내가 들어갔어요. 그리고 셋 다 비운 fallback 경로에서도 서버가 멈추지 않도록, `StubPaymentAdapter` 가 결제 호출에 graceful 503(`PAY_008`)으로 응답하는 패턴으로 통일됐어요. 같은 시점에 `StubIapAdapter` 와 패턴을 맞춰서, 결제 미설정 환경에서도 서버는 부팅하고 결제 API 만 503 으로 답합니다. 이 패턴은 commit `c982a84` 에서 정착됐어요.
 
 ### 4.3 Cloudflare 가 옛 NXDOMAIN 을 캐싱한다 — NS internal cache
 
@@ -153,7 +155,7 @@
 | **`BucketProvisioner` 멱등** | `core/core-storage-impl/.../impl/BucketProvisioner.java` — `APP_STORAGE_MINIO_BUCKETS_*` 부팅 시 자동 생성 |
 | **force-clear 5단계 confirm** | [`runbook.md`](../production/deploy/runbook.md), [`cli-guide.md`](./cli-guide.md) — DB · Storage · 관측성 · 백업 · 최종 |
 | **Stub 503 graceful (IAP / Payment 동일)** | `core/core-iap-impl/.../impl/StubIapAdapter.java` + `core/core-payment-impl/.../impl/StubPaymentAdapter.java` |
-| **`PortOneProdConfigGuard` 부팅 검증** | `core/core-payment-impl/.../impl/PaymentAutoConfiguration.java` — prod / dev 에서 v1 키 + webhook secret 을 "셋 다 또는 셋 다 빔" 으로 강제 |
+| **`PortOneProdConfigGuard` 부팅 검증** | `core/core-payment-impl/.../impl/PaymentAutoConfiguration.java` — prod / dev 에서 v1 key·secret 을 "짝으로 또는 둘 다 빔" 으로 강제, v2 key 는 미지원이라 차단 |
 | **factory wrapper alias 감지** | `factory:112`(`export FACTORY_ALIAS=$(basename "$0")`) + `tools/lib/common.sh:193` `detect_factory_alias()` |
 | **Cloudflare NS polling** | `tools/lib/cloudflare.sh:118` `cloudflare_register_hostname` — propagation 검증 + 자동 record 재생성 |
 | **`APP_FLYWAY_MODE` 기본값 = AUTO** | `.env.prod.example` — 빈 schema 첫 deploy 시 부팅 fail 방지 |

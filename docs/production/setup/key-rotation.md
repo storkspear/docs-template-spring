@@ -142,17 +142,15 @@ openssl rand -base64 64 | tr -d '\n'
 
 ### 6. PortOne webhook secret (`APP_PAYMENT_PORTONE_WEBHOOK_SECRET`)
 
-**폐기 + 재발급**: PortOne 콘솔에서 webhook secret 을 재설정하거나, 직접 새 값을 만듭니다.
+이 값은 **v2 webhook(Standard Webhooks 서명)** 에서만 쓰여요. v1(아임포트) webhook 은 서명 헤더가 없어 secret 을 쓰지 않고, 서버가 `imp_uid` 로 결제를 재조회해 진위를 확인합니다. v1 배포라면 이 절은 건너뛰어도 돼요.
 
-```bash
-openssl rand -base64 32 | tr -d '\n=+/' | head -c 32
-```
+**폐기 + 재발급**: PortOne 콘솔의 v2 webhook 설정에서 secret 을 재발급해요 (`whsec_…` 형식, base64). 서명 대상에 `webhook-id` 와 timestamp 가 포함되므로 직접 만든 임의 문자열이 아니라 콘솔이 발급한 값을 써야 PortOne 이 보내는 서명과 맞습니다.
 
 **적용**:
-1. PortOne 콘솔의 webhook secret 과 `.env.prod` 의 값을 **동일하게** 맞춰요 (서버가 이 값으로 webhook 서명을 HMAC 검증).
+1. PortOne 콘솔의 webhook secret 과 `.env.prod` 의 `APP_PAYMENT_PORTONE_WEBHOOK_SECRET` 을 **동일하게** 맞춰요. `webhook-signature` 헤더는 공백으로 구분해 여러 서명을 담을 수 있어 회전 구간에도 옛·새 secret 서명이 함께 와요.
 2. `<repo> prod init` 실행
 
-⚠️ PortOne 키는 *전부 아니면 전무* 규칙이에요. `APP_PAYMENT_PORTONE_API_V1_KEY`·`_API_V1_SECRET`·`_WEBHOOK_SECRET` 중 하나만 채워진 채로 두면 `PortOneProdConfigGuard` 가 부팅을 차단합니다 ([`Secret Chain 4-Stage §4`](./secret-chain-4stage.md#4-자주-누락되는-케이스)). 셋을 함께 다뤄요.
+⚠️ 가드 규칙: `APP_PAYMENT_PORTONE_API_V1_KEY`·`_API_V1_SECRET` 은 둘 다 채우거나 둘 다 비워야 하고, `_API_V2_KEY` 를 채우면 `_WEBHOOK_SECRET` 도 필수예요. 하나만 어긋나면 `PortOneProdConfigGuard` 가 부팅을 차단합니다 ([`Secret Chain 4-Stage §4`](./secret-chain-4stage.md#4-자주-누락되는-케이스)).
 
 ### 7. cosign 서명 키 (`COSIGN_KEY_PATH`)
 

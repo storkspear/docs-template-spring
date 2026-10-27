@@ -130,15 +130,17 @@ env:
 
 `<your-backend> new <slug>` 가 만드는 슬러그 컨트롤러는 core 의 Port (Auth · Iap · Payment) 에 의존합니다. 그 Port 가 prod profile 에서 자격을 검증하면, 자격이 누락된 환경에서는 부팅이 차단돼요.
 
-대표 사례는 PortOne 자격(`APP_PAYMENT_PORTONE_*`)입니다. `*PaymentController` 가 `PaymentPort` 를 의존하고, prod·dev profile 에서 `PaymentAutoConfiguration` 의 `PortOneProdConfigGuard` bean 이 부팅 시점에 키 조합을 검증합니다. 검증 정책은 *전부 아니면 전무* 예요.
+대표 사례는 PortOne 자격(`APP_PAYMENT_PORTONE_*`)입니다. `*PaymentController` 가 `PaymentPort` 를 의존하고, prod·dev profile 에서 `PaymentAutoConfiguration` 의 `PortOneProdConfigGuard` bean 이 부팅 시점에 키 조합을 검증합니다. 검증 정책은 *짝을 맞추거나 전부 비우거나* 예요.
 
-| v1 key/secret + webhook secret 상태 | 부팅 |
+| PortOne 키 상태 | 부팅 |
 |---|---|
-| 셋 다 비어있음 | 통과 — 결제를 의도적으로 끈 것으로 보고 Stub fallback |
-| 일부만 채워짐 | 차단 — webhook 위조나 결제 불가 위험으로 fail-fast |
-| 셋 다 채워짐 | 통과 — PortOneAdapter 등록 |
+| v1 key/secret, v2 key, webhook secret 전부 비어있음 | 통과 — 결제를 의도적으로 끈 것으로 보고 Stub fallback |
+| v1 key/secret 중 하나만 채워짐 | 차단 — 결제 불가인데 stub 이 조용히 뜨는 위험으로 fail-fast |
+| webhook secret 만 채워짐 | 차단 — 결제 자격 없음 |
+| v2 key 는 있는데 webhook secret 없음 | 차단 — 서명된 v2 webhook 을 검증할 수 없음 |
+| v1 key/secret 둘 다 채워짐 | 통과 — PortOneAdapter 등록 (v1 webhook 은 서명이 없어 secret 불필요, `imp_uid` 재조회로 검증) |
 
-즉 "비어 있으면 안 된다" 가 아니라 *셋을 묶어서 다 채우거나 다 비우거나* 가 규칙입니다. 결제를 실제로 안 쓰더라도 일부만 채워두면 부팅이 막히므로, 세 키를 모두 비워 fallback 으로 보내거나 더미값 세 개를 네 곳에 모두 등록해야 해요. 키가 세 개고 등록처가 네 곳이라 총 12 곳을 한 번에 갱신하게 됩니다.
+즉 "비어 있으면 안 된다" 가 아니라 *v1 key·secret 을 짝으로 다 채우거나 다 비우거나* 가 규칙입니다. 결제를 실제로 안 쓰더라도 반쪽만 채워두면 부팅이 막히므로, 키를 모두 비워 fallback 으로 보내는 게 정석이에요. v1 key·secret 두 개를 네 곳에 등록하면 총 8 곳을 한 번에 갱신하게 됩니다.
 
 ### 케이스 2 — `BucketProvisioner` 가 자동 생성하는 버킷
 

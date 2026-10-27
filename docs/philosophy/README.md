@@ -301,7 +301,7 @@ ADR-020 (Subscription/Payment 도메인 모델 + Webhook 보안)
 - [`ADR-031 · 알림 사용자 선호도`](./adr-031-notification-preferences.md)
 - [`ADR-032 · Google webhook auth (Bearer JWT)`](./adr-032-google-webhook-auth.md)
 
-**테마 6 의 결론**: 결제 도메인은 "정책 (Billing — subscription/plan)" 위에 "채널 (IAP — Apple/Google, Payment — PG=포트원)" 두 갈래를 두는 layer 구조로 분리. Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블은 [`ADR-005`](./adr-005-db-schema-isolation.md) 정합으로 슬러그별 schema 에 위치. Webhook 은 HMAC SHA-256 + timestamp tolerance + (source, externalId) UNIQUE 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 점유하지 않도록 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 `TransactionTemplate` 으로 phase 마다 자기 트랜잭션 시작. 갱신 실패 · 환불 · 알림 같은 후속 흐름은 ADR-021~026 + ADR-031~032 에서 listener · email channel · metrics · preference · Pub/Sub 인증 등으로 구체화.
+**테마 6 의 결론**: 결제 도메인은 "정책 (Billing — subscription/plan)" 위에 "채널 (IAP — Apple/Google, Payment — PG=포트원)" 두 갈래를 두는 layer 구조로 분리. Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블은 [`ADR-005`](./adr-005-db-schema-isolation.md) 정합으로 슬러그별 schema 에 위치. Webhook 은 진위 확인(v1 impUid 재조회 / v2 Standard Webhooks 서명) + timestamp tolerance + (source, externalId, eventStatus) UNIQUE 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 점유하지 않도록 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 `TransactionTemplate` 으로 phase 마다 자기 트랜잭션 시작. 갱신 실패 · 환불 · 알림 같은 후속 흐름은 ADR-021~026 + ADR-031~032 에서 listener · email channel · metrics · preference · Pub/Sub 인증 등으로 구체화.
 
 ### 테마 7 — 보안 / 감사 / 알림 도메인 ✅ 완료
 

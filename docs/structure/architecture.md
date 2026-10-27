@@ -463,7 +463,7 @@ template-spring/
 │   └── core-admin-impl/               # cross-app 운영 콘솔 (ADR-039, -impl 단독 — api 쌍 없음)
 │       ├── controller/                            # /api/admin — Auth/Dashboard/Apps/Users/Payments/Files/Content/Analytics/Audit/Accounts/Roles/Metrics
 │       ├── rbac/                                  # AdminRole (viewer/support/admin/master 4티어) + RolePermissionService
-│       ├── exception/AdminError.java              # ADMIN_001~ADMIN_025
+│       ├── exception/AdminError.java              # ADMIN_001~ADMIN_027
 │       └── src/main/resources/db/migration/admin/ # V001~V010 (admin_users · role · role_permissions · app_min_versions · 권한 시드/세분화)
 │
 ├── apps/                              # 앱별 도메인 모듈

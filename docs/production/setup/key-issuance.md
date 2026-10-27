@@ -410,29 +410,32 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/<id>/<token>/slack
    - v1 API Key 와 Secret — legacy 호환용
    - v2 API Key — 신규 API 호출용
    - 가맹점 식별 코드 (Customer Code)
-5. **webhook secret 은 `init-prod.sh` 가 자동 발급해요.** 사용자가 콘솔에서 따로 발급하는 값이 아니에요. `init-prod.sh` 1회차가 random 32자를 생성해 `APP_PAYMENT_PORTONE_WEBHOOK_SECRET` 에 채워주면, 그 값을 PortOne 콘솔의 *Webhook* 메뉴에 가서 webhook secret 입력란에 그대로 붙여넣어요. webhook URL 은 `https://<APP_DOMAIN>/api/apps/<slug>/payment/webhook` 형식으로 등록해요 (payment 엔드포인트는 앱 slug 경로 아래에 있어요 — `/api/payment/webhook` 으로 등록하면 전부 404 가 납니다).
+5. **webhook URL** 은 PortOne 콘솔의 *Webhook* 메뉴에 `https://<APP_DOMAIN>/api/apps/<slug>/payment/webhook` 형식으로 등록해요 (payment 엔드포인트는 앱 slug 경로 아래에 있어요 — `/api/payment/webhook` 으로 등록하면 전부 404 가 납니다).
+6. **webhook secret 은 v2 에서만 써요.** v1(아임포트) webhook 은 서명 헤더를 보내지 않아 secret 이 필요 없고, 서버는 받은 `imp_uid` 로 결제를 재조회해 진위를 확인합니다. v2 webhook(Standard Webhooks 서명) 검증 코드는 들어 있지만 v2 결제 어댑터가 아직 없어 `APP_PAYMENT_PORTONE_API_V2_KEY` 는 비워 둬요 (채우면 가드가 부팅을 막아요). v2 어댑터가 들어오면 PortOne 콘솔의 v2 webhook 설정에서 발급되는 secret(`whsec_…`, base64)을 `APP_PAYMENT_PORTONE_WEBHOOK_SECRET` 에 넣고 v2 key 와 함께 채우게 됩니다. `init-prod.sh` 가 자리를 채우려고 생성하는 random 값은 v1 에선 쓰이지 않아요.
 
 **`.env.prod` 채울 위치**:
 ```bash
 APP_PAYMENT_PORTONE_API_URL=https://api.iamport.kr   # v1 base URL (비우면 코드 default 동일)
 APP_PAYMENT_PORTONE_API_V1_KEY=<v1 키>
 APP_PAYMENT_PORTONE_API_V1_SECRET=<v1 시크릿>
-APP_PAYMENT_PORTONE_API_V2_KEY=<v2 키>
+APP_PAYMENT_PORTONE_API_V2_KEY=            # v2 어댑터 도입 전엔 비워 둬요 — 채우면 가드가 부팅을 막아요
 APP_PAYMENT_PORTONE_CUSTOMER_CODE=<가맹점 식별 코드>
-APP_PAYMENT_PORTONE_WEBHOOK_SECRET=<init-prod.sh 자동 생성값>
+APP_PAYMENT_PORTONE_WEBHOOK_SECRET=        # v1 은 불필요. v2 는 콘솔이 발급한 whsec_ 값
 ```
 
 webhook timestamp 허용 오차는 코드 default 가 300초 (5분) 라서 별도 키를 두지 않아요.
 
-**결제 가드 — 셋 다 비우거나 셋 다 채우거나**. prod profile 의 `PortOneProdConfigGuard` 는 v1 key·v1 secret·webhook secret 세 값을 다음 규칙으로 검사해요.
+**결제 가드 — v1 key·secret 은 짝으로, 아니면 둘 다 비우기**. prod·dev profile 의 `PortOneProdConfigGuard` 는 PortOne 키 조합을 다음 규칙으로 검사해요.
 
 | 상태 | 부팅 | 동작 |
 |---|---|---|
-| 셋 다 비어 있음 | 통과 | `StubPaymentAdapter` fallback. 결제 호출 시점에만 graceful 503 (`PAY_008`) |
-| 셋 다 채워짐 | 통과 | 실제 `PortOneAdapter` 활성 |
-| 일부만 채워짐 | **차단** | `IllegalStateException` — webhook 위조 위험 / 키 누락 방지 |
+| v1 key·secret, v2 key, webhook secret 전부 비어 있음 | 통과 | `StubPaymentAdapter` fallback. 결제 호출 시점에만 graceful 503 (`PAY_008`) |
+| v1 key·secret 둘 다 채워짐 (webhook secret 유무 무관) | 통과 | 실제 `PortOneAdapter` 활성. v1 webhook 은 서명 없이 `imp_uid` 재조회로 검증 |
+| v1 key·secret 중 하나만 채워짐 | **차단** | `IllegalStateException` — 결제 불가인데 stub 이 조용히 뜨는 사고 방지 |
+| webhook secret 만 채워짐 | **차단** | 결제 자격 없음 |
+| v2 key 가 채워짐 | **차단** | v2 결제 어댑터가 아직 없어 미지원 — 비워 두세요 (v2 webhook 서명 검증기는 v2 어댑터와 함께 켜져요) |
 
-결제를 쓰지 않는 도그푸딩 단계라면 세 값을 모두 비워두면 돼요. 부팅은 통과하고 결제 호출만 stub 으로 응답해요. 더미값 세 개를 채워도 같은 stub 으로 동작하지만, 굳이 채울 필요는 없어요. 결제 모듈 자체를 끄고 싶으면 `APP_FEATURES_PAYMENT=false` (Lite 모드, ADR-034) 를 쓰면 돼요. **막히는 건 "일부만 채운" 상태뿐이에요.**
+결제를 쓰지 않는 도그푸딩 단계라면 키를 모두 비워두면 돼요. 부팅은 통과하고 결제 호출만 stub 으로 응답해요. 결제 모듈 자체를 끄고 싶으면 `APP_FEATURES_PAYMENT=false` (Lite 모드, ADR-034) 를 쓰면 돼요. **막히는 건 "반쪽만 채운" 상태와 v2 key 예요.**
 
 → 코드 근거: `core/core-payment-impl/.../PaymentAutoConfiguration.java` 의 `portOneProdConfigGuard`
 
@@ -506,7 +509,7 @@ APP_IAP_GOOGLE_WEBHOOK_AUDIENCE=https://<APP_DOMAIN>/api/apps/<slug>/iap/google/
 APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub-push@my-project.iam.gserviceaccount.com
 ```
 
-webhook 토큰 검증 (`APP_IAP_GOOGLE_WEBHOOK_VERIFY_TOKEN`) 키는 운영 `.env.prod` 에 두지 않아요. `ProdSafetyEnvironmentPostProcessor` 가 prod profile 에서 코드로 true 를 강제하기 때문이에요. 사용자가 `.env.prod` 에 false 를 박아도 무시돼요. `audience` 는 Pub/Sub push subscription 에 등록한 endpoint URL 과 정확히 일치해야 해요.
+webhook 토큰 검증 (`APP_IAP_GOOGLE_WEBHOOK_VERIFY_TOKEN`) 키는 운영 `.env.prod` 에 두지 않아요. `ProdSafetyEnvironmentPostProcessor` 가 prod profile 에서 코드로 true 를 강제하기 때문이에요. 사용자가 `.env.prod` 에 false 를 박아도 무시돼요. 같은 후처리기가 dev 전용 우회 플래그 `app.email.dev-fallback-raw`·`app.oauth.dev-mock`·`app.iap.apple.dev-mock` 도 prod 에서 false 로 강제하고, 덮어쓴 값이 있으면 부팅 로그에 WARN 을 남겨요. `audience` 는 Pub/Sub push subscription 에 등록한 endpoint URL 과 정확히 일치해야 해요.
 
 **검증**. 실제 Android 빌드에서 인앱 구매를 수행하고 백엔드의 `/iap/google/verify` 엔드포인트가 200 을 응답하며, RTDN webhook 으로 갱신·환불 알림이 정상 처리되는지 확인하세요.
 
@@ -563,9 +566,9 @@ init 스크립트가 각자 소유한 파일에서 GitHub Secrets 까지는 자�
 
 ### 부팅 시 PortOne `IllegalStateException`
 
-**원인**. `APP_PAYMENT_PORTONE_API_V1_KEY`·`_API_V1_SECRET`·`_WEBHOOK_SECRET` 중 *일부만* 채워졌어요. 가드는 셋 다 비거나 셋 다 채운 상태만 허용해요.
+**원인**. 세 가지 중 하나예요. (1) `APP_PAYMENT_PORTONE_API_V1_KEY`·`_API_V1_SECRET` 중 *하나만* 채워짐, (2) `_WEBHOOK_SECRET` 만 있고 결제 키가 없음, (3) `_API_V2_KEY` 가 채워짐(v2 결제 어댑터가 아직 없어 미지원).
 
-**조치**. 결제를 쓰지 않는 단계라면 세 값을 모두 비우세요 (`StubPaymentAdapter` fallback). 결제를 쓴다면 셋을 모두 채우세요. §4.7 의 가드 표를 참고하세요.
+**조치**. 결제를 쓰지 않는 단계라면 PortOne 키를 모두 비우세요 (`StubPaymentAdapter` fallback). v1 로 결제를 쓴다면 v1 key·secret 둘을 채우면 되고 webhook secret 은 없어도 됩니다. v2 key 는 비워 두세요. §4.7 의 가드 표를 참고하세요.
 
 ### Cloudflare Tunnel 에 `${SUBDOMAIN}.${BASE_DOMAIN}` 이 라우팅되지 않음
 

@@ -74,7 +74,7 @@ sequenceDiagram
 |---|---|
 | 필요한 `PERM_*` 를 가진 콘솔 JWT 로 `/api/admin/**` 호출 | 200 — 정상 처리 |
 | 권한이 부족한 콘솔 JWT(예: viewer 가 결제 조회) | 403 (인증은 됐으나 권한 부족 — `JsonAccessDeniedHandler`) |
-| 앱 유저 JWT 로 `/api/admin/**` 호출 | 403 — `permissions` claim 이 없어 어떤 `PERM_*` 검사도 통과 못 함 |
+| 앱 유저 JWT 로 `/api/admin/**`(로그인·헬스 제외) 호출 | 403 — `AppSlugVerificationFilter` 가 `appSlug` 가 `"admin"` 이 아닌 토큰을 콘솔 경로에서 차단. 인증만 요구하는 경로(`/me/password`, fallback)도 같아요 |
 | 콘솔 JWT 로 `/api/apps/{slug}/**` 호출 | 403 — `AppSlugVerificationFilter` 가 JWT 의 `appSlug="admin"` 과 path 의 실제 슬러그 불일치를 차단 |
 | JWT 없이 `/api/admin/**`(로그인·헬스 제외) 호출 | 401 CMN_004 |
 
@@ -131,7 +131,7 @@ sequenceDiagram
 | 21 | `POST /api/admin/apps/{slug}/files/quarantine?key` | `FILES_QUARANTINE` | 단일 슬러그 — 검역(write). `AttachmentPort.quarantine` (v1.8) |
 | 22 | `POST /api/admin/apps/{slug}/files/restore?key` | `FILES_QUARANTINE` | 단일 슬러그 — 검역 해제 복원(write). `AttachmentPort.restore` (v1.8) |
 | 23 | `POST /api/admin/apps/{slug}/files/restore-deleted?key` | `FILES_QUARANTINE` | 단일 슬러그 — 삭제 대상 복원(write) |
-| 24 | `DELETE /api/admin/apps/{slug}/files?key` | `FILES_DELETE` | 단일 슬러그 — soft-delete(사유 필수, 30일 후 purge)(write) (v1.8) |
+| 24 | `DELETE /api/admin/apps/{slug}/files?key` | `FILES_DELETE` (+ 이미지·영상·오디오는 종류별 삭제 권한, 서비스 검사) | 단일 슬러그 — soft-delete(사유 필수, 30일 후 purge)(write) (v1.8) |
 | 25 | `GET /api/admin/apps/{slug}/content?board&status&page&size` | `CONTENT_READ` | 단일 슬러그 — 공유 게시물(`posts`) 전량 조회·필터 (v1.10) |
 | 26 | `GET /api/admin/apps/{slug}/content/{id}` | `CONTENT_READ` | 게시물 상세 — 본문+첨부이미지 열람 |
 | 27 | `POST /api/admin/apps/{slug}/content/{id}/hide` | `CONTENT_MODERATE` | 게시물 숨김(사유 필수, write) (v1.10) |
@@ -145,7 +145,7 @@ sequenceDiagram
 | 35 | `POST /api/admin/admins/{id}/password` | `ADMIN_MANAGE` | 타 계정 비밀번호 재설정 (write) |
 | 36 | `POST /api/admin/me/password` | 인증 | 본인 비밀번호 변경 — 모든 콘솔 계정 (write) |
 | 37 | `GET /api/admin/roles/permissions` | `ADMIN_MANAGE` | 역할×권한 매트릭스 조회 (`admin.role_permissions`) |
-| 38 | `PUT /api/admin/roles/permissions` | `ADMIN_MANAGE` | 매트릭스 편집 — `PermissionCatalog` 가 편집 범위·의존 강제 (write) |
+| 38 | `PUT /api/admin/roles/permissions` | `ADMIN_MANAGE` | 매트릭스 편집 — 자기보다 낮은 티어만, `PermissionCatalog` 가 편집 범위·의존 강제, 새로 켜는 권한은 호출자 보유분만(master 제외, `ADMIN_026`). 응답 셀의 `editable` 도 같은 규칙 (write) |
 | 39 | `POST /api/admin/apps/{slug}/content` | `CONTENT_MODERATE` | 운영 게시물 작성(`authorType=ADMIN`, write) — markdown 본문(`attachment://` 참조) + 선업로드 첨부 연관 확정. `board` 는 콘솔에선 선택값(미선택 = `''` 미분류, 앱 유저용 posts 계약은 여전히 필수) |
 | 40 | `PUT /api/admin/apps/{slug}/content/{id}` | `CONTENT_MODERATE` | 게시물 수정 + 첨부 재연관(write) — 작성자·상태 불변 |
 | 41 | `POST /api/admin/apps/{slug}/content/uploads` | `CONTENT_MODERATE` | 본문 이미지 업로드 URL 발급(write) — 미연관 첨부 선등록 + presigned PUT/GET 쌍(`<slug>-uploads` bucket) |
@@ -160,6 +160,23 @@ sequenceDiagram
 | — | `POST /api/apps/{slug}/users/me/activity` | 앱 유저 인증 | **user 도메인 소유** — DAU/MAU 원천 활동 ping (아래 §6 참고) |
 
 `USERS_UNMASK`/`FILES_UNMASK` 권한은 별도 엔드포인트가 아니라 목록·상세(#9~10, #19) 응답의 **PII 마스킹 해제**를 결정해요 — 권한이 없으면 같은 엔드포인트가 마스킹(`●●●●`)된 값을 돌려줍니다. 마스킹 티어를 위한 단건 원본 열람이 `reveal`(#11, #20)이고, 열람 사실은 `user_read_history` 에 남아요. 예외로 GDPR **export(#42)** 는 전 PII 원본 번들을 반환하는 전용 엔드포인트라 별도 권한 `USERS_EXPORT` 로 게이팅해요(UNMASK 에서 분리 — `USERS_READ` 선행 필요, UNMASK 만으로는 403). **탈퇴(#43)** 는 쓰기 권한 `USERS_WRITE`(신규) 로, UNMASK 만으로는 삭제되지 않아요.
+
+#### 경로 매처에 없는 권한 — 서버 검사 위치
+
+카탈로그(`PermissionCatalog.ALL`)의 권한 중 위 표의 경로 매처에 나오지 않는 것은 14개예요. 각각 어디서 검사하는지, 서버 검사가 없다면 왜 없는지를 정리했어요.
+
+| 권한 | 서버 검사 | 내용 |
+|---|---|---|
+| `USERS_UNMASK` | 서비스 | 사용자 목록·상세 응답 마스킹 해제(`AdminUsersService`) |
+| `FILES_UNMASK` | 서비스 | 파일 목록·액션 응답의 업로더·IP·기기 마스킹 해제(`AdminFileService`) |
+| `FILES_IMAGE` · `FILES_VIDEO` · `FILES_AUDIO` | 서비스 | 그 종류 파일의 `url`(원본 열람)을 목록·`reveal` 응답에 실을지. 없으면 `url=null` — 메타는 보이되 내용물은 못 열어요. 종류는 `contentType` 접두(`image/`·`video/`·`audio/`)로 가르고, 그 밖의 파일은 대상이 아니에요 |
+| `FILES_IMAGE_DELETE` · `FILES_VIDEO_DELETE` · `FILES_AUDIO_DELETE` | 서비스 | 그 종류 파일의 삭제(#24). 경로 매처의 `FILES_DELETE` 에 더해 요구하고, 없으면 403 `ADMIN_027` |
+| `PAYMENTS_RECEIPT_VIEW` | **UI 전용, 서버 검사 없음** | 영수증 모달은 결제 목록(#16, `PAYMENTS_READ`) 필드로 콘솔이 직접 그려요. 영수증 전용 엔드포인트가 없어 막을 서버 경로가 없어요 |
+| `PAYMENTS_RECEIPT_EMAIL` | **UI 전용, 서버 검사 없음** | 영수증 메일 발송 엔드포인트가 아직 없어요(콘솔 mock 전용). 만들 때 이 권한으로 경로 매처를 추가해야 해요 |
+| `AUDIT_EXPORT` | **UI 전용, 서버 검사 없음** | 감사로그 CSV 는 콘솔이 조회 결과(#12, `AUDIT_READ`)로 직접 만들어요. 이미 받은 데이터를 파일로 저장하는 동작이라 서버가 막을 지점이 없어요 |
+| `SEND_SMS` · `SEND_EMAIL` · `SEND_PUSH` | **UI 전용, 서버 검사 없음** | 발송 도메인 백엔드 미구현(§2-3 발송 권한 참고). 구현 시 `hasAnyAuthority(3개)` 매처 + 서비스 채널 판정 |
+
+UI 전용 권한은 버튼을 숨기는 용도라, 같은 데이터를 다른 경로로 받을 수 있는 사람에게서 데이터를 숨기지는 못해요. 데이터 자체를 막아야 한다면 그 데이터를 내주는 엔드포인트의 권한을 조정해야 해요.
 
 ---
 
@@ -290,7 +307,7 @@ GDPR 열람권(Art.15)·개인정보보호법 대응을 위해 한 사용자의 
 
 ### 4-5-2. `DELETE /api/admin/apps/{slug}/users/{userId}` — 콘솔 탈퇴 (soft-delete, v1.11)
 
-GDPR 삭제권(Art.17) 대응의 접수 단계예요. 앱 유저 `withdraw`(auth) 와 동일 시맨틱(`deleted_at` 세팅 + 해당 유저의 refresh token 전체 revoke)을 콘솔 경로로 노출하고, 쓰기 권한 `USERS_WRITE` 로 게이팅합니다(신규 권한 — 재로그인 시 JWT claim 반영). 본문 없는 성공은 `ApiResponse.empty()`. 이미 탈퇴된 사용자는 400 `ADMIN_024`, 이미 익명화된 사용자는 410 `ADMIN_025`, 미존재는 404 `ADMIN_005`.
+GDPR 삭제권(Art.17) 대응의 접수 단계예요. 앱 유저 `withdraw`(auth) 와 동일 시맨틱(`deleted_at` 세팅 + 해당 유저의 refresh token 전체 revoke)을 콘솔 경로로 노출하고, 쓰기 권한 `USERS_WRITE` 로 게이팅합니다(신규 권한 — 재로그인 시 JWT claim 반영). 상태 확인(행 잠금)과 두 쓰기(soft-delete·토큰 revoke)는 같은 앱 스키마라 한 트랜잭션으로 묶여, 하나가 실패하면 둘 다 되돌아가고 재시도할 수 있어요. 본문 없는 성공은 `ApiResponse.empty()`. 이미 탈퇴된 사용자는 400 `ADMIN_024`, 이미 익명화된 사용자는 410 `ADMIN_025`, 미존재는 404 `ADMIN_005`.
 
 soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:00, `app.user.erasure.enabled=true` 일 때만 활성)가 도메인별 처리표대로 완전삭제/익명화합니다 — auth 토큰·소셜·기기·알림설정·활동일·인증코드는 **hard delete**, `users`(email 을 `deleted-{id}@erased.invalid` 마커로 + PII 소거)·`payment_history`(`raw_response`/`customer_uid` 만 제거)·`posts`(`author_nickname`)·`analytics_events`(`user_id` NULL)는 **익명화**, 결제·구독·감사 원장은 **법정 보존**(GDPR Art.17(3)(b) 예외), 첨부는 `AttachmentPort.softDelete` 로 전환해 기존 `AttachmentPurgeScheduler` 가 스토리지까지 낙수 삭제해요. 유예기간은 `app.user.erasure.grace-days`(기본 30). ACTIVE 구독이 남은 사용자는 스킵(운영자가 정리 후 다음 sweep 처리). 상세 절차는 [`gdpr-request-runbook.md`](../production/gdpr-request-runbook.md).
 
@@ -501,7 +518,7 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 **환불 이력 원장**: 환불 1건마다 `payment_refunds`(금액·사유·처리자 email·시각) 에 1행을 기록해요 — 누적값만으로는 다회 부분환불 시 건별 사유/시각/처리자가 덮여 사라지기 때문이에요. `GET /api/admin/apps/{slug}/payments/{paymentId}/refunds` 로 최신순 이력을 조회하고(모달의 "환불 이력" 리스트), 매출 `refunded` 집계(§5-1)도 이 원장을 씁니다.
 
 **흐름**: admin 요청은 `SlugContext` 가 `"admin"` 으로 고정돼 있어요. 컨트롤러가 서비스 호출 직전에 대상 슬러그로 스왑(`try`) → 원복(`finally`) 하고, 서비스는 그 스왑된 컨텍스트 안에서 앱쪽 결제 컨트롤러가 쓰는 것과 **같은** `PaymentPort.refund(...)`(전액이면 `amount=null`, 부분이면 해당 금액)를 호출해요(환불 로직 중복 없음). 상태 반영은 두 경로로 갈려요:
-- **첫 환불이 전액(`PAID` → 전액)**: 기존 경로 유지 — 환불 성공 직후 **같은 (source, externalId) 로 `BillingPort.handleWebhook(...)` 을 직접 트리거**해서 앱쪽 실제 webhook 이 도착했을 때와 동일한 코드 경로로 `payment_history` 를 `REFUNDED` 로 반영해요(idempotency 키 공유 → 이후 PortOne 진짜 webhook 도착해도 안전하게 skip).
+- **첫 환불이 전액(`PAID` → 전액)**: 기존 경로 유지 — 환불 성공 직후 **같은 (source, externalId, eventStatus=`cancelled`) 로 `BillingPort.handleWebhook(...)` 을 직접 트리거**해서 앱쪽 실제 webhook 이 도착했을 때와 동일한 코드 경로로 `payment_history` 를 `REFUNDED` 로 반영해요(idempotency 키 공유 → 이후 PortOne 의 진짜 `cancelled` webhook 이 도착해도 안전하게 skip).
 - **부분환불 · 부분→완납**: webhook(전액 `REFUNDED` 전제)을 쓰지 않고 `payment_history` 를 직접 갱신해요 — `status = PARTIALLY_REFUNDED | REFUNDED`, `refunded_amount` 누적, `refunded_at`/`refund_reason`.
 
 **검증 순서**:
@@ -546,6 +563,8 @@ IAP 결제 환불 시도 응답:
 `window`(기본 `"30d"`, `"7d"` 도 가능, 그 외 값은 `30d`)와 `size`(기본 5, `[1,20]` 범위로 clamp — 내부 콘솔 전용이라 400 대신 보정)를 받아 전 슬러그의 결제 TOP N 을 병합합니다.
 
 슬러그별로 `payment_history` 를 `users` 와 조인해(§5-1 gross 시맨틱과 동일하게 `status IN ('PAID','REFUNDED','PARTIALLY_REFUNDED')` 필터) 유저당 합산 금액 기준 상위 `size` 명을 먼저 뽑고, 전 슬러그 결과를 합쳐 `totalAmount` 내림차순으로 다시 상위 `size` 만 추립니다 — 슬러그별 상위 `size` 사전 필터링만으로 전역 정확도가 보장돼요(한 슬러그가 최종 top-`size` 에 `size` 건보다 많이 기여할 수 없기 때문).
+
+대시보드는 전 역할 고정 권한(`DASHBOARD_READ`)이라 viewer 도 이 목록을 봐요. 그래서 `userEmail` 은 결제 PII 로 보고, 갱신 실패 드릴다운(#48)과 같은 기준인 `PAYMENTS_READ` 가 없으면 `●●●●` 로 마스킹해요 — `userId`·금액·건수는 그대로예요.
 
 ```json
 {
@@ -597,7 +616,7 @@ IAP 결제 환불 시도 응답:
 
 ### 4-14. `POST /api/admin/apps/{slug}/files/quarantine` — 파일 검역 (write, v1.8)
 
-유해 컨텐츠 대응용 write 액션이에요. `key`(= `attachment_file.id`)의 상태를 `AttachmentPort.quarantine(slug, id)` 로 `QUARANTINED` 로 전환합니다 — 스토리지 오브젝트는 옮기지 않고 상태 컬럼만 바꿔요. 이미 `QUARANTINED`(또는 `DELETED`)면 엔티티가 조용히 no-op 하므로 재검역해도 에러 없이 현재 상태의 파일을 200 으로 돌려줍니다(옛 `ADMIN_008` 은 현재 미발생 — §7 참고). 응답은 갱신된 파일 1건(`AdminFileResponse`) — 액션 응답은 프론트가 즉시 refetch 하므로 `url` 이 항상 `null` 이고, 나머지 필드는 §4-13 과 동일 구조예요.
+유해 컨텐츠 대응용 write 액션이에요. `key`(= `attachment_file.id`)의 상태를 `AttachmentPort.quarantine(slug, id)` 로 `QUARANTINED` 로 전환합니다 — 스토리지 오브젝트는 옮기지 않고 상태 컬럼만 바꿔요. 이미 `QUARANTINED`(또는 `DELETED`)면 엔티티가 조용히 no-op 하므로 재검역해도 에러 없이 현재 상태의 파일을 200 으로 돌려줍니다(옛 `ADMIN_008` 은 현재 미발생 — §7 참고). 응답은 갱신된 파일 1건(`AdminFileResponse`) — 액션 응답은 프론트가 즉시 refetch 하므로 `url` 이 항상 `null` 이고, 나머지 필드는 §4-13 과 동일 구조예요. `FILES_UNMASK` 가 없으면 목록과 똑같이 업로더·IP·기기가 마스킹돼요(검역·삭제·복원 액션 응답 전부).
 
 ```json
 { "data": { "key": "42", "status": "QUARANTINED", "quarantined": true, "url": null, "size": 10240, "originalFilename": "avatar.png", "contentType": "image/png", "deleteReason": null, "deletedAt": null, "purgeAt": null }, "error": null }
@@ -613,7 +632,7 @@ IAP 결제 환불 시도 응답:
 
 ### 4-16. `DELETE /api/admin/apps/{slug}/files` — 파일 삭제 (write, v1.8)
 
-**soft-delete** 예요(불가역 삭제 아님). 본문 `{ "reason": "..." }`(필수, `AdminFileDeleteRequest`)를 받아 `AttachmentPort.softDelete(slug, id, reason, null)` 로 상태를 `DELETED` 로 전환하고 `deleteReason`·`deletedAt`·`purgeAt`(= `deletedAt` + 30일)을 기록합니다. 스토리지 오브젝트/row 의 실제 삭제는 30일 유예 뒤 `AttachmentPurgeScheduler` 가 수행해요. 유예 기간 안에는 `POST .../files/restore-deleted?key`(§3 #23)로 되살릴 수 있어요. 응답은 삭제 처리된 파일 1건(`AdminFileResponse`, `status=DELETED`, `url=null`) — 204 가 아니라 200 입니다.
+**soft-delete** 예요(불가역 삭제 아님). 본문 `{ "reason": "..." }`(필수, `AdminFileDeleteRequest`)를 받아 `AttachmentPort.softDelete(slug, id, reason, null)` 로 상태를 `DELETED` 로 전환하고 `deleteReason`·`deletedAt`·`purgeAt`(= `deletedAt` + 30일)을 기록합니다. 스토리지 오브젝트/row 의 실제 삭제는 30일 유예 뒤 `AttachmentPurgeScheduler` 가 수행해요. 유예 기간 안에는 `POST .../files/restore-deleted?key`(§3 #23)로 되살릴 수 있어요. 삭제 전에 검역 중이던 파일은 `ACTIVE` 가 아니라 `QUARANTINED` 로 돌아가고(삭제→복원이 검역 해제의 우회로가 되지 않게), `DELETED` 가 아닌 파일에 restore-deleted 를 부르면 그대로 200 이에요. 이미 삭제된 파일을 다시 지우면 사유만 바뀌고 `deletedAt` 은 유지되며 `purgeAt` 은 뒤로 밀리지 않아요. 응답은 삭제 처리된 파일 1건(`AdminFileResponse`, `status=DELETED`, `url=null`) — 204 가 아니라 200 입니다.
 
 ```json
 { "data": { "key": "42", "status": "DELETED", "quarantined": false, "url": null, "size": 10240, "originalFilename": "avatar.png", "contentType": "image/png", "deleteReason": "규정 위반 신고 처리", "deletedAt": "2026-07-07T09:30:00Z", "purgeAt": "2026-08-06T09:30:00Z" }, "error": null }
@@ -832,7 +851,7 @@ Content-Type: application/json
 
 ---
 
-## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_025`
+## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_027`
 
 | 코드 | HTTP | 발생 상황 |
 |---|---|---|
@@ -861,6 +880,8 @@ Content-Type: application/json
 | `ADMIN_023` ATTACHMENT_ASSOCIATION_FAILED | 400 | 게시물 작성/수정(#39~#40) 시 `attachmentIds` 연관 확정 실패 — 첨부 부재·slug 불일치·비 ACTIVE·이미 타 게시물에 연관(탈취 시도) |
 | `ADMIN_024` USER_ALREADY_DELETED | 400 | 이미 탈퇴 처리(soft-delete)된 사용자를 콘솔 삭제(#43) 재호출 |
 | `ADMIN_025` USER_ERASED | 410 | 완전삭제(익명화)된 사용자에 export(#42)/삭제(#43) 시도 |
+| `ADMIN_026` ADMIN_PERM_GRANT_FORBIDDEN | 403 | 역할·권한 매트릭스 편집(#38)에서 호출자가 갖지 않은 권한을 하위 역할에 새로 켜려 함(master 는 제외). 이미 켜져 있던 권한을 유지·해제하는 건 허용 |
+| `ADMIN_027` FILE_KIND_FORBIDDEN | 403 | 이미지·영상·오디오 파일 삭제(#24) 시 그 종류의 삭제 권한(`FILES_IMAGE_DELETE` 등)이 없음. 문서 등 그 밖의 파일은 `FILES_DELETE` 만으로 충분 |
 
 에러 응답은 다른 모든 API 와 동일한 `ApiResponse` 래퍼를 씁니다.
 

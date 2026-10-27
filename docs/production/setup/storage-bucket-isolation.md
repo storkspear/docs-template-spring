@@ -41,7 +41,7 @@ bucket 네이밍은 [`I-07`](../deploy/decisions-infra.md) 에서 정한 환경�
 | 환경 | 컨벤션 | 예시 | 특징 |
 |---|---|---|---|
 | 로컬 개발 | `dev-shared` (단일, 파생 레포 공유) | `dev-shared` | disposable — `mc rb --force dev-shared` 로 수시 wipe |
-| 운영 | `<slug>-<category>` (앱별 + 용도별) | `gymlog-uploads`, `sumtally-receipts` | 앱별 lifecycle·retention·정리 |
+| 운영 | `<slug>-<category>` (앱별 + 용도별) | `gymlog-uploads`, `sumtally-receipts` | 앱별 격리·철수 시 bucket 단위 정리 (업로드 버킷은 만료 규칙 없음) |
 
 `<slug>` 은 소문자 영문·숫자·하이픈만 쓰는 [`appSlug`](../../reference/glossary.md#이-레포-고유-용어) 형식이고, `<category>` 는 용도 구분이에요. `new app` 이 자동 주입하는 기본 category 는 `uploads` 입니다.
 
@@ -62,7 +62,7 @@ object key 는 환경과 무관하게 `<appSlug>/<category>/...` 로 시작해�
 
 ## 3. 자동 프로비저닝 (`BucketProvisioner`)
 
-bucket 은 `mc mb` 같은 명령으로 사람이 직접 만들지 않아요. Spring 부팅이 끝나면 `BucketProvisioner` 가 `.env` 의 `APP_STORAGE_MINIO_BUCKETS_*` 를 순회하며 없는 bucket 을 만들고 retention 을 적용합니다 (`core/core-storage-impl/.../BucketProvisioner.java`).
+bucket 은 `mc mb` 같은 명령으로 사람이 직접 만들지 않아요. Spring 부팅이 끝나면 `BucketProvisioner` 가 등록된 앱 슬러그의 업로드 버킷과 `.env` 의 `APP_STORAGE_MINIO_BUCKETS_*` 를 순회하며 없는 bucket 을 만들고 lifecycle 정책을 적용합니다 (`core/core-storage-impl/.../BucketProvisioner.java`).
 
 ```bash
 # .env 또는 .env.prod — 인덱스 0 부터 순차
@@ -81,7 +81,7 @@ bucketExists 확인
    ↓
 없으면 makeBucket
    ↓
-retention lifecycle 적용 (SetBucketLifecycle)
+lifecycle 적용 — 앱 업로드 버킷: 만료 규칙 제거 / 공유 버킷: retention 규칙 (SetBucketLifecycle)
 ```
 
 이미 존재하는 bucket 은 생성을 건너뛰므로 부팅 시마다 안전합니다 (멱등). endpoint 에 닿지 못하면 그 bucket 만 경고를 남기고 넘어가며, 부팅 자체를 막지는 않아요.
@@ -92,12 +92,13 @@ retention lifecycle 적용 (SetBucketLifecycle)
 
 ### Retention (lifecycle)
 
-기본 retention 은 **90일** 이고, `BucketProvisioner` 가 부팅 시 lifecycle rule 로 적용합니다 (`BucketPolicy.retention` → MinIO `SetBucketLifecycle`). 값을 바꾸려면 두 가지 방법이 있어요.
+앱별 업로드 버킷(`<prefix><slug>-uploads`)에는 **만료 규칙을 걸지 않아요**. 첨부의 수명은 도메인이 관리합니다 — `AttachmentPort.softDelete` 로 지운 첨부를 30일 뒤 `AttachmentPurgeScheduler` 가 스토리지 객체와 함께 영구 삭제하고, 미연관 선업로드는 24시간 유예 후 회수해요. 버킷 단위 만료를 걸면 사용자가 지우지 않은 첨부가 조용히 사라지기 때문에, `BucketProvisioner` 는 이 버킷에 이미 걸려 있던 만료 규칙도 부팅 때 제거합니다 (멱등).
 
-- 환경변수 `APP_STORAGE_MINIO_DEFAULT_RETENTION_DAYS` 를 바꿔요 (모든 등록 bucket 에 동일 적용).
-- 파생 레포가 자기 `BucketProvisioner` 빈을 override 해서 bucket 별로 다른 정책을 줘요.
+공유 버킷(`APP_STORAGE_MINIO_BUCKETS_*`)에는 `APP_STORAGE_MINIO_DEFAULT_RETENTION_DAYS`(기본 **90일**) 의 만료 규칙을 적용해요 (`BucketPolicy.retention` → MinIO `SetBucketLifecycle`). bucket 별로 다른 정책이 필요하면 파생 레포가 자기 `BucketProvisioner` 빈을 override 합니다.
 
-> bucket 별 retention 을 환경변수만으로 따로 주는 인덱스 문법은 아직 없어요. bucket 마다 다른 retention 이 필요하면 빈 override 가 현재 방법입니다.
+> 이미 운영 중인 앱 버킷에 옛 90일 규칙이 남아 있다면 MinIO 에 닿는 다음 부팅에서 지워져요. 바로 지우려면 `mc ilm rule rm --all --force <alias>/<bucket>`.
+>
+> **전제**: 정리는 `AttachmentPurgeScheduler` 가 맡으므로 운영에서는 `APP_ATTACHMENT_PURGE_ENABLED=true` 를 켜 두어야 해요 (기본 꺼짐, `.env.prod.example` 의 purge 절). 꺼 두면 soft-delete 된 첨부와 orphan 선업로드가 스토리지에 그대로 남습니다.
 
 ---
 

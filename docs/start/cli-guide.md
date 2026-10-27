@@ -290,7 +290,7 @@ GitHub Actions 의 CI·docs-check·contract-snapshot·Security Scan 워크플로
 <repo> prod force-clear myapp      # 해당 앱만 (myapp schema + myapp-* bucket)
 ```
 
-`force-clear` 는 다섯 단계의 confirm 을 차례로 거쳐요. DB 데이터 → Storage 데이터 → 관측성 데이터 → 백업 의향 → 최종 확인 순서예요. 확인이 끝나면 인프라·데이터·관측성에 더해 **호스트에 남은 이 레포의 이미지까지** 정리하고 0개인지 확인해요 (`:dev-*` 태그는 `dev force-clear` 몫이라 남겨둬요 — dev 가 아직 살아 있을 수 있어서예요). 백업 의향 단계의 자동 백업은 아직 개발 중이라 지금은 manual 절차만 안내해요. 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 돼요.
+`force-clear` 는 다섯 단계의 confirm 을 차례로 거쳐요. DB 데이터 → Storage 데이터 → 관측성 데이터 → 백업 의향 → 최종 확인 순서예요. 확인이 끝나면 인프라·데이터·관측성에 더해 **호스트에 남은 이 레포의 이미지까지** 정리하고 0개인지 확인해요 (`:dev-*` 태그는 `dev force-clear` 몫이라 남겨둬요 — dev 가 아직 살아 있을 수 있어서예요). 백업 의향 단계의 자동 백업은 아직 개발 중이라 지금은 manual 절차만 안내해요. 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 돼요. 실행 중 한 단계(인프라 정리·schema DROP·bucket 제거·이미지 정리)라도 실패하면 나머지 단계는 끝까지 돌리되, 마지막에 실패 항목을 모아 보여 주고 exit 1 로 끝나요 — "완료" 는 전부 성공했을 때만 찍혀요. `dev force-clear` 도 같아요.
 
 슬러그를 지정하면([3/5]) 관측성 단계는 전 슬러그 공유 스택이라 자동으로 건너뜁니다 — 전체 모드에서만 confirm 을 띄워요.
 

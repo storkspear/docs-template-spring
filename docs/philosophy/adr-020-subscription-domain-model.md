@@ -11,7 +11,7 @@
 
 구독형 SaaS 의 결제 도메인을 코드로 표현하려면 *네 가지 핵심 개념* 이 필요해요. **Plan** 은 *어떤 가격에 어떤 기능을 제공하는가* 의 정의입니다 (`free`, `basic`, `pro` 같은 코드 + 가격 + 기간). **Subscription** 은 *이 사용자가 어떤 plan 을 언제까지 받고 있는가* 의 사용자별 상태예요 (ACTIVE / CANCELLED / EXPIRED). **PaymentRecord** 는 *언제 어떤 채널로 얼마를 결제했는가* 의 거래 이력입니다 (PG impUid 또는 IAP transactionId 로 식별). **WebhookEvent** 는 *외부 시스템 (PG / Apple / Google) 에서 들어온 비동기 알림* 의 멱등성 보장 기록이에요.
 
-이 네 개념이 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 정책 layer (`core-billing`) 안에서 *결제 → 활성화* 의 e2e 흐름을 만듭니다. 사용자가 PG (포트원) 결제 위젯을 띄우면 클라이언트가 `impUid` 를 받고, 그 `impUid` 를 백엔드가 *PaymentPort.verify* 로 포트원에 재검증한 뒤 *PaymentRecord 저장 → Subscription 활성화* 가 한 트랜잭션에서 완료돼요. 환불은 PG 가 보낸 webhook 이 *HMAC + timestamp + idempotency* 3 중 방어를 통과한 뒤 *PaymentRecord.status 를 REFUNDED 로 변경 + Subscription 을 CANCELLED 로 전환* 하는 흐름입니다.
+이 네 개념이 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 정책 layer (`core-billing`) 안에서 *결제 → 활성화* 의 e2e 흐름을 만듭니다. 사용자가 PG (포트원) 결제 위젯을 띄우면 클라이언트가 `impUid` 를 받고, 그 `impUid` 를 백엔드가 *PaymentPort.verify* 로 포트원에 재검증한 뒤 *PaymentRecord 저장 → Subscription 활성화* 가 한 트랜잭션에서 완료돼요. 환불은 PG 가 보낸 webhook 이 *진위 확인(v1 은 impUid 재조회) + timestamp + idempotency* 3 중 방어를 통과한 뒤 *PaymentRecord.status 를 REFUNDED 로 변경 + Subscription 을 CANCELLED 로 전환* 하는 흐름입니다.
 
 ```
 [Flutter] 결제 위젯 → 포트원 → impUid 획득
@@ -172,17 +172,19 @@ public void handleWebhook(String source, String externalId, String payloadJson) 
 
 webhook endpoint 는 *공개 인터넷에 노출* 된 상태라 *인증 없이는 누구든 가짜 페이로드로 결제 상태를 조작* 할 수 있어요. 결제 도메인의 webhook 은 *환불 / 취소* 같은 사용자 자산에 직접 영향을 주는 영역이라 *3 중 방어선* 으로 위조 / replay / 중복 처리를 동시에 차단해야 합니다.
 
-세 방어선은 *다른 공격 벡터* 를 막아요. *HMAC SHA-256 서명* 은 *페이로드 자체의 무결성* 을 보증해 가짜 페이로드를 차단하고, *timestamp 검증* 은 *과거에 캡처한 진짜 페이로드를 다시 보내는 replay 공격* 을 차단하며, *(source, externalId) UNIQUE idempotency* 는 *PG 측 재전송 / 우리 측 동시 처리* 시에도 *같은 거래가 두 번 처리되지 않게* 보장합니다. 어느 한 방어선이 우회되어도 다른 두 방어선이 작동하는 *defense in depth* 패턴이에요.
+세 방어선은 *다른 공격 벡터* 를 막아요. *진위 확인* 은 가짜 페이로드를 차단하고(v1 은 impUid 재조회, v2 는 Standard Webhooks 서명), *timestamp 검증* 은 *과거에 캡처한 진짜 페이로드를 다시 보내는 replay 공격* 을 차단하며, *(source, externalId, eventStatus) UNIQUE idempotency* 는 *PG 측 재전송 / 우리 측 동시 처리* 시에도 *같은 통지가 두 번 처리되지 않게* 보장합니다. 어느 한 방어선이 우회되어도 다른 두 방어선이 작동하는 *defense in depth* 패턴이에요.
 
-### 1. HMAC SHA-256 서명 검증
+### 1. 진위 확인 — v1 은 재조회, v2 는 서명
 
-`PortOneWebhookVerifier.verifySignature(body, signatureHex)`:
+포트원 **v1(아임포트) webhook 은 서명 헤더를 보내지 않아요.** body 는 `imp_uid` · `merchant_uid` · `status` · `cancellation_id` 뿐이고, [공식 v1 webhook 가이드](https://developers.portone.io/opi/ko/integration/webhook/readme-v1)는 수신 측이 "반드시 결제내역 단건조회 API 를 통해 결제건을 조회하여 웹훅의 내용을 검증" 하라고 안내합니다. 그 재조회가 `BillingPort.handleWebhook` → `PaymentPort.verify(impUid)` 예요 — webhook 의 내용은 신뢰하지 않고, 포트원 API 가 돌려준 상태만 원장에 반영합니다. 그래서 v1 배포에는 webhook secret 이 필요 없고, 요구하면 모든 v1 webhook 이 "서명 누락" 으로 거부되는 사고가 나요.
 
-- HMAC SHA-256 으로 raw body + 서버 secret 서명 계산
-- 클라이언트 헤더의 `X-Portone-Signature` 와 constant-time compare
-- 디코딩 실패 / 길이 불일치는 모두 false 반환
+포트원 **v2 webhook** 은 [Standard Webhooks](https://www.standardwebhooks.com/) 규격으로 서명돼요([v2 가이드](https://developers.portone.io/opi/ko/integration/webhook/readme-v2)). `PortOneWebhookVerifier` 가 이 규격을 구현하고, v1 자격 없이 `APP_PAYMENT_PORTONE_API_V2_KEY` 와 `APP_PAYMENT_PORTONE_WEBHOOK_SECRET` 이 설정된 경우에만 등록됩니다 (v1 과 섞이면 서명 없는 v1 webhook 이 전부 거부되기 때문). v2 결제 어댑터가 아직 없어 prod·dev 가드는 v2 자격 자체를 막으므로, 이 검증기는 v2 어댑터와 함께 켜지는 준비 코드예요.
 
-### 2. Timestamp 검증 (replay 방지)
+- 헤더 `webhook-id` · `webhook-timestamp`(unix seconds) · `webhook-signature`(`v1,<base64>` 를 공백으로 구분, secret 회전 대응)
+- 서명 대상 = `<webhook-id>.<webhook-timestamp>.<raw body>`, HMAC SHA-256, base64 — timestamp 가 서명 안에 들어가므로 timestamp 만 바꾼 replay 는 서명이 깨짐
+- secret 은 base64(`whsec_` 접두 선택), 서명 비교는 constant-time
+
+### 2. Timestamp 검증 (replay 방지, v2)
 
 `PortOneWebhookVerifier.verifyTimestamp(timestampSeconds)`:
 
@@ -191,18 +193,20 @@ webhook endpoint 는 *공개 인터넷에 노출* 된 상태라 *인증 없이�
 
 ### 3. Idempotency (DB 레벨)
 
-`webhook_events.UNIQUE(source, external_id)`:
+`payment_webhook_events.UNIQUE(source, external_id, event_status)`:
 
-- 같은 (출처, 거래ID) 가 두 번 처리되지 않도록 DB 가 보장
-- `existsBySourceAndExternalIdAndProcessedAtIsNotNull` 체크: 이미 **성공** 처리된 event 만 skip → 실패한 event 는 retry 가능 (markFailed 가 `processed_at` 을 건드리지 않음)
+- 같은 (출처, 거래ID, 통지 상태) 가 두 번 처리되지 않도록 DB 가 보장. 상태가 키에 들어가는 이유 — PG 는 한 거래에 대해 상태가 바뀔 때마다 webhook 을 다시 보내요(ready → paid → cancelled). 거래 ID 만으로 거르면 첫 paid 이후의 cancelled 통지가 중복으로 버려져 환불이 원장에 반영되지 않습니다.
+- `existsBySourceAndExternalIdAndEventStatusAndProcessedAtIsNotNull` 체크: 이미 **성공** 처리된 event 만 skip → 실패한 event 는 retry 가능 (markFailed 가 `processed_at` 을 건드리지 않음)
 - Race condition: 두 동시 webhook 이 모두 not-exists 보고 둘 다 INSERT 시 `DataIntegrityViolationException` → 두 번째 호출이 fallback 으로 기존 row 재조회
 
 ### Prod fail-fast (운영 안전망)
 
-`PaymentAutoConfiguration` 의 `PortOneProdConfigGuard` 가 prod profile 부팅 시 검증:
+`PaymentAutoConfiguration` 의 `PortOneProdConfigGuard` 가 prod·dev profile 부팅 시 검증:
 
-- `APP_PAYMENT_PORTONE_API_V1_KEY/SECRET` 미설정 → `IllegalStateException` (`StubPaymentAdapter` 가 운영에서 모든 결제 throw 하는 위험 차단)
-- `APP_PAYMENT_PORTONE_WEBHOOK_SECRET` 미설정 → `IllegalStateException` (검증기 미등록 시 누구나 webhook 위조 가능 — 보안 사고 차단)
+- v1 key/secret 이 *일부만* 설정 → `IllegalStateException` (결제 불가인데 `StubPaymentAdapter` 가 조용히 뜨는 위험 차단)
+- webhook secret 만 있고 결제 자격이 없음 → `IllegalStateException`
+- `APP_PAYMENT_PORTONE_API_V2_KEY` 가 채워짐 → `IllegalStateException` (v2 결제 어댑터가 아직 없어 미지원 — 결제 어댑터·webhook body 파싱이 v1 뿐이라 섞이면 결제나 webhook 중 하나가 죽어요)
+- v1 key/secret 이 채워짐 → 통과. webhook secret 은 필수가 아니에요 (v1 은 서명이 없고 impUid 재조회로 검증). secret 만 더 있으면 쓰이지 않는다고 warn.
 
 ## BillingPort 의 entitled subscription 정책
 
@@ -254,7 +258,7 @@ PortOneWebhookVerifierTest: 14/14 PASS (Signature 6 + Timestamp 5 + Combined 3)
 | `core/core-billing-api/BillingPort.java` | 시그니처 (activateFromPayment / findActiveSubscription / cancelSubscription / handleWebhook / findPaymentByExternalId / expireOverdueSubscriptions) |
 | `core/core-billing-api/dto/{PlanDto,SubscriptionDto,PaymentRecordDto}.java` | DTO records |
 | `core/core-billing-api/{SubscriptionState,PaymentChannel,PaymentRecordStatus}.java` | 상태 enum (api 루트, ArchUnit r18 정합) |
-| `core/core-payment-api/PortOneWebhookVerifier.java` | HMAC + timestamp 검증 (apps/* 도 import 가능하도록 api 모듈에 위치) |
+| `core/core-payment-api/PortOneWebhookVerifier.java` | v2 Standard Webhooks 서명 + timestamp 검증 (apps/* 도 import 가능하도록 api 모듈에 위치, v1 은 미사용) |
 | `core/core-payment-impl/PaymentAutoConfiguration.java` | PortOneAdapter / Verifier / ProdConfigGuard Bean |
 | `tools/app/new-app.sh` heredoc | V008~V010 SQL 생성 (PaymentController 는 core 공유 — ADR-013 B) |
 
