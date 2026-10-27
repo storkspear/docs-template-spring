@@ -128,7 +128,9 @@ APP_STORAGE_MINIO_BUCKETS_1=sumtally-avatars
 
 앱 업로드 버킷에 기간 만료를 걸지 않는 이유는, 사용자가 지우지 않은 첨부(프로필 사진·게시물 이미지)가 N일 뒤 조용히 사라지고 DB 의 `attachment_file` 행만 남기 때문이에요. 첨부의 삭제 시점은 도메인이 결정하고, 스토리지는 그 결정을 따릅니다. 같은 이름이 두 분류에 모두 들어 있으면 앱 버킷 정책(만료 없음)이 우선하고, 접두사만 다른 옛 수동 항목(예: dev 가 `dev-` 접두사인데 `.env` 에 `<slug>-uploads` 가 남은 경우)도 다른 환경의 앱 버킷으로 보고 만료를 걸지 않아요.
 
-> **전제 — purge 스케줄러를 켜 두세요.** 버킷 만료가 없어진 뒤로는 `AttachmentPurgeScheduler` 가 유일한 정리 경로예요. 이 스케줄러는 `APP_ATTACHMENT_PURGE_ENABLED=true` 일 때만 등록되고 기본은 꺼져 있습니다 (`.env.prod.example` 의 purge 절 참고 — 게시물 purge `APP_CONTENT_PURGE_ENABLED` 와 순서를 맞춰 켜요). 꺼 둔 채 운영하면 soft-delete 된 첨부·orphan 선업로드·GDPR 소거 대기분이 스토리지에 그대로 남아요.
+> **purge 스케줄러는 기본 켜짐.** 버킷 만료가 없어진 뒤로는 `AttachmentPurgeScheduler` 가 유일한 정리 경로라 `app.attachment.purge.enabled` 의 기본값이 `true` 예요 (`APP_ATTACHMENT_PURGE_ENABLED=false` 로 끌 수 있고, test 프로필은 꺼 둬요). 매일 04:00 에 **soft-delete 후 30일(`purge_at`) 지난 첨부만** 지우고, 검역(QUARANTINED)·연관된 첨부·공유 버킷은 손대지 않아요. 게시물 purge(`APP_CONTENT_PURGE_ENABLED`, 기본 꺼짐)를 켜면 03:30 에 먼저 돌아 그 글의 첨부를 purge 대기로 넘겨요. 끄고 운영하면 soft-delete 된 첨부와 GDPR 소거 대기분이 스토리지에 그대로 남아요.
+>
+> **미연관(orphan) 회수는 opt-in** — `APP_UPLOADS_ORPHAN_PURGE_ENABLED=true`(기본 false). `/files/uploads` 는 게시물 전용이 아닌 범용 업로드 API 라, 연관(`associate`/`associateByKeys`) 없이 storage key 만 자기 테이블에 보관하는 앱에서 이 회수를 켜면 24시간(`app.uploads.orphan-grace`, 하한 1시간) 지난 멀쩡한 파일이 지워져요. 게시물 본문에 `attachment://{id}` 로만 참조하고 `attachmentIds` 에 넣지 않은 첨부도 미연관이라 같은 대상이고, 미연관 첨부를 soft-delete 했다가 24시간 뒤 복원해도 그날 밤 회수 대상이에요. 모든 업로드가 게시물에 연관되는 앱에서만 켜세요.
 
 공유 버킷의 기간을 바꾸려면 `APP_STORAGE_MINIO_DEFAULT_RETENTION_DAYS` 를 조정하고, 버킷마다 다른 정책이 필요하면 파생 레포가 자기 `BucketProvisioner` 빈을 override 합니다.
 

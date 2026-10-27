@@ -269,14 +269,14 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 
 ## 6. Admin — 운영 콘솔 스키마 (유일한 비-per-slug)
 
-### `admin.admin_users` (admin V001~V002, `admin` 스키마)
+### `admin.admin_users` (admin V001~V013, `admin` 스키마)
 
 **`admin` 스키마의 테이블은 예외적으로 per-slug 가 아니에요.** 위 24 테이블은 앱마다 독립된 schema 에 반복 생성되지만, `admin_users` 는 공장 전체에 **딱 하나**, 고정된 `admin` schema 안에 존재합니다. 담는 내용도 앱 사용자가 아니라 **공장 운영자 계정**(cross-app 콘솔에 로그인하는 솔로 운영자)이라 앱 데이터가 전혀 섞이지 않아요 — `ADR-037` 이 폐기한 "앱 사용자 데이터를 공유하는 core schema" 와는 다른 층위입니다.
 
-- **주요 컬럼**: `email` (UNIQUE) · `password_hash` · `display_name` · `role` (`viewer`/`support`/`admin`/`master`, 기본 `master` — admin V002 가 추가한 RBAC 컬럼) · `created_at` · `updated_at`.
+- **주요 컬럼**: `email` (UNIQUE) · `password_hash` · `display_name` · `role` (`viewer`/`support`/`admin`/`master`, 기본 `master` — admin V002 가 추가한 RBAC 컬럼) · `failed_attempts` · `last_failed_at` · `locked_until` (콘솔 로그인 잠금 — 앱 `users` 의 V027 과 같은 시맨틱, `AdminLoginLockoutService`) · `created_at` · `updated_at`.
 - **FK**: 없음.
 - **라우팅**: `AdminDataSourceConfig` 가 `adminDataSource` 라는 고정 이름의 별도 `DataSource`/`Flyway`/`JdbcTemplate` 빈을 등록하고, `RoutingDataSourceConfig` 는 이 빈을 슬러그 라우팅 맵에서 명시적으로 제외합니다 — superadmin 토큰(`appSlug=admin`)이 실수로 `/api/apps/admin/**` 을 호출해도 이 schema 로 라우팅되지 않아요 (fail-secure).
-- **시딩**: `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 채워져 있고 테이블이 비어 있을 때만 `AdminAccountSeeder` 가 부팅 시 1계정을 넣습니다. 관리형 마이그레이션 경로는 `core/core-admin-impl/src/main/resources/db/migration/admin/` 의 V001(`init_admin_users`)~V010(`drop_files_write`) — 이 V 번호는 위 per-slug 카탈로그의 V001~V027 시퀀스와는 **완전히 별개**(다른 schema, 다른 Flyway 인스턴스)예요.
+- **시딩**: `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 채워져 있고 테이블이 비어 있을 때만 `AdminAccountSeeder` 가 부팅 시 1계정을 넣습니다. 관리형 마이그레이션 경로는 `core/core-admin-impl/src/main/resources/db/migration/admin/` 의 V001(`init_admin_users`)~V013(`drop_dead_schema_elements`) — 이 V 번호는 위 per-slug 카탈로그의 V001~V027 시퀀스와는 **완전히 별개**(다른 schema, 다른 Flyway 인스턴스)예요.
 - **관련 ADR**: [`ADR-039 · admin 모듈`](../philosophy/adr-039-admin-module.md), [`ADR-037 · core schema 폐기`](../philosophy/adr-037-core-schema-deprecation.md) — "폐기 대상이 아닌 이유".
 - **자세히**: [`admin-console.md`](../api-and-functional/admin-console.md) — 인증 흐름, 엔드포인트 카탈로그, 에러 코드.
 

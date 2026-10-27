@@ -98,7 +98,7 @@ lifecycle 적용 — 앱 업로드 버킷: 만료 규칙 제거 / 공유 버킷:
 
 > 이미 운영 중인 앱 버킷에 옛 90일 규칙이 남아 있다면 MinIO 에 닿는 다음 부팅에서 지워져요. 바로 지우려면 `mc ilm rule rm --all --force <alias>/<bucket>`.
 >
-> **전제**: 정리는 `AttachmentPurgeScheduler` 가 맡으므로 운영에서는 `APP_ATTACHMENT_PURGE_ENABLED=true` 를 켜 두어야 해요 (기본 꺼짐, `.env.prod.example` 의 purge 절). 꺼 두면 soft-delete 된 첨부와 orphan 선업로드가 스토리지에 그대로 남습니다.
+> **정리는 `AttachmentPurgeScheduler` 가 맡아요 — 기본 켜짐** (`APP_ATTACHMENT_PURGE_ENABLED`, 끄려면 `false`). 기본으로는 soft-delete 후 30일 지난 첨부만 지우고, 미연관 orphan 회수는 `APP_UPLOADS_ORPHAN_PURGE_ENABLED=true` 로 따로 켜요(범용 업로드를 연관 없이 쓰는 앱 보호 — [`스토리지 규약`](../../api-and-functional/functional/storage.md) Retention 절).
 
 ---
 
