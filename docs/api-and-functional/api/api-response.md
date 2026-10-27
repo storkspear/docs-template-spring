@@ -274,6 +274,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 | JWT appSlug 와 URL path slug 불일치 | 403 | `CMN_005` |
 | 존재하지 않는 유저 ID 조회 | 404 | `USR_001` |
 | 이미 사용 중인 이메일로 가입 | 409 | `USR_002` |
+| 소셜 최초 가입인데 같은 이메일의 계정이 이미 있음 (자동 연결 안 함) | 409 | `USR_002` |
 | 이메일 형식 오류 (검증 실패) | 422 | `CMN_001` |
 | 비밀번호 불일치 | 401 | `ATH_001` |
 | Apple·Google 로그인 검증 실패 | 401 | `ATH_004` |

@@ -74,7 +74,7 @@
 | POST | `/api/apps/{appSlug}/auth/verify-email` | 불필요 | 이메일 인증 (204) |
 | POST | `/api/apps/{appSlug}/auth/resend-verification` | 필요 | 인증 메일 재발송 (204) |
 | POST | `/api/apps/{appSlug}/auth/password-reset/request` | 불필요 | 재설정 메일 발송 (204) |
-| POST | `/api/apps/{appSlug}/auth/password-reset/confirm` | 불필요 | 토큰으로 재설정 (204) |
+| POST | `/api/apps/{appSlug}/auth/password-reset/confirm` | 불필요 | email + 코드로 재설정 (204) |
 | PATCH | `/api/apps/{appSlug}/auth/password` | 필요 | 비밀번호 변경 (204) |
 | POST | `/api/apps/{appSlug}/auth/me/2fa/backup-codes/regenerate` | 필요 | 2FA 백업코드 재발급 — 기존 8개 무효화 + 새 8개 반환 |
 
@@ -252,8 +252,9 @@ public record VerifyEmailRequest(@Email @NotBlank String email, @NotBlank String
 // 비밀번호 재설정 요청 (이메일)
 public record PasswordResetRequest(@Email @NotBlank String email) {}
 
-// 비밀번호 재설정 확인 (토큰 + 새 비밀번호)
+// 비밀번호 재설정 확인 (email + 토큰 + 새 비밀번호 — email 은 per-subject 시도 계상 스코프 키)
 public record PasswordResetConfirmRequest(
+    @Email @NotBlank String email,
     @NotBlank String token,
     @NotBlank @ValidPassword String newPassword
 ) {}
@@ -392,7 +393,7 @@ Flutter 가 자주 받게 될 조합만 추렸어요.
 | 탈퇴·인증·재설정 성공 (body 없음) | 204 | — |
 | 입력값 검증 실패 (이메일 형식·비밀번호 정책 등) | 422 | `CMN_001` |
 | 비밀번호 불일치 | 401 | `ATH_001` |
-| 이메일 중복 가입 | 409 | `USR_002` |
+| 이메일 중복 가입 (소셜 최초 가입이 기존 이메일 계정과 겹칠 때 포함) | 409 | `USR_002` |
 | Access token 만료 | 401 | `CMN_007` |
 | Access token 무효 | 401 | `CMN_008` |
 | 보호 경로 + 토큰 없음 | 401 | `CMN_004` |

@@ -46,7 +46,7 @@
 | POST | `/auth/verify-email` | X | 가입 후 메일로 받은 6자리 인증 코드 검증 (`email` + `token` 필드, 오답 5회 시 해당 사용자 토큰 무효화) | ADR-013, ADR-024 |
 | POST | `/auth/resend-verification` | O | 인증 메일 재발송 | ADR-013 |
 | POST | `/auth/password-reset/request` | X | 비밀번호 재설정 요청 (메일 발송) | ADR-013 |
-| POST | `/auth/password-reset/confirm` | X | 메일로 받은 6자리 재설정 코드(`token` 필드) + 새 비밀번호 적용 (1회용, 모든 세션 무효화) | ADR-013, ADR-029 |
+| POST | `/auth/password-reset/confirm` | X | 메일로 받은 6자리 재설정 코드(`email` + `token` 필드) + 새 비밀번호 적용 (그 계정의 최신 활성 코드 1개와만 대조, 오답 5회 시 해당 사용자 코드 무효화, 1회용, 모든 세션 무효화) | ADR-013, ADR-029 |
 | PATCH | `/auth/password` | O | 현재 비밀번호 검증 + 새 비밀번호 적용 | ADR-029 |
 | POST | `/auth/phone/request` | X | 휴대폰 OTP 발송 (SMS) — dev-capture 어댑터면 `devCode` 반환 | ADR-038 |
 | POST | `/auth/phone/verify` | X | OTP 검증 → 번호로 유저 find-or-create + 토큰 발급 | ADR-038 |

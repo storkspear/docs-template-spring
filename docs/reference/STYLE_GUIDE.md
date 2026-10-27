@@ -610,9 +610,9 @@ HS256 은 대칭키 알고리즘이라 발급자와 검증자가 같은 비밀 �
 ```
 webhook 도착
    ↓
-HMAC SHA-256 검증
+진위 확인 (v1: impUid 재조회)
    ↓
-(source, externalId) UNIQUE 체크
+(source, externalId, eventStatus) UNIQUE 체크
    ↓
 PaymentRecord INSERT (Phase 1, TX)
    ↓

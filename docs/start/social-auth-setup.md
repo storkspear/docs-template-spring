@@ -402,7 +402,7 @@ APP_CREDENTIALS_MYNEWAPP_NAVER_CLIENT_ID=abcDEF123_xyz
 
 ### Q: dev-mock 모드는 운영 빌드에 영향이 있나요?
 
-없어요. `app.oauth.dev-mock=true` 환경변수가 명시적으로 주입돼야만 `MockAppleSignInService` 가 활성화돼요. prod profile 에서는 wiremock URL 환경변수가 주입되지 않은 게 정상이라, `application.yml` 의 실 provider URL 로 fallback 해요.
+없어요. `app.oauth.dev-mock=true` 환경변수가 명시적으로 주입돼야만 `MockAppleSignInService` 가 활성화되고, prod profile 에서는 그 값을 넣어도 `ProdSafetyEnvironmentPostProcessor` 가 false 로 덮어써요(부팅 로그에 WARN). 또 prod profile 에서는 wiremock URL 환경변수가 주입되지 않은 게 정상이라, `application.yml` 의 실 provider URL 로 fallback 해요.
 
 ### Q: dev-mock 모드가 켜졌는지 어떻게 확인하나요?
 

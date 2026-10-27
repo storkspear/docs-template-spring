@@ -106,11 +106,11 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 
 ### `auth_password_reset_tokens` (V005)
 
-비밀번호 재설정 토큰입니다. 1회용(`used_at`) + 만료(`expires_at`) 로 보호해요.
+비밀번호 재설정 토큰입니다. 1회용(`used_at`) + 만료(`expires_at`) + 계정 단위 오답 한도(`attempts`, 5회 도달 시 무효) 로 보호해요. 코드는 요청 email 의 사용자가 가진 최신 활성 토큰 1개와만 대조하므로 `token_hash` 에 전역 UNIQUE 를 두지 않아요 (6자리 코드가 사용자 간 겹쳐도 INSERT 가 깨지지 않음).
 
-- **주요 컬럼**: `token_hash` (SHA-256 hex) · `created_at` · `expires_at` · `used_at`.
+- **주요 컬럼**: `token_hash` (SHA-256 hex) · `attempts` · `created_at` · `expires_at` · `used_at`.
 - **FK**: `user_id` → `users(id)`.
-- **인덱스**: `uk_auth_password_reset_tokens_hash` (UNIQUE), `idx_auth_password_reset_tokens_user_id`.
+- **인덱스**: `idx_auth_password_reset_tokens_user_id`, `idx_auth_password_reset_tokens_expires_at` (만료분 cleanup 용).
 - **관련 ADR**: [`ADR-029 · 비밀번호 정책`](../philosophy/adr-029-password-policy.md).
 
 ---

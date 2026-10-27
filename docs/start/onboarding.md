@@ -354,7 +354,7 @@ openssl rand -hex 32   # 64자 hex 출력
 
 로컬 docker MinIO 는 `.env.example` 의 기본값으로 바로 동작해요. 핵심만 정리하면 이래요.
 
-- `APP_STORAGE_MINIO_ENDPOINT` 를 비우면 `InMemoryStorageAdapter` 로 fallback 해요. 업로드가 메모리에만 저장되고 재시작하면 사라지는 동작이라, 빠른 실험에는 충분해요.
+- `APP_STORAGE_MINIO_ENDPOINT` 를 비우면 `InMemoryStorageAdapter` 로 fallback 해요. 업로드가 메모리에만 저장되고 재시작하면 사라지는 동작이라, 빠른 실험에는 충분해요. dev·prod 프로파일에서는 `APP_STORAGE_IN_MEMORY_FALLBACK=true` 를 함께 넣어야만 폴백하고, 없으면 부팅이 막혀요(운영에서 endpoint 가 실수로 비어 업로드가 조용히 사라지는 사고 방지).
 - 버킷은 `mc mb` 같은 수동 명령이 필요 없어요. `APP_STORAGE_MINIO_BUCKETS_*` 에 이름만 적어 두면 Spring 부팅 시 `BucketProvisioner` 가 자동으로 만들고, 멱등이라 재기동해도 중복 에러가 없어요.
 - 템플릿 관리자의 NAS MinIO 는 LAN 전용이라 파생 레포에서는 못 써요. 본인 NAS / S3 호환 서비스 / 로컬 docker 중에서 고르세요.
 
@@ -489,7 +489,7 @@ openssl rand -hex 32   # 64자 출력 → 이 값을 복사
 | 앱 프로비저닝 (`new app`) | ✅ 완전 동작 | 기본 동작으로 schema + role 자동 생성 (`--skip-provision-db` 로 끔) |
 | 앱 제거 (`remove app`) | ✅ 완전 동작 (prod 미지원) | `new app` 역방향 |
 | 이메일 발송 (Resend) | local fallback / dev·prod 키 필수 | local 은 키 없으면 `LoggingEmailAdapter` 로 콘솔 출력 (local 프로파일 전용). dev·prod 는 키 누락 시 부팅 실패. [`email-verification.md`](../api-and-functional/functional/email-verification.md) |
-| 오브젝트 스토리지 | ⚠️ endpoint 필요 | 미설정 시 `InMemoryStorageAdapter` fallback |
+| 오브젝트 스토리지 | ⚠️ endpoint 필요 | 미설정 시 local 은 `InMemoryStorageAdapter` fallback, dev·prod 는 `APP_STORAGE_IN_MEMORY_FALLBACK=true` 없으면 부팅 실패 |
 | 결제 (PortOne PG) | ⚠️ key 필요 | 미설정 시 `StubPaymentAdapter` 가 graceful 503 (`PAY_008`) |
 | 인앱 결제 (IAP) | ⚠️ key 필요 | 미설정 시 `StubIapAdapter` 가 graceful 503 |
 | 푸시 알림 | 🚧 자격 필요 | FCM 자격 미설정 앱은 발송이 graceful no-op — 로그만 남아요. `APP_CREDENTIALS_<SLUG>_FCM_SERVICE_ACCOUNT_JSON` 을 채우면 실제 발송이 켜져요 |

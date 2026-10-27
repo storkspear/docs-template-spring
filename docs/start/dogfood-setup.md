@@ -300,7 +300,7 @@ $EDITOR .env.prod
 
 ### OPTIONAL 기능 — 켜고 싶으면 채워요
 
-비워두면 운영에서 해당 기능이 자동으로 꺼져요(결제 Stub·스토리지 InMemory fallback 등). 채우면 켜져요. 단 이메일은 예외예요 — `LoggingEmailAdapter` fallback 은 local 프로파일 전용이라, dev·prod 배포에서 메일 기능을 쓰려면 `RESEND_API_KEY` 를 채워야 해요.
+비워두면 운영에서 해당 기능이 자동으로 꺼져요(결제 Stub 등). 채우면 켜져요. 스토리지는 예외로, 비워 두려면 `APP_STORAGE_IN_MEMORY_FALLBACK=true` 를 명시해야 해요 — 없으면 dev·prod 부팅이 막혀요(NAS 를 끈 상태 검증처럼 일부러 비울 때만 켜요). 단 이메일은 예외예요 — `LoggingEmailAdapter` fallback 은 local 프로파일 전용이라, dev·prod 배포에서 메일 기능을 쓰려면 `RESEND_API_KEY` 를 채워야 해요.
 
 | 기능 | 키 |
 |---|---|
@@ -314,18 +314,18 @@ $EDITOR .env.prod
 
 > 소셜 로그인 자격(`APP_CREDENTIALS_<SLUG>_*`)은 `init-prod.sh` 가 `.env.prod` 에서 자동 발견해 GitHub Secrets 로 push 해요. 다만 `config/deploy.yml` 과 `.kamal/secrets` 의 env.secret 목록 추가는 현재 수동이에요. 자세한 흐름은 [`FAQ Q17`](./dogfood-faq.md#q17) 를 보세요.
 
-#### 결제 — 일부만 채우면 부팅이 막혀요
+#### 결제 — v1 키는 둘 다, 아니면 둘 다 비우기
 
-`<repo> new <slug>` 로 앱을 올리면 core 공유 결제 컨트롤러가 `PaymentPort` 를 통해 결제를 처리해요. prod profile 의 `PortOneProdConfigGuard` 는 v1 키·secret·webhook secret 셋 중 *일부만* 채워진 상태를 부팅 시점에 막아요. webhook 만 빠지면 위조 위험, v1 키만 빠지면 결제 불가 — 둘 다 사고라 `IllegalStateException` 으로 fail-fast 해요.
+`<repo> new <slug>` 로 앱을 올리면 core 공유 결제 컨트롤러가 `PaymentPort` 를 통해 결제를 처리해요. prod profile 의 `PortOneProdConfigGuard` 는 v1 key·secret 이 *하나만* 채워진 상태와, webhook secret 만 있고 결제 키가 없는 상태, v2 key 는 있는데 webhook secret 이 없는 상태를 부팅 시점에 막아요. 전부 결제 불가나 webhook 위조로 이어지는 조합이라 `IllegalStateException` 으로 fail-fast 해요. v1 에 webhook secret 은 필요 없어요 — 포트원 v1 webhook 은 서명 헤더가 없고, 서버가 `imp_uid` 로 결제를 재조회해 진위를 확인합니다.
 
 ```bash
-# 결제 미사용 — 도그푸딩 단계에서는 더미값으로 충분합니다
-APP_PAYMENT_PORTONE_API_V1_KEY=dogfood-dummy
-APP_PAYMENT_PORTONE_API_V1_SECRET=dogfood-dummy
-APP_PAYMENT_PORTONE_WEBHOOK_SECRET=dogfood-dummy
+# 결제 미사용 — 도그푸딩 단계에서는 전부 비워 StubPaymentAdapter 로 fallback 하는 게 정석
+APP_PAYMENT_PORTONE_API_V1_KEY=
+APP_PAYMENT_PORTONE_API_V1_SECRET=
+APP_PAYMENT_PORTONE_WEBHOOK_SECRET=
 ```
 
-정리하면, 막히는 건 "일부만 채운" 상태뿐이에요. 셋 다 비워 두면 `StubPaymentAdapter` 로 fallback 해 부팅은 통과하고(결제 호출만 graceful 503 `PAY_008` 으로 응답), 셋 다 채우면 실제 `PortOneAdapter` 가 켜져요. 위 예시처럼 더미값 셋을 채워도 결제 호출이 없으면 똑같이 stub 으로 동작하고요. 결제 모듈 자체를 빼고 싶으면 `APP_FEATURES_PAYMENT=false`(Lite 모드, ADR-034)를 쓰면 돼요. 정식 발급 절차는 [`운영 키 발급 통합 가이드 §4.7`](../production/setup/key-issuance.md#47-portone-pg-결제-featurepayment) 에 있어요.
+정리하면, 막히는 건 "반쪽만 채운" 상태뿐이에요. 전부 비워 두면 `StubPaymentAdapter` 로 fallback 해 부팅은 통과하고(결제 호출만 graceful 503 `PAY_008` 으로 응답), v1 key·secret 을 채우면 실제 `PortOneAdapter` 가 켜져요. 더미값을 채워도 결제 호출이 없으면 stub 처럼 보이지만, 실제 PortOne 호출을 시도하는 어댑터가 떠 있는 상태라 비우는 쪽이 안전해요. 결제 모듈 자체를 빼고 싶으면 `APP_FEATURES_PAYMENT=false`(Lite 모드, ADR-034)를 쓰면 돼요. 정식 발급 절차는 [`운영 키 발급 통합 가이드 §4.7`](../production/setup/key-issuance.md#47-portone-pg-결제-featurepayment) 에 있어요.
 
 코드는 `core/core-payment-impl/src/main/java/com/factory/core/payment/impl/PaymentAutoConfiguration.java` 의 `portOneProdConfigGuard` 예요.
 

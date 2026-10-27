@@ -16,7 +16,7 @@
 
 MinIO 스토리지를 두 환경에 올리는 절차예요. 로컬 개발은 Docker Compose, 운영은 시놀로지 NAS 로 띄웁니다. 연결 확인부터 용량 모니터링, 백업, 장애 대응까지 다뤄요.
 
-핵심 원리 하나만 먼저 잡고 가면 나머지가 쉬워요. **bucket 은 사람이 `mc` 로 직접 만들지 않습니다.** Spring 부팅이 끝나면 `BucketProvisioner` 가 `.env` 의 `APP_STORAGE_MINIO_BUCKETS_*` 에 적힌 이름을 읽어 없으면 만들고 retention 까지 적용해요. 로컬과 운영이 같은 경로를 타므로, 환경별로 따로 외울 게 없어요.
+핵심 원리 하나만 먼저 잡고 가면 나머지가 쉬워요. **bucket 은 사람이 `mc` 로 직접 만들지 않습니다.** Spring 부팅이 끝나면 `BucketProvisioner` 가 등록된 앱 슬러그의 업로드 버킷(`<slug>-uploads`)과 `.env` 의 `APP_STORAGE_MINIO_BUCKETS_*` 에 적힌 공유 버킷을 읽어 없으면 만들고 lifecycle 정책까지 적용해요. 로컬과 운영이 같은 경로를 타므로, 환경별로 따로 외울 게 없어요.
 
 ---
 
@@ -30,7 +30,7 @@ docker compose -f infra/docker-compose.local.yml up -d minio
 
 - S3 API: `http://localhost:9000`
 - 웹 콘솔: `http://localhost:9001` (minioadmin / minioadmin)
-- 기본 bucket: `basic-bucket` (Spring 기동 시 자동 생성, 90일 retention 적용)
+- 기본 bucket: `basic-bucket` (Spring 기동 시 자동 생성 — 공유 버킷이라 90일 retention 적용. 앱 업로드 버킷 `<slug>-uploads` 는 만료 규칙 없이 생성)
 
 **백엔드 연결** (`.env`) — `.env.example` 의 출하값이라 비워 둬도 그대로 동작해요.
 
@@ -41,7 +41,7 @@ APP_STORAGE_MINIO_SECRET_KEY=minioadmin
 APP_STORAGE_MINIO_BUCKETS_0=basic-bucket
 ```
 
-`APP_STORAGE_MINIO_ENDPOINT` 를 비우면 `InMemoryStorageAdapter` 로 fallback 해요. 업로드가 메모리에만 남고 재시작하면 사라지는 동작이라, MinIO 없이 빠르게 실험할 때 충분합니다.
+`APP_STORAGE_MINIO_ENDPOINT` 를 비우면 `InMemoryStorageAdapter` 로 fallback 해요. 업로드가 메모리에만 남고 재시작하면 사라지는 동작이라, MinIO 없이 빠르게 실험할 때 충분합니다. dev·prod 프로파일에서는 `APP_STORAGE_IN_MEMORY_FALLBACK=true` 를 함께 넣어야만 폴백하고, 없으면 부팅이 막혀요(운영에서 endpoint 가 실수로 비어 업로드가 조용히 사라지는 사고 방지).
 
 ## 시놀로지 NAS (운영)
 
@@ -85,14 +85,14 @@ APP_STORAGE_MINIO_ENDPOINT=http://<NAS_TAILSCALE_IP>:9000
 APP_STORAGE_MINIO_ACCESS_KEY=<1번에서 설정>
 APP_STORAGE_MINIO_SECRET_KEY=<1번에서 설정>
 APP_STORAGE_MINIO_REGION=us-east-1
-APP_STORAGE_MINIO_DEFAULT_RETENTION_DAYS=90
+APP_STORAGE_MINIO_DEFAULT_RETENTION_DAYS=90   # 공유 버킷(APP_STORAGE_MINIO_BUCKETS_*)에만 적용
 APP_STORAGE_MINIO_MAX_UPLOAD_BYTES=10485760   # 10MB
 APP_STORAGE_MINIO_SIGNED_URL_TTL=PT5M
 ```
 
 ### 4. bucket 자동 생성
 
-bucket 은 `.env` 에 이름만 적으면 끝이에요. Spring 부팅 시 `BucketProvisioner` 가 없으면 만들고 90일 lifecycle 까지 적용합니다. 멱등이라 재기동해도 중복 에러가 없어요.
+앱 업로드 버킷은 슬러그를 등록하면 자동이고, 공유 버킷은 `.env` 에 이름만 적으면 끝이에요. Spring 부팅 시 `BucketProvisioner` 가 없으면 만들고 lifecycle 을 적용합니다 — 공유 버킷은 90일 만료 규칙, 앱 업로드 버킷은 만료 규칙 없음(첨부 soft-delete → purge 스케줄러가 수명 관리). 멱등이라 재기동해도 중복 에러가 없어요.
 
 ```bash
 APP_STORAGE_MINIO_BUCKETS_0=voicechat-voices
@@ -125,7 +125,7 @@ MinIO 디스크 사용량 알림 룰 3단계는 `infra/prometheus/rules.yml` 에
 
 | 순서 | 조치 | 난이도 |
 |---|---|---|
-| 1 | retention 90 → 60일 단축 | 5분 |
+| 1 | 앱에서 오래된 첨부 soft-delete 정책 추가 (버킷 만료 규칙은 앱 업로드 버킷에 걸지 않음) | 반나절 |
 | 2 | Opus 32kbps → 16kbps | 10분 (클라이언트 업데이트) |
 | 3 | NAS 디스크 증설 | 1~2시간 |
 | 4 | 30일 이상 콜드 아카이브 | 반나절 (스크립트 작성) |
@@ -138,7 +138,7 @@ NAS 자체의 RAID 와 Snapshot 을 활용하는 걸 권장해요. docker volume
 
 **presigned URL 이 403** — endpoint URL 이 외부에서 닿는지 확인하세요. Tailscale 이나 VPN 뒤에 있으면 클라이언트도 같은 네트워크에 있어야 해요.
 
-**lifecycle 이 안 먹힘** — `mc ilm rule ls nas/<bucket>` 으로 규칙을 확인하세요.
+**lifecycle 이 안 먹힘** — `mc ilm rule ls nas/<bucket>` 으로 규칙을 확인하세요. 앱 업로드 버킷(`<slug>-uploads`)은 규칙이 비어 있는 게 정상이에요. 옛 90일 규칙이 남아 있으면 다음 부팅에서 지워지고, 바로 지우려면 `mc ilm rule rm --all --force nas/<bucket>`.
 
 **업로드가 느림** — 홈 네트워크 대역폭을 확인하세요. 원격 접속 중이면 VPN 병목일 가능성이 있어요.
 

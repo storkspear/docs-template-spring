@@ -99,39 +99,42 @@ sequenceDiagram
     API-->>App: 구독 활성 응답
 
     Note over PortOne, Billing: 갱신 / 환불은 webhook 으로
-    PortOne->>API: POST /api/apps/<slug>/payment/webhook (HMAC SHA-256 + timestamp)
-    API->>API: PortOneWebhookVerifier (signature + timestamp 검증)
-    API->>Billing: handleWebhook("portone", impUid, payload)
+    PortOne->>API: POST /api/apps/<slug>/payment/webhook (v1: imp_uid·status, 서명 없음)
+    API->>Billing: handleWebhook("portone", impUid, status, payload)
+    Billing->>PortOne: verify(impUid) 재조회 — webhook 내용은 믿지 않음
 ```
 
-여기서 *재검증* 이 중요한 이유는 클라이언트에서 받은 `impUid` 만 믿을 수 없기 때문입니다. 위변조된 요청이 들어올 가능성을 차단하려고 백엔드가 PortOne 서버에 직접 거래를 조회해요. 또한 PortOne 이 보내는 webhook 은 HMAC SHA-256 서명과 timestamp 를 함께 보내는데, 백엔드는 이를 `PortOneWebhookVerifier` 로 검증해 위조와 replay 공격을 막습니다. timestamp 의 허용 오차는 기본 300초이고, `APP_PAYMENT_PORTONE_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS` 로 조정할 수 있어요. 구독 모델의 트랜잭션 경계와 webhook 보안 전체는 [`ADR-020`](../../philosophy/adr-020-subscription-domain-model.md) 에서 다룹니다.
+여기서 *재검증* 이 중요한 이유는 클라이언트에서 받은 `impUid` 만 믿을 수 없기 때문입니다. 위변조된 요청이 들어올 가능성을 차단하려고 백엔드가 PortOne 서버에 직접 거래를 조회해요. webhook 도 같은 원리예요. 포트원 v1 webhook 은 서명 헤더가 없으므로 백엔드는 통지 내용을 믿지 않고 받은 `imp_uid` 로 결제를 다시 조회해 포트원 API 가 돌려준 상태만 원장에 반영합니다 (공식 v1 가이드가 요구하는 방식). 포트원 v2 webhook(Standard Webhooks 서명)용 `PortOneWebhookVerifier` 도 들어 있지만 v2 결제 어댑터가 아직 없어 v2 자격은 가드가 막아요. timestamp 의 허용 오차는 기본 300초이고, `APP_PAYMENT_PORTONE_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS` 로 조정할 수 있어요. 구독 모델의 트랜잭션 경계와 webhook 보안 전체는 [`ADR-020`](../../philosophy/adr-020-subscription-domain-model.md) 에서 다룹니다.
 
 ## 4. 운영 함정 — PortOne 부팅 차단
 
 운영 환경에서 자주 부딪히는 함정 중 하나입니다. core 의 **공유 `PaymentController`**(`core-billing-impl`, `{appSlug}` path 로 모든 앱 처리 — `new <slug>` 가 슬러그별 결제 컨트롤러를 만들지 않아요)는 `PaymentPort` 를 *필수 의존* 으로 가집니다. 이 때문에 prod 와 dev 프로파일에서 `PortOneProdConfigGuard` 가 부팅 시점에 PortOne 설정을 검증해요.
 
-검증 정책은 세 갈래입니다. 핵심은 "셋 다 빔" 은 통과하지만 "일부만 채움" 은 차단한다는 점이에요.
+검증 정책은 아래 표와 같아요. 핵심은 "전부 빔" 과 "v1 key·secret 짝" 은 통과하지만 "반쪽만 채움" 과 "v2 key" 는 차단한다는 점이에요.
 
 | PortOne 자격 상태 | 부팅 | 동작 |
 |---|---|---|
-| v1 key·secret·webhook secret 셋 다 빔 | 통과 | fallback (prod·dev 모두 `StubPaymentAdapter`, 결제 호출 시 503 `CONFIG_MISSING`) |
-| 셋 중 일부만 채움 | 차단 | `IllegalStateException` 으로 부팅 fail |
-| 셋 다 채움 | 통과 | `PortOneAdapter` + `PortOneWebhookVerifier` 등록 |
+| v1 key·secret, v2 key, webhook secret 전부 빔 | 통과 | fallback (prod·dev 모두 `StubPaymentAdapter`, 결제 호출 시 503 `CONFIG_MISSING`) |
+| v1 key·secret 중 하나만 채움 | 차단 | `IllegalStateException` 으로 부팅 fail |
+| webhook secret 만 채움 (결제 키 없음) | 차단 | `IllegalStateException` |
+| v2 key 가 있음 | 차단 | `IllegalStateException` — v2 결제 어댑터가 아직 없어 미지원 (v2 webhook 서명 검증기는 어댑터와 함께 켜짐) |
+| v1 key·secret 둘 다 채움 (webhook secret 유무 무관) | 통과 | `PortOneAdapter` 등록. v1 webhook 은 서명 없이 `imp_uid` 재조회로 검증 |
 
-"일부만 채움" 을 fail-secure 로 막는 이유가 있어요. v1 키만 채우고 webhook secret 을 비우면 webhook 위조를 막을 수 없고, 반대로 webhook secret 만 채우고 v1 키를 비우면 결제 자체가 불가능합니다. 둘 다 사고로 이어지므로 부팅을 차단해 일찍 알려줘요.
+"일부만 채움" 을 fail-secure 로 막는 이유가 있어요. v1 key 가 반쪽이거나 webhook secret 만 있으면 결제 자체가 불가능한데 stub 이 조용히 뜨고, v2 key 를 넣으면 결제 어댑터(v1 전용)와 webhook body 파싱이 맞지 않아 결제나 webhook 중 하나가 죽습니다. 반대로 v1 에 webhook secret 을 요구하면 안 돼요 — 포트원 v1 webhook 은 서명 헤더를 보내지 않으므로([v1 가이드](https://developers.portone.io/opi/ko/integration/webhook/readme-v1)) 검증기가 떠 있으면 모든 webhook 이 "서명 누락" 으로 거부됩니다. v1 의 진위 확인은 받은 `imp_uid` 로 결제를 재조회하는 `BillingPort.handleWebhook` 이 담당해요.
 
-도그푸딩 단계처럼 결제를 실제로 쓰지 않는 경우엔 세 값을 *모두 비워* fallback 으로 가는 게 정석이에요. 이 경우 `StubPaymentAdapter` 가 등록되고, 부팅은 통과합니다. 반대로 셋 중 하나만 채우는 실수가 가장 흔한 함정이에요.
+도그푸딩 단계처럼 결제를 실제로 쓰지 않는 경우엔 PortOne 키를 *모두 비워* fallback 으로 가는 게 정석이에요. 이 경우 `StubPaymentAdapter` 가 등록되고, 부팅은 통과합니다.
 
 ```bash
-# 결제 미사용이면 셋 다 비워 fallback (부팅 통과). 일부만 채우면 부팅 fail.
+# 결제 미사용이면 전부 비워 fallback (부팅 통과). v1 key 하나만 채우면 부팅 fail.
 # APP_PAYMENT_PORTONE_API_V1_KEY=
 # APP_PAYMENT_PORTONE_API_V1_SECRET=
+# APP_PAYMENT_PORTONE_API_V2_KEY=
 # APP_PAYMENT_PORTONE_WEBHOOK_SECRET=
 ```
 
-> 이전 가이드는 "더미값이라도 채워야 통과" 라고 안내했지만, 현재 가드 정책에서는 *셋 다 비워야* 통과합니다. 더미값을 셋 다 채우면 통과하긴 하나, 그 경우 `PortOneAdapter` 가 등록되어 더미 키로 실제 PortOne 호출을 시도하게 되니 fallback 의도라면 비우는 쪽이 안전해요.
+> 더미값을 채워 넣으면 통과하긴 하나, 그 경우 `PortOneAdapter` 가 등록되어 더미 키로 실제 PortOne 호출을 시도하게 되니 fallback 의도라면 비우는 쪽이 안전해요.
 
-실결제를 켤 때 이 세 키는 [secret chain 4-stage](../../production/setup/secret-chain-4stage.md) 에 따라 네 곳에 모두 동기화해야 컨테이너에 정상 주입됩니다. PortOne 콘솔에서 자격을 발급받는 절차는 [`키 발급 가이드`](../../production/setup/key-issuance.md) 의 PortOne 섹션을 참고하세요.
+실결제를 켤 때 이 키들은 [secret chain 4-stage](../../production/setup/secret-chain-4stage.md) 에 따라 네 곳에 모두 동기화해야 컨테이너에 정상 주입됩니다. PortOne 콘솔에서 자격을 발급받는 절차는 [`키 발급 가이드`](../../production/setup/key-issuance.md) 의 PortOne 섹션을 참고하세요.
 
 ## 5. IAP credentials — 자격증명은 글로벌, 식별자만 슬러그별
 
@@ -161,14 +164,14 @@ IAP 도 결제처럼 자격이 없으면 stub 으로 fallback 합니다. Apple �
 
 자주 받는 질문이 있어요. *출시 앱이 아직 없는데, 나중에 PortOne 키만 받으면 바로 결제가 되나, 아니면 추가 코드 작업이 필요한가?*
 
-답은 "코드는 이미 완성·테스트되어 있어 키만 채우면 동작" 입니다. `core-payment` 에는 검증·환불·재결제를 담당하는 `PortOneAdapter`, HMAC SHA-256 과 timestamp 를 검증하는 `PortOneWebhookVerifier`, 부팅 가드(`PaymentAutoConfiguration`), WireMock stub, 단위 테스트가 모두 들어있고, 엔드포인트는 core 공유 `PaymentController` 가 모든 앱에 노출해요. 채널 추가 코드 작업은 없습니다.
+답은 "코드는 이미 완성·테스트되어 있어 키만 채우면 동작" 입니다. `core-payment` 에는 검증·환불·재결제를 담당하는 `PortOneAdapter`(v1 REST), v2 webhook 의 Standard Webhooks 서명을 검증하는 `PortOneWebhookVerifier`, 부팅 가드(`PaymentAutoConfiguration`), WireMock stub, 단위 테스트가 모두 들어있고, 엔드포인트는 core 공유 `PaymentController` 가 모든 앱에 노출해요. 채널 추가 코드 작업은 없습니다.
 
 실결제를 켜는 절차는 1회성이에요.
 
 1. PortOne 콘솔에서 가맹점을 등록하고, 채널(나이스·토스·이니시스 중 택) 을 활성화한 뒤 v1 key·secret 과 가맹점 식별코드를 발급합니다.
-2. `.env.prod` 를 채웁니다 — `APP_PAYMENT_PORTONE_API_V1_KEY`, `_API_V1_SECRET`, `_CUSTOMER_CODE`, 그리고 `_WEBHOOK_SECRET`. webhook secret 이 없으면 `openssl rand -hex 32` 로 생성하세요.
-3. PortOne 콘솔의 webhook URL 에 `https://<운영도메인>/api/apps/<slug>/payment/webhook` 을 등록하고 위 webhook secret 을 입력합니다.
-4. 재배포하면 끝이에요. v1 key·secret·webhook secret 셋이 모두 차 있어야 `PortOneAdapter` 가 등록됩니다. 일부만 채우면 §4 의 가드가 부팅을 차단해요.
+2. `.env.prod` 를 채웁니다 — `APP_PAYMENT_PORTONE_API_V1_KEY`, `_API_V1_SECRET`, `_CUSTOMER_CODE`. v1 webhook 은 서명이 없으므로 `_WEBHOOK_SECRET` 은 비워 둬도 됩니다 (v2 로 전환할 때 콘솔이 발급한 `whsec_` 값과 `_API_V2_KEY` 를 함께 채워요).
+3. PortOne 콘솔의 webhook URL 에 `https://<운영도메인>/api/apps/<slug>/payment/webhook` 을 등록합니다.
+4. 재배포하면 끝이에요. v1 key·secret 둘이 차 있으면 `PortOneAdapter` 가 등록되고, 받은 webhook 은 `imp_uid` 재조회로 검증한 뒤 원장에 반영됩니다. 하나만 채우면 §4 의 가드가 부팅을 차단해요.
 
 키가 없어도 미리 검증할 수 있어요. 로컬 dev 프로파일은 WireMock stub(`infra/wiremock/mappings/portone-*.json`) 으로 토큰·결제·환불·재결제 전 플로우를 흉내냅니다. 키 발급 전에 `<repo> local test` 로 결제 경로를 e2e 선검증할 수 있어요. 즉 선작업이 가능하며, 키는 출시 직전에 받아 채우면 됩니다.
 
