@@ -255,7 +255,9 @@ git push origin main
 1. `.env.<target>` 에서 `DB_URL` / `DB_USER` / `DB_PASSWORD` 를 로드하고 JDBC URL 을 psql 형식으로 변환합니다.
 2. V스크립트 파일명에서 version 과 description 을 추출하고 (`V026__add_foo.sql` → `26`, `add foo`) SQL 미리보기를 출력한 뒤 적용을 묻습니다 (`--force` 면 skip).
 3. 그 version 이 대상 schema 의 `flyway_schema_history` 에 이미 있으면 거부하고 종료합니다. 같은 V 를 다시 적용하면 이력에 같은 version 행이 하나 더 생겨 다음 부팅에서 Flyway validate 가 앱을 거부하기 때문이에요 — dry-run 에서도 동일하게 알립니다.
-4. 단일 transaction 으로 `BEGIN; <SQL>; INSERT INTO <slug>.flyway_schema_history ...; COMMIT;` 을 실행합니다. SQL 적용과 history INSERT 가 같은 transaction 이라, 둘 중 하나가 실패하면 둘 다 롤백돼 schema 와 history 의 inconsistent state 를 막아요.
+4. 단일 transaction 으로 `BEGIN; <search_path 지정>; <SQL>; INSERT INTO <slug>.flyway_schema_history ...; COMMIT;` 을 실행합니다. SQL 적용과 history INSERT 가 같은 transaction 이라, 둘 중 하나가 실패하면 둘 다 롤백돼 schema 와 history 의 inconsistent state 를 막아요.
+   - V스크립트는 `CREATE TABLE foo (...)` 처럼 schema 이름 없이 씁니다. 도구는 관리자 계정으로 접속하므로, search_path 를 정하지 않으면 그 계정의 기본값(`"$user", public`)을 따라 테이블이 `public` 에 생겨요. 그래서 `BEGIN` 바로 뒤에 Flyway 부팅과 같은 search_path 를 `SET LOCAL` 로 지정합니다 — 앱 슬러그는 `"<slug>", <계정 기본값>`, `admin` 은 `"admin"`. 트랜잭션이 끝나면 원래 값으로 돌아가요.
+   - 대상 schema 가 없으면 PostgreSQL 이 경로의 다음 schema(`public`)에 만들어 버리므로, 이 단계에서 schema 존재를 먼저 확인하고 없으면 실패로 끝냅니다.
 5. 적용 후 `success = true` 행을 출력해 결과를 확인시킵니다.
 
 > ✅ **checksum 은 Flyway 와 일치합니다.** 이 도구는 Flyway 의 `ChecksumCalculator` 와 같은 방식 — 파일을 utf-8-sig 로 읽어 줄 단위로 UTF-8 바이트의 CRC32 를 누적하고 부호 있는 32비트로 내는 계산 — 을 쓰므로, 부팅 시 validate 를 그대로 통과해요. 그래도 mismatch 가 나면 (적용된 V스크립트를 나중에 수정한 경우 등) [§5.3](#5-3-부팅-시-validate-실패-대응) 의 history checksum 갱신으로 정정합니다.
