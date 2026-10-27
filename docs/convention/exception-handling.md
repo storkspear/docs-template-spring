@@ -35,7 +35,7 @@ ErrorInfo (인터페이스)
     ├── PaymentError     ← PAY_001 ~ PAY_009 (PortOne PG — ADR-019)
     ├── StorageError     ← STG_001 ~ STG_011 (오브젝트 스토리지)
     ├── AttachmentError  ← ATC_001 ~ ATC_005 (앱 파일 업로드·조회 — core-attachment)
-    └── AdminError       ← ADMIN_001 ~ ADMIN_027 (운영 콘솔 — core-admin-impl)
+    └── AdminError       ← ADMIN_001 ~ ADMIN_028 (운영 콘솔 — core-admin-impl)
 
 BaseException (부모)
     ├── CommonException      ← 공통 예외 (NOT_FOUND, FORBIDDEN, JWT 토큰 등)
@@ -263,6 +263,7 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | ADMIN_025 | 410 | USER_ERASED | 완전삭제(익명화)된 사용자 (export/삭제 시도) |
 | ADMIN_026 | 403 | ADMIN_PERM_GRANT_FORBIDDEN | 본인이 갖지 않은 권한을 하위 역할에 새로 부여 시도 |
 | ADMIN_027 | 403 | FILE_KIND_FORBIDDEN | 종류별 파일 권한(이미지·영상·오디오 삭제) 없음 |
+| ADMIN_028 | 429 | ADMIN_ACCOUNT_LOCKED | 로그인 실패 누적으로 콘솔 계정 일시 잠금 (앱 로그인의 ATH_014 와 같은 `app.security.lockout.*` 정책, `Retry-After` 헤더) |
 
 ### graceful 503 패턴
 
