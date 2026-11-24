@@ -4,100 +4,101 @@
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. `BillingServiceImpl.renewSubscription` 이 재시도 백오프 [1h, 6h] 로 최대 3 회 시도 (3 회 실패 시 ABANDONED, 총 ~7h) + ABANDONED 시 auto-cancel + 3 종 이벤트를 발행해요. `renewal_attempts` 테이블에 시도 이력이 영속됩니다.
+**Status**: Accepted. `BillingServiceImpl.renewSubscription`은 최대 3회 결제를 시도해요. 첫 번째 실패에는 1시간 뒤, 두 번째 실패에는 6시간 뒤를 다음 재시도 시각으로 기록해요. 세 번째 시도도 실패하면 `ABANDONED`로 기록하고 활성 구독을 자동 취소해요. 시도 이력과 결과 이벤트도 남겨요. 실제 재시도 시각에 영향을 주는 스케줄러의 한계는 아래에서 따로 설명해요.
 
-> **테이블 리네임 (2026-06-30)**: 본 ADR 의 `renewal_attempts` 는 현재 `subscription_renewals` (엔티티 `SubscriptionRenewal`), `payment_records` 는 `payment_history` 로 리네임됐어요. 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요. FK 컬럼 `payment_record_id` 는 이름을 유지한 채 `payment_history(id)` 를 참조합니다.
+> **테이블 리네임 (2026-06-30)**: 이 ADR의 `renewal_attempts`는 현재 `subscription_renewals`로, `payment_records`는 `payment_history`로 이름이 바뀌었어요. 엔티티 이름도 `RenewalAttempt`에서 `SubscriptionRenewal`로 바뀌었어요. 아래 모델과 SQL은 결정 당시 이름을 보존해요. 현재 스키마는 [data-model](../reference/data-model.md)을 참고하세요. FK 컬럼 `payment_record_id`는 이름을 유지하며 `payment_history(id)`를 참조해요.
 
 ---
 
 ## 결론부터
 
-자동 갱신 실패 후 재시도 간격과 종료 조건, 구독 상태 변경, 운영자가 확인할 기록을 정한 ADR이에요. 일시적인 실패에 재시도 기회를 주되 정해진 횟수를 넘으면 중단해요. 실제 코드는 오류 원인별 회복 가능성을 모두 분류하는 방식이 아니라 정해진 재시도 정책을 적용해요.
+자동 갱신 결제가 실패했을 때 얼마나 기다렸다가 다시 시도할지, 언제 중단할지, 결과를 어떻게 남길지 정한 ADR이에요. 카드사나 네트워크의 일시적인 문제로 실패할 수 있으므로 첫 실패만으로 재시도를 끝내지는 않아요. 그렇다고 같은 결제를 계속 요청하지도 않도록 시도 횟수를 제한해요.
 
-자동 갱신 결제는 *반드시 한 번에 성공하지 않는* 비즈니스 영역이에요. 카드 한도 일시 초과, 카드사 점검 시간대, 네트워크 timeout 같은 *회복 가능한 실패* 와 카드 만료·사용자 결제 거부 같은 *영구 실패* 가 섞여 들어옵니다. 첫 시도 실패만으로 구독을 즉시 취소하면 *일시 장애로 사용자 권한이 갑자기 사라지는* 사고가 생기고, 무한 재시도하면 *영구 실패한 카드에도 PG 호출이 누적* 되어 비용과 운영 피로가 쌓여요.
+정책은 최대 3회 시도와 두 번의 대기 간격 `[1h, 6h]`예요. 세 번 모두 실패하면 갱신 이력을 `ABANDONED`로 남기고, 해당 구독이 아직 `ACTIVE`이면 `cancel_reason="renewal_failed_after_3"`으로 취소해요. 코드는 실패 원인마다 회복 가능성을 판정하지 않고 같은 횟수·간격 정책을 적용해요.
 
-본 ADR 은 *최대 3 회 시도 — 재시도 백오프 [1h, 6h] — + 최종 실패 시 명시적 auto-cancel* 의 갱신 실패 정책을 정의합니다. 백오프 간격은 *일시 네트워크 장애* 같은 짧은 회복 시간과 *카드사 점검 cycle* 을 흡수하면서, 총 ~7h 안에 결론이 나 *만료 전 사용자 알림 시간* 을 확보하는 형태로 잡았어요. 3 회 시도가 모두 실패하면 `ABANDONED` 로 분류되어 구독이 `cancel_reason="renewal_failed_after_3"` 으로 명시 취소되고, 사용자에게는 별도 알림 listener ([`ADR-023`](./adr-023-billing-notification-listener.md)) 가 *push + email* 로 통보합니다.
+각 시도의 번호, 시각, 결과, 오류 코드와 메시지는 별도 테이블에 저장해요. 운영자는 이 기록으로 특정 구독의 갱신과 취소 과정을 확인할 수 있어요. 성공·실패·최종 중단 이벤트를 받은 알림 리스너는 설정과 사용자 알림 선호도에 따라 푸시·이메일을 처리해요([ADR-023](./adr-023-billing-notification-listener.md)).
 
-이 정책의 핵심 모델은 `RenewalAttempt` 테이블이에요. *각 갱신 시도의 횟수·시각·결과·error code* 가 영속되어 *운영자가 어떤 사용자의 어느 갱신이 왜 실패했는지* 를 추적할 수 있고, *이력이 누적되면 카드 한도 갱신 시간대·자주 실패하는 PG 채널* 같은 비즈니스 시그널도 분석할 수 있어요. webhook 과 scheduler 가 동시에 같은 구독을 재시도하는 race 는 Phase 1 의 직전 attempt 종결상태 (SUCCESS·ABANDONED) 체크로 1차 차단하고, `UNIQUE(subscription_id, attempt_no)` 제약이 두 번째 INSERT 를 `DataIntegrityViolationException` 으로 막아 추가 방어선으로 작동합니다.
-
-아래에서는 재시도 간격, `RenewalAttempt` 기록, scheduler와 webhook의 처리 관계, 성공·실패·최종 포기 이벤트, 단계별 트랜잭션을 설명해요. DB 고유 제약은 시도 기록의 중복을 제한하지만 외부 PG 호출보다 뒤에 적용되므로 동시 요청의 중복 청구까지 막는다고 보장하지 않아요. 외부 멱등성 설계는 별도 검토가 필요해요.
+DB의 `(subscription_id, attempt_no)` 고유 제약은 같은 시도 번호의 중복 저장을 막아요. 다만 이 제약은 외부 PG 호출 뒤에 적용돼요. 동시에 들어온 요청이 중복 청구를 일으키는 것까지 막지는 못하며, 외부 결제의 멱등성은 별도 검토가 필요해요.
 
 ---
 
 ## 왜 이런 고민이 시작됐나?
 
-자동 갱신 정책이 *단순 fail-fast* 형태로 시작하면 곧 운영 부담이 누적돼요. 결제 실패가 *회복 가능한 일시 장애* 인지 *영구 실패* 인지를 *한 번의 시도로* 구분할 길이 없고, 첫 실패만으로 구독을 종료하면 *카드 한도가 다음 날 회복되었을 사용자* 의 권한이 갑자기 사라집니다. 결제 갱신 같은 *장기 비즈니스 흐름* 에는 *재시도 정책이 정상 동작의 일부* 라는 사실을 정직하게 받아들여야 해요.
+한 번의 결제 실패만으로 이후에도 결제할 수 없는 상태인지 판단하기는 어려워요. 실패 후 다시 시도할 규칙이 없으면 일시적인 장애였더라도 갱신이 끝나지 않을 수 있어요. 반대로 종료 조건이 없으면 해결되지 않은 결제에도 요청이 계속 쌓여요.
 
-같은 영역의 표준 SaaS — Stripe, Spotify, Netflix — 가 *Smart Retries* 같은 형태로 재시도 정책을 두는 이유가 여기 있습니다. Stripe 의 *Smart Retries* 는 카드 발급사의 패턴 데이터를 학습해 *언제 재시도하면 성공률이 높은지* 까지 자동 결정하지만, 우리 규모에서는 그런 학습 데이터를 모을 수 없어요. 대신 *업계 통상의 백오프 간격* 을 따라 단순 정책을 도입하는 것이 정합합니다.
+이 정책은 두 경우 사이에서 재시도 기회와 종료 시점을 정해요. 공급자별 실패 패턴을 학습하거나 오류마다 다른 간격을 계산하는 방식은 도입하지 않았어요. 정해진 횟수와 간격을 사용하고, 이후 운영 기록을 근거로 변경 여부를 판단해요.
 
-재시도 정책 없이 *한 번 실패하면 EXPIRED* 로 가는 흐름은 [`ADR-020`](./adr-020-subscription-domain-model.md) 의 *expireOverdueSubscriptions cron* 과 결합해 *일시 장애로 권한 상실* 이라는 결과를 만들어요. 첫 갱신 실패 → expires_at 도래 → cron 이 EXPIRED 마킹 → 사용자는 *알림 없이 권한 사라진* 상태를 마주하게 됩니다. 운영 시 이 패턴이 자주 발생하면 *결제 갱신 정책 자체에 대한 사용자 신뢰* 가 무너져 *수동 재구독* 으로 돌아갈 가능성이 높아요.
+구독 만료와도 함께 봐야 해요. [ADR-020](./adr-020-subscription-domain-model.md)의 만료 처리는 갱신 재시도와 별도로 동작해요. 갱신이 완료되지 않은 채 만료 시각이 지나면 기존 구독이 만료될 수 있어요. 재시도 정책을 둔 것만으로 구독 기간이나 사용 권한이 자동 연장되는 것은 아니에요.
 
-운영 추적 측면도 부담이 큽니다. 단순 *RenewalRetryCount* 컬럼만 두면 *지난 갱신 시도가 언제, 왜 실패했는지* 가 사라져 운영 디버깅이 *PG 응답 로그* 에만 의존하게 돼요. *어느 사용자의 어느 시점 갱신이 어떤 error code 로 실패했는지* 를 빠르게 보려면 *attempt 별 이력* 이 영속되어야 합니다.
+운영 기록에는 횟수만으로 부족해요. 카운터와 마지막 실패 시각만 저장하면 이전 시도에서 어떤 오류가 발생했는지 알기 어려워요. 결제 로그를 따로 찾아야 하는 일을 줄이려면 시도별 결과를 남겨야 해요.
 
-이 결정이 답해야 할 물음은 이거예요.
-
-> **자동 갱신 결제의 실패가 정상의 일부인 환경에서, 회복 가능 실패와 영구 실패를 구분하면서 사용자 권한과 운영 추적성을 동시에 지키는 재시도 정책은 어떤 모양인가?**
+> 일시적인 실패에 다시 시도할 기회를 주면서, 반복 요청을 제한하고 갱신 결과를 추적하려면 어떤 정책이 필요한가요?
 
 ---
 
 ## 결정
 
-| 항목 | 값 | 사유 |
+| 항목 | 값 | 이유 |
 |---|---|---|
-| **재시도 횟수** | 3회 | 업계 통상 (Stripe Smart Retries, RevenueCat 등). N=2 는 방어 부족, N>=4 는 catch-up 비용 ↑ |
-| **백오프 간격** | [1h, 6h] 2회 (총 ~7h) | attempt 1→2 단기 (네트워크 일시 장애), 2→3 중기 (카드사 점검 cycle), 3회 실패 시 즉시 ABANDONED |
-| **이력 저장** | `renewal_attempts` 별도 테이블 | 운영 디버깅 (왜 실패? 언제? error code 무엇?) — 단순 카운터 컬럼은 이력 손실 |
-| **최종 실패 처리** | subscription auto-cancel (`status=CANCELLED`, `cancel_reason="renewal_failed_after_3"`) | EXPIRED 자동 마킹 대비 명시적 의사. 운영자가 RECONCILE 가능 |
-| **이벤트 발행** | `SubscriptionRenewalSucceededEvent` / `FailedEvent` / `AbandonedEvent` 3종 | 알림 (push/email) listener 는 별도 사이클 |
-| **재시도 발화** | `SubscriptionRenewalRetryScheduler` cron 매시 정각 | 1h 백오프 + 1h cadence = 최대 1h lag. 운영자가 short-circuit 원하면 cron override |
+| 시도 횟수 | 최초 요청을 포함해 최대 3회 | 첫 실패 뒤에도 재시도하되 무한히 반복하지 않아요. |
+| 대기 간격 | 첫 실패 뒤 1시간, 두 번째 실패 뒤 6시간 | 처음에는 짧게 기다리고, 다시 실패하면 더 긴 간격을 두도록 정했어요. |
+| 이력 저장 | `renewal_attempts` 별도 테이블 | 시도별 시각·결과·오류를 확인할 수 있게 해요. |
+| 최종 실패 처리 | `ABANDONED` 기록, 활성 구독을 `CANCELLED`로 변경 | 만료와 구분해 갱신 실패로 취소됐다는 이유를 남겨요. 취소 사유는 `renewal_failed_after_3`예요. |
+| 결과 이벤트 | `SubscriptionRenewalSucceededEvent`, `SubscriptionRenewalFailedEvent`, `SubscriptionRenewalAbandonedEvent` | 결제 처리와 알림 발송의 책임을 나눠요. |
+| 재시도 대상 확인 | `SubscriptionRenewalRetryScheduler`, 기본 매시 정각 | 주기적으로 재시도 대상을 찾아요. 주기는 `app.billing.scheduler.renewal-retry-cron`으로 조정할 수 있어요. |
 
 ---
 
 ## 흐름
 
-```
-            [cron 매일 자정]                      [cron 매시 정각]
+아래 두 스케줄러는 `app.billing.scheduler.enabled=true`일 때 등록돼요. 각 앱의 슬러그를 설정하고 갱신 대상 이벤트를 발행해요.
+
+```text
+          매일 자정(기본)                         매시 정각(기본)
    SubscriptionRenewalScheduler         SubscriptionRenewalRetryScheduler
                 │                                       │
-   findSubscriptionsExpiringWithin             findSubscriptionsDueForRetry
-       (만료 임박 ACTIVE)                  (RenewalAttempt FAILED + nextRetryAt 도래)
-                │                                       │
-                ▼                                       ▼
-                       SubscriptionRenewalDueEvent
-                                │
-                                ▼
-                  SubscriptionRenewalListener
-                  (SlugContext 셋업 후 호출)
-                                │
-                                ▼
+   만료가 가까운 ACTIVE 구독 조회           재시도 시각이 지난 FAILED 이력 조회
+                │                            같은 구독 ID는 한 번만 선택
+                └───────────────────┬───────────────────┘
+                                    ▼
+                    SubscriptionRenewalDueEvent
+                                    │
+                                    ▼
+                    SubscriptionRenewalListener
+                    SlugContext 설정 후 갱신 호출
+                                    │
+                                    ▼
                 BillingPort.renewSubscription(subId)
-                                │
-            ┌───────────────────┴───────────────────┐
-            ▼                                       ▼
-    Phase 1 (read TX)                       Phase 1 결과 → null
-    sub + plan + customerUid 조회            (skip — 이벤트만 발행)
-    + 직전 RenewalAttempt 검사
-    (SUCCESS / ABANDONED 면 skip)
-    + nextAttemptNo 결정
-            │
-            ▼
-    Phase 2 (NO TX)
-    PaymentPort.chargeAgain
-    ┌────────┴─────────┐
-    ▼ 성공             ▼ 실패 (FAILED 또는 throw)
-Phase 3a (write TX) Phase 3b (write TX)
-- 새 PaymentRecord    if attemptNo == 3:
-- 새 Subscription       - RenewalAttempt(ABANDONED)
-- RenewalAttempt(SUCCESS)  - sub.cancel("renewal_failed_after_3")
-- SucceededEvent          - AbandonedEvent
-                       else:
-                         - RenewalAttempt(FAILED, nextRetryAt=now+backoff)
-                         - FailedEvent
+                                    │
+                                    ▼
+                  Phase 1 — DB 조회 트랜잭션
+          구독·요금제·customerUid·직전 시도 결과 확인
+          대상이 없거나 갱신할 수 없으면 빈 결과 반환
+          직전 결과가 SUCCESS·ABANDONED여도 여기서 종료
+                                    │
+                                    ▼
+                  Phase 2 — 트랜잭션 없이 PG 호출
+                       PaymentPort.chargeAgain
+                   ┌────────────────┴────────────────┐
+                   ▼                                 ▼
+                PAID 반환                    PAID 이외의 결과 또는 예외
+                   │                                 │
+                   ▼                                 ▼
+        Phase 3a — DB 저장 트랜잭션          Phase 3b — DB 저장 트랜잭션
+        새 PaymentRecord·Subscription       1·2회 실패: FAILED와 다음 시각 저장
+        RenewalAttempt(SUCCESS) 저장        3회 실패: ABANDONED 저장·활성 구독 취소
+                   │                                 │
+                   ▼                                 ▼
+        SucceededEvent 발행                FailedEvent 또는 AbandonedEvent 발행
 ```
+
+PG가 `PAID` 이외의 상태를 반환하면 `PG_NOT_PAID`, 호출 중 예외가 발생하면 `PG_THROW`를 기록해요. 두 경우 모두 같은 재시도 정책을 적용해요. Phase 1에서 갱신 대상이 아니라고 판단한 경우에는 결제 호출과 결과 이벤트 발행을 건너뛰어요.
 
 ---
 
 ## RenewalAttempt 모델
+
+다음은 결정 당시 테이블 이름을 사용한 모델이에요. 현재 마이그레이션에 그대로 적용할 SQL은 아니에요.
 
 ```sql
 CREATE TABLE renewal_attempts (
@@ -109,21 +110,21 @@ CREATE TABLE renewal_attempts (
     status              VARCHAR(20) NOT NULL,  -- SUCCESS / FAILED / ABANDONED
     error_code          VARCHAR(50),           -- PG_NOT_PAID / PG_THROW
     error_message       TEXT,
-    payment_record_id   BIGINT REFERENCES payment_records(id),  -- SUCCESS 시 새 PaymentRecord
+    payment_record_id   BIGINT REFERENCES payment_records(id),  -- 성공 시 새 결제 기록
     created_at          TIMESTAMPTZ NOT NULL,
     updated_at          TIMESTAMPTZ NOT NULL
 );
 
--- retry scheduler 핵심 인덱스
+-- 재시도 시각이 지난 실패 이력을 조회하기 위한 인덱스
 CREATE INDEX idx_renewal_attempts_due ON renewal_attempts(next_retry_at)
     WHERE status = 'FAILED' AND next_retry_at IS NOT NULL;
 
--- race / 중복 발화 시 (subscription_id, attempt_no) UNIQUE 제약으로 두 번째 INSERT 차단
+-- 같은 구독의 동일한 시도 번호가 중복 저장되는 것을 막아요.
 CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
     ON renewal_attempts(subscription_id, attempt_no);
 ```
 
-**슬러그별 schema 위치** — ADR-020 정합. 같은 슬러그의 subscriptions·payment_records 와 join 가능.
+이 테이블은 [ADR-020](./adr-020-subscription-domain-model.md)의 결제·구독 테이블과 같은 앱 스키마에 둬요. 같은 스키마의 `subscriptions`·`payment_records`와 연결해 시도 이력을 확인할 수 있어요.
 
 ---
 
@@ -133,92 +134,102 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 
 ### 옵션 A — 카운터 컬럼만 (Subscription.renewalRetryCount + Subscription.lastRenewalFailedAt)
 
-- 단순해요. 별도 테이블이 필요 없어요.
-- ❌ 이력 손실 — "두 번째 실패 시 PG 가 어떤 에러 코드 반환?" 추적이 불가능해요.
-- ❌ ABANDONED 이력이 영구 보존되지 않아요 (sub.cancel 후 이력이 사라져요).
-- 운영 디버깅이 부족해요.
+별도 테이블이 없어 구조는 단순해요. 하지만 카운터와 마지막 실패 시각만으로는 각 시도의 오류나 중단 과정을 복원하기 어려워요. 구독을 취소한 뒤에도 실패 경위를 확인할 수 있도록 별도 이력을 남기는 방식을 선택했어요.
 
 <a id="옵션-b--renewalattempt-별도-테이블--채택"></a>
 
 ### 옵션 B — RenewalAttempt 별도 테이블 ★ 채택
 
-- 모든 시도 이력을 보존해요 (성공/실패/abandon 전부).
-- 운영 디버깅에 강해요 — "이 sub 가 왜 cancel 됐나?" → renewal_attempts 의 마지막 3개 row 가 답을 줘요.
-- attempt_no UNIQUE 제약으로 race 를 방어합니다.
+성공·실패·최종 중단을 시도별로 저장해요. 운영자는 같은 구독의 이력을 순서대로 읽어 취소 이유를 확인할 수 있어요. `(subscription_id, attempt_no)` 고유 제약으로 같은 번호의 중복 저장도 막아요. 외부 PG의 중복 청구를 막는 역할까지 포함하지는 않아요.
 
 <a id="옵션-c--실패-시-즉시-cancel-재시도-0회"></a>
 
 ### 옵션 C — 실패 시 즉시 cancel (재시도 0회)
 
-- 가장 단순해요.
-- ❌ 일시 장애에 과민하게 반응해요. 카드 한도가 24h 후 회복되는 경우도 즉시 cancel → 사용자 불만으로 이어져요.
-- 업계 통상에 어긋나요.
+처리는 가장 단순하지만 일시적인 장애에도 다음 시도 없이 구독을 취소하게 돼요. 첫 실패 뒤에 회복할 기회를 주려는 목적과 맞지 않아 선택하지 않았어요.
 
 <a id="옵션-d--무한-재시도-지수-백오프"></a>
 
 ### 옵션 D — 무한 재시도 (지수 백오프)
 
-- 끝까지 재시도합니다.
-- ❌ DB 누수 위험 (renewal_attempts 무한 증가).
-- ❌ 영구 정지된 카드도 N 회 시도 → PG 비용 누적.
-- ❌ 사용자가 "왜 자동 갱신이 계속 실패하는지" 알 수 없어요.
+시간이 지나도 계속 재시도할 수 있어요. 다만 해결되지 않은 결제의 요청과 이력이 계속 늘어나고, 운영자와 사용자에게 갱신을 중단할 시점도 알려주기 어려워요. 이 정책에서는 시도 횟수와 최종 상태를 명시하는 쪽을 선택했어요.
 
 ---
 
 ## 백오프 선택 근거
 
-| 회차 | 간격 | 이유 |
+| 회차 | 기록하는 대기 간격 | 정책의 의도 |
 |---|---|---|
-| 1→2 | 1h | 네트워크/PG 일시 장애 회복 시간. 너무 길면 사용자 만료 직후 권한 끊김 |
-| 2→3 | 6h | 카드사 점검 / 시스템 유지보수 cycle |
-| 3→ABANDONED | (없음) | 총 ~7h 의 재시도 창에도 실패면 영구 문제 가능성 (블랙리스트, 한도 초과, 카드 만료) — 잔여 회복 케이스는 만료 전 알림 + 수동 재결제로 처리 |
+| 1→2 | 1시간 | 첫 실패 뒤 한 번 더 시도할 기회를 줘요. |
+| 2→3 | 6시간 | 다시 실패하면 첫 대기보다 긴 간격을 두고 마지막 시도를 하도록 정했어요. |
+| 3회 실패 뒤 | 재시도 없음 | `ABANDONED`와 취소 사유를 남기고, 결제 수단 확인이나 수동 재결제로 이어갈 수 있게 해요. |
 
-총 7h 후 abandon — 만료 24h 전부터 재시도하면 abandon 도 만료 17h 전에 결정돼요 → 사용자에게 알림을 발송할 시간을 확보합니다.
+두 대기 간격의 합은 7시간이에요. 모든 갱신이 첫 시도부터 정확히 7시간 뒤에 끝난다는 뜻은 아니에요. 기본 재시도 스케줄러는 매시 정각에 실행하므로 다음 실행까지 기다릴 수 있고, 작업 지연이나 서버 중단도 영향을 줘요.
+
+만료 임박 구독을 찾는 기본 범위는 앞으로 24시간이에요. 이는 만료 전에 갱신과 실패 알림을 처리할 기회를 두려는 설정이에요. 첫 시도가 항상 만료 24시간 전에 시작하거나, 최종 실패가 만료 17시간 전에 확정되는 것은 아니에요.
+
+**현재 구현의 간격 확인에는 한계가 있어요.** 재시도 조회는 시각이 지난 `FAILED` 이력을 가져오며 최신 시도만으로 제한하지 않아요. 구독 ID의 중복을 제거한 뒤 갱신을 호출하고, 갱신 메서드는 최신 시도의 종료 상태를 확인하지만 `nextRetryAt`은 다시 검사하지 않아요. 따라서 이전 실패 이력이 조회되면 최신 시도에 기록한 대기시간이 끝나기 전에 다음 결제를 시도할 수 있어요. `[1h, 6h]`는 현재 코드가 기록하는 정책값이며, 실행 경로 전체가 그 간격을 보장한다고 설명하지 않아요.
 
 ---
 
 <a id="동시성--race-방어"></a>
 
-## 동시성 / Race 방어
+<a id="동시성-race-방어"></a>
 
-1. **같은 sub 의 동시 retry** — `findSubscriptionsDueForRetry` 가 같은 sub 의 여러 FAILED row 를 dedup. 그래도 두 cron 인스턴스 race 시 첫 phase1 의 attemptNo 가 동일 → 두 번째 INSERT 가 UNIQUE 제약 위반 으로 실패 (실패 시 두 번째 호출이 fail-fast 됨).
-2. **이미 SUCCESS·ABANDONED 인 sub 의 retry** — Phase 1 의 직전 attempt 상태를 체크해요. SUCCESS·ABANDONED 면 skip + log + return empty 로 빠져나갑니다.
-3. **Phase 2 (PG) 의 외부 HTTP 호출이 트랜잭션 점유** — `@Transactional(NOT_SUPPORTED)` + 내부 `txTemplate` 으로 phase 별 자기 트랜잭션을 가집니다. ADR-020 의 webhook 패턴과 동일해요.
+## 동시 요청의 처리와 한계
+
+같은 구독의 요청이 겹칠 때 각 단계가 처리하는 범위는 다음과 같아요.
+
+1. **한 번의 재시도 조회에서 같은 구독이 여러 번 나오는 경우**: 조회 결과의 구독 ID를 모아 중복을 제거해요. 서로 다른 스케줄러 실행이나 인스턴스의 요청까지 잠그는 처리는 아니에요.
+2. **이미 갱신이 끝난 구독을 다시 요청하는 경우**: Phase 1에서 최신 시도가 `SUCCESS`·`ABANDONED`이면 로그를 남기고 빈 결과를 반환해요.
+3. **같은 시도 번호로 저장하려는 경우**: DB 고유 제약이 두 번째 저장을 거부해요. 두 요청이 모두 Phase 1을 통과했다면 저장 전에 PG 호출을 각각 수행할 수 있으므로, 이 제약만으로 결제 중복을 방지할 수는 없어요.
+4. **외부 호출 중 DB 트랜잭션을 유지하는 문제**: 갱신 메서드는 `@Transactional(NOT_SUPPORTED)`로 외부 트랜잭션을 중단하고, DB 작업만 `TransactionTemplate`으로 나눠 실행해요. 외부 HTTP 호출을 트랜잭션 밖에 두는 점은 ADR-020의 webhook 처리와 같아요.
+
+외부 PG 요청을 같은 결제로 식별하고 중복 청구를 막는 설계는 이 DB 제약과 별도로 검토해야 해요.
 
 ---
 
 <a id="알림-out-of-scope--다음-사이클"></a>
 
-## 알림 (Out of Scope — 다음 사이클)
+<a id="알림-out-of-scope-다음-사이클"></a>
 
-본 사이클은 이벤트 발행까지만 다뤄요. 실제 push/email listener 는:
+## 알림 처리 범위
 
-- `SubscriptionRenewalFailedEvent` 받은 listener — "결제 실패. N시간 후 재시도 예정" 알림
-- `SubscriptionRenewalAbandonedEvent` 받은 listener — "구독이 자동 취소됐습니다. 카드 정보 확인" 알림 + win-back 캠페인 트리거
+이 ADR을 결정할 때의 구현 범위는 결과 이벤트 발행까지였어요. 당시에는 실패 이벤트로 재시도 예정 사실을, 최종 중단 이벤트로 취소와 결제 수단 확인 필요성을 알리는 후속 리스너를 계획했어요. 재가입을 유도하는 캠페인도 후속 아이디어였으며 이 정책의 기본 동작은 아니에요.
 
-별도 사이클에서 `core-push` (또는 `core-notification`) 모듈로 분리합니다.
+현재는 [ADR-023](./adr-023-billing-notification-listener.md)의 `SubscriptionNotificationListener`가 성공·실패·최종 중단 이벤트를 받아요. 푸시·이메일은 등록된 채널, 알림 설정, 사용자 선호도와 이메일 검증 상태 등에 따라 발송하거나 건너뛰어요. 이벤트를 발행했다는 사실만으로 두 채널 모두 사용자에게 도착했다고 보지는 않아요. 발송 구현과 운영 확인은 알림 문서에서 다뤄요.
 
 ---
 
 ## 검증
 
-`AbstractBillingPortContractTest$RenewSubscription` 에 9개 시나리오:
+이 ADR의 기존 검증 기록에는 아래 계약 테스트 10개가 통과한 것으로 남아 있어요. 각 테스트가 확인하는 동작은 다음과 같아요.
 
-1. `noCustomerUid_returnsEmpty` — one-time 결제 skip
-2. `withCustomerUid_paid_createsNewSubscriptionAndSuccessAttempt` — 첫 시도 성공
-3. `nonexistentSubscription_returnsEmpty` — 존재하지 않는 sub
-4. `firstAttemptFails_recordsFailedAttempt_withNextRetryAtAround1h` — 첫 실패 → +1h
-5. `secondAttemptFails_nextRetryAtAround6h` — 두 번째 실패 → +6h
-6. `thirdAttemptFails_abandoned_subscriptionAutoCancelled` — 세 번째 실패 → ABANDONED + cancel
-7. `chargeAgainThrows_recordedAsFailedWithErrorCodePgThrow` — PG throw → FAILED
-8. `retryAfterFailure_succeeds_recordsSuccessAttempt2` — 재시도 후 성공
-9. `alreadyTerminal_skipsExtraAttempt` — SUCCESS 후 중복 발화 skip
+`AbstractBillingPortContractTest.RenewSubscription`:
 
-`AbstractBillingPortContractTest$FindSubscriptionsDueForRetry` 에 1개:
+1. `noCustomerUid_returnsEmpty` — 재청구용 `customerUid`가 없는 일회성 결제는 건너뛰어요.
+2. `withCustomerUid_paid_createsNewSubscriptionAndSuccessAttempt` — 첫 시도가 성공하면 새 구독과 성공 이력을 저장해요.
+3. `nonexistentSubscription_returnsEmpty` — 구독이 없으면 빈 결과를 반환해요.
+4. `firstAttemptFails_recordsFailedAttempt_withNextRetryAtAround1h` — 첫 실패 뒤 약 1시간 후의 재시도 시각을 기록해요.
+5. `secondAttemptFails_nextRetryAtAround6h` — 두 번째 실패 뒤 약 6시간 후의 재시도 시각을 기록해요.
+6. `thirdAttemptFails_abandoned_subscriptionAutoCancelled` — 세 번째 실패를 `ABANDONED`로 기록하고 구독을 취소해요.
+7. `chargeAgainThrows_recordedAsFailedWithErrorCodePgThrow` — PG 호출 예외를 `PG_THROW` 실패 이력으로 남겨요.
+8. `retryAfterFailure_succeeds_recordsSuccessAttempt2` — 첫 실패 뒤 성공한 재시도를 두 번째 이력으로 저장해요.
+9. `alreadyTerminal_skipsExtraAttempt` — 이미 성공한 구독의 추가 시도를 건너뛰어요.
 
-10. `returnsActiveSubsWithDueFailedAttempts_excludesFutureRetries` — due 한 sub 만 반환
+`AbstractBillingPortContractTest.FindSubscriptionsDueForRetry`:
 
-총 contract test 10개 모두 PASS (`./gradlew :core:core-billing-impl:test --tests '*RenewSubscription*' '*FindSubscriptionsDueForRetry*'`).
+10. `returnsActiveSubsWithDueFailedAttempts_excludesFutureRetries` — 재시도 시각이 지난 실패 이력이 있는 활성 구독을 조회하고, 미래 시각의 이력만 있는 구독은 제외해요.
+
+다시 확인할 때는 다음 명령을 사용해요.
+
+```bash
+./gradlew :core:core-billing-impl:test \
+  --tests '*RenewSubscription*' \
+  --tests '*FindSubscriptionsDueForRetry*'
+```
+
+이 테스트들은 이력에 기록되는 값과 개별 조회·처리를 확인해요. 실제 스케줄러에서 이전 실패 이력과 최신 실패 이력이 함께 있을 때의 대기 간격이나, 동시 요청의 외부 PG 중복 청구까지 검증한 결과로 확대하지 않아요.
 
 ---
 
@@ -226,17 +237,20 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 
 ## 결정 권한 / 변경 절차
 
-`MAX_RENEWAL_ATTEMPTS=3`, `RENEWAL_BACKOFF=[1h, 6h]` 는 `BillingServiceImpl` 의 상수. 변경 시:
+`MAX_RENEWAL_ATTEMPTS=3`과 `RENEWAL_BACKOFF=[1h, 6h]`는 `BillingServiceImpl`의 상수로 관리해요. 횟수나 간격을 바꿀 때는 운영 기록과 변경 이유를 이 ADR에 남겨요. 최종 실패 뒤 수동 재결제로 이어진 사례나 추가 시도에서 회복한 사례처럼 판단에 사용할 수 있는 기록을 확인해요.
 
-1. 본 ADR 에 변경 사유 기록 (운영 통계: "현재 N=3 으로 abandon 된 sub 중 X% 가 24h 후 수동 재가입 — Y 로 늘리면 회복률 ↑")
-2. Properties 노출 (운영자 환경별 override 가능) — 다음 사이클에서 결정
+운영 환경별로 값을 바꿀 수 있도록 Properties로 노출할지는 별도로 결정해요. 현재 정책이 환경변수만으로 변경된다는 의미는 아니에요.
 
 ---
 
 ## 관련 파일
 
-- `core/core-billing-impl/.../BillingServiceImpl.java#renewSubscription` — phase 1/2/3a/3b
-- `core/core-billing-impl/.../entity/SubscriptionRenewal.java` — entity + factory 메소드 (구 `RenewalAttempt`)
-- `core/core-billing-impl/.../scheduler/SubscriptionRenewalRetryScheduler.java` — cron
-- `core/core-billing-api/.../event/SubscriptionRenewalSucceeded/Failed/AbandonedEvent.java`
-- `tools/app/new-app.sh` — `V011__init_subscription_renewals.sql` heredoc
+- [BillingServiceImpl.java](https://github.com/storkspear/template-spring/blob/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/BillingServiceImpl.java) — 대상 조회, 외부 결제 호출, 결과 저장과 이벤트 발행
+- [SubscriptionRenewal.java](https://github.com/storkspear/template-spring/blob/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/entity/SubscriptionRenewal.java) — 현재 갱신 이력 엔티티와 생성 메서드. 결정 당시 이름은 `RenewalAttempt`예요.
+- [SubscriptionRenewalRepository.java](https://github.com/storkspear/template-spring/blob/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/repository/SubscriptionRenewalRepository.java) — 재시도 시각이 지난 실패 이력 조회
+- [SubscriptionRenewalScheduler.java](https://github.com/storkspear/template-spring/blob/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/scheduler/SubscriptionRenewalScheduler.java) — 만료 임박 구독 조회
+- [SubscriptionRenewalRetryScheduler.java](https://github.com/storkspear/template-spring/blob/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/scheduler/SubscriptionRenewalRetryScheduler.java) — 재시도 대상 조회와 이벤트 발행
+- [SubscriptionRenewalListener.java](https://github.com/storkspear/template-spring/blob/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/scheduler/SubscriptionRenewalListener.java) — 앱 슬러그를 설정하고 갱신 호출
+- [SubscriptionNotificationListener.java](https://github.com/storkspear/template-spring/blob/main/core/core-billing-impl/src/main/java/com/factory/core/billing/impl/listener/SubscriptionNotificationListener.java) — 결과 이벤트에 따른 알림 처리
+- [갱신 결과 이벤트](https://github.com/storkspear/template-spring/tree/main/core/core-billing-api/src/main/java/com/factory/core/billing/api/event) — 갱신 결과 이벤트
+- [new-app.sh](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 현재 `V011__init_subscription_renewals.sql` 생성 코드
