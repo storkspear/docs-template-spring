@@ -1,3 +1,5 @@
+<a id="adr-029--비밀번호-정책-강화-validpassword"></a>
+
 # ADR-029 — 비밀번호 정책 강화 (`@ValidPassword`)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
@@ -10,11 +12,11 @@
 
 비밀번호 정책은 *사용자 계정 보안의 첫 방어선* 이에요. *얼마나 긴 비밀번호를 요구할지*, *흔한 비밀번호를 차단할지*, *어떤 종류의 문자 (대문자·소문자·숫자·특수문자) 를 강제할지* 같은 결정이 *brute-force 공격* 과 *credential stuffing 공격* 의 성공률을 직접 좌우합니다. 기본 정책이 약하면 *유출된 비밀번호 데이터베이스* (RockYou, SecLists 같은) 의 흔한 항목으로 *수만 계정이 한 번에 뚫릴* 수 있어요.
 
-본 ADR 은 비밀번호 검증을 `@ValidPassword` Bean Validation 어노테이션으로 표준화하고, 그 검증 로직을 `PasswordValidator` 한 클래스에 모아두는 구조를 정의합니다. 기본 정책은 *OWASP ASVS L2 권장* 을 따라 *최소 10 자, 대문자·소문자·숫자 필수, common blacklist (Top 300+ 흔한 비밀번호) 차단* 의 baseline 이에요. 특수문자 강제는 *사용성 trade-off* 로 default false 로 두고 운영자가 켤 수 있게 했습니다.
+비밀번호 입력은 `@ValidPassword`와 `PasswordValidator`에서 검증해요. 현재 기본값은 최소 10자, 대문자·소문자·숫자 포함, 흔한 비밀번호 차단이에요. 특수문자는 기본 필수가 아니며 설정으로 켤 수 있어요. 최소 길이는 Java 문자열 길이, 최대 길이는 UTF-8 72바이트로 검사해요. 이 기본값을 외부 보안 표준 전체의 충족 보장으로 설명하지 않아요.
 
-이 정책의 핵심은 *property 기반 운영자 override* 예요. 파생 레포가 *비즈니스 특성* 에 맞게 정책을 조정할 수 있도록 `app.security.password.min-length`, `app.security.password.require-special` 같은 properties 를 노출했어요. 금융 앱이라면 *min-length=12 + special=true* 로 강화하고, 캐주얼 게임이라면 *min-length=8* 로 완화하는 식입니다. 코드를 수정하지 않고 `.env` 한 줄로 조정 가능해 *파생 레포의 자유도* 가 보장돼요.
+`app.security.password.*`로 최소 길이와 문자 구성 규칙을 조정할 수 있어요. 예를 들어 `min-length`와 `require-special`을 바꿀 때는 사용자 입력과 기존 클라이언트 검증도 함께 확인해요. 현재 설정은 배포 전체에 적용되므로 앱별로 자동 분리되는 정책으로 해석하지 않아요.
 
-검증은 표준 Bean Validation 흐름을 따릅니다. DTO 의 `password` 필드에 `@ValidPassword` 만 붙이면 *Controller 의 `@Valid` 단계에서 자동 검증* 되어 boilerplate 가 0 이에요. 검증 실패 시 표준 `MethodArgumentNotValidException` 이 던져지고, `GlobalExceptionHandler` 가 *400 Bad Request* 응답으로 정합하게 처리합니다.
+DTO의 비밀번호에 `@ValidPassword`를 붙이고 컨트롤러가 `@Valid`로 요청을 검증해요. 규칙을 통과하지 못하면 `MethodArgumentNotValidException`을 `GlobalExceptionHandler`가 400 응답으로 처리해요. 같은 요청이 아닌 내부 호출까지 이 HTTP 검증이 대신하는 것은 아니에요.
 
 이 ADR 의 범위는 baseline 정책 결정 근거 (OWASP ASVS L2 vs NIST SP 800-63B), `@ValidPassword` 어노테이션 설계, common-passwords blacklist 의 출처 (RockYou + SecLists) 와 캐싱 전략, property override 의 적용 흐름, 그리고 *common-web 모듈 위치* 의 정합성까지입니다.
 
@@ -24,7 +26,7 @@
 
 비밀번호 정책의 *기본값* 만으로 시스템이 출시되면 운영 보안 audit 에서 *baseline 미달* 로 분류되는 경우가 많아요. *최소 8 자 + 복잡도 요구 없음* 같은 단순 정책은 *brute-force 시간 비용* 을 충분히 늘리지 못하고, *credential stuffing 공격* (다른 사이트에서 유출된 이메일/비밀번호 조합으로 자동 로그인 시도) 에도 무방비입니다.
 
-baseline 강화의 필요성을 보여주는 시나리오를 보면 그 부담이 명확해요. 사용자가 *비밀번호 8 자* 로 가입하면 *brute-force 로 평균 2~3 일 안에* 뚫릴 수 있는 강도예요 (현대 GPU 기준). *aaaaaaaa* 같은 단순 반복도 8 자 정책은 막지 않으므로, *유출된 비밀번호 데이터베이스* 의 Top 100 항목 (`password`, `12345678`, `qwerty`, `abc12345` 등) 으로 *상당수 계정이 즉시 뚫리는* 상태가 됩니다. *유출된 RockYou 비밀번호 데이터베이스* (3천만 항목) 가 인터넷에 공개되어 있어 누구나 다운받아 시도할 수 있어요.
+길이만 검사하면 단순한 반복이나 널리 알려진 비밀번호도 통과할 수 있어요. 그래서 길이와 문자 구성 검사에 흔한 비밀번호 목록 검사를 더했어요. 실제 공격 비용은 입력 분포, 해시 설정, 공격 환경에 따라 달라 특정 길이가 며칠 안에 풀린다는 수치로 설명하지 않아요.
 
 길이 강화의 가치는 *지수적* 입니다. *8 자에서 10 자* 로 올리면 brute-force 시간이 *수십 배* 늘어나요 (각 자리수당 95 가지 문자 조합). *10 자 + 대소문자 + 숫자 강제* 만으로도 *수년 단위* 의 brute-force 비용이 되어 실질적으로 무력화돼요. *common blacklist 차단* 은 그 강화 위에 *가장 흔한 약점* 을 추가로 막는 보완입니다.
 
@@ -44,8 +46,8 @@ baseline 강화의 필요성을 보여주는 시나리오를 보면 그 부담�
 
 | 항목 | 값 (default) | 사유 |
 |---|---|---|
-| **min length** | 10 | OWASP ASVS L2 권장 |
-| **max length** | 72 (hardcode) | BCrypt 알고리즘 한계 |
+| **min length** | 10 | 템플릿의 기본 정책, Java 문자열 길이 기준 |
+| **max length** | UTF-8 72바이트 (고정) | BCrypt 입력 길이를 사전 검사해요 |
 | **require uppercase** | true | 복잡도 |
 | **require lowercase** | true | 복잡도 |
 | **require digit** | true | 복잡도 |
@@ -150,6 +152,8 @@ PasswordResetConfirmRequest   @ValidPassword newPassword
 
 ## 대안 비교
 
+<a id="옵션-a--기존-size--정규식-pattern"></a>
+
 ### 옵션 A — 기존 `@Size` + 정규식 (`@Pattern`)
 
 ```java
@@ -162,6 +166,8 @@ String password
 - ❌ blacklist 가 통합되지 않아 별도 검증 코드가 따로 필요해요
 - ❌ 에러 메시지가 한 줄이라 사용자가 *어떤 정책을 위반했는지* 알 수 없어요
 
+<a id="옵션-b--커스텀-validpassword--채택"></a>
+
 ### 옵션 B — 커스텀 `@ValidPassword` ★ 채택
 
 - 정책을 properties 로 분리해서 운영자가 `.env` 로 조정할 수 있어요
@@ -169,10 +175,14 @@ String password
 - 위반한 정책별로 메시지가 분기되어 사용자에게 정확히 안내됩니다
 - 검증 로직이 ConstraintValidator 한 개로 통합됩니다
 
+<a id="옵션-c--spring-security-passwordencoder-수준-검증"></a>
+
 ### 옵션 C — Spring Security `PasswordEncoder` 수준 검증
 
 - ❌ Spring Security 의 `PasswordEncoder` 는 hashing·매칭만 다루고 정책 검증은 책임이 아니에요
 - ❌ Passay 같은 별도 라이브러리가 필요해 의존성이 늘어나요
+
+<a id="옵션-d--haveibeenpwned-api-실-leak-db-조회"></a>
 
 ### 옵션 D — haveibeenpwned API (실 leak DB 조회)
 

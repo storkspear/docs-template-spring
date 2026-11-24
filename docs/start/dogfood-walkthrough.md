@@ -1,3 +1,5 @@
+<a id="도그푸딩-walkthrough--사이클-흐름과-정착된-패턴"></a>
+
 # 도그푸딩 walkthrough — 사이클 흐름과 정착된 패턴
 
 > **유형**: How-to · **독자**: Level 1 · **읽는 시간**: ~20분
@@ -7,21 +9,21 @@
 함께 보면 좋은 문서가 둘 있어요.
 
 - 정상 흐름을 단계별로 따라가고 싶을 때: [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md)
-- 특정 에러로 검색해서 찾아볼 때: [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) · [`도그푸딩 FAQ`](./dogfood-faq.md)
+- 특정 에러로 검색해서 찾아볼 때: [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) · [`도그푸딩 FAQ`](dogfood-setup.md)
 
 ---
 
 ## 이 가이드가 다루는 것
 
-도그푸딩 사이클에서 사용자가 실제로 겪었던 흐름을 시간 순으로 풀어 쓴 가이드예요. "어떤 셋업을 어떤 순서로 하는가" 보다, 어떤 함정을 만났을 때 어떤 패턴으로 정착됐는지에 초점을 맞췄어요.
+이 문서는 템플릿과 파생 저장소를 처음 배포하던 당시의 사건을 시간순으로 정리한 기록이에요. 아래 커밋과 조치는 당시 맥락으로 읽고, 현재 설정 절차는 [셋업 가이드](./dogfood-setup.md)를 따라가세요.
 
-각 함정의 상세한 에러 메시지와 원인, 해결책은 [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) 에 정리돼 있어요. 이 walkthrough 는 왜 이런 패턴이 정착됐는지의 서사를 보여드리고, 자세한 참조가 필요할 때마다 해당 문서로 안내해드려요.
+증상별 대응은 [함정 모음](./dogfood-pitfalls.md)에 모았어요. 여기서는 문제가 발견된 흐름과 그 결과 추가한 자동화를 설명해요.
 
 ---
 
 ## 1. 도그푸딩이 뭐예요?
 
-도그푸딩은 템플릿 자기 자신을 Mac mini 에 배포해서 한 사이클을 검증하는 일이에요. "Use this template" 으로 만든 새 [파생 레포](../reference/glossary.md#이-레포-고유-용어) 에서도 똑같은 검증을 합니다.
+당시에는 템플릿 자체의 배포부터 검증했고, 이후 파생 저장소의 첫 설정을 확인했어요. 현재 원본 `template-spring`은 공통 코드 유지보수용이며 원격 배포 가드가 적용돼요. 배포 검증은 별도 파생 저장소에서 진행해요.
 
 왜 필요할까요? 템플릿의 자동화 코드는 파생 레포로 그대로 복사돼요. `tools/init/init-prod.sh`, `tools/init/init-local.sh`, `tools/init/init-dev.sh` 같은 스크립트가 한 글자도 빠짐없이 따라가요. 하지만 자동화가 건드리지 못하는 자리가 있어요. GitHub Settings 의 Variables 와 Secrets, Mac mini 의 SSH 키, [GHCR](../reference/glossary.md#ci--배포-파이프라인) 패키지는 파생 레포가 직접 셋업해야 합니다. 첫 실배포 전에 도그푸딩으로 한 바퀴 돌려 두면, 실제 사용자 트래픽이 들어오기 전에 이 함정들을 미리 잡을 수 있어요.
 
@@ -31,24 +33,26 @@
 
 ## 2. 사이클의 큰 그림
 
-도그푸딩은 두 회차로 나뉩니다.
+당시 검증은 다음 두 단계로 진행했어요. 이 구분은 `init-prod.sh`를 설정 상태에 따라 다시 실행하는 1·2회차와는 달라요.
 
 | 회차 | 대상 | 시점 | 함정 분포 |
 |---|---|---|---|
 | **1회차** | `template-spring` 자체 | 템플릿 첫 배포 | 12 함정 ([`pitfalls.md`](./dogfood-pitfalls.md) `#1~#12`) |
 | **2회차** | "Use this template" 파생 레포 | 파생 레포의 첫 셋업 | 별도 함정군 (이 walkthrough §4) |
 
-1회차 함정은 대부분 자동화 코드 자체에 안전장치로 박혀서 회피됩니다. 그래서 2회차 파생 레포에서는 1회차 함정을 거의 만나지 않아요. 대신 2회차에서만 나타나는 함정이 따로 있어요. 파생 레포가 자기 secret 을 처음 채우는 순간에 생기는 문제들이에요.
+첫 단계에서 찾은 문제는 사전 검사와 설정 가드에 반영했어요. 파생 저장소에서는 새 Secrets와 외부 자격을 등록하는 과정에서 추가 문제가 발견됐어요.
 
 이 walkthrough 는 주로 2회차의 흐름과 함정에 집중합니다.
 
 ---
 
+<a id="3-1회차--template-자체-도그푸딩"></a>
+
 ## 3. 1회차 — template 자체 도그푸딩
 
 이 회차는 [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) 의 `#1~#12` 에 자세히 정리돼 있어요. 여기서는 핵심만 짚고 넘어갈게요. 대표 함정 세 가지만 골라 보면 이래요.
 
-- **`#7` GHCR push 권한** — `GITHUB_TOKEN` 만으로는 첫 GHCR 패키지를 만들 권한이 부족해서, [PAT](../reference/glossary.md#ci--배포-파이프라인) 를 따로 발급해야 합니다.
+- **`#7` GHCR push 권한** — 당시 push 실패를 PAT 사용으로 해결했어요. `GITHUB_TOKEN`도 적절한 job 권한과 패키지 접근 권한이 있으면 업로드에 사용할 수 있어요. 현재 템플릿의 PAT 경로와 당시 시도는 [GHCR 사례](./dogfood-pitfalls.md#ghcr-auth)를 참고하세요.
 - **`#11` JDBC URL 형식** — [Supabase](../reference/glossary.md#데이터베이스) 가 보여주는 connection string 을 그대로 복사하면 `jdbc:` 접두사가 빠져 있어 "No suitable driver" 에러가 납니다.
 - **`#12` JDK 26 호환성** — Gradle 의 Groovy 가 class file major 70(JDK 26)을 읽지 못해 빌드 자체가 막힙니다. JDK 21 LTS 를 권장해요.
 
@@ -58,21 +62,29 @@
 - `tools/dogfooding/setup.sh` 가 `DB_URL` 이 `jdbc:postgresql://` 로 시작하는지 정규식으로 확인합니다.
 - `deploy.yml` 의 docker build 단계에 `provenance: false` 와 `sbom: false` 를 박았습니다.
 
-이 가드들 덕분에 2회차 파생 레포에서는 1회차 함정을 거의 만나지 않아요.
+이후 파생 저장소에서도 같은 사전 검사를 실행해요. 환경별 자격과 외부 연결은 파생 저장소에서 따로 준비해야 해요.
 
 ---
+
+<a id="4-2회차--파생-레포에서-만나는-함정"></a>
 
 ## 4. 2회차 — 파생 레포에서 만나는 함정
 
 여기부터가 walkthrough 의 본론이에요. 파생 레포에서 처음으로 발견된 함정들과, 그것이 어떻게 영구 패턴으로 정착됐는지를 시간 순으로 풀어 드려요.
 
+<a id="41-첫-push-가-빨갛게--ghcr_token-미등록"></a>
+
 ### 4.1 첫 push 가 빨갛게 — `GHCR_TOKEN` 미등록
 
-파생 레포를 만들고 코드를 한 번 push 했는데, GitHub Actions 의 `sync-docs` 워크플로가 빨갛게 떴어요. 며칠치 push 가 모두 같은 에러로 실패해 있는 상태로 뒤늦게 발견됐어요.
+당시 파생 저장소에서 며칠 동안 `sync-docs` 워크플로가 실패했고, 공개 문서 저장소에 접근하는 `GHCR_TOKEN`이 빠진 것을 뒤늦게 확인했어요. 원본 저장소에 등록한 Secrets는 파생 저장소로 상속되지 않기 때문에 별도 등록이 필요했어요.
 
-**왜 발생했나요?** `sync-docs.yml` 은 docs 변경분을 `docs-template-spring` 레포로 자동 PR 보내는데, 이 cross-repo 동작에 PAT 가 필요해요. 그런데 파생 레포의 GitHub Settings 에 `GHCR_TOKEN` secret 이 등록되지 않은 상태였어요. `GHCR_TOKEN` 은 1회차 `template-spring` 에서 이미 발급해 등록했지만, 파생 레포는 별개의 GitHub 레포라 secret 이 자동으로 상속되지 않습니다.
+당시에는 `gh secret set GHCR_TOKEN -R <repo>`로 토큰을 등록해 정상화했어요. 현재 `sync-docs.yml`의 job은 `github.repository == 'storkspear/template-spring'` 조건으로 원본에서만 실행해요. 따라서 현재 파생 저장소에 문서 동기화용 토큰을 추가하라는 절차로 읽지는 않아요. 원본의 동기화는 `GHCR_TOKEN`으로 공개 미러를 갱신하고 PR을 만든 뒤 squash merge해요.
 
-**무엇이 정착됐나요?** 파생 레포의 secret 등록은 [4-stage secret chain](../reference/glossary.md#이-레포-고유-용어) 의 마지막 단계, 즉 GitHub Actions 워크플로의 `env:` 블록과 직접 이어져요. 본문이 `${{ secrets.X }}` 로 등록되지 않은 secret 을 참조하면 빈 문자열이 되고, 워크플로가 어느 단계에서 조용히 실패합니다. 그래서 모든 secret 이 4-stage 모두에 등록됐는지 확인하는 원칙이 [`secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) 에 명문화됐어요. `init-prod.sh` 가 8개의 REQUIRED secret 을 push 하지만, 그 밖에도 워크플로가 의존하는 secret 이 빠져 있을 수 있어서, 운영자가 한 번 더 명시적으로 점검해야 합니다.
+이 사건에서 확인한 것은 자격이 필요한 각 전달 지점을 함께 점검해야 한다는 점이에요. 워크플로의 `${{ secrets.X }}`가 등록되지 않은 값을 참조하면 빈 문자열이 될 수 있어요. 애플리케이션 자격은 [secret chain 가이드](../production/setup/secret-chain-4stage.md)의 환경 파일·워크플로·Kamal 매핑·컨테이너 주입 경로를 확인해요. 문서 동기화 토큰은 애플리케이션 컨테이너에 전달하는 자격이 아니에요.
+
+당시 `ci-test`의 일곱 검사(spotless, build, docs-contract, docs-unit, users 스키마 드리프트, 공유 인프라 키 소유권, gitleaks)는 외부에 등록된 Secret의 존재를 확인하지 않았어요. actionlint는 워크플로 구문·표현식·job 관계를 정적으로 검사하지만 GitHub에 실제 등록된 Secret까지 확인하지는 못해요. 이 사건의 대응 기록에서는 2026-05-27에 도입을 보류했어요. 정적 검증과 실행 시 자격 확인은 서로 다른 검사예요.
+
+<a id="42-결제-모듈이-부팅을-막는다--portone-부분-설정-함정"></a>
 
 ### 4.2 결제 모듈이 부팅을 막는다 — PortOne 부분 설정 함정
 
@@ -80,33 +92,36 @@
 
 **왜 발생했나요?** 슬러그 컨트롤러는 `PaymentPort` 를 필수 의존으로 받아요. [`ADR-019`](../philosophy/adr-019-billing-iap-payment-separation.md) 가 IAP·PG·Billing 을 분리하기로 결정한 결과예요. prod 와 dev 프로파일에서는 `PortOneProdConfigGuard`(`core/core-payment-impl/.../impl/PaymentAutoConfiguration.java`)가 부팅 시 PortOne 설정을 검증해요.
 
-| PortOne 설정 상태 | 부팅 | 결과 |
+| PortOne 설정 상태(dev·prod) | 부팅 | 결과 |
 |---|---|---|
-| v1 key·secret, v2 key, webhook secret **전부 빔** | 통과 | fallback 의도로 판단 → `StubPaymentAdapter`(prod) / WireMock(dev). 결제 호출 시 stub 응답 |
-| v1 key·secret 중 **하나만** 채워짐 | 차단 | strict fail. 결제 불가인데 stub 이 조용히 뜨는 사고라 fail-fast |
-| webhook secret **만** 채워짐 | 차단 | 결제 자격이 없어 결제 불가 |
-| v2 key 는 있는데 webhook secret **없음** | 차단 | 서명된 v2 webhook 을 검증할 수 없음 |
-| v1 key·secret **둘 다** 채워짐 | 통과 | 정상. `PortOneAdapter` 등록. v1 webhook 은 서명 헤더가 없어 secret 불필요 — `imp_uid` 재조회로 검증 |
+| v1 key·secret, v2 key, webhook secret이 모두 비어 있음 | 통과 | `StubPaymentAdapter` 등록. 결제 요청에는 `PAY_008`(503)을 반환해요 |
+| v1 key·secret 중 하나만 있음 | 차단 | 짝이 맞지 않는 설정을 거부해요 |
+| 결제 자격 없이 webhook secret만 있음 | 차단 | 결제 자격이 없는 상태를 거부해요 |
+| v2 key가 있음 | 차단 | webhook secret 유무와 관계없이 현재 v2는 지원하지 않아요 |
+| v1 key·secret이 모두 있고 v2 key가 없음 | 통과 | `PortOneAdapter` 등록. v1 webhook은 `imp_uid`를 재조회해 확인해요 |
 
-핵심은 이거예요. 전부 비우는 건 "결제를 의도적으로 안 쓴다" 는 명확한 신호라 허용돼요. 막히는 건 반쪽만 채운 상태예요. 사용자가 v1 secret 하나를 빠뜨린 게 바로 두 번째 줄에 걸린 거예요. 처음엔 이 가드가 v1 에도 webhook secret 을 요구했는데, 포트원 v1 webhook 은 서명 헤더를 보내지 않아 그 요구가 오히려 모든 v1 webhook 을 "서명 누락" 으로 거부하게 만든다는 걸 확인하고 v2 전용으로 좁혔어요.
+이 사례에서는 v1 secret을 빠뜨려 부팅 가드에 걸렸어요. 초기 가드가 v1에도 webhook secret을 요구했던 문제는 v1의 재조회 방식에 맞게 수정했어요. 현재는 v1 key·secret을 함께 채우고, v2 key는 비워 둬요.
 
-**무엇이 정착됐나요?** 정착된 원칙은 "v1 key·secret 은 짝으로 채우거나 둘 다 비우거나 — 절대 반쪽만 채우지 않는다, v2 key 는 어댑터가 들어오기 전까지 비운다" 예요. [`dogfood-setup.md`](./dogfood-setup.md) 의 환경 변수 절에 이 안내가 들어갔어요. 그리고 셋 다 비운 fallback 경로에서도 서버가 멈추지 않도록, `StubPaymentAdapter` 가 결제 호출에 graceful 503(`PAY_008`)으로 응답하는 패턴으로 통일됐어요. 같은 시점에 `StubIapAdapter` 와 패턴을 맞춰서, 결제 미설정 환경에서도 서버는 부팅하고 결제 API 만 503 으로 답합니다. 이 패턴은 commit `c982a84` 에서 정착됐어요.
+**현재 적용된 동작**: 결제 미사용 시 관련 자격을 모두 비우면 Stub으로 기동하고 결제 요청만 503으로 응답해요. dev에서도 자격을 모두 비웠다는 이유만으로 WireMock이 자동 선택되지는 않아요. 당시 IAP Stub과 같은 실패 응답 패턴을 맞춘 변경은 commit `c982a84`에 기록돼 있어요. 현재 설정은 [셋업 가이드의 결제 절](./dogfood-setup.md#결제--v1-키는-둘-다-아니면-둘-다-비우기)을 참고하세요.
 
-### 4.3 Cloudflare 가 옛 NXDOMAIN 을 캐싱한다 — NS internal cache
+<a id="43-cloudflare-가-옛-nxdomain-을-캐싱한다-ns-internal-cache"></a>
 
-`prod force-clear` 로 인프라를 깨끗이 정리한 뒤 다시 `prod init` 으로 등록했더니, [Cloudflare](../reference/glossary.md#운영--인프라) DNS 가 예전 NXDOMAIN 을 계속 캐싱해서 새 DNS 레코드가 외부에서 보이지 않았어요.
+<a id="43-cloudflare-가-옛-nxdomain-을-캐싱한다--ns-internal-cache"></a>
+### 4.3 DNS 재등록 뒤 응답 지연
 
-**왜 발생했나요?** Cloudflare 의 internal NS 서버는 한 번 NXDOMAIN 을 응답하면 일정 시간 그 결과를 캐싱합니다(TTL 과 무관). 도메인이 빠르게 삭제·재생성되는 force-clear → init 흐름에서는, NS 가 옛 응답을 기억하는 바람에 새 레코드가 propagation 되지 않은 것처럼 보여요.
+`prod force-clear` 후 `prod init`으로 DNS를 다시 등록했지만 외부 조회에서 새 응답을 확인하지 못한 사례예요. 당시에는 Cloudflare 내부 캐시 지연으로 추정했지만, 이 기록만으로 내부 원인이나 TTL과의 관계를 확정할 수는 없어요.
 
-**무엇이 정착됐나요?** `tools/lib/cloudflare.sh` 의 `cloudflare_register_hostname` 함수에 NS propagation polling 과 자동 record 재생성 패턴이 보강됐어요(commit `988bf47`). 레코드 등록 후 30초 동안 polling 하면서 외부 NS 가 새 값을 응답할 때까지 기다리고, 그 안에 안 보이면 record 를 한 번 삭제했다가 재생성해서 propagation 을 강제로 트리거합니다. 새 record 는 NS internal index 에서 새 id 로 다시 인식돼요. 이 동작은 `prod init` 1회차에서 NS 경고로 사용자에게도 노출됩니다("NS 30s 내 응답 X — record 강제 재생성...").
+대응으로 `cloudflare_register_hostname`에 조회 대기와 재생성 절차를 추가했어요(commit `988bf47`). 현재 코드는 지정한 NS를 최대 30초 동안 조회하고, 응답이 없으면 해당 레코드를 한 번 삭제·재생성한 뒤 다시 확인해요. 재생성 뒤에도 조회되지 않으면 경고와 수동 확인 안내를 남겨요. 새 record ID가 특정 내부 인덱스를 강제로 갱신한다는 동작까지 보장하는 절차는 아니에요.
+
+<a id="44-multi-app-추가-후-secret-chain-갭--app_flyway_mode"></a>
 
 ### 4.4 multi-app 추가 후 secret chain 갭 — `APP_FLYWAY_MODE`
 
-파생 레포에 두 번째 슬러그를 추가하고 deploy 했더니, [Flyway](../reference/glossary.md#데이터베이스) 가 `Schema "core" doesn't exist yet` 에러로 부팅을 막았어요.
+공유 core 스키마를 사용하던 당시, 파생 저장소에 두 번째 슬러그를 추가한 뒤 `Schema "core" doesn't exist yet` 오류로 부팅이 중단됐어요. core 스키마는 이후 [ADR-037](../philosophy/adr-037-core-schema-deprecation.md)에서 폐기했으며, 여기서는 당시 환경변수 전달 누락을 설명해요.
 
 **왜 발생했나요?** `APP_FLYWAY_MODE` 환경변수가 4-stage chain 중 한 곳에서 누락된 상태였어요. 사용자가 `.env.prod` 에 `APP_FLYWAY_MODE=AUTO` 를 명시했지만, `config/deploy.yml` 의 `env.secret:` 리스트, `.kamal/secrets.example`, 워크플로의 `env:` 블록 가운데 한 단계라도 연결이 빠지면 컨테이너 안에서는 빈 값으로 fallback 합니다. `application-prod.yml` 의 기본값인 [`VALIDATE_ONLY`](../reference/glossary.md#데이터베이스) 로 fallback 하면, 빈 schema 에서 부팅이 실패해요([`ADR-033`](../philosophy/adr-033-flyway-hybrid-policy.md)).
 
-**무엇이 정착됐나요?** `APP_FLYWAY_MODE` 를 4-stage chain 모두에 연결했어요(commit `5a04206`). 그리고 `.env.prod.example` 의 기본값을 빈 문자열에서 `AUTO` 로 바꿨어요. `init-prod.sh` 가 이 example 을 그대로 복사해 `.env.prod` 를 만들기 때문에, 사용자가 따로 채우지 않아도 첫 deploy 가 부팅에 실패하지 않습니다. 모든 새 env 변수는 4-stage 에 동시에 등록한다는 일반 교훈이 [`secret-chain-4stage.md`](../production/setup/secret-chain-4stage.md) 의 체크리스트에 명문화됐어요.
+**현재 적용된 동작**: `APP_FLYWAY_MODE`를 배포 전달 경로에 연결했고(commit `5a04206`), `.env.prod.example`은 `AUTO`를 지정해요. 이 값을 전달하면 앱 마이그레이션을 자동 실행하고, 전달하지 않으면 prod 프로파일의 `VALIDATE_ONLY`가 적용돼요. 연결·권한·마이그레이션 실패는 별도로 확인해요. 새 환경변수의 전달 위치는 [secret chain 체크리스트](../production/setup/secret-chain-4stage.md)가 정본이에요.
 
 ### 4.5 alias 'test' 가 bash builtin 과 충돌
 
@@ -115,6 +130,8 @@
 **왜 발생했나요?** bash 에는 `test`, `time`, `if`, `for` 같은 키워드와 내장 명령이 있어요. 사용자가 같은 이름으로 PATH alias 를 만들어도 shell 이 내장 명령을 먼저 해석해서 alias 가 호출되지 않습니다. 당시 `factory install` 이 alias 이름의 충돌 여부를 사전 검증하지 않은 게 원인이었어요.
 
 **무엇이 정착됐나요?** `factory install`(그리고 `alias` 로 이름을 바꿀 때도) 이 등록 전에 셸 빌트인·예약어와 PATH 상 기존 실행파일 충돌을 검사해 차단해요(`factory:353-387`). 당시 임시 대응이던 `stest` 재등록은 더 이상 필요 없어요.
+
+<a id="46-placeholder-repo-name-이-그대로-출력--alias-감지-실패"></a>
 
 ### 4.6 placeholder `<repo-name>` 이 그대로 출력 — alias 감지 실패
 
@@ -134,13 +151,11 @@
 
 ### 4.8 `sync-docs` 가 며칠치 모든 push 에서 실패
 
-§4.1 의 `GHCR_TOKEN` 미등록 함정이 드러나기 전, 사용자는 며칠 동안 모든 push 가 빨갛게 뜨는 상태로 작업하고 있었어요. 빨간 표시가 붙은 워크플로 이름이 바로 `sync-docs` 였어요.
-
-**왜 발생했나요?** `sync-docs.yml` 은 docs 변경분을 `docs-template-spring` 레포로 PR 보내고, 이 cross-repo 동작에 PAT 가 필요해요. 이 PAT 는 secret 이름 `GHCR_TOKEN` 으로 함께 씁니다(이름이 GHCR 인 건 주 용도가 GHCR push 라서예요). 그런데 ci-test 7단계(spotless · build · docs-contract · docs-unit · users 스키마 드리프트 가드 · 공유 인프라 키 소유권 가드 · gitleaks)는 내용을 검증할 뿐, 워크플로 YAML 자체의 런타임 의존성, 예컨대 등록되지 않은 secret 참조까지는 보지 않아요. 그래서 secret 누락이 CI 를 통과해 버린 거예요.
-
-**무엇이 정착됐나요?** 사용자가 `gh secret set GHCR_TOKEN -R <repo>` 로 등록하고 정상화했어요. actionlint 통합도 후보로 검토됐지만, GHA 자체가 YAML 구문을 검증하고 secret 부재 같은 런타임 에러는 actionlint 도 못 잡아 2026-05-27 에 도입하지 않기로 종결됐어요. actionlint 는 GitHub Actions 워크플로의 정적 검증 도구로, `.github/workflows/*.yml` 의 YAML 구문, 잘못된 action 버전, job dependency 누락 등을 잡아 줍니다. 다만 secret 부재 같은 런타임 에러는 actionlint 도 못 잡아요. 그건 워크플로 시작 시 토큰 존재를 검증하고 없으면 graceful skip 하는, 별개의 보강이 필요한 영역이에요.
+§4.1과 같은 사건이에요. 토큰 누락, 당시 CI의 검사 범위, actionlint 도입 보류 기록은 [§4.1](#41-첫-push-가-빨갛게--ghcr_token-미등록)에 합쳤어요. 현재 원본 저장소에만 적용되는 워크플로 조건도 그 절에서 확인할 수 있어요.
 
 ---
+
+<a id="5-정착된-패턴--한-곳에-정리"></a>
 
 ## 5. 정착된 패턴 — 한 곳에 정리
 
@@ -152,27 +167,27 @@
 | **deploy.sh = origin/main SHA 기준** | [`runbook.md`](../production/deploy/runbook.md) — 로컬 working tree / HEAD 무관 |
 | **`@Profile("!test")` 슬러그 모듈** | `apps/app-*/.../*AppAutoConfiguration.java` — bootstrap test 에서 비활성 |
 | **`AbstractAppDataSourceConfig.deriveSlugUrl`** | `common/common-persistence/.../AbstractAppDataSourceConfig.java` — `<SLUG>_DB_URL` 을 비우면 `${DB_URL}` 의 currentSchema 만 슬러그로 자동 교체 |
-| **`BucketProvisioner` 멱등** | `core/core-storage-impl/.../impl/BucketProvisioner.java` — `APP_STORAGE_MINIO_BUCKETS_*` 부팅 시 자동 생성 |
+| **`BucketProvisioner` 멱등** | `core/core-storage-impl/.../impl/BucketProvisioner.java` — 등록된 앱의 업로드 버킷과 `APP_STORAGE_MINIO_BUCKETS_*` 공유 목록을 부팅 시 준비 |
 | **force-clear 5단계 confirm** | [`runbook.md`](../production/deploy/runbook.md), [`cli-guide.md`](./cli-guide.md) — DB · Storage · 관측성 · 백업 · 최종 |
 | **Stub 503 graceful (IAP / Payment 동일)** | `core/core-iap-impl/.../impl/StubIapAdapter.java` + `core/core-payment-impl/.../impl/StubPaymentAdapter.java` |
 | **`PortOneProdConfigGuard` 부팅 검증** | `core/core-payment-impl/.../impl/PaymentAutoConfiguration.java` — prod / dev 에서 v1 key·secret 을 "짝으로 또는 둘 다 빔" 으로 강제, v2 key 는 미지원이라 차단 |
 | **factory wrapper alias 감지** | `factory:112`(`export FACTORY_ALIAS=$(basename "$0")`) + `tools/lib/common.sh:193` `detect_factory_alias()` |
 | **Cloudflare NS polling** | `tools/lib/cloudflare.sh:118` `cloudflare_register_hostname` — propagation 검증 + 자동 record 재생성 |
-| **`APP_FLYWAY_MODE` 기본값 = AUTO** | `.env.prod.example` — 빈 schema 첫 deploy 시 부팅 fail 방지 |
+| **환경 예시의 `APP_FLYWAY_MODE=AUTO`** | `.env.prod.example` — 이 값을 전달하면 앱 마이그레이션을 실행. prod 프로파일 자체의 기본값은 `VALIDATE_ONLY` |
 
 ---
 
 ## 6. 다음 단계
 
-처음 도그푸딩을 시작한다면 [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) 의 정상 흐름부터 따라가세요. 에러를 만나 검색용 참조가 필요하면 [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) 과 [`도그푸딩 FAQ`](./dogfood-faq.md) 를 보면 돼요. secret 을 점검할 때는 [`secret-chain-4stage.md`](../production/setup/secret-chain-4stage.md) 의 4-stage 체크리스트가, 전체 파이프라인을 그림으로 보고 싶을 때는 [`CI / CD 전체 플로우`](../production/deploy/ci-cd-flow.md) 가 도움이 돼요.
+처음 도그푸딩을 시작한다면 [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) 의 정상 흐름부터 따라가세요. 에러를 만나 검색용 참조가 필요하면 [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) 과 [`도그푸딩 FAQ`](dogfood-setup.md) 를 보면 돼요. secret 을 점검할 때는 [`secret-chain-4stage.md`](../production/setup/secret-chain-4stage.md) 의 4-stage 체크리스트가, 전체 파이프라인을 그림으로 보고 싶을 때는 [`CI / CD 전체 플로우`](../production/deploy/ci-cd-flow.md) 가 도움이 돼요.
 
 ---
 
 ## 관련 문서
 
 - [`도그푸딩 환경 셋업 가이드`](./dogfood-setup.md) — step-by-step 정상 흐름
-- [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) — 15 함정 참조
-- [`도그푸딩 FAQ`](./dogfood-faq.md) — Q&A 형식
+- [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) — 증상별 원인과 대응
+- [`도그푸딩 FAQ`](dogfood-setup.md) — Q&A 형식
 - [`secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) — 4 곳 매핑 표
 - [`인프라 결정 기록`](../production/deploy/decisions-infra.md) — I-09 ~ I-14 (왜 이 결정을 내렸나)
 - [`ADR-002 · Use this template`](../philosophy/adr-002-use-this-template.md) — 도그푸딩의 설계 근거

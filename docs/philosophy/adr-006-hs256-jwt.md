@@ -1,3 +1,5 @@
+<a id="adr-006--hs256-jwt-대칭키"></a>
+
 # ADR-006 · HS256 JWT (대칭키)
 
 **Status**: Accepted. `common-security/jwt/JwtService.java` 에서 HS256 로 발급과 검증을 처리해요. jjwt 0.13.0 을 사용하고, 서명 키는 환경변수 `JWT_SECRET` 으로 주입됩니다. 로테이션 전략은 `docs/production/setup/key-rotation.md` 에 기록되어 있어요.
@@ -6,7 +8,7 @@
 
 ## 결론부터
 
-우리가 쓰는 JWT 는 가장 단순한 서명 방식인 HS256 (대칭키) 입니다. 비밀 키 **하나** 로 서명도 하고 검증도 해요. 공개키와 개인키 쌍 같은 비대칭 구조는 없습니다. 이유는 단 하나 — 우리는 한 JVM 프로세스 안에서 토큰을 만들고 같은 프로세스에서 검증하기 때문. 마이크로서비스가 여러 개 있고 각자가 토큰을 독립적으로 검증해야 하는 상황이 아니라면, RS256 의 공개키 배포 이점은 쓸 데가 없습니다. 앱 유저 access 는 15분, refresh 는 30일이고, 운영 콘솔 access 만 12시간으로 따로 둡니다. claims 는 `sub`·`email`·`appSlug`·`role`·`iss`·`iat`·`exp` 이고, 콘솔 토큰에 한해 `permissions` 가 더 붙어요.
+직접 발급하는 access JWT에는 HS256 서명을 사용해요. 같은 서버가 토큰을 발급하고 검증하므로 현재는 공유 비밀 키 하나를 관리해요. 기본 수명은 앱 사용자 access 15분, 운영 콘솔 access 12시간이에요. Refresh token은 JWT가 아닌 무작위 문자열이며, 30일 수명과 DB 저장·회전 정책을 별도로 적용해요. JWT 서명 키만 바꿔도 기존 refresh token까지 폐기되는 것은 아니에요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -43,6 +45,8 @@
 
 ## 고민했던 대안들
 
+<a id="option-1--rs256-비대칭키-rsa-2048"></a>
+
 ### Option 1 — RS256 (비대칭키 RSA 2048)
 
 개인키로 서명, 공개키로 검증. 마이크로서비스 표준.
@@ -58,6 +62,8 @@
   - **우리에겐 사용할 곳 없음** — 공개키를 배포할 "다른 서비스" 가 존재하지 않아요
 - **탈락 이유**: 관리 비용 증가 + 속도 손해 vs 이득 0. 마이크로서비스 전환 시점이 오면 그때 이행하면 됨 (Deprecation 경로 열려 있음).
 
+<a id="option-2--hs512-더-긴-대칭키-서명"></a>
+
 ### Option 2 — HS512 (더 긴 대칭키 서명)
 
 HS256 의 SHA-256 대신 SHA-512. 서명 길이 256 비트 → 512 비트.
@@ -70,6 +76,8 @@ HS256 의 SHA-256 대신 SHA-512. 서명 길이 256 비트 → 512 비트.
   - 연산 속도 느려짐 (유의미 차이 없음)
   - **HS256 이 암호학적으로 이미 충분** — 현재 컴퓨팅 능력으로 HMAC-SHA256 을 brute-force 하는 건 비현실적
 - **탈락 이유**: 실질 보안 이득 없이 토큰 크기만 증가. 과잉 엔지니어링.
+
+<a id="option-3--hs256-hmac-sha256-대칭키--채택"></a>
 
 ### Option 3 — HS256 (HMAC-SHA256 대칭키) ★ (채택)
 
@@ -107,6 +115,8 @@ runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 | access (앱 유저) | 15분 (`PT15M`) | 짧을수록 탈취 피해 최소. 15분이면 유저 UX 저해 없음 + refresh 로 투명 갱신 |
 | refresh | 30일 (`P30D`) | 재로그인 주기. "거의 매달 한 번은 로그인" 수준이 합리적 |
 | access (운영 콘솔) | 12시간 (`${JWT_ADMIN_ACCESS_TTL:PT12H}`) | `JwtService.issueAdminAccessToken` 전용. 운영자가 콘솔 작업 중 15분마다 재로그인하지 않도록 분리 ([`ADR-039`](./adr-039-admin-module.md)) |
+
+<a id="서명--claim-구조"></a>
 
 ### 서명 + claim 구조
 
@@ -203,6 +213,8 @@ public record JwtProperties(
 ```
 
 검증 대상은 secret 길이만이 아니에요. 세 TTL 이 모두 양수인지, issuer 가 비어 있지 않은지까지 compact constructor 가 확인하므로, 잘못된 설정은 첫 요청이 아니라 **부팅 시점** 에 `IllegalArgumentException` 으로 드러납니다. 필드 단위 설명은 [`JWT 인증`](../structure/jwt-authentication.md) 참고.
+
+<a id="검증-경로--jwtauthfilter"></a>
 
 ### 검증 경로 — `JwtAuthFilter`
 
@@ -311,7 +323,7 @@ secret: ${JWT_SECRET:dev-secret-that-is-at-least-32-characters-long-for-testing}
 - **[RFC 7519 · JSON Web Token](https://datatracker.ietf.org/doc/html/rfc7519)** — JWT 표준. HS256 이 기본 알고리즘.
 - **[RFC 7518 · JSON Web Algorithms](https://datatracker.ietf.org/doc/html/rfc7518)** — HS256·HS512·RS256 정의.
 - **[RFC 6750 · Bearer Token Usage](https://datatracker.ietf.org/doc/html/rfc6750)** — `Authorization: Bearer <token>` 헤더 표준. 본 ADR 의 `JwtAuthFilter` 가 따름.
-- **[OWASP · JWT Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html)** — HS256 vs RS256 선택 기준. 본 ADR 의 근거 출처 중 하나.
+- **[OWASP · JWT Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html)** — HS256 vs RS256 선택 기준. 본 ADR 의 근거 출처 중 하나.
 - **[Auth0 · When to Use Symmetric vs Asymmetric Algorithms](https://auth0.com/blog/rs256-vs-hs256-whats-the-difference/)** — "발급자=검증자면 HS256" 논리.
 - **[jjwt Documentation](https://github.com/jwtk/jjwt)** — `Jwts.SIG.HS256`, `Keys.hmacShaKeyFor()`, `verifyWith()` 모던 API.
 

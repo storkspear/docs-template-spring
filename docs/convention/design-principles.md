@@ -4,7 +4,7 @@
 
 **설계 근거**: [ADR-011 · 레이어드 + 포트/어댑터](../philosophy/adr-011-layered-port-adapter.md) · [ADR-016 · DTO Mapper 금지](../philosophy/adr-016-dto-mapper-forbidden.md)
 
-이 문서는 코드를 쓰거나 리뷰할 때 판단 기준이 되는 설계 원칙을 정리해요. 원칙은 절대 규칙이 아니에요. 지키기 위해 지키는 게 아니라, 코드를 더 이해하기 쉽고 유지하기 쉽게 만들기 위해 상황에 맞게 적용합니다.
+코드를 작성하거나 리뷰할 때는 책임이 분명한지, 같은 지식이 중복됐는지, 변경의 영향을 파악하기 쉬운지 살펴봐요. 이 문서는 그 판단에 사용할 설계 기준을 정리해요. 모듈 경계처럼 별도로 정한 규칙은 유지하면서, 추상화나 분할이 실제 이해를 돕는지 확인해요.
 
 ---
 
@@ -15,6 +15,8 @@
 ---
 
 ## SOLID
+
+<a id="s--single-responsibility-principle"></a>
 
 ### S — Single Responsibility Principle
 
@@ -62,6 +64,8 @@ class AuthService {
 
 이 세 가지가 서로 다른 이유라면 분리된 상태가 맞아요. 실제로 이 템플릿은 이메일·Apple·Google·Kakao·Naver 로그인을 각각 별도 서비스로 두고, 토큰 발급은 `common-security` 의 `JwtService` 로 따로 빼 두었어요.
 
+<a id="o--openclosed-principle"></a>
+
 ### O — Open/Closed Principle
 
 확장에는 열려 있고 수정에는 닫혀 있다는 원칙이에요. 새 기능을 추가할 때 기존 코드를 고치지 않고 새 클래스를 더하는 방식으로 해결할 수 있어야 해요.
@@ -84,7 +88,7 @@ public class ResendEmailAdapter implements EmailPort {
 }
 ```
 
-나중에 SendGrid 로 바꾸고 싶으면 `SendGridEmailAdapter implements EmailPort` 를 새로 추가하면 끝이에요. `EmailPort` 를 주입받아 쓰는 `EmailAuthService`·`PasswordResetService` 같은 소비자 코드는 전혀 수정할 필요가 없습니다. 실제로 `RESEND_API_KEY` 가 없으면 `LoggingEmailAdapter` 로 자동 fallback 하는데, 이것도 같은 Port 를 구현한 또 하나의 어댑터예요.
+다른 발송사를 사용하려면 `EmailPort`를 구현하는 어댑터와 등록 조건을 추가해요. 소비자가 Port 계약을 그대로 사용할 수 있는지도 검증해야 해요. `LoggingEmailAdapter`는 local 프로파일의 fallback이며, dev/prod에서 자격을 비웠을 때도 항상 등록되는 것은 아니에요.
 
 #### 실전 판단
 
@@ -105,6 +109,8 @@ public class ResendEmailAdapter implements EmailPort {
 
 - `UserRepository` 는 인터페이스로 분리 안 함 — DB 종류를 바꿀 일이 없어요 (Postgres 고정). Spring Data JPA 인터페이스 그대로 사용해요.
 - `ApiResponse` 는 인터페이스로 분리 안 함 — 응답 포맷을 추상화할 이유가 없어요. `common-web` 의 `record` 하나로 충분해요.
+
+<a id="l--liskov-substitution-principle"></a>
 
 ### L — Liskov Substitution Principle
 
@@ -148,6 +154,8 @@ public class BadEmailAdapter implements EmailPort {
 
 이 구현체로 교체해도 소비자 코드가 깨지지 않는가를 확인해요. 특별한 예외 처리가 필요한 구현체를 만들면 안 됩니다.
 
+<a id="i--interface-segregation-principle"></a>
+
 ### I — Interface Segregation Principle
 
 한 인터페이스에 너무 많은 메서드를 넣지 말라는 원칙이에요. 클라이언트는 자기가 쓰지 않는 메서드까지 의존하면 안 됩니다.
@@ -190,6 +198,8 @@ public interface UserPort {
 우리 템플릿에서는 `UserPort` 하나로 통합해요. 이 포트의 소비자(앱 모듈)가 조회·생성·소셜 연동·TOTP 등 대부분의 메서드를 실제로 쓰기 때문이에요. 작은 포트를 인위로 쪼개면 오히려 주입 지점만 늘어나요.
 
 인터페이스가 커지면 나누는 것을 고려해요. 기준은 어떤 소비자가 일부 메서드만 쓰고 나머지는 전혀 쓰지 않는가예요. 그런 소비자가 생기는 순간이 분리 시그널이에요.
+
+<a id="d--dependency-inversion-principle"></a>
 
 ### D — Dependency Inversion Principle
 
@@ -460,6 +470,8 @@ public UserProfile getProfile(long userId) {
 
 두 번째 버전은 유저가 없을 때를 빈 객체로 은닉해요. 호출자는 문제를 인식하지 못한 채 빈 객체를 쓰다가 다른 곳에서 NullPointerException 으로 터져요. 원인과 증상이 멀어질수록 디버깅이 어려워집니다.
 
+<a id="좁힌-catch--fail-secure-fallback"></a>
+
 ### 좁힌 catch + fail-secure fallback
 
 외부 토큰 검증처럼 실패 경로가 많은 곳에서는, 좁힌 catch 들을 먼저 두고 그 위에 fail-secure fallback 하나만 허용해요. broad `catch (Exception)` 을 단독으로 쓰지 않습니다. 실제 `AppleSignInService` 의 검증 패턴이에요.
@@ -483,7 +495,7 @@ public UserProfile getProfile(long userId) {
 
 ### 입력 검증 위치
 
-입력 검증은 가장 바깥(컨트롤러)에서 한 번만 수행해요. 내부 서비스는 이미 검증된 입력을 신뢰합니다.
+HTTP 입력의 형식은 컨트롤러에서 검증해요. 서비스는 소유권·상태 전이·업무 규칙을 확인하고, HTTP를 거치지 않는 이벤트·웹훅·내부 호출도 고려해야 해요. 컨트롤러 검증을 이유로 모든 내부 값을 무조건 신뢰하지 않아요.
 
 잘못된 상태는 예외로 명시적으로 던져요. null 반환·빈 리스트 반환·0 반환 같은 조용한 실패는 피해요.
 

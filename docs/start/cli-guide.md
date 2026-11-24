@@ -1,14 +1,20 @@
+<a id="cli-가이드--factory--repo-name-명령어"></a>
+
 # CLI 가이드 — `factory` / `<repo-name>` 명령어
 
 > **유형**: Reference · **독자**: Level 1 · **읽는 시간**: ~10분
 
+<a id="왜-factory-와-symlink-인가--공장형-자동화"></a>
+
 ## 왜 `factory` 와 symlink 인가 — 공장형 자동화
 
-이 템플릿은 한 사람이 여러 앱을 빠르게 찍어내는 "공장형" 모델이에요. 그래서 파생 레포의 모든 작업 — 셋업·기동·테스트·배포·정리·마이그레이션 — 을 `factory` 라는 dispatcher 한 곳에서 호출하도록 모아 뒀어요. 환경(local·dev·prod)과 동사(init·test·deploy 등)를 조합하는 `<repo-name> <env> <verb>` 한 줄이면, 여러 앱을 운영하면서 매번 긴 스크립트 경로를 외울 필요가 없어요.
+`factory`는 설정·기동·검증·배포·정리 스크립트의 공통 진입점이에요. `<repo-name> <env> <verb>` 형식으로 환경과 작업을 지정하면 해당 스크립트를 호출해요. 앱 생성처럼 환경을 앞에 쓰지 않는 명령도 있으므로 아래 명령 목록을 기준으로 사용해요.
 
 `./factory install` 이 `~/.local/bin/<repo-name>` 에 symlink — 짧은 호출용 바로가기 — 를 등록해요. 이 한 번의 등록 덕에 이후로는 어디서든 `<repo-name> <subcommand>` 로 명령을 부를 수 있어요. 빠르게 반복하는 공장형 운영을 매끄럽게 하기 위한 장치예요.
 
 > 본 문서의 `<repo-name>` 자리에는 *파생 레포의 이름* (예: `sumtally`, `gymlog`) 또는 설치 때 정한 짧은 별칭이 들어가요. symlink 를 등록하지 않아도 `bash ./factory <verb>` 또는 `bash tools/<스크립트>.sh` 직접 호출로 동등하게 동작해요. 첫 셋업 흐름은 [`Onboarding`](./onboarding.md) 을 참고하세요.
+
+<a id="1급-명령어--factory-로-직접-호출-env-무관"></a>
 
 ## 1급 명령어 — `./factory` 로 직접 호출 (env 무관)
 
@@ -42,6 +48,8 @@
 
 ## 명령 매트릭스
 
+<a id="셋업--기동"></a>
+
 ### 셋업 / 기동
 
 | verb | local | dev | prod | all |
@@ -61,6 +69,8 @@
 | **test** | `server-test` + `api-test` + `ci-test` 3단계 순차 | `server-test` + `api-test` 순차 | `server-test` + `api-test` 순차 | local + prod 순차 (dev 미포함) |
 | **ci-test** | GitHub Actions CI 동일 검증 + 로컬 전용 가드, 8-stage — push 전 사전 통과 보장 | (env 무관) | (env 무관) | (env 무관) |
 
+<a id="배포--운영"></a>
+
 ### 배포 / 운영
 
 | verb | dev | prod | 비고 |
@@ -70,6 +80,8 @@
 | **status** | `kamal app details -c config/deploy-dev.yml` | `kamal app details` | — |
 | **logs** | `kamal app logs -f -c config/deploy-dev.yml` | `kamal app logs -f` | — |
 | **monitor** | ❌ (Grafana 사용 안내로 거부 — env=dev 라벨로 필터) | ❌ (Grafana 사용 안내로 거부 — env=prod 라벨로 필터) | `local monitor` 는 지원 — 핵심 메트릭 5초 폴링 (`tools/monitor/monitor-local.sh`). dev/prod 는 Loki/Grafana 공유 |
+
+<a id="앱--모듈"></a>
 
 ### 앱 / 모듈
 
@@ -88,6 +100,8 @@
 |---|---|---|
 | **firebase-link** `<slug>` | 앱별 Firebase 프로젝트 create-or-use (`<org>-<slug>-<env>` 규약) + service account 키 발급 → `.env.<env>` 에 **base64** 로 기록해요. `<env>` 에 따라 대상 파일이 달라요 (`local`→`.env`, `dev`→`.env.dev`, `prod`→`.env.prod`). `--check` 는 cloud 접근 없이 project-id·prereq 만 보여주는 dry-run, `--unlink` 는 기록된 자격을 비워요 | `tools/deploy/firebase-link.sh` — `firebase` CLI + `gcloud` 필요해요 (없으면 설치 runbook 안내). 푸시를 안 쓰면 생략해도 돼요 — FCM 자격이 없으면 서버가 발송 시 graceful no-op 이에요. SA 는 서버 전용이라 클라(`dev init`)는 받지 않아요 |
 
+<a id="마이그레이션--정리-destructive"></a>
+
 ### 마이그레이션 / 정리 (DESTRUCTIVE)
 
 | verb | local | dev | prod | 비고 |
@@ -97,6 +111,8 @@
 | **truncate** `<slug>` | 스키마 **데이터만** TRUNCATE (스키마·`flyway_schema_history` 유지, 재migrate 불필요). `--with-storage`·`--force` | 동일 (dev DB) | ❌ 미지원 | `tools/app/truncate-schema.sh`. 스키마 안정 후 "데이터만 리프레시" |
 | **clear** | ❌ 미지원 | dev 인프라만 정리 — Cloudflare 서브도메인 제거 + `kamal app remove -c deploy-dev.yml` + GH `_DEV` secrets 회수. 데이터(Supabase·MinIO bucket)는 보존. 'YES' 명시 confirm | 운영 인프라 정리 — Cloudflare DNS + Tunnel ingress 제거 + `kamal app remove` + workspace dir archive. 데이터는 보존. 'YES' 명시 confirm | dev 는 `tools/cleanup/dev-cleanup.sh`, prod 는 `tools/cleanup/cleanup-server.sh` — prod 는 `--cloudflare-only`·`--include-observability`·`--skip-confirm`·`--dry-run` 지원 |
 | **force-clear** `[slug]` | ❌ 미지원 | ⚠ `cleanup` + dev Supabase 스키마 DROP + dev MinIO bucket 제거 + `:dev-*` 태그 이미지 rmi. 3단계 confirm + prod 충돌 safety check (`.env.dev` 의 DB host 와 user 가 `.env.prod` 와 둘 다 같으면 즉시 abort — host 만 같고 user 가 다르면 Supabase shared pooler 의 별개 프로젝트로 보고 진행) | ⚠ `clear` 의 인프라 + 데이터 + 관측성까지 모두 영구 삭제. `[slug]` 생략 시 모든 앱 + core. 5단계 confirm — 한 단계라도 'y' 외 입력 시 즉시 abort | dev 백업 모드 없음 (외부 Supabase 는 콘솔에서 직접 백업), prod 자동 백업 미구현 (manual 안내만) |
+
+<a id="단축--env-생략--local"></a>
 
 ## 단축 — env 생략 = local
 
@@ -156,6 +172,8 @@ Mac mini · Cloudflare 계정 · GHCR · tailnet 은 dev 의 것도 prod 의 것
 ```
 
 몇 번을 다시 돌려도 결과가 같아요(멱등). 키를 교체했을 때도 같은 명령으로 다시 push 해요 — [`key-rotation.md`](../production/setup/key-rotation.md).
+
+<a id="3-dev-server-셋업-사내외주-검증용--선택"></a>
 
 ### 3. dev-server 셋업 (사내/외주 검증용 — 선택)
 
@@ -246,6 +264,8 @@ GitHub Actions 의 CI·docs-check·contract-snapshot·Security Scan 워크플로
 
 평시 배포·롤백·장애 시 분기 같은 자세한 운영 절차는 [`운영 런북 (Runbook)`](../production/deploy/runbook.md) 에서 확인하세요.
 
+<a id="6-db-마이그레이션-수동--adr-033"></a>
+
 ### 6. DB 마이그레이션 (수동 — ADR-033)
 
 운영 DB 의 Flyway 모드는 두 단계로 결정돼요. `application-prod.yml` 의 yml default 는 `VALIDATE_ONLY` 지만, `.env.prod.example` 가 `APP_FLYWAY_MODE=AUTO` 를 명시하므로 처음 배포 시점에는 AUTO 로 동작해요. 빈 schema 부팅이 막히지 않도록 정착된 default 예요. 운영이 안정되면 `VALIDATE_ONLY` 로 전환하는 걸 권장해요.
@@ -264,6 +284,8 @@ GitHub Actions 의 CI·docs-check·contract-snapshot·Security Scan 워크플로
 ```
 
 자세한 절차는 [`flyway-runbook`](../production/deploy/flyway-runbook.md) 을 참조하세요. 결정 근거는 [`ADR-033 Flyway Hybrid`](../philosophy/adr-033-flyway-hybrid-policy.md) 에 정리되어 있어요.
+
+<a id="7-feature-toggle-lite-모드--adr-034"></a>
 
 ### 7. Feature toggle (Lite 모드 — ADR-034)
 

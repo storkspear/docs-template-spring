@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: 클라이언트 개발자 (Level 1~2) · **읽는 시간**: ~12분
 
-본 문서는 모든 앱이 공유하는 **코어 REST API 엔드포인트 카탈로그**입니다. auth / user / device / notification-settings / posts / payment / iap 엔드포인트는 **core 공유 컨트롤러**가 각 AutoConfiguration 으로 등록되어 `/api/apps/{appSlug}/*` 로 제공돼요 — 앱을 추가하면 그 슬러그 경로로 자동 제공됩니다 ([`ADR-013`](../../philosophy/adr-013-per-app-auth-endpoints.md) B). 앱 고유 도메인 엔드포인트만 `<your-backend> new <slug>` 시 `tools/app/new-app.sh` 가 `<Slug>HealthController` + `<Slug>ApiEndpoints` 로 생성합니다.
+앱 공통 REST API의 경로와 요청·응답을 정리한 카탈로그예요. 공유 컨트롤러는 각 AutoConfiguration이 등록하며 `/api/apps/{appSlug}/*` 경로로 앱을 구분해요. 기능 플래그에 따라 일부 컨트롤러는 등록되지 않을 수 있어요. `new-app.sh`는 앱 고유의 HealthController와 ApiEndpoints를 생성하고, 공통 인증·사용자·결제 컨트롤러를 복제하지 않아요.
 
 ## 공통 사항
 
@@ -16,6 +16,8 @@
 - `app.features.<domain>=false` 시 endpoint 자동 사라짐 (404) — payment / iap / push / email / audit / 2fa / billing-notification / password-policy / phone-auth / analytics / billing **11 도메인** 모두.
 - 호출 시점에 lazy 의존 부재면 `503 CMN_009 FEATURE_DISABLED` (details 에 feature 이름 포함) — payment / iap / 2fa 만 해당. email 은 silent skip (가입 흐름 보호).
 
+<a id="validation-에러-cmn_001-validation_error--422"></a>
+
 ### Validation 에러 (`CMN_001 VALIDATION_ERROR` — 422)
 
 - Bean Validation 실패 (`@Size`, `@NotNull` 등): details 에 `field`, `rejected`
@@ -27,6 +29,8 @@
 - Google RTDN 은 `APP_IAP_GOOGLE_WEBHOOK_VERIFY_TOKEN=false` (default) 이 dev-mock 동등.
 
 ---
+
+<a id="1-인증-auth--core-auth"></a>
 
 ## 1. 인증 (`/auth/*`) — core-auth
 
@@ -51,6 +55,8 @@
 | POST | `/auth/phone/request` | X | 휴대폰 OTP 발송 (SMS) — dev-capture 어댑터면 `devCode` 반환 | ADR-038 |
 | POST | `/auth/phone/verify` | X | OTP 검증 → 번호로 유저 find-or-create + 토큰 발급 | ADR-038 |
 
+<a id="2fa-totp--adr-030"></a>
+
 ### 2FA (TOTP) — ADR-030
 
 | 메서드 | 경로 | 인증 | 설명 |
@@ -64,6 +70,8 @@
 
 ---
 
+<a id="2-유저-users--core-user"></a>
+
 ## 2. 유저 (`/users/*`) — core-user
 
 | 메서드 | 경로 | 인증 | 설명 |
@@ -74,6 +82,8 @@
 
 ---
 
+<a id="3-결제-pg-payment--core-payment"></a>
+
 ## 3. 결제 PG (`/payment/*`) — core-payment
 
 | 메서드 | 경로 | 인증 | 설명 |
@@ -83,6 +93,8 @@
 | POST | `/payment/webhook` | X (HMAC) | PortOne 결제 상태 webhook (CANCELLED 등) |
 
 ---
+
+<a id="4-인앱-결제-iap-iap--core-iap-adr-022"></a>
 
 ## 4. 인앱 결제 IAP (`/iap/*`) — core-iap (ADR-022)
 
@@ -108,6 +120,8 @@
 
 ---
 
+<a id="5-디바이스-devices--core-device"></a>
+
 ## 5. 디바이스 (`/devices/*`) — core-device
 
 | 메서드 | 경로 | 인증 | 설명 |
@@ -116,6 +130,8 @@
 | DELETE | `/devices/{deviceId}` | O | 디바이스 삭제 (push 비활성) |
 
 ---
+
+<a id="6-알림-설정-menotification-settings--core-billing-adr-031"></a>
 
 ## 6. 알림 설정 (`/me/notification-settings/*`) — core-billing (ADR-031)
 
@@ -132,6 +148,8 @@
 ```
 
 ---
+
+<a id="7-공유-게시물-posts--core-content"></a>
 
 ## 7. 공유 게시물 (`/posts/*`) — core-content
 

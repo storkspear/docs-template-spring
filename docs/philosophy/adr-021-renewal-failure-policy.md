@@ -1,3 +1,5 @@
+<a id="adr-021--subscription-자동-갱신-실패-정책"></a>
+
 # ADR-021 — Subscription 자동 갱신 실패 정책
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
@@ -10,7 +12,7 @@
 
 ## 결론부터
 
-**이 문서는 구독형 SaaS 의 자동 갱신 결제가 실패했을 때 시스템이 어떻게 대응할지 — 재시도를 몇 번이나·어떤 간격으로 시도할지, 최종 실패 시 어떻게 정리할지, 운영자가 그 흐름을 어떻게 추적할지 — 를 정의하는 결정 기록입니다.**
+자동 갱신 실패 후 재시도 간격과 종료 조건, 구독 상태 변경, 운영자가 확인할 기록을 정한 ADR이에요. 일시적인 실패에 재시도 기회를 주되 정해진 횟수를 넘으면 중단해요. 실제 코드는 오류 원인별 회복 가능성을 모두 분류하는 방식이 아니라 정해진 재시도 정책을 적용해요.
 
 자동 갱신 결제는 *반드시 한 번에 성공하지 않는* 비즈니스 영역이에요. 카드 한도 일시 초과, 카드사 점검 시간대, 네트워크 timeout 같은 *회복 가능한 실패* 와 카드 만료·사용자 결제 거부 같은 *영구 실패* 가 섞여 들어옵니다. 첫 시도 실패만으로 구독을 즉시 취소하면 *일시 장애로 사용자 권한이 갑자기 사라지는* 사고가 생기고, 무한 재시도하면 *영구 실패한 카드에도 PG 호출이 누적* 되어 비용과 운영 피로가 쌓여요.
 
@@ -18,7 +20,7 @@
 
 이 정책의 핵심 모델은 `RenewalAttempt` 테이블이에요. *각 갱신 시도의 횟수·시각·결과·error code* 가 영속되어 *운영자가 어떤 사용자의 어느 갱신이 왜 실패했는지* 를 추적할 수 있고, *이력이 누적되면 카드 한도 갱신 시간대·자주 실패하는 PG 채널* 같은 비즈니스 시그널도 분석할 수 있어요. webhook 과 scheduler 가 동시에 같은 구독을 재시도하는 race 는 Phase 1 의 직전 attempt 종결상태 (SUCCESS·ABANDONED) 체크로 1차 차단하고, `UNIQUE(subscription_id, attempt_no)` 제약이 두 번째 INSERT 를 `DataIntegrityViolationException` 으로 막아 추가 방어선으로 작동합니다.
 
-이 ADR 의 범위는 백오프 간격 선정 근거, `RenewalAttempt` 테이블 설계와 멱등성 보장, scheduler·webhook 동시성 처리, 3 종 이벤트 (`SubscriptionRenewalSucceededEvent`·`FailedEvent`·`AbandonedEvent`) 의 분리 사유, 그리고 phase 분리 트랜잭션 패턴 ([`ADR-020`](./adr-020-subscription-domain-model.md) 의 webhook 패턴 재사용) 까지입니다.
+아래에서는 재시도 간격, `RenewalAttempt` 기록, scheduler와 webhook의 처리 관계, 성공·실패·최종 포기 이벤트, 단계별 트랜잭션을 설명해요. DB 고유 제약은 시도 기록의 중복을 제한하지만 외부 PG 호출보다 뒤에 적용되므로 동시 요청의 중복 청구까지 막는다고 보장하지 않아요. 외부 멱등성 설계는 별도 검토가 필요해요.
 
 ---
 
@@ -127,6 +129,8 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 
 ## 대안 비교
 
+<a id="옵션-a--카운터-컬럼만-subscriptionrenewalretrycount--subscriptionlastrenewalfailedat"></a>
+
 ### 옵션 A — 카운터 컬럼만 (Subscription.renewalRetryCount + Subscription.lastRenewalFailedAt)
 
 - 단순해요. 별도 테이블이 필요 없어요.
@@ -134,17 +138,23 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 - ❌ ABANDONED 이력이 영구 보존되지 않아요 (sub.cancel 후 이력이 사라져요).
 - 운영 디버깅이 부족해요.
 
+<a id="옵션-b--renewalattempt-별도-테이블--채택"></a>
+
 ### 옵션 B — RenewalAttempt 별도 테이블 ★ 채택
 
 - 모든 시도 이력을 보존해요 (성공/실패/abandon 전부).
 - 운영 디버깅에 강해요 — "이 sub 가 왜 cancel 됐나?" → renewal_attempts 의 마지막 3개 row 가 답을 줘요.
 - attempt_no UNIQUE 제약으로 race 를 방어합니다.
 
+<a id="옵션-c--실패-시-즉시-cancel-재시도-0회"></a>
+
 ### 옵션 C — 실패 시 즉시 cancel (재시도 0회)
 
 - 가장 단순해요.
 - ❌ 일시 장애에 과민하게 반응해요. 카드 한도가 24h 후 회복되는 경우도 즉시 cancel → 사용자 불만으로 이어져요.
 - 업계 통상에 어긋나요.
+
+<a id="옵션-d--무한-재시도-지수-백오프"></a>
 
 ### 옵션 D — 무한 재시도 (지수 백오프)
 
@@ -167,6 +177,8 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 
 ---
 
+<a id="동시성--race-방어"></a>
+
 ## 동시성 / Race 방어
 
 1. **같은 sub 의 동시 retry** — `findSubscriptionsDueForRetry` 가 같은 sub 의 여러 FAILED row 를 dedup. 그래도 두 cron 인스턴스 race 시 첫 phase1 의 attemptNo 가 동일 → 두 번째 INSERT 가 UNIQUE 제약 위반 으로 실패 (실패 시 두 번째 호출이 fail-fast 됨).
@@ -174,6 +186,8 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 3. **Phase 2 (PG) 의 외부 HTTP 호출이 트랜잭션 점유** — `@Transactional(NOT_SUPPORTED)` + 내부 `txTemplate` 으로 phase 별 자기 트랜잭션을 가집니다. ADR-020 의 webhook 패턴과 동일해요.
 
 ---
+
+<a id="알림-out-of-scope--다음-사이클"></a>
 
 ## 알림 (Out of Scope — 다음 사이클)
 
@@ -207,6 +221,8 @@ CREATE UNIQUE INDEX uk_renewal_attempts_subscription_attempt
 총 contract test 10개 모두 PASS (`./gradlew :core:core-billing-impl:test --tests '*RenewSubscription*' '*FindSubscriptionsDueForRetry*'`).
 
 ---
+
+<a id="결정-권한--변경-절차"></a>
 
 ## 결정 권한 / 변경 절차
 

@@ -45,11 +45,15 @@
 |  | `APP_IAP_GOOGLE_*` | `.env.prod` | Google Cloud Console | `feature=iap` (Android) |
 | 선택 — 배포 | `COSIGN_KEY_PATH`·`COSIGN_PASSWORD` | `.env.prod` | 로컬 `cosign generate-key-pair` | 로컬 배포 이미지 서명 opt-in 시 (§3.3) |
 
-선택 키는 비워두면 해당 기능이 자동으로 비활성화되며 Spring 부팅에는 영향을 주지 않습니다 ([`ADR-034 · Feature Toggle Lite mode`](../../philosophy/adr-034-feature-toggle-lite-mode.md) 참조). 단 PortOne 은 *일부만* 채우면 부팅이 막히는 예외가 있어요. 자세한 가드 규칙은 §4.7 에 있어요.
+선택 키를 비웠을 때의 동작은 기능마다 달라요. 스토리지는 dev·prod에서 endpoint가 없으면 명시적인 InMemory 허용 설정이 필요해요. SMS는 prod에서 발송 시 `PHA_006`을 반환하고, PortOne은 키 조합에 따라 stub을 쓰거나 부팅을 차단해요. 키를 비우는 것과 `app.features.*`로 빈 등록을 끄는 것은 다른 동작이에요. 각 기능 절의 조건을 확인해요.
 
 ---
 
+<a id="2-필수--앱-부팅-자격"></a>
+
 ## 2. 필수 — 앱 부팅 자격
+
+<a id="21-도메인--base_domaininfrasubdomainapp_domainenv"></a>
 
 ### 2.1 도메인 — `BASE_DOMAIN`(infra)·`SUBDOMAIN`·`APP_DOMAIN`(env)
 
@@ -71,6 +75,8 @@ SUBDOMAIN=dev-server
 ```
 
 **검증**. `init-prod.sh` 1회차가 자동 조립한 `APP_DOMAIN` 값을 `.env.prod` 에서 확인하세요. 직접 채워야 한다면 그 값이 우선해요.
+
+<a id="22-cloudflare-api-token--id-4종--envinfra"></a>
 
 ### 2.2 Cloudflare API Token + ID 4종 — `.env.infra`
 
@@ -96,6 +102,8 @@ CLOUDFLARE_TUNNEL_ID=
 
 **검증**. `infra init` 2회차가 토큰으로 `ZONE_ID`·`ACCOUNT_ID`·`TUNNEL_ID` 를 자동 추출하고 결과를 표시해요 (Step 3). 추출이 실패하면 토큰 권한과 Zone Resources 설정을 다시 확인하세요.
 
+<a id="23-jwt_secret"></a>
+
 ### 2.3 JWT_SECRET
 
 **발급 목적**. JWT 토큰의 서명과 검증에 쓰는 임의 시크릿이에요 ([`ADR-006 · HS256 JWT`](../../philosophy/adr-006-hs256-jwt.md) 참조). 이 값을 알면 임의의 사용자 토큰을 위조할 수 있으므로 절대 노출되어서는 안 됩니다.
@@ -117,27 +125,16 @@ JWT_SECRET=<자동 생성값 또는 위 명령 결과>
 
 **발급 목적**. 운영 PostgreSQL 의 JDBC 연결 문자열·계정·비밀번호예요. Supabase·RDS·Fly Postgres 어느 것이든 가능하지만, 도그푸딩 단계에서는 무료 tier 가 충분한 Supabase 를 권장해요.
 
-**Supabase 발급 절차**. 다른 호스팅을 쓴다면 해당 콘솔의 *Connection string* 메뉴에서 같은 값을 찾을 수 있어요.
-1. [supabase.com](https://supabase.com) 에서 새 프로젝트를 만들어요. region 은 한국 사용자라면 *Northeast Asia (Seoul)* 또는 *Tokyo* 를 권장해요.
-2. 프로젝트 생성 시 표시되는 *Database password* 를 즉시 복사해 안전한 곳에 저장해요. 재발급은 가능하지만 그 시점에 모든 클라이언트를 갱신해야 해요.
-3. *Settings* → *Database* → *Connection string* → *Transaction pooler* 탭으로 이동해요.
-4. 표시되는 PostgreSQL URI 를 JDBC 형식으로 분리해요 ([`도그푸딩 함정 #11`](../../start/dogfood-pitfalls.md) 참조).
+**DB 연결 정보를 준비해요.** 공급자 콘솔에서 direct 연결 또는 session pooler 주소와 계정·비밀번호를 확인해요. 현재 스키마 라우팅은 JDBC URL의 `currentSchema`에 의존하므로 transaction pooler는 사용하지 않아요. `init-prod.sh`도 `:6543` 주소를 감지하면 session 연결로 바꾸도록 경고해요.
 
-원본 connection string 예시:
-```
-postgresql://postgres.sebqrqi...:[YOUR-PASSWORD]@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres
-```
-
-위 문자열에서 `jdbc:` prefix 를 붙이고 user 와 password 를 별도 변수로 분리해요.
-
-**`.env.prod` 채울 위치**:
 ```bash
-DB_URL=jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true
-DB_USER=postgres.sebqrqi...
-DB_PASSWORD=<2단계에서 복사한 Supabase password>
+# .env.prod — 공급자가 제공한 session/direct 주소를 사용해요.
+DB_URL=jdbc:postgresql://<session-or-direct-host>:5432/postgres?sslmode=require
+DB_USER=<DB 계정>
+DB_PASSWORD=<DB 비밀번호>
 ```
 
-**Transaction pooler 를 쓰는 이유**. Supabase 의 Session pooler (port 5432) 는 클라이언트 하나가 서버 연결 하나를 점유하므로 connection 한도에 빠르게 도달해요. Transaction pooler (port 6543 + `?pgbouncer=true`) 는 연결을 multiplex 해 수십 개 앱까지 확장돼요. `init-prod.sh` 도 `DB_URL` 이 5432 면 경고를 띄우고 6543 을 권장해요. Flyway 는 코드가 자동으로 session-mode 로 derive 하니 신경 쓰지 않아도 돼요.
+JDBC URL에는 `jdbc:` 접두사를 붙이고 사용자명·비밀번호는 별도 변수에 넣어요. Flyway용 연결을 별도로 파생하는 코드가 있어도 runtime의 transaction pooling 제약까지 해결되지는 않아요. 앱별 풀 크기와 공급자의 연결 한도도 함께 확인해요.
 
 **비밀번호는 직접 채우세요**. `init-prod.sh` 1회차는 `DB_PASSWORD` 를 자동 발급하지 않아요. 외부 DB 가 발급한 비밀번호를 그대로 쓰는 설계라서, **반드시 Supabase 의 실제 비밀번호로 직접 채워야 합니다**. 비워두거나 placeholder 그대로 두면 운영 부팅 시 인증 실패로 차단돼요.
 
@@ -147,7 +144,11 @@ DB_PASSWORD=<2단계에서 복사한 Supabase password>
 
 ---
 
+<a id="3-필수--배포-파이프라인"></a>
+
 ## 3. 필수 — 배포 파이프라인
+
+<a id="31-ghcr_token--github-personal-access-token-classic"></a>
 
 ### 3.1 GHCR_TOKEN — GitHub Personal Access Token (Classic)
 
@@ -181,6 +182,8 @@ GHCR_USERNAME=
 ```
 
 **검증**. `init-prod.sh` 2회차가 PAT 로 GHCR 로그인을 시도하고, GHA 의 첫 deploy workflow 실행 시 push 가 성공하면 권한 설정이 정상이에요.
+
+<a id="32-ssh_private_key--운영-서버-접근-키--envinfra"></a>
 
 ### 3.2 SSH_PRIVATE_KEY — 운영 서버 접근 키 — `.env.infra`
 
@@ -217,6 +220,8 @@ DEPLOY_SSH_USER=<운영서버계정>
 `infra init` 이 이 값을 접미사 없는 `SSH_PRIVATE_KEY` secret 으로 push 해요 — dev·prod 워크플로가 같은 키를 봐요.
 
 **검증**. `verify-server.sh` Step 3 (SSH + Tailscale) 가 PASS 면 정상이에요.
+
+<a id="33-cosign-이미지-서명-키쌍-선택--로컬-배포-서명-opt-in"></a>
 
 ### 3.3 cosign 이미지 서명 키쌍 (선택 — 로컬 배포 서명 opt-in)
 
@@ -257,9 +262,13 @@ cosign verify --key cosign.pub ghcr.io/<owner>/<repo>:<배포 SHA>
 
 ---
 
+<a id="4-선택--기능별-자격-증명"></a>
+
 ## 4. 선택 — 기능별 자격 증명
 
 이 절의 키들은 비워두면 해당 기능이 자동으로 비활성화돼요. 운영 부팅에는 영향을 주지 않으므로 지금 필요한 기능만 채우고 나머지는 나중에 채워도 됩니다. 단 PortOne 만은 *일부만* 채우면 부팅이 막히는 예외라서 §4.7 을 꼭 확인하세요.
+
+<a id="41-minio--s3-호환-스토리지-featurestorage"></a>
 
 ### 4.1 MinIO / S3 호환 스토리지 (`feature=storage`)
 
@@ -330,6 +339,8 @@ APP_CREDENTIALS_MYNEWAPP_NAVER_CLIENT_ID=<문자열>
 
 **검증**. 프론트에서 각 provider 의 로그인 버튼을 눌렀을 때 백엔드가 JWT 를 정상 발급하면 동작 확인 완료예요. 키 발급 전에는 [`소셜 로그인 설정 가이드`](../../start/social-auth-setup.md) 의 dev-mock 모드로 e2e 흐름을 미리 시연할 수 있어요.
 
+<a id="44-tailscale-oauth-gha-자동-배포-시-필수--envinfra"></a>
+
 ### 4.4 Tailscale OAuth (GHA 자동 배포 시 필수) — `.env.infra`
 
 **발급 목적**. GHA runner (GitHub 의 ubuntu VM) 가 운영 Mac mini (Tailnet 사설 IP `100.x.x.x`) 에 도달하려면, 매 배포마다 일회성 ephemeral device 로 tailnet 에 join 해야 해요. 그때 쓰는 자격이에요. 운영 서버를 Tailscale 로 접근하지 않는다면 이 절을 건너뛸 수 있어요.
@@ -357,7 +368,7 @@ DEPLOY_HOST=100.X.X.X     # Mac mini 의 Tailnet IP (Variables 로 push)
 DEPLOY_SSH_USER=<Mac mini 계정명>
 ```
 
-둘 중 하나만 채우면 `infra init` 이 쌍 전체를 건너뛰어요 — 반쪽 자격은 배포 시점에 403 으로 터지니, 아예 안 올려 GHA 게이트가 명확히 멈추게 합니다. 비워두면 GHA 자동 배포만 꺼지고 로컬 `dev deploy`·`prod deploy` 는 그대로 동작해요.
+둘 중 하나만 채우면 `infra init`은 Tailscale OAuth 자격 업로드를 건너뛰어요. 이 동작이 GitHub Actions의 배포 gate를 자동으로 끄지는 않아요. GHA를 쓰려면 두 값과 해당 환경의 `DEPLOY_ENABLED` 설정을 함께 확인해요. 로컬 배포는 로컬 Tailnet·SSH 연결을 사용해요.
 
 **검증**. `verify-server.sh` Step 3 (SSH + Tailscale) 가 PASS 면 정상이에요. GHA deploy workflow 가 ephemeral device 로 join → SSH → exit 흐름을 자동으로 수행해요.
 
@@ -513,9 +524,11 @@ webhook 토큰 검증 (`APP_IAP_GOOGLE_WEBHOOK_VERIFY_TOKEN`) 키는 운영 `.en
 
 **검증**. 실제 Android 빌드에서 인앱 구매를 수행하고 백엔드의 `/iap/google/verify` 엔드포인트가 200 을 응답하며, RTDN webhook 으로 갱신·환불 알림이 정상 처리되는지 확인하세요.
 
+<a id="410-coolsms--solapi-문자-발송-featuresms-featurephone-auth"></a>
+
 ### 4.10 CoolSMS / SOLAPI 문자 발송 (`feature=sms`, `feature=phone-auth`)
 
-**발급 목적**. 휴대폰 점유인증 (SMS OTP) 발송과 운영 알림 문자를 위한 SOLAPI (CoolSMS) 자격이에요. 비워두면 `LoggingSmsAdapter` 로 fallback 되어 OTP 가 콘솔 로그로만 출력돼요. **점유인증으로 가입·로그인을 받는 서비스라면 운영에서 반드시 채워야 합니다.** 그렇지 않으면 사용자가 인증번호를 받지 못해요. 운영에서 발신사가 미설정이면 OTP 발송 시점에 `OTP_SMS_UNAVAILABLE` 로 차단돼요. 점유인증 도메인 동작 상세는 [`Phone Auth (점유인증) & SMS`](../../api-and-functional/functional/phone-auth-and-sms.md) 를 참조하세요.
+**발급 목적**. 휴대폰 점유인증(SMS OTP)과 운영 문자 발송에 사용하는 SOLAPI 자격이에요. 키가 없는 non-prod에서는 `LoggingSmsAdapter`가 콘솔에 코드를 남겨요. prod에는 이 fallback이 등록되지 않아 OTP 발송 시 `PHA_006`(`OTP_SMS_UNAVAILABLE`, 503)을 반환해요. 실서비스는 API key·secret과 등록된 발신번호를 모두 준비해요. 자세한 동작은 [`Phone Auth (점유인증) & SMS`](../../api-and-functional/functional/phone-auth-and-sms.md)를 참고해요.
 
 **발급 절차**.
 1. [solapi.com](https://solapi.com) 에 가입한 뒤 콘솔에 로그인해요. SOLAPI 가 CoolSMS 를 운영하는 통합 콘솔이에요.
@@ -540,13 +553,15 @@ COOLSMS_FROM=01012345678          # SOLAPI 에 사전등록한 발신번호 (국
 
 ---
 
+<a id="5-발급-후--4-stage-동기화"></a>
+
 ## 5. 발급 후 — 4-Stage 동기화
 
 `.env.infra`·`.env.prod` 채우기는 발급한 키가 컨테이너에 도달하는 4 단계 중 첫 번째일 뿐이에요. 새 키를 추가했다면 나머지 3 단계를 함께 갱신해야 부팅 시 주입돼요.
 
 → **상세 절차**: [`Secret Chain 4-Stage 동기화`](./secret-chain-4stage.md)
 
-init 스크립트가 각자 소유한 파일에서 GitHub Secrets 까지는 자동으로 처리하지만, `config/deploy.yml` 의 `env.secret:` 목록, `.kamal/secrets.example` 의 `KEY=$VAR` 매핑, `.github/workflows/deploy.yml` 의 `env:` 블록은 현재 수동이에요 ([`도그푸딩 FAQ Q17`](../../start/dogfood-faq.md#q17) 참조).
+init 스크립트가 각자 소유한 파일에서 GitHub Secrets 까지는 자동으로 처리하지만, `config/deploy.yml` 의 `env.secret:` 목록, `.kamal/secrets.example` 의 `KEY=$VAR` 매핑, `.github/workflows/deploy.yml` 의 `env:` 블록은 현재 수동이에요 ([`도그푸딩 FAQ Q17`](../../start/dogfood-setup.md#app-credentials-chain) 참조).
 
 ---
 
@@ -568,13 +583,17 @@ init 스크립트가 각자 소유한 파일에서 GitHub Secrets 까지는 자�
 
 **원인**. 세 가지 중 하나예요. (1) `APP_PAYMENT_PORTONE_API_V1_KEY`·`_API_V1_SECRET` 중 *하나만* 채워짐, (2) `_WEBHOOK_SECRET` 만 있고 결제 키가 없음, (3) `_API_V2_KEY` 가 채워짐(v2 결제 어댑터가 아직 없어 미지원).
 
-**조치**. 결제를 쓰지 않는 단계라면 PortOne 키를 모두 비우세요 (`StubPaymentAdapter` fallback). v1 로 결제를 쓴다면 v1 key·secret 둘을 채우면 되고 webhook secret 은 없어도 됩니다. v2 key 는 비워 두세요. §4.7 의 가드 표를 참고하세요.
+**조치** — 결제를 사용하지 않으면 PortOne 키를 모두 비워 `StubPaymentAdapter`를 사용해요. v1 결제를 사용하면 v1 key·secret을 함께 채우고 v2 key는 비워요. 런타임 가드는 webhook secret 없이도 v1 조합을 허용하지만, init의 선택 묶음 전달 조건은 다를 수 있어요. §4.7의 검증 조건과 실제 secret 전달 경로를 함께 확인해요.
+
+<a id="cloudflare-tunnel-에-subdomainbase_domain-이-라우팅되지-않음"></a>
 
 ### Cloudflare Tunnel 에 `${SUBDOMAIN}.${BASE_DOMAIN}` 이 라우팅되지 않음
 
 **원인**. 토큰의 *Zone Resources* 가 *Specific zone* 인데 본인 도메인이 누락되었거나, 권한이 *DNS Edit* 만 있고 *Cloudflare Tunnel Edit* 가 빠졌어요.
 
 **조치**. Cloudflare 의 토큰 편집 화면에서 권한 두 줄과 Zone Resources 를 다시 확인하세요 (§2.2 참조).
+
+<a id="gh-secret-set-ghcr_token-이-bad-credentials-응답"></a>
 
 ### `gh secret set GHCR_TOKEN` 이 *Bad credentials* 응답
 
@@ -592,7 +611,7 @@ init 스크립트가 각자 소유한 파일에서 GitHub Secrets 까지는 자�
 
 **원인**. `.p8` 파일 내용을 환경변수로 옮길 때 줄바꿈이 사라져 한 줄로 합쳐졌어요.
 
-**조치**. multi-line 변수로 BEGIN/END 라인까지 포함해 그대로 붙여넣고, `init-prod.sh` 가 `gh secret set` 으로 push 한 결과를 GitHub Secrets 화면에서 다시 다운로드해 검증하세요.
+**조치**. BEGIN/END 라인을 포함한 키 전체를 따옴표로 감싼 여러 줄 값으로 저장해요. 업로드 전에 로컬 원본의 형식을 확인하고, 업로드 후에는 필요한 서명·연동 동작으로 검증해요. GitHub Secrets의 저장값은 화면에서 다시 다운로드할 수 없으므로 확인하려고 키를 로그에 출력하지 않아요.
 
 ---
 

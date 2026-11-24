@@ -1,20 +1,52 @@
 {
   "brand": {
     "name": "template-spring",
-    "sub": "Architecture Docs"
+    "sub": "개발 문서"
   },
   "groups": [
     {
       "name": "Level 0 - Onboarding",
       "files": [
-        { "path": "onboarding/README.md",                        "title": "Overview - 전체 읽기 순서", "desc": "Developer Journey 개요 · 그룹별 안내" },
-        { "path": "onboarding/getting-started.md",                 "title": "감 잡기",              "desc": "쓸지 말지 3~10분 안에 결정 · 코드 돌리기 전 읽기",
+        {
+          "path": "README.md",
+          "title": "문서 안내",
+          "desc": "전체 목차와 원본·미러 관리 방법"
+        },
+        {
+          "path": "onboarding/README.md",
+          "title": "읽는 순서",
+          "desc": "처음 실행부터 운영까지 필요한 문서"
+        },
+        {
+          "path": "onboarding/getting-started.md",
+          "title": "시작 전에",
+          "desc": "템플릿의 목적과 적용할 프로젝트",
           "children": [
-            { "path": "onboarding/what-is-this.md",       "title": "이게 뭐야?",           "desc": "한 문장 소개 · 맞는 경우/안 맞는 경우" },
-            { "path": "onboarding/five-minute-tour.md",   "title": "5 분 투어",            "desc": "모듈 4 종류 · 앱 추가 의미 · DB 분리 · 배포 그림" },
-            { "path": "onboarding/first-run.md",          "title": "첫 실행 결과 해석",    "desc": "bootRun 로그 라인별 의미 + 체크리스트" },
-            { "path": "onboarding/first-change.md",       "title": "첫 수정 튜토리얼",     "desc": "nickname 컬럼 추가 — 한 필드가 건드리는 6 곳" },
-            { "path": "onboarding/first-deploy.md",       "title": "배포 맛보기",          "desc": "Docker 이미지 빌드 + Blue/Green 개념 + Flyway" }
+            {
+              "path": "onboarding/what-is-this.md",
+              "title": "템플릿 소개",
+              "desc": "공통 기반과 앱 고유 코드의 구분"
+            },
+            {
+              "path": "onboarding/five-minute-tour.md",
+              "title": "5 분 투어",
+              "desc": "모듈 4 종류 · 앱 추가 의미 · DB 분리 · 배포 그림"
+            },
+            {
+              "path": "onboarding/first-run.md",
+              "title": "첫 실행 결과 해석",
+              "desc": "bootRun 로그 라인별 의미 + 체크리스트"
+            },
+            {
+              "path": "onboarding/first-change.md",
+              "title": "첫 기능 수정",
+              "desc": "nickname 필드의 요청·저장·응답 흐름"
+            },
+            {
+              "path": "onboarding/first-deploy.md",
+              "title": "배포 맛보기",
+              "desc": "Docker 이미지 빌드 + Blue/Green 개념 + Flyway"
+            }
           ]
         }
       ]
@@ -22,174 +54,633 @@
     {
       "name": "Level 1 - Start",
       "files": [
-        { "path": "start/onboarding.md",                    "title": "Onboarding",           "desc": "로컬 개발 환경 + 첫 앱 모듈 추가" },
-        { "path": "start/social-auth-setup.md",             "title": "Social Auth Setup",    "desc": "Google/Apple 소셜 로그인 자격 증명 발급" },
-        { "path": "start/app-scaffolding.md",             "title": "App Scaffolding",      "desc": "new-app.sh — 앱 모듈 자동 생성 도구" },
-        { "path": "start/cli-guide.md",                     "title": "CLI Guide",            "desc": "factory wrapper 명령어 reference" },
-        { "path": "start/dogfood-setup.md",                 "title": "Dogfood Setup",        "desc": "외부 리소스 발급 · 검증 · cleanup",
+        {
+          "path": "start/onboarding.md",
+          "title": "Onboarding",
+          "desc": "로컬 개발 환경 + 첫 앱 모듈 추가"
+        },
+        {
+          "path": "start/social-auth-setup.md",
+          "title": "Social Auth Setup",
+          "desc": "Google/Apple 소셜 로그인 자격 증명 발급"
+        },
+        {
+          "path": "start/app-scaffolding.md",
+          "title": "App Scaffolding",
+          "desc": "new-app.sh — 앱 모듈 자동 생성 도구"
+        },
+        {
+          "path": "start/cli-guide.md",
+          "title": "CLI Guide",
+          "desc": "factory wrapper 명령어 reference"
+        },
+        {
+          "path": "start/dogfood-setup.md",
+          "title": "시험 배포 준비",
+          "desc": "외부 자격, 환경 설정, 검증과 정리",
           "children": [
-            { "path": "start/dogfood-walkthrough.md",       "title": "Dogfood Walkthrough",  "desc": "도그푸딩 시간순 walkthrough — 정착된 패턴" },
-            { "path": "start/dogfood-faq.md",               "title": "Dogfood FAQ",          "desc": "도그푸딩 자주 묻는 질문" },
-            { "path": "start/dogfood-pitfalls.md",          "title": "Dogfood Pitfalls",     "desc": "도그푸딩 함정 15 개 모음" }
+            {
+              "path": "start/dogfood-walkthrough.md",
+              "title": "시험 배포 기록",
+              "desc": "당시 진행 과정과 현재 적용된 변경"
+            },
+            {
+              "path": "start/dogfood-pitfalls.md",
+              "title": "시험 배포 문제 해결",
+              "desc": "증상별 확인 방법과 운영 조건"
+            }
           ]
         },
-        { "path": "start/cross-repo-cherry-pick.md",        "title": "Cross-repo Cherry-pick","desc": "template → 파생 레포 변경 동기화" }
+        {
+          "path": "start/cross-repo-cherry-pick.md",
+          "title": "Cross-repo Cherry-pick",
+          "desc": "template → 파생 레포 변경 동기화"
+        }
       ]
     },
     {
       "name": "Level 2 - Structure",
       "files": [
-        { "path": "structure/architecture.md",                  "title": "Architecture",         "desc": "모듈 구조 · 파일 트리 · 기술 스택" },
-        { "path": "structure/module-dependencies.md",      "title": "Module Dependencies",  "desc": "모듈 의존 방향 규칙" },
-        { "path": "structure/architecture-rules.md",       "title": "Architecture Rules",   "desc": "ArchUnit 22 규칙 (r1~r22, r12 유보)" },
-        { "path": "structure/multitenant-architecture.md", "title": "Multitenant Architecture","desc": "per-app schema · HikariCP 풀 격리 · appSlug 검증" },
-        { "path": "structure/jwt-authentication.md",       "title": "JWT Authentication",   "desc": "JWT 클레임 · access/refresh · @CurrentUser · BCrypt" }
+        {
+          "path": "structure/architecture.md",
+          "title": "Architecture",
+          "desc": "모듈 구조 · 파일 트리 · 기술 스택"
+        },
+        {
+          "path": "structure/module-dependencies.md",
+          "title": "Module Dependencies",
+          "desc": "모듈 의존 방향 규칙"
+        },
+        {
+          "path": "structure/architecture-rules.md",
+          "title": "아키텍처 검사",
+          "desc": "ArchUnit의 검사 범위와 예약된 규칙"
+        },
+        {
+          "path": "structure/multitenant-architecture.md",
+          "title": "Multitenant Architecture",
+          "desc": "per-app schema · HikariCP 풀 격리 · appSlug 검증"
+        },
+        {
+          "path": "structure/jwt-authentication.md",
+          "title": "JWT Authentication",
+          "desc": "JWT 클레임 · access/refresh · @CurrentUser · BCrypt"
+        }
       ]
     },
     {
       "name": "Level 3 - Philosophy",
       "files": [
-        { "path": "philosophy/README.md",             "title": "개요",                 "desc": "프롤로그 (3 제약) + 사용법 + 35 ADR 인덱스" },
-        { "title": "모듈 설계", "children": [
-            { "path": "philosophy/adr-001-modular-monolith.md",       "title": "Modular Monolith","desc": "ADR-001 · 한 JAR 에 여러 앱 공존 + 경계 강제" },
-            { "path": "philosophy/adr-002-use-this-template.md",      "title": "Use this template","desc": "ADR-002 · 파생 레포 패턴 + cherry-pick 전파" },
-            { "path": "philosophy/adr-003-api-impl-split.md",         "title": "api/impl 분리","desc": "ADR-003 · 미래 추출 보장 위한 포트 인터페이스" },
-            { "path": "philosophy/adr-004-gradle-archunit.md",        "title": "Gradle + ArchUnit","desc": "ADR-004 · 2단계 방어로 컨벤션 기계 강제" }
-        ]},
-        { "title": "데이터 & 인증", "children": [
-            { "path": "philosophy/adr-005-db-schema-isolation.md",    "title": "Postgres Schema Isolation","desc": "ADR-005 · 단일 database + 앱당 schema + 5중 방어선" },
-            { "path": "philosophy/adr-006-hs256-jwt.md",              "title": "HS256 JWT","desc": "ADR-006 · 단일 JVM 전제 · 비밀키 1개 · 15분/30일 TTL" },
-            { "path": "philosophy/adr-012-per-app-user-model.md",     "title": "Per-App User Model","desc": "ADR-012 · 통합 계정 폐기, appSlug claim + 검증 필터" },
-            { "path": "philosophy/adr-013-per-app-auth-endpoints.md", "title": "Per-App Auth Endpoints","desc": "ADR-013 · /api/apps/{slug}/auth/* · core-auth 라이브러리 역할" }
-        ]},
-        { "title": "운영 철학", "children": [
-            { "path": "philosophy/adr-007-solo-friendly-operations.md","title": "Solo-Friendly Operations","desc": "ADR-007 · 모든 운영 결정의 상위 기준 + 비목표 선언" },
-            { "path": "philosophy/adr-008-no-api-versioning.md",      "title": "No API Versioning","desc": "ADR-008 · YAGNI · 도입 시점에 한 줄 리팩토링" }
-        ]},
-        { "title": "엔티티 & 쿼리", "children": [
-            { "path": "philosophy/adr-009-base-entity.md",            "title": "BaseEntity","desc": "ADR-009 · JPA 엔티티 공통 슈퍼클래스 (id/감사/equals)" },
-            { "path": "philosophy/adr-010-search-condition.md",       "title": "SearchCondition","desc": "ADR-010 · Map 기반 조회 조건 표준화 + QueryDsl 빌더" }
-        ]},
-        { "title": "레이어 설계", "children": [
-            { "path": "philosophy/adr-011-layered-port-adapter.md",   "title": "Layered + Port/Adapter","desc": "ADR-011 · 모듈 안쪽은 Spring 레이어, 바깥은 포트" }
-        ]},
-        { "title": "테스트 & 배포", "children": [
-            { "path": "philosophy/adr-014-no-delegation-mock.md",     "title": "No Delegation Mock","desc": "ADR-014 · 4층 테스트 전략 · Port 계약 위주" },
-            { "path": "philosophy/adr-015-conventional-commits-semver.md","title": "Conventional Commits + SemVer","desc": "ADR-015 · cherry-pick 전파 · template-v* 태그 · Deprecation 3단계" },
-            { "path": "philosophy/adr-016-dto-mapper-forbidden.md",   "title": "No DTO Mapper","desc": "ADR-016 · Entity 의 to<Dto>() 메서드 패턴 (ArchUnit r22)" }
-        ]},
-        { "title": "OAuth & Schema 격리", "children": [
-            { "path": "philosophy/adr-017-oauth-integration.md",      "title": "OAuth 2.0 Integration","desc": "ADR-017 · Google/Apple/Kakao/Naver · 앱별 credentials" },
-            { "path": "philosophy/adr-018-schema-routing-datasource.md","title": "SchemaRoutingDataSource","desc": "ADR-018 · 멀티 슬러그 schema 라우팅" }
-        ]},
-        { "title": "결제 / 구독 / 알림 (테마 6)", "children": [
-            { "path": "philosophy/adr-019-billing-iap-payment-separation.md","title": "Billing/IAP/Payment Separation","desc": "ADR-019 · 결제 도메인 3 분리 (channel-specific vs policy)" },
-            { "path": "philosophy/adr-020-subscription-domain-model.md","title": "Subscription Domain + Webhook 보안","desc": "ADR-020 · Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블" },
-            { "path": "philosophy/adr-021-renewal-failure-policy.md",  "title": "Renewal Failure Policy","desc": "ADR-021 · 3회 백오프 (1h/6h/24h) + RenewalAttempt 모델" },
-            { "path": "philosophy/adr-022-iap-server-notifications.md","title": "IAP Server Notifications","desc": "ADR-022 · Apple V2 + Google RTDN webhook 통합" },
-            { "path": "philosophy/adr-023-billing-notification-listener.md","title": "Billing Notification Listener","desc": "ADR-023 · push 우선 listener (email 별도 사이클)" },
-            { "path": "philosophy/adr-025-billing-notification-email-channel.md","title": "Email Channel","desc": "ADR-025 · push + email 듀얼 채널 통합" },
-            { "path": "philosophy/adr-026-billing-notification-metrics.md","title": "Notification Metrics","desc": "ADR-026 · channel × kind × result 라벨" },
-            { "path": "philosophy/adr-031-notification-preferences.md","title": "Notification Preferences","desc": "ADR-031 · 사용자 알림 toggle (NotificationKind enum)" },
-            { "path": "philosophy/adr-032-google-webhook-auth.md",     "title": "Google Webhook Auth","desc": "ADR-032 · Pub/Sub bearer JWT (RS256) 검증" }
-        ]},
-        { "title": "보안 / 감사 (테마 7)", "children": [
-            { "path": "philosophy/adr-024-email-domain-extraction.md", "title": "Email Domain Extraction","desc": "ADR-024 · core-email 모듈 추출 (cross-cutting)" },
-            { "path": "philosophy/adr-027-admin-role-authorization.md","title": "Admin Role Authorization","desc": "ADR-027 · @AdminOnly meta annotation + JWT role claim" },
-            { "path": "philosophy/adr-028-audit-log-domain.md",        "title": "Audit Log Domain (AOP)","desc": "ADR-028 · @Audited / AuditAspect / REQUIRES_NEW 트랜잭션" },
-            { "path": "philosophy/adr-029-password-policy.md",         "title": "Password Policy","desc": "ADR-029 · @ValidPassword (min=10 / blacklist / property override)" },
-            { "path": "philosophy/adr-030-2fa-totp.md",                "title": "2FA TOTP","desc": "ADR-030 · RFC 6238 · Google Authenticator 호환 · backup codes" },
-            { "path": "philosophy/adr-036-ssrf-url-whitelist.md",      "title": "SSRF URL Whitelist","desc": "ADR-036 · 외부 호출 hardcode/env 만 + timeout/redirect 정책" }
-        ]},
-        { "title": "운영 정책 (테마 8)", "children": [
-            { "path": "philosophy/adr-033-flyway-hybrid-policy.md",    "title": "Flyway Hybrid Policy","desc": "ADR-033 · dev=auto / prod=validate-only" },
-            { "path": "philosophy/adr-034-feature-toggle-lite-mode.md","title": "Feature Toggle Lite Mode","desc": "ADR-034 · 7 도메인 toggle (Spring profile + ConditionalOnProperty)" },
-            { "path": "philosophy/adr-035-lite-mode-user-interface.md","title": "Lite Mode UI","desc": "ADR-035 · CLI + .env (GUI/결제는 future)" }
-        ]}
+        {
+          "path": "philosophy/README.md",
+          "title": "설계 결정 안내",
+          "desc": "설계 기준과 주제별 ADR 목록"
+        },
+        {
+          "title": "모듈 설계",
+          "children": [
+            {
+              "path": "philosophy/adr-001-modular-monolith.md",
+              "title": "Modular Monolith",
+              "desc": "ADR-001 · 한 JAR 에 여러 앱 공존 + 경계 강제"
+            },
+            {
+              "path": "philosophy/adr-002-use-this-template.md",
+              "title": "Use this template",
+              "desc": "ADR-002 · 파생 레포 패턴 + cherry-pick 전파"
+            },
+            {
+              "path": "philosophy/adr-003-api-impl-split.md",
+              "title": "api/impl 분리",
+              "desc": "ADR-003 · 인터페이스와 구현의 의존 경계"
+            },
+            {
+              "path": "philosophy/adr-004-gradle-archunit.md",
+              "title": "Gradle + ArchUnit",
+              "desc": "ADR-004 · 2단계 방어로 컨벤션 기계 강제"
+            }
+          ]
+        },
+        {
+          "title": "데이터 & 인증",
+          "children": [
+            {
+              "path": "philosophy/adr-005-db-schema-isolation.md",
+              "title": "앱별 DB 스키마",
+              "desc": "ADR-005 · 스키마 분리와 각 보호 장치의 역할"
+            },
+            {
+              "path": "philosophy/adr-006-hs256-jwt.md",
+              "title": "HS256 JWT",
+              "desc": "ADR-006 · 단일 JVM 전제 · 비밀키 1개 · 15분/30일 TTL"
+            },
+            {
+              "path": "philosophy/adr-012-per-app-user-model.md",
+              "title": "Per-App User Model",
+              "desc": "ADR-012 · 통합 계정 폐기, appSlug claim + 검증 필터"
+            },
+            {
+              "path": "philosophy/adr-013-per-app-auth-endpoints.md",
+              "title": "Per-App Auth Endpoints",
+              "desc": "ADR-013 · /api/apps/{slug}/auth/* · core-auth 라이브러리 역할"
+            }
+          ]
+        },
+        {
+          "title": "운영 철학",
+          "children": [
+            {
+              "path": "philosophy/adr-007-solo-friendly-operations.md",
+              "title": "Solo-Friendly Operations",
+              "desc": "ADR-007 · 모든 운영 결정의 상위 기준 + 비목표 선언"
+            },
+            {
+              "path": "philosophy/adr-008-no-api-versioning.md",
+              "title": "URL 버전 미도입",
+              "desc": "ADR-008 · 현재 선택과 버전 도입을 검토할 조건"
+            }
+          ]
+        },
+        {
+          "title": "엔티티 & 쿼리",
+          "children": [
+            {
+              "path": "philosophy/adr-009-base-entity.md",
+              "title": "BaseEntity",
+              "desc": "ADR-009 · JPA 엔티티 공통 슈퍼클래스 (id/감사/equals)"
+            },
+            {
+              "path": "philosophy/adr-010-search-condition.md",
+              "title": "SearchCondition",
+              "desc": "ADR-010 · Map 기반 조회 조건 표준화 + QueryDsl 빌더"
+            }
+          ]
+        },
+        {
+          "title": "레이어 설계",
+          "children": [
+            {
+              "path": "philosophy/adr-011-layered-port-adapter.md",
+              "title": "Layered + Port/Adapter",
+              "desc": "ADR-011 · 모듈 안쪽은 Spring 레이어, 바깥은 포트"
+            }
+          ]
+        },
+        {
+          "title": "테스트 & 배포",
+          "children": [
+            {
+              "path": "philosophy/adr-014-no-delegation-mock.md",
+              "title": "No Delegation Mock",
+              "desc": "ADR-014 · 4층 테스트 전략 · Port 계약 위주"
+            },
+            {
+              "path": "philosophy/adr-015-conventional-commits-semver.md",
+              "title": "Conventional Commits + SemVer",
+              "desc": "ADR-015 · cherry-pick 전파 · template-v* 태그 · Deprecation 3단계"
+            },
+            {
+              "path": "philosophy/adr-016-dto-mapper-forbidden.md",
+              "title": "No DTO Mapper",
+              "desc": "ADR-016 · Entity 의 to<Dto>() 메서드 패턴 (ArchUnit r22)"
+            }
+          ]
+        },
+        {
+          "title": "OAuth & Schema 격리",
+          "children": [
+            {
+              "path": "philosophy/adr-017-oauth-integration.md",
+              "title": "OAuth 2.0 Integration",
+              "desc": "ADR-017 · Google/Apple/Kakao/Naver · 앱별 credentials"
+            },
+            {
+              "path": "philosophy/adr-018-schema-routing-datasource.md",
+              "title": "SchemaRoutingDataSource",
+              "desc": "ADR-018 · 멀티 슬러그 schema 라우팅"
+            }
+          ]
+        },
+        {
+          "title": "결제 / 구독 / 알림 (테마 6)",
+          "children": [
+            {
+              "path": "philosophy/adr-019-billing-iap-payment-separation.md",
+              "title": "Billing/IAP/Payment Separation",
+              "desc": "ADR-019 · 결제 도메인 3 분리 (channel-specific vs policy)"
+            },
+            {
+              "path": "philosophy/adr-020-subscription-domain-model.md",
+              "title": "Subscription Domain + Webhook 보안",
+              "desc": "ADR-020 · Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블"
+            },
+            {
+              "path": "philosophy/adr-021-renewal-failure-policy.md",
+              "title": "구독 갱신 실패 정책",
+              "desc": "ADR-021 · 재시도 간격과 중복 처리의 범위"
+            },
+            {
+              "path": "philosophy/adr-022-iap-server-notifications.md",
+              "title": "IAP Server Notifications",
+              "desc": "ADR-022 · Apple V2 + Google RTDN webhook 통합"
+            },
+            {
+              "path": "philosophy/adr-023-billing-notification-listener.md",
+              "title": "구독 알림 리스너",
+              "desc": "ADR-023 · 구독 이벤트와 알림 채널 연결"
+            },
+            {
+              "path": "philosophy/adr-025-billing-notification-email-channel.md",
+              "title": "Email Channel",
+              "desc": "ADR-025 · push + email 듀얼 채널 통합"
+            },
+            {
+              "path": "philosophy/adr-026-billing-notification-metrics.md",
+              "title": "Notification Metrics",
+              "desc": "ADR-026 · channel × kind × result 라벨"
+            },
+            {
+              "path": "philosophy/adr-031-notification-preferences.md",
+              "title": "Notification Preferences",
+              "desc": "ADR-031 · 사용자 알림 toggle (NotificationKind enum)"
+            },
+            {
+              "path": "philosophy/adr-032-google-webhook-auth.md",
+              "title": "Google Webhook Auth",
+              "desc": "ADR-032 · Pub/Sub bearer JWT (RS256) 검증"
+            }
+          ]
+        },
+        {
+          "title": "보안 / 감사 (테마 7)",
+          "children": [
+            {
+              "path": "philosophy/adr-024-email-domain-extraction.md",
+              "title": "Email Domain Extraction",
+              "desc": "ADR-024 · core-email 모듈 추출 (cross-cutting)"
+            },
+            {
+              "path": "philosophy/adr-027-admin-role-authorization.md",
+              "title": "Admin Role Authorization",
+              "desc": "ADR-027 · @AdminOnly meta annotation + JWT role claim"
+            },
+            {
+              "path": "philosophy/adr-028-audit-log-domain.md",
+              "title": "Audit Log Domain (AOP)",
+              "desc": "ADR-028 · @Audited / AuditAspect / REQUIRES_NEW 트랜잭션"
+            },
+            {
+              "path": "philosophy/adr-029-password-policy.md",
+              "title": "Password Policy",
+              "desc": "ADR-029 · @ValidPassword (min=10 / blacklist / property override)"
+            },
+            {
+              "path": "philosophy/adr-030-2fa-totp.md",
+              "title": "2FA TOTP",
+              "desc": "ADR-030 · RFC 6238 · Google Authenticator 호환 · backup codes"
+            },
+            {
+              "path": "philosophy/adr-036-ssrf-url-whitelist.md",
+              "title": "SSRF URL Whitelist",
+              "desc": "ADR-036 · 외부 호출 hardcode/env 만 + timeout/redirect 정책"
+            }
+          ]
+        },
+        {
+          "title": "운영 정책 (테마 8)",
+          "children": [
+            {
+              "path": "philosophy/adr-033-flyway-hybrid-policy.md",
+              "title": "Flyway 실행 정책",
+              "desc": "ADR-033 · 프로파일 기본값, 환경 설정과 수동 적용"
+            },
+            {
+              "path": "philosophy/adr-034-feature-toggle-lite-mode.md",
+              "title": "기능 선택 실행",
+              "desc": "ADR-034 · 조건부 Bean 등록과 기능별 제한"
+            },
+            {
+              "path": "philosophy/adr-035-lite-mode-user-interface.md",
+              "title": "Lite Mode UI",
+              "desc": "ADR-035 · CLI + .env (GUI/결제는 future)"
+            }
+          ]
+        },
+        {
+          "path": "philosophy/adr-037-core-schema-deprecation.md",
+          "title": "공용 core 스키마 폐기",
+          "desc": "ADR-037 · 앱별 데이터 배치와 연결 풀"
+        },
+        {
+          "path": "philosophy/adr-038-sms-phone-auth.md",
+          "title": "휴대폰 인증",
+          "desc": "ADR-038 · 점유 검증과 SMS 채널"
+        },
+        {
+          "path": "philosophy/adr-039-admin-module.md",
+          "title": "운영 콘솔 모듈",
+          "desc": "ADR-039 · 콘솔 계정과 앱 운영 API"
+        }
       ]
     },
     {
       "name": "Convention",
       "files": [
-        { "path": "convention/README.md",                    "title": "Overview",             "desc": "컨벤션 전체 개요" },
-        { "path": "convention/design-principles.md",         "title": "Design Principles",    "desc": "코드 작성 원칙 (SOLID 등) + null handling 정책" },
-        { "path": "convention/naming.md",                    "title": "Naming",               "desc": "네이밍 규칙 + enum 명명" },
-        { "path": "convention/records-and-classes.md",       "title": "Records & Classes",    "desc": "Record vs Class 사용 기준" },
-        { "path": "convention/dto-factory.md",               "title": "DTO Factory",          "desc": "DTO 생성 패턴" },
-        { "path": "convention/exception-handling.md",        "title": "Exception Handling",   "desc": "예외 처리 표준" },
-        { "path": "convention/git-workflow.md",              "title": "Git Workflow",         "desc": "브랜치 전략 + Conventional Commits 명령형" },
-        { "path": "convention/code-comments.md",             "title": "Code Comments",        "desc": "Javadoc + 인라인 주석 작성 규약" },
-        { "path": "convention/dynamic-query.md",             "title": "Dynamic Query",        "desc": "RequestDTO → Assembler → conditions Map → JPAQuery 표준 패턴 (QueryDslPredicateBuilder)" }
+        {
+          "path": "convention/README.md",
+          "title": "Overview",
+          "desc": "컨벤션 전체 개요"
+        },
+        {
+          "path": "convention/design-principles.md",
+          "title": "Design Principles",
+          "desc": "코드 작성 원칙 (SOLID 등) + null handling 정책"
+        },
+        {
+          "path": "convention/naming.md",
+          "title": "Naming",
+          "desc": "네이밍 규칙 + enum 명명"
+        },
+        {
+          "path": "convention/records-and-classes.md",
+          "title": "Records & Classes",
+          "desc": "Record vs Class 사용 기준"
+        },
+        {
+          "path": "convention/dto-factory.md",
+          "title": "DTO Factory",
+          "desc": "DTO 생성 패턴"
+        },
+        {
+          "path": "convention/exception-handling.md",
+          "title": "Exception Handling",
+          "desc": "예외 처리 표준"
+        },
+        {
+          "path": "convention/git-workflow.md",
+          "title": "Git Workflow",
+          "desc": "브랜치 전략 + Conventional Commits 명령형"
+        },
+        {
+          "path": "convention/code-comments.md",
+          "title": "Code Comments",
+          "desc": "Javadoc + 인라인 주석 작성 규약"
+        },
+        {
+          "path": "convention/dynamic-query.md",
+          "title": "Dynamic Query",
+          "desc": "RequestDTO → Assembler → conditions Map → JPAQuery 표준 패턴 (QueryDslPredicateBuilder)"
+        }
       ]
     },
     {
       "name": "API & Functional",
       "files": [
-        { "title": "API", "children": [
-            { "path": "api-and-functional/api/api-response.md",             "title": "API Response",         "desc": "API 응답 형식 표준 (canonical)" },
-            { "path": "api-and-functional/api/json-contract.md",            "title": "JSON Contract",        "desc": "JSON 계약 규칙" },
-            { "path": "api-and-functional/api/versioning.md",               "title": "Versioning",           "desc": "API 버저닝 전략 (현재 template-v0.3.0)" },
-            { "path": "api-and-functional/api/flutter-backend-integration.md","title": "Flutter Integration","desc": "Flutter 앱 연동 — DTO 매핑 (응답 형식은 API Response 참조)" },
-            { "path": "api-and-functional/api/swagger-ui.md",               "title": "Swagger UI",           "desc": "Swagger UI / OpenAPI 자동 문서화" }
-        ]},
-        { "title": "Functional", "children": [
-            { "path": "api-and-functional/functional/push-notifications.md",           "title": "Push Notifications",   "desc": "FCM · 디바이스 등록 · PushPort · 토큰 무효화" },
-            { "path": "api-and-functional/functional/email-verification.md",           "title": "Email Verification",   "desc": "Resend · 이메일 인증 · 비밀번호 재설정" },
-            { "path": "api-and-functional/functional/storage.md",                      "title": "Storage",              "desc": "StoragePort · signed URL · bucket 네이밍 · retention" },
-            { "path": "api-and-functional/functional/migration.md",                    "title": "Migration",            "desc": "DB 마이그레이션 (Flyway) 가이드" },
-            { "path": "api-and-functional/functional/seed-data-management.md",         "title": "Seed Data Management", "desc": "개발/테스트 seed 데이터 전략" },
-            { "path": "api-and-functional/functional/rate-limiting.md",                "title": "Rate Limiting",        "desc": "요청 제한 전략" },
-            { "path": "api-and-functional/functional/observability.md",                "title": "Observability",        "desc": "로깅, 메트릭, 트레이싱 규약" },
-            { "path": "api-and-functional/functional/billing-iap-payment.md",          "title": "Billing / IAP / Payment","desc": "결제 도메인 통합 가이드 (PG / IAP / Subscription)" }
-        ]}
+        {
+          "title": "API",
+          "children": [
+            {
+              "path": "api-and-functional/api/api-response.md",
+              "title": "API Response",
+              "desc": "API 응답 형식 표준 (canonical)"
+            },
+            {
+              "path": "api-and-functional/api/json-contract.md",
+              "title": "JSON Contract",
+              "desc": "JSON 계약 규칙"
+            },
+            {
+              "path": "api-and-functional/api/versioning.md",
+              "title": "API 버전과 호환성",
+              "desc": "호환성을 깨는 변경, deprecation과 이전 절차"
+            },
+            {
+              "path": "api-and-functional/api/flutter-backend-integration.md",
+              "title": "Flutter Integration",
+              "desc": "Flutter 앱 연동 — DTO 매핑 (응답 형식은 API Response 참조)"
+            },
+            {
+              "path": "api-and-functional/api/swagger-ui.md",
+              "title": "Swagger UI",
+              "desc": "Swagger UI / OpenAPI 자동 문서화"
+            }
+          ]
+        },
+        {
+          "title": "Functional",
+          "children": [
+            {
+              "path": "api-and-functional/functional/push-notifications.md",
+              "title": "Push Notifications",
+              "desc": "FCM · 디바이스 등록 · PushPort · 토큰 무효화"
+            },
+            {
+              "path": "api-and-functional/functional/email-verification.md",
+              "title": "Email Verification",
+              "desc": "Resend · 이메일 인증 · 비밀번호 재설정"
+            },
+            {
+              "path": "api-and-functional/functional/storage.md",
+              "title": "Storage",
+              "desc": "StoragePort · signed URL · bucket 네이밍 · retention"
+            },
+            {
+              "path": "api-and-functional/functional/migration.md",
+              "title": "API 이전 가이드",
+              "desc": "기존 API를 대체하고 제거하는 절차"
+            },
+            {
+              "path": "api-and-functional/functional/seed-data-management.md",
+              "title": "Seed Data Management",
+              "desc": "개발/테스트 seed 데이터 전략"
+            },
+            {
+              "path": "api-and-functional/functional/rate-limiting.md",
+              "title": "Rate Limiting",
+              "desc": "요청 제한 전략"
+            },
+            {
+              "path": "api-and-functional/functional/observability.md",
+              "title": "Observability",
+              "desc": "로깅, 메트릭, 트레이싱 규약"
+            },
+            {
+              "path": "api-and-functional/functional/billing-iap-payment.md",
+              "title": "Billing / IAP / Payment",
+              "desc": "결제 도메인 통합 가이드 (PG / IAP / Subscription)"
+            }
+          ]
+        },
+        {
+          "path": "api-and-functional/admin-console.md",
+          "title": "운영 콘솔 API",
+          "desc": "계정, 권한, 앱 관리와 응답 계약"
+        },
+        {
+          "path": "api-and-functional/functional/phone-auth-and-sms.md",
+          "title": "휴대폰 인증과 SMS",
+          "desc": "코드 요청·검증과 채널 설정"
+        }
       ]
     },
     {
       "name": "Production",
       "files": [
-        { "title": "Deploy", "children": [
-            { "path": "production/deploy/infrastructure.md",              "title": "Infrastructure",       "desc": "맥미니 · Supabase · Cloudflare · 블루그린" },
-            { "path": "production/deploy/decisions-infra.md",             "title": "Infra Decisions",      "desc": "인프라 결정 기록 (I-01~I-14)" },
-            { "path": "production/deploy/ci-cd-flow.md",                  "title": "CI/CD Flow",           "desc": "commit → 운영 반영까지 전체 흐름" },
-            { "path": "production/deploy/deployment.md",                  "title": "Deployment",           "desc": "파생 레포 첫 운영 배포 (onboarding)" },
-            { "path": "production/deploy/runbook.md",                     "title": "Runbook",              "desc": "평시 배포 · 롤백 · 장애 대응" },
-            { "path": "production/deploy/flyway-runbook.md",              "title": "Flyway Runbook",       "desc": "prod migrate 절차 (Hybrid 정책)" }
-        ]},
-        { "title": "Setup", "children": [
-            { "path": "production/setup/key-issuance.md",                "title": "Key Issuance",         "desc": "외부 서비스 키 발급 절차 (PortOne / OAuth / Resend / Tailscale)" },
-            { "path": "production/setup/key-rotation.md",                "title": "Key Rotation",         "desc": "보안 키 로테이션 절차" },
-            { "path": "production/setup/secret-chain-4stage.md",         "title": "Secret Chain 4-Stage", "desc": ".env.prod → deploy.yml → .kamal/secrets → workflows" },
-            { "path": "production/setup/mac-mini-setup.md",              "title": "Mac Mini Setup",       "desc": "Worked example — 실제 호스트 셋업 샘플" },
-            { "path": "production/setup/monitoring-setup.md",            "title": "Monitoring Setup",     "desc": "관측성 스택 (Loki/Grafana/Prometheus) 설정" },
-            { "path": "production/setup/storage-bucket-isolation.md",    "title": "Storage Bucket Isolation","desc": "슬러그별 bucket 격리 정책" },
-            { "path": "production/setup/storage-setup.md",               "title": "Storage Setup",        "desc": "MinIO / NAS 스토리지 설정" },
-            { "path": "production/setup/owasp-top10-mapping.md",         "title": "OWASP Top 10 Mapping", "desc": "OWASP Top 10 (2021) 카테고리별 현 방어 + Gap (보안 audit reference)" }
-        ]},
-        { "title": "Operations", "children": [
-            { "path": "production/operations/feature-toggle.md",         "title": "Feature Toggle",       "desc": "Lite 모드 운영자 가이드 (ADR-034)" },
-            { "path": "production/operations/develop-branch-policy.md",  "title": "Develop Branch Policy","desc": "main / develop 브랜치 + GHA trigger 정책" }
-        ]},
-        { "title": "Test", "children": [
-            { "path": "production/test/testing-strategy.md",          "title": "Testing Strategy",     "desc": "4층 전략 (Unit · Contract · Integration · ArchUnit)" },
-            { "path": "production/test/contract-testing.md",          "title": "Contract Testing",     "desc": "계약 기반 테스트 전략 (DTO JSON / Port behavior / 알고리즘)" }
-        ]}
+        {
+          "title": "Deploy",
+          "children": [
+            {
+              "path": "production/deploy/infrastructure.md",
+              "title": "Infrastructure",
+              "desc": "맥미니 · Supabase · Cloudflare · 블루그린"
+            },
+            {
+              "path": "production/deploy/decisions-infra.md",
+              "title": "Infra Decisions",
+              "desc": "인프라 결정 기록 (I-01~I-14)"
+            },
+            {
+              "path": "production/deploy/ci-cd-flow.md",
+              "title": "CI/CD Flow",
+              "desc": "commit → 운영 반영까지 전체 흐름"
+            },
+            {
+              "path": "production/deploy/deployment.md",
+              "title": "Deployment",
+              "desc": "파생 레포 첫 운영 배포 (onboarding)"
+            },
+            {
+              "path": "production/deploy/runbook.md",
+              "title": "Runbook",
+              "desc": "평시 배포 · 롤백 · 장애 대응"
+            },
+            {
+              "path": "production/deploy/flyway-runbook.md",
+              "title": "Flyway Runbook",
+              "desc": "prod migrate 절차 (Hybrid 정책)"
+            }
+          ]
+        },
+        {
+          "title": "Setup",
+          "children": [
+            {
+              "path": "production/setup/key-issuance.md",
+              "title": "Key Issuance",
+              "desc": "외부 서비스 키 발급 절차 (PortOne / OAuth / Resend / Tailscale)"
+            },
+            {
+              "path": "production/setup/key-rotation.md",
+              "title": "Key Rotation",
+              "desc": "보안 키 로테이션 절차"
+            },
+            {
+              "path": "production/setup/secret-chain-4stage.md",
+              "title": "자격 전달 경로",
+              "desc": "환경 파일, GitHub, Kamal과 컨테이너 설정"
+            },
+            {
+              "path": "production/setup/mac-mini-setup.md",
+              "title": "Mac mini 설정",
+              "desc": "배포 호스트를 준비하는 절차와 사례"
+            },
+            {
+              "path": "production/setup/monitoring-setup.md",
+              "title": "Monitoring Setup",
+              "desc": "관측성 스택 (Loki/Grafana/Prometheus) 설정"
+            },
+            {
+              "path": "production/setup/storage-bucket-isolation.md",
+              "title": "Storage Bucket Isolation",
+              "desc": "슬러그별 bucket 격리 정책"
+            },
+            {
+              "path": "production/setup/storage-setup.md",
+              "title": "Storage Setup",
+              "desc": "MinIO / NAS 스토리지 설정"
+            },
+            {
+              "path": "production/setup/owasp-top10-mapping.md",
+              "title": "OWASP Top 10 Mapping",
+              "desc": "OWASP Top 10 (2021) 카테고리별 현 방어 + Gap (보안 audit reference)"
+            }
+          ]
+        },
+        {
+          "title": "Operations",
+          "children": [
+            {
+              "path": "production/operations/feature-toggle.md",
+              "title": "Feature Toggle",
+              "desc": "Lite 모드 운영자 가이드 (ADR-034)"
+            },
+            {
+              "path": "production/operations/develop-branch-policy.md",
+              "title": "Develop Branch Policy",
+              "desc": "main / develop 브랜치 + GHA trigger 정책"
+            }
+          ]
+        },
+        {
+          "title": "Test",
+          "children": [
+            {
+              "path": "production/test/testing-strategy.md",
+              "title": "Testing Strategy",
+              "desc": "4층 전략 (Unit · Contract · Integration · ArchUnit)"
+            },
+            {
+              "path": "production/test/contract-testing.md",
+              "title": "Contract Testing",
+              "desc": "계약 기반 테스트 전략 (DTO JSON / Port behavior / 알고리즘)"
+            }
+          ]
+        },
+        {
+          "path": "production/gdpr-request-runbook.md",
+          "title": "개인정보 요청 처리",
+          "desc": "내보내기, 삭제와 보존 범위"
+        },
+        {
+          "path": "production/operations/security-logging.md",
+          "title": "보안 로그",
+          "desc": "보안 이벤트, 민감정보와 경보 범위"
+        }
       ]
     },
     {
       "name": "Reference",
       "files": [
-        { "path": "reference/glossary.md",               "title": "용어 사전",            "desc": "Spring · JPA · Docker · JWT · Kamal · 결제/IAP/구독 등 105+ 용어" },
-        { "path": "reference/environment.md",            "title": "Environment",          "desc": "프레임워크 · 라이브러리 · 외부 서비스 인벤토리 (버전 포함)" },
-        { "path": "reference/environment-ui.md",         "title": "Environment UI",       "desc": "기술 스택 한눈 다이어그램 (아이콘)" },
-        { "path": "reference/edge-cases.md",             "title": "Edge Cases",           "desc": "엣지 케이스 및 예외 처리 기록" },
-        { "path": "reference/STYLE_GUIDE.md",            "title": "Documentation Style Guide", "desc": "저자용 · 5 유형 템플릿 · ADR 규격 · cross-link 정책" },
-        { "path": "reference/api/README.md",             "title": "API Reference",        "desc": "API 인덱스" }
-      ]
-    },
-    {
-      "name": "Planned",
-      "files": [
-        { "path": "planned/backlog.md",                     "title": "Backlog",              "desc": "개발 예정 항목" }
+        {
+          "path": "reference/glossary.md",
+          "title": "용어 사전",
+          "desc": "모듈, 인증, 배포와 결제에서 사용하는 용어"
+        },
+        {
+          "path": "reference/data-model.md",
+          "title": "데이터 모델",
+          "desc": "앱별 공통 테이블과 운영 콘솔 스키마"
+        },
+        {
+          "path": "reference/environment.md",
+          "title": "Environment",
+          "desc": "프레임워크 · 라이브러리 · 외부 서비스 인벤토리 (버전 포함)"
+        },
+        {
+          "path": "reference/edge-cases.md",
+          "title": "Edge Cases",
+          "desc": "엣지 케이스 및 예외 처리 기록"
+        },
+        {
+          "path": "reference/STYLE_GUIDE.md",
+          "title": "문서 작성 가이드",
+          "desc": "문체, 구성, 코드 대조와 링크 관리 기준"
+        },
+        {
+          "path": "reference/api/README.md",
+          "title": "API Reference",
+          "desc": "API 인덱스"
+        }
       ]
     }
   ]

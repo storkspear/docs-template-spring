@@ -4,6 +4,8 @@
 
 이 레포의 문서를 읽다가 "이게 뭐지?" 싶으면 여기서 먼저 찾아보세요. 엄밀한 정의보다 직관적 이해를 우선합니다. 라이브러리·버전·외부 서비스 인벤토리는 [`Environment`](./environment.md) 를 참고하세요.
 
+<a id="프레임워크--빌드"></a>
+
 ## 프레임워크 / 빌드
 
 | 용어 | 설명 |
@@ -20,6 +22,8 @@
 | Fat JAR | 의존 라이브러리들까지 전부 한 파일에 담긴 JAR. Spring Boot 기본값이고 이 레포의 배포 단위예요 |
 | 멀티모듈 (Multi-module) | 한 레포 안에 여러 Gradle 서브프로젝트를 두는 구조. `common/common-web`, `core/core-auth-impl` 처럼 각자가 독립 빌드 가능한 모듈이에요 |
 | Groovy DSL | 이 레포의 Gradle 빌드 스크립트 언어. 빌드 설정은 `build.gradle`, 모듈 목록은 `settings.gradle` 에 Groovy 로 작성돼요. 라이브러리 버전은 `gradle/libs.versions.toml` 한곳에 모여 있어요 |
+
+<a id="spring-어노테이션--런타임"></a>
 
 ## Spring 어노테이션 / 런타임
 
@@ -66,6 +70,8 @@
 | Checksum (Flyway) | 마이그레이션 파일의 무결성 체크값. 파일 수정을 감지해서, 이미 실행된 V 파일이 변경되면 부팅이 실패해요 |
 | AbstractRoutingDataSource | Spring 의 다중 DataSource 라우팅 클래스. 요청에서 appSlug 를 읽어 올바른 schema 의 DataSource 로 연결해요. 이 레포의 `SchemaRoutingDataSource` 가 이걸 상속해요 ([`ADR-018`](../philosophy/adr-018-schema-routing-datasource.md)) |
 
+<a id="인증--보안"></a>
+
 ## 인증 / 보안
 
 | 용어 | 설명 |
@@ -90,6 +96,8 @@
 | Service Account (Google Cloud) | Google Cloud 의 서비스용 계정으로 사람이 아니에요. Pub/Sub webhook 인증 주체이고 `@my-project.iam.gserviceaccount.com` 형식이에요 |
 | TOTP (Time-based One-Time Password) | 2FA 표준이에요. RFC 6238 기반이고 30초마다 갱신되는 6자리 코드예요. Google Authenticator, Authy 등과 호환돼요 ([`ADR-030`](../philosophy/adr-030-2fa-totp.md)) |
 | Backup codes | 2FA 비상용 일회성 코드. TOTP 기기를 분실했을 때 로그인 수단이에요. 8개를 발급하고 사용 후 무효화해요 |
+
+<a id="운영--인프라"></a>
 
 ## 운영 / 인프라
 
@@ -121,17 +129,21 @@
 | Feature toggle / Lite mode | 기능을 켜고 끄는 플래그. `app.features.<X>=true|false` 환경변수로 도메인 단위 활성화를 제어해요. 작은 비즈니스용 Lite mode 를 지원해요 ([`ADR-034`](../philosophy/adr-034-feature-toggle-lite-mode.md)) |
 | SPEL (Spring Expression Language) | Spring 설정에서 쓰는 조건문·표현식 언어. `@ConditionalOnExpression("${a} and ${b}")` 같이 두 flag 를 AND/OR 로 조합해요 |
 
+<a id="결제--iap--구독"></a>
+
 ## 결제 / IAP / 구독
 
 | 용어 | 설명 |
 |---|---|
 | PG (Payment Gateway) | 카드 결제 중개 서비스. 한국에선 PortOne 이 나이스·토스·이니시스 같은 여러 PG 를 통합 제공해요 |
 | PortOne | 한국형 결제 통합 SDK·콘솔. v1 API base URL 은 `api.iamport.kr` 이에요. 옛 iamport 시절 명세를 따르고 본 레포는 v1 을 사용해요 ([`ADR-019`](../philosophy/adr-019-billing-iap-payment-separation.md)) |
-| IAP (In-App Purchase) | 앱 스토어 내결제. Apple App Store 와 Google Play 가 결제를 처리하고 수수료 30% 를 차감해요. 앱 스토어 정책상 외부 PG 는 사용할 수 없어요 |
+| IAP (In-App Purchase) | 앱 스토어가 제공하는 인앱 결제예요. 이 템플릿은 구매 검증과 서버 알림을 처리해요. 수수료와 외부 결제 허용 범위는 스토어·지역·상품별 현재 정책을 확인해요 |
 | Subscription / Renewal | 정기 구독 모델. 월·년 단위로 자동 갱신돼요. 본 레포 `BillingPort` 의 핵심 도메인이에요 ([`ADR-020`](../philosophy/adr-020-subscription-domain-model.md), [`ADR-021`](../philosophy/adr-021-renewal-failure-policy.md)) |
 | RTDN (Real-Time Developer Notifications) | Google Play 의 결제 webhook. 갱신·환불·취소 같은 구독 상태 변화를 Google Pub/Sub 로 실시간 push 해요 ([`ADR-022`](../philosophy/adr-022-iap-server-notifications.md)) |
 | App Store Server Notifications V2 | Apple 의 결제 webhook 으로 RTDN 의 Apple 버전이에요. JWS 형식이고 SignedDate, SignedTransactionInfo 를 검증해요 |
 | OPT-IN / OPT-OUT | 기능 활성화 정책이에요. opt-in 은 사용자가 명시적으로 켜야 활성화돼요. 2FA 가 그 예예요. opt-out 은 기본 활성화이고 사용자가 꺼야 비활성화돼요. 결제 알림이 그 예예요 |
+
+<a id="ci--배포-파이프라인"></a>
 
 ## CI / 배포 파이프라인
 
@@ -144,13 +156,15 @@
 | CI (Continuous Integration) | 코드를 push 할 때마다 자동으로 빌드하고 테스트해요 |
 | CD (Continuous Deployment) | CI 통과 시 자동으로 배포해요 |
 
+<a id="관측성--로깅"></a>
+
 ## 관측성 / 로깅
 
 | 용어 | 설명 |
 |---|---|
 | Prometheus | 시계열 메트릭 수집 도구. 주기적으로 앱의 `/actuator/prometheus` 를 긁어가요(scrape) |
 | Grafana | 메트릭 시각화 대시보드. Prometheus 와 Loki 를 소스로 차트·알람을 구성해요 |
-| Loki | 로그 수집 도구로 Prometheus 와 같은 철학이에요. 이 레포는 retention 을 14일로 둬요 |
+| Loki | 애플리케이션 로그를 수집·조회하는 도구예요. 이 저장소의 보관 기간과 구성은 [환경 인벤토리](./environment.md)를 참고하세요 |
 | Alertmanager | Prometheus 알람 라우팅. 조건을 만족하면 Discord, Email 등으로 발송해요 |
 | Micrometer | Spring Boot 의 메트릭 추상화. Prometheus, Datadog 등 여러 백엔드를 지원해요 |
 | MDC (Mapped Diagnostic Context) | 로그에 요청별 컨텍스트인 requestId, userId 등을 자동 주입하는 SLF4J 기능이에요 |
@@ -194,6 +208,8 @@
 | SOLID | 객체지향 설계 5원칙. SRP, OCP, LSP, ISP, DIP 를 말해요 |
 | Idempotent (멱등) | 같은 요청을 여러 번 보내도 결과가 같은 연산. PUT, DELETE 가 전형적이에요 |
 | Ephemeral | "일회성, 휘발성" 을 뜻해요. 테스트 컨테이너, 임시 토큰 등에 쓰는 용어예요 |
+
+<a id="라이브러리--sdk"></a>
 
 ## 라이브러리 / SDK
 

@@ -9,9 +9,11 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - 신규 입사자가 본 프로젝트의 보안 사고관을 빠르게 파악
 - 분기별 self-audit — gap 항목을 보안 후속 작업으로 등재해요
 
-**버전**: OWASP Top 10 2021 기준. 2025 발표 후 재매핑 예정.
+**분류 기준**은 OWASP Top 10 2021이에요. 이 문서는 해당 분류에 현재 구현과 남은 제한을 연결하는 기술 점검 자료예요. 특정 규정 준수나 외부 감사 통과를 보장하는 자료로 사용하지 않아요.
 
 ---
+
+<a id="a01--broken-access-control-권한-검사-누락"></a>
 
 ## A01 — Broken Access Control (권한 검사 누락)
 
@@ -33,6 +35,8 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 ---
 
+<a id="a02--cryptographic-failures-암호화-실패"></a>
+
 ## A02 — Cryptographic Failures (암호화 실패)
 
 **현 방어**:
@@ -41,7 +45,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `bootstrap/.../application-prod.yml:83` — `app.jwt.secret: ${JWT_SECRET}` (기본값 없음, 환경변수 필수)
 - `common/common-security/.../PasswordHasher.java:12-13` — BCrypt strength 12 (~200~300ms/hash)
 - `core/core-auth-impl/.../service/TokenGenerator.java:52-64` — `sha256Hex()` 로 refresh·verification·reset 토큰을 모두 SHA-256 해시로 저장 (raw 미저장)
-- `core/core-user-impl/.../entity/User.java:40` — `totp_secret VARCHAR(64)` 평문 저장 (RFC 6238 준수, 클라이언트 측 encrypted local storage 권장)
+- TOTP secret은 서버가 검증에 사용할 수 있어야 하지만, 현재 DB에는 평문으로 저장돼요. 이는 방어 항목이 아니라 저장 시 암호화와 접근 권한을 추가 검토할 제한이에요. 클라이언트 저장소 암호화가 서버 DB의 평문 저장을 보호하지는 않아요.
 - `core/core-auth-impl/.../totp/TwoFactorService.java` — backup code 8개를 BCrypt 해시 후 `List<String>` JSON 으로 `users.totp_backup_codes` 에 저장 (raw 는 발급 응답 1회만)
 - `.gitignore:26-58` — `.env`, `.env.*`, `.kamal/secrets` 제외
 - `.gitleaks.toml` — gitleaks default rule + allowlist (테스트 fixture, .env.example 등)
@@ -57,10 +61,12 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 ---
 
+<a id="a03--injection-sqlnosqlos-injection"></a>
+
 ## A03 — Injection (SQL/NoSQL/OS injection)
 
 **현 방어**:
-- 모든 Repository 가 Spring Data JPA — `findByEmail`, `findByEmailAndDeletedAtIsNull` 같은 method name 또는 named parameter (`:userId`, `:familyId`) 만 씁니다
+- 앱 도메인은 Spring Data JPA의 파라미터 바인딩을 사용하고, 운영 콘솔에는 `JdbcTemplate` 조회도 있어요. 값은 바인딩하고 동적으로 조합하는 schema·필드·정렬 식별자는 허용 목록으로 제한하는지 각각 확인해요.
 - `core/core-auth-impl/.../repository/AuthRefreshTokenRepository.java:25-38` — `@Query` JPQL UPDATE 도 named parameter 만 사용합니다
 - Flyway migration (`core/core-*-impl/.../db/migration/`) — 모든 V 파일이 정적 DDL/DML. 동적 SQL 이 없어요
 - `common/common-persistence/.../QueryDslPredicateBuilder.java` — 동적 조건 빌더가 `field_op` 형식의 operator 화이트리스트만 허용합니다 (`eq`, `ne`, `like`, `startsWith`, `endsWith`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`, `isNull`, `isNotNull`, `empty`). 화이트리스트 밖 입력은 거부되어 임의 SQL 삽입을 차단합니다
@@ -68,7 +74,7 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 **검증**:
 - Repository test 가 JPA parameter binding 을 암묵적으로 검증
-- ArchUnit r22 — Mapper 클래스 금지 (raw SQL 우회 차단의 부수 효과)
+- ArchUnit r22는 Mapper 클래스 사용을 제한하는 구조 규칙이에요. JDBC·native SQL의 주입 취약점까지 자동으로 검사하는 규칙은 아니에요.
 
 **Gap**:
 - **OS injection 검증 (shell script)** — `migrate-prod.sh` 의 환경변수 quoting 방어가 명시되어 있지 않아요. 현재는 정적 SQL 만 실행해서 저위험입니다
@@ -77,10 +83,12 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 ---
 
+<a id="a04--insecure-design-설계-자체가-취약"></a>
+
 ## A04 — Insecure Design (설계 자체가 취약)
 
 **현 방어**:
-- `bootstrap/.../BootstrapArchitectureTest.java` — ArchUnit 22 규칙. cross-domain raw repository 호출, cross-app 의존 등을 차단합니다
+- `BootstrapArchitectureTest`는 core-impl 사이의 직접 의존과 cross-app 의존 등 구조 규칙을 검사해요. 번호는 r22까지 있지만 r12는 예약돼 있어 현재 활성 규칙은 21개예요.
 - `common/common-web/.../exception/GlobalExceptionHandler.java:154-161` — fallback handler 가 stacktrace 를 노출하지 않아요. 클라이언트엔 generic message 만 갑니다
 - `core/core-auth-api/.../exception/AuthError.java:17-18` — `INVALID_CREDENTIALS (ATH_001)` "이메일 또는 비밀번호가 올바르지 않습니다" — **열거 공격 방지** (어느 필드가 틀렸는지 구분하지 않음)
 - `common/common-web/.../ratelimit/RateLimitFilter.java:48-72` — `SENSITIVE_SUFFIXES` set 으로 auth 민감 endpoint 를 분리. prod 기준 strict 10rpm / default 60rpm
@@ -93,9 +101,11 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 **Gap**:
 - **404 vs 500 convention 명시 부족** — 리소스 없을 때 `CommonError.NOT_FOUND (CMN_002)` 를 쓴다는 규약이 `exception-handling.md` 에 명시되어 있지만, service 레이어에서 `IllegalArgumentException` 같은 generic 예외를 던지는 케이스가 있을 수 있어요. 검사 자동화가 없어요
-- **API 응답 버전 관리 전략 부재** — ADR-008 (API 버전 미도입) 의 의도적 결정이에요. 단 breaking change 시 client 호환성 관리 가이드가 빠져 있어요 (legacy 호환 패턴 ADR 만 있음)
+- **API 호환성 검토** — URL 버전을 도입하지 않는 결정은 ADR-008에 있고, breaking change·deprecation·migration 절차는 버전 규약에 있어요. 이 절차를 지켰는지와 실제 소비자 호환성을 변경별로 확인해야 해요.
 
 ---
+
+<a id="a05--security-misconfiguration-디폴트-설정-노출"></a>
 
 ## A05 — Security Misconfiguration (디폴트 설정 노출)
 
@@ -115,10 +125,12 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 **Gap (남은 항목)**:
 - **CORS 미설정 가이드 부재** — 의도적 결정이에요 (모바일 전제). 단 파생 레포가 브라우저 client 를 추가할 때 자동 안내가 없어요
-- **Admin credential 시드 변경 강제 부재** — `new-app.sh --seed-admin` 이 admin 계정을 시드해요 (기본은 미생성, 비밀번호는 랜덤 발급). 첫 로그인 시 비밀번호 변경을 강제하는 로직이 없어요
+- **초기 계정 관리** — `--seed-admin`은 이름과 달리 앱의 일반 사용자 계정을 V007로 넣는 옵션이에요. 콘솔 관리자 계정과 구분해요. 초기 비밀번호의 교체·전달·보관 정책은 각 계정 생성 경로에서 확인해야 해요.
 - **`/actuator/info` 정보 노출** — `permitAll` + `app.dogfood.message` 등 버전 정보를 공개해요. 공격자의 fingerprinting 을 보조할 수 있어요
 
 ---
+
+<a id="a06--vulnerable-and-outdated-components-의존성-cve"></a>
 
 ## A06 — Vulnerable and Outdated Components (의존성 CVE)
 
@@ -142,6 +154,8 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 ---
 
+<a id="a07--identification-and-authentication-failures-인증-실패"></a>
+
 ## A07 — Identification and Authentication Failures (인증 실패)
 
 **현 방어**:
@@ -163,12 +177,14 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - Rate limit 단위 + 통합 테스트
 
 **Gap**:
-- **계정 잠금 정책 미구현** — N회 실패 후 계정 잠금은 backlog 에 등재되어 있어요 (ADR-029). 현재는 rate limit (요청 횟수 제한) 만 있어요. 두 메커니즘은 별개입니다
-- **이메일 OTP brute-force 방어 명시 부재** — `EmailVerificationService` 의 attempt counter / exponential backoff 정책이 코드·문서에 명시되어 있지 않아요. 6자리 OTP 는 1M 조합이라 TTL 5분 + rate limit 만으로는 부족할 수 있어요
+- **계정 잠금은 구현돼 있어요.** 앱 로그인과 콘솔 로그인에 공유 `LockoutProperties`를 적용해요. 기본값은 실패 누적 윈도우 6시간, 5회 실패 시 최초 15분 잠금, 최대 24시간이에요. 운영 설정과 사용자 안내가 이 정책에 맞는지 점검해요.
+- **이메일 코드 시도 제한도 구현돼 있어요.** 가입 전 검증·가입 후 검증·비밀번호 재설정의 만료·사용 여부·시도 횟수 검사를 확인해요. 세 서비스의 동시성 처리까지 같지는 않으므로 온라인 시도 제한과 오프라인 코드 추측 위험을 구분해요. 숫자 6자리 코드의 단순 SHA-256은 DB 유출 시 전체 경우의 수 대입을 막지 못해요.
 - **2FA 의무화 정책 없음** — admin role 사용자에게 2FA 를 강제하는 정책이 없어요
-- **Backup codes 분실 시 복구 절차 manual** — 8개를 다 소진하면 admin intervention 이 필요해요. 자동 recovery code 발급 endpoint 가 없어요
+- **모든 2FA 수단을 잃은 경우의 복구** — 인증된 사용자가 비밀번호와 코드로 다시 확인한 뒤 백업코드를 재발급하는 endpoint는 있어요. 로그인에 필요한 모든 수단을 잃은 사용자의 본인 확인·복구 절차는 별도로 정해야 해요.
 
 ---
+
+<a id="a08--software-and-data-integrity-failures-서명-미검증"></a>
 
 ## A08 — Software and Data Integrity Failures (서명 미검증)
 
@@ -187,10 +203,12 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - WireMock fixtures: `apple-server-notification-v2.json`, `google-rtdn-pubsub.json`
 
 **Gap**:
-- **Docker image signing 부재** — cosign / Sigstore 같은 서명이 없어요. GHCR 의 image 가 진짜 우리 CI 에서 왔는지 검증할 수 없어요
+- **이미지 서명은 구현돼 있지만 항상 강제되지는 않아요.** GHA deploy·deploy-dev는 digest에 cosign OIDC keyless 서명을 남겨요. 서명 단계가 `continue-on-error`라 실패해도 배포는 계속돼요. 로컬 배포에는 개인 키 서명 opt-in이 있고, rollback 검증은 `cosign.pub`가 있을 때 활성화돼요. `--no-verify` 우회도 있으므로 서명 생성·검증·강제 범위를 구분해요.
 - **Gradle dependency verification 미구성** — A06 와 동일한 무결성 gap
 
 ---
+
+<a id="a09--security-logging-and-monitoring-failures-로그모니터링-부재"></a>
 
 ## A09 — Security Logging and Monitoring Failures (로그/모니터링 부재)
 
@@ -210,18 +228,14 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 - `ObservabilityIntegrationTest` — 실제 로그 출력 검증
 
 **Gap**:
-- **보안 이벤트 명시 로그 정책 부재** — 다음 이벤트의 로그 레벨·내용이 명시되어 있지 않아요:
-  - 로그인 실패 (brute-force 수준 카운팅 부재)
-  - 권한 거부 (403)
-  - TOTP 검증 실패
-  - Webhook 서명 검증 실패
-  - 암호 변경·2FA 활성화 같은 보안 설정 변경
-- **보안 이벤트 alert rule 부재** — Grafana 대시보드 + 보안 alert rule 은 backlog 에 등재되어 있어요. 현재 `infra/prometheus/rules.yml` 에는 8개 (HighErrorRate, HighLatencyP95, RateLimitSpike, BackendDown, MinioDown, MinioDiskUsageHigh, MinioDiskUsageCritical, MinioDiskUsageEmergency) 만 있어요. 보안 이벤트 alert (failed login spike, webhook auth fail) 는 없어요
-- **Audit log 조회 endpoint 부재** — `GET /api/admin/audit-logs?action=...&since=...` 같은 운영자 UI 가 미구현이에요. ADR-028 에 다음 사이클로 등재되어 있어요
-- **Entity 변경 추적 (`@PreUpdate`) 미구현** — User.role 변경 시 old/new 값을 audit details 에 캡처하지 않아요
-- **Log retention** — `infra/loki/loki-config.yml` 의 `retention_period: 8760h` (1년)으로 PCI-DSS·일반 compliance 의 1년 권장을 충족해요
+- **보안 로그와 앱 감사 기록은 구현돼 있어요.** 중앙 예외 처리의 보안 이벤트 정책과 콘솔 계정 보안 로그는 [보안 로깅](../operations/security-logging.md)에서 관리해요. 앱별 감사 조회는 `/api/admin/audit-logs?slug=<slug>`로 제공해요. 콘솔 계정 변경을 앱 `audit_logs`에 자동으로 기록하는 것까지 구현된 것은 아니에요.
+- **보안 이벤트별 알림은 추가 설계가 필요해요.** 현재 활성 Prometheus 규칙은 `HighErrorRate`·`HighLatencyP95`·`RateLimitSpike`·`BackendDown`·`MinioMonitoringDisabled` 다섯 개예요. 마지막 규칙은 모니터링 신호 부재를 알리는 info 수준이고, MinIO 장애·디스크 규칙은 주석 상태예요. 로그인 실패·webhook 서명 실패별 경보와 대응 기준은 별도로 정해요.
+- **Entity 변경 전후 값의 감사 범위는 확인이 필요해요.** 모든 필드 변경을 `@PreUpdate`로 자동 추적하지는 않아요.
+- **Loki 보관 설정은 8760시간이에요.** 설정만으로 실제 보관 기간·저장 공간·규정 준수까지 보장되지는 않아요. 저장소와 운영 정책을 함께 점검해요.
 
 ---
+
+<a id="a10--ssrf-서버측-요청-위조"></a>
 
 ## A10 — SSRF (서버측 요청 위조)
 
@@ -262,30 +276,30 @@ template-spring 의 보안 베이스라인을 OWASP Top 10 2021 의 10 카테고
 
 **Gap (남은 항목)**:
 - **MinIO endpoint 검증 부재** — `APP_STORAGE_MINIO_ENDPOINT` 가 admin 통제이지만 도메인 검증이 없어요. `http://internal-server:9000` 같은 내부 주소를 설정할 수 있어요 (실수 케이스)
-- **Private IP 차단 정책 명시 없음** — RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) 차단 룰이 없어요. 현재 모든 호출이 public cloud endpoint 라 현실적 위험은 낮아요
+- **내부 주소 접근 정책** — MinIO는 의도적으로 NAS·내부 endpoint를 사용할 수 있어 private IP를 일괄 차단할 수는 없어요. 운영자가 설정하는 주소와 사용자 입력으로 정해지는 주소를 구분하고, 필요한 내부 목적지만 허용하는 정책을 검토해요.
 - **DNS rebinding 방어 없음** — TOCTOU 취약점 mitigation 이 없어요 (매우 낮은 확률)
 
 ---
 
+<a id="종합--gap-우선순위"></a>
+
 ## 종합 — Gap 우선순위
 
-본 매핑의 self-audit 결과를 우선순위별로 정리해요. 아래 항목은 **모두 미완**이며, 우선순위 순으로 처리 대상이에요.
+앞 절의 구현 여부와 남은 검토를 구분해요. 우선순위는 실제 운영 요구와 위험 평가에 따라 정하며, 아래 구분만으로 구현 기한을 확정하지 않아요.
+
+<a id="즉시-fix--모두-해결됨-"></a>
 
 ### 즉시 fix — 모두 해결됨 ✅
-- ~~**A05.1 Swagger UI 노출**~~ — `application-prod.yml:55-59` 에 `swagger-ui.enabled: false` + `api-docs.enabled: false` 적용. prod 차단 완료 (dev 는 기본 활성 — 외부 노출 시 `SPRINGDOC_*_ENABLED=false` 환경변수로 꺼야 해요)
-- ~~**A10.2 Resend timeout 명시**~~ — `ResendEmailAdapter` 에 `connectTimeout 5s` + `readTimeout 10s` 적용 + ADR-036 정책 명문화 완료
+
+이 제목은 기존 링크를 위해 유지해요. prod 기본 설정의 Swagger·OpenAPI 비활성화와 Resend timeout은 반영돼 있어요. 더 높은 우선순위의 환경 설정으로 달라질 수 있으므로 배포 때 실제 값을 확인해요.
 
 ### 1~2 cycle 내
-- **A02.2 Key rotation 자동화** — 6개월 주기 reminder + grace period
-- **A06.1 CVE 차단 정책** — OWASP Dependency Check 는 CI 통합 완료 (non-blocking). blocking 전환 기준 + suppression 운영 정책이 남은 과제
-- **A07.1 계정 잠금 정책** — N회 실패 후 잠금 (ADR-029 backlog)
-- **A09.2 보안 이벤트 alert rule** — Grafana dashboard cycle 과 묶어서
+
+이 구분은 기존 계획상의 우선순위예요. 남은 과제는 키 교체 알림·절차 자동화, 의존성 취약점 CI 차단 기준, 보안 이벤트별 경보와 대응 기준이에요. 계정 잠금은 이미 구현됐으므로 신규 구현 항목에서 제외해요.
 
 ### 중장기
-- **A08.1 Docker image signing** — cosign / Sigstore CI 통합
-- **A09.3 Audit log 조회 endpoint** — 운영자 UI (ADR-028 다음 사이클)
-- **A09.5 Log retention 1년** — 현재 14일 → compliance 대비
-- **A10.1 SSRF 방어 강화** — private IP 차단 + DNS rebinding 정책 (URL whitelist 는 ADR-036 으로 완료)
+
+이미지 서명은 구현돼 있으므로 검증을 필수로 적용할 범위와 우회 정책을 점검해요. 의존성 검증, 콘솔 계정 변경의 별도 감사 저장, 외부 요청 대상 검증과 DNS 관련 방어는 추가 검토 항목이에요. 앱 감사 조회 API와 Loki 8760시간 설정도 구현돼 있어요. 원격 저장소의 실제 보관 상태나 규정 준수 여부는 별도로 확인해야 해요.
 
 ### 정책 명시 (코드 변경 X)
 - **A02.1 TLS 내부 통신 정책** — `sslmode=require` 명시 + 문서화

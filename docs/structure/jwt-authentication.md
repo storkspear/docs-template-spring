@@ -6,13 +6,13 @@
 
 이 문서는 JWT 기반 인증 체계가 어떻게 생겼고 왜 이렇게 동작하는지 설명해요.
 
-템플릿은 stateless JWT 인증을 기본으로 채택합니다. 서버에 세션을 저장하지 않으므로 수평 확장이 자유롭고, 모바일 앱이 메인 클라이언트인 환경에서 CORS 협상 같은 브라우저 특화 이슈를 피할 수 있어요.
+HTTP 세션을 저장하지 않고 access JWT로 요청을 인증해요. 다만 refresh token과 사용자 상태는 DB에 저장하며, 인메모리 요청량 제한과 키 설정도 있어요. 서버를 늘릴 때는 이 상태들의 공유·일관성을 함께 검토해요. 브라우저 클라이언트의 CORS 요구는 JWT 사용 여부와 별개예요.
 
 ---
 
 ## 한 문장 요약
 
-JWT 기반 stateless 인증 체계는 다섯 개의 보안 필터와 한 개의 토큰 서비스로 구성돼요. 핵심 부품은 SecurityConfig, JwtService, JwtAuthFilter, `@CurrentUser`, appSlug 검증, Refresh Token 회전이에요.
+보안 설정은 토큰 검증, 요청 크기와 최소 버전 검사, 앱 슬러그 설정·대조, 요청량 제한과 최종 인가를 연결해요. 토큰 발급·검증은 JwtService가 맡고, `@CurrentUser`는 인증 결과를 컨트롤러 인자로 전달해요. Refresh token은 DB에서 별도로 저장·회전해요.
 
 ---
 
@@ -202,7 +202,7 @@ Spring 의 `OncePerRequestFilter` 를 상속하고, 요청당 정확히 한 번�
 2. 헤더가 없거나 `Bearer` 로 시작하지 않으면 (RFC 6750 에 따라 대소문자 무시) 아무 것도 하지 않고 다음 필터로 전달해요. 공개 경로면 그대로 통과하고, 인증 경로면 뒤쪽 Spring Security 가 401 을 반환합니다.
 3. Bearer prefix 를 제거한 토큰을 `JwtService.validateAccessToken` 에 전달해요.
 4. 성공하면 `UsernamePasswordAuthenticationToken` 을 만들어 `SecurityContextHolder` 에 저장합니다. Principal 은 `AuthenticatedUser`, Authority 는 `ROLE_<role 대문자>` 형태예요.
-5. 실패하면 `SecurityContextHolder.clearContext()` 로 컨텍스트를 비우고 `jwt.error.code` 요청 속성에 에러 코드(`CMN_007` 또는 `CMN_008`)를 설정해요. 그 뒤 Spring Security 체인이 `JsonAuthenticationEntryPoint` 를 통해 401 응답을 생성합니다.
+5. 실패하면 `SecurityContextHolder.clearContext()` 로 컨텍스트를 비우고 `jwt.error.code` 요청 속성에 에러 코드(`CMN_007` 또는 `CMN_008`)를 설정해요. 그 뒤 체인은 계속 진행해요. 보호 경로에서 인증이 필요하면 `JsonAuthenticationEntryPoint`가 401을 만들고, 공개 경로는 계속 처리될 수 있어요.
 
 필터는 직접 응답을 쓰지 않습니다. 인증·인가 처리를 Spring Security 에 위임해야 `authorizeHttpRequests(...)` 의 `permitAll` 설정과 일관되게 동작해요.
 
@@ -351,6 +351,8 @@ Path slug 추출은 `common/common-web/.../AppSlugExtractor.java` 의 정규식 
 
 <a id="공개-경로"></a>
 
+<a id="공개-경로-public_patterns"></a>
+
 ### 공개 경로 (PUBLIC_PATTERNS)
 
 `common/common-web/.../ApiEndpoints.java` 의 `Auth.PUBLIC_PATTERNS` 가 토큰 없이 호출 가능한 인증 엔드포인트를 한 곳에 모읍니다. 모두 `/api/apps/*/auth/...` 패턴이에요.
@@ -390,7 +392,7 @@ public final class PasswordHasher {
         return encoder.encode(rawPassword);
     }
 
-    public boolean verify(String rawPassword, String hashedPassword) {
+    public boolean matches(String rawPassword, String hashedPassword) {
         if (rawPassword == null || hashedPassword == null) {
             return false;
         }
@@ -415,7 +417,7 @@ public final class PasswordHasher {
 
 | 컬럼 | 설명 |
 |---|---|
-| `token_hash` | raw token 의 SHA-256 hex (64 chars). unique index 로 O(1) 조회 |
+| `token_hash` | raw token 의 SHA-256 hex (64 chars). unique index로 해시 값을 조회 |
 | `family_id` | 회전 체인을 추적하는 UUID |
 | `issued_at`, `expires_at` | 발급·만료 시각 |
 | `used_at` | 회전에 사용된 시각. 두 번째 사용이 감지되면 탈취로 판정 |
@@ -423,7 +425,7 @@ public final class PasswordHasher {
 
 Raw token 은 DB 에 저장하지 않습니다. 클라이언트에게 발급한 직후 SHA-256 해시만 남기고 원본은 잊어버려요.
 
-BCrypt 가 아닌 SHA-256 을 쓰는 이유는 조회 방식 때문이에요. BCrypt 는 per-hash salt 라 동일 raw token 이라도 해시가 매번 달라서 unique index 조회가 불가능합니다. SHA-256 은 deterministic 이라 O(1) indexed lookup 이 가능해요.
+Refresh token은 충분한 무작위 값으로 만들고, 같은 입력에서 같은 해시가 나오는 SHA-256으로 저장해 조회해요. 사용자 비밀번호에 BCrypt를 사용하는 목적과 달라요. 결정적인 해시는 인덱스 검색에 사용할 수 있지만, 조회 복잡도를 O(1)이라고 보장하지는 않아요.
 
 Raw token 자체는 `TokenGenerator.generateRawToken()` 이 `SecureRandom` 으로 32 bytes 를 생성해 base64url 인코딩한 값입니다.
 
@@ -438,12 +440,16 @@ public static String generateRawToken() {
 
 ### 발급 흐름
 
+<a id="신규-로그인--issuefornewlogin"></a>
+
 #### 신규 로그인 — `issueForNewLogin`
 
 1. raw refresh token 을 생성해요 (32 bytes, base64url).
 2. 해시를 계산하고 새 `family_id`(UUID)를 부여한 `RefreshToken` 엔티티를 저장합니다.
 3. `JwtService.issueAccessToken` 으로 access token 을 발급해요.
 4. `AuthTokens(accessToken, rawToken)` 을 반환합니다.
+
+<a id="회전--rotate"></a>
 
 #### 회전 — `rotate`
 
@@ -486,6 +492,8 @@ public AuthTokens rotate(String rawRefreshToken, String appSlug) {
 
 > refresh token 의 만료·무효는 `AuthError.TOKEN_EXPIRED`(ATH_002), `AuthError.INVALID_TOKEN`(ATH_003) 으로 표현돼요. access token 의 `CMN_007`/`CMN_008` 과는 별개 코드입니다.
 
+<a id="로그아웃--revokesession"></a>
+
 #### 로그아웃 — `revokeSession`
 
 `POST /api/apps/{appSlug}/auth/logout` (body `{refreshToken}`, 204) 이 호출해요. 제출된 token 이 속한 `family_id` 의 active token 을 전부 무효화합니다. family 는 로그인 한 번(= 기기 하나의 세션)에 대응하므로 같은 유저의 다른 기기는 로그인 상태로 남아요.
@@ -516,6 +524,8 @@ public int revokeSession(String rawRefreshToken) {
 - **멱등 + 무응답** — 모르는 token · 만료 token · 이미 revoke 된 token 모두 204 예요. 응답으로 token 존재 여부를 구분해 주지 않고, `rotate` 와 달리 재사용 감지도 하지 않아요 (로그아웃은 세션을 닫는 방향으로만 작용).
 
 이미 발급된 access token 은 건드리지 않아요. stateless JWT 라 자체 TTL 까지는 유효합니다.
+
+<a id="전체-무효화--revokeallforuser"></a>
 
 #### 전체 무효화 — `revokeAllForUser`
 

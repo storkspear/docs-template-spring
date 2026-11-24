@@ -16,7 +16,7 @@
 
 ## 응답 래퍼
 
-모든 응답은 다음 구조로 감쌉니다.
+앱·운영 콘솔의 일반 JSON 응답은 `ApiResponse<T>`로 감싸요. 아래는 코드에서 표현하는 개념 구조이며, 실제 JSON에서는 null 필드를 생략해요. 성공은 `data`, 실패는 `error`가 남고 204는 빈 바디예요. `/health`·Actuator·OpenAPI처럼 별도 계약을 가진 경로는 예외예요.
 
 ```json
 {
@@ -25,11 +25,11 @@
 }
 ```
 
-성공 시 `data` 에 실제 데이터가 담기고 `error` 는 `null` 입니다. 실패 시 `data` 는 `null` 이고 `error` 에 에러 객체가 담깁니다.
+Java 객체에서 성공은 `data`를 채우고 `error`를 null로, 실패는 그 반대로 표현해요. 실제 JSON에는 값이 있는 쪽만 포함돼요.
 
-성공 응답에서 `data` 와 `error` 는 항상 상호 배타적입니다. 데이터가 있으면서 동시에 에러가 있는 응답은 없습니다.
+정적 factory를 사용하는 규약에 따라 데이터가 있는 성공과 에러를 구분해요. Java record의 public 생성자 자체가 상호 배타성을 강제하는 것은 아니므로 `ok`·`error`·`empty` factory를 사용해요.
 
-> **왜 data 와 error 를 분리했나** — 흔한 대안은 단일 객체에 `success` 불리언 플래그를 두는 방식이에요. 그러면 클라이언트가 항상 `success` 를 먼저 확인한 뒤 분기해야 하고, 응답 타입이 하나라서 Dart 의 타입 시스템이 데이터 필드와 에러 필드를 한 객체에서 동시에 다뤄야 합니다. data 와 error 를 상호 배타적으로 분리하면 성공 경로와 에러 경로가 타입 단계에서 갈라지고, 클라이언트는 `error == null` 한 번만 확인하면 됩니다.
+> **data와 error를 나눈 이유** — 클라이언트가 성공 데이터와 오류를 같은 위치에서 일관되게 찾도록 하는 규약이에요. 실제 타입의 상호 배타성이 자동으로 보장되는 것은 아니며, 클라이언트는 HTTP 상태·본문 유무·`error.code`를 함께 해석해요.
 
 > **본문 없는 성공은 바디가 아예 없음** — 204 No Content 처럼 돌려줄 데이터가 없는 성공 응답은 코드로는 `ApiResponse.empty()` (data · error 모두 null) 가 표현합니다. 단, **wire 에는 `{"data": null, "error": null}` 같은 JSON 이 전송되지 않아요** — `@ResponseStatus(NO_CONTENT)` 와 함께 쓰면 Tomcat 이 204 응답의 엔티티 바디를 제거하므로 클라이언트가 받는 것은 순수한 빈 바디입니다 (실측 확인). 따라서 클라이언트는 204 에서 바디 파싱을 전제하면 안 되고, 빈 바디 자체를 "본문 없는 성공"으로 해석해야 합니다 (Flutter 쪽은 `ApiClient` 가 `ApiResponse.empty()` 로 정규화). "데이터가 있는 성공"과 "에러"는 상호 배타적이지만, 그 둘 어디에도 속하지 않는 이 세 번째 상태가 따로 있습니다.
 
@@ -41,8 +41,7 @@
     "id": 123,
     "email": "user@example.com",
     "displayName": "홍길동"
-  },
-  "error": null
+  }
 }
 ```
 
@@ -50,7 +49,6 @@
 
 ```json
 {
-  "data": null,
   "error": {
     "code": "CMN_001",
     "message": "이메일 형식이 올바르지 않습니다",
@@ -67,10 +65,15 @@
 ```json
 {
   "data": [
-    { "id": 1, "name": "item 1" },
-    { "id": 2, "name": "item 2" }
-  ],
-  "error": null
+    {
+      "id": 1,
+      "name": "item 1"
+    },
+    {
+      "id": 2,
+      "name": "item 2"
+    }
+  ]
 }
 ```
 
@@ -80,20 +83,22 @@
 {
   "data": {
     "content": [
-      { "id": 1, "name": "item 1" }
+      {
+        "id": 1,
+        "name": "item 1"
+      }
     ],
     "page": 0,
     "size": 20,
     "totalElements": 42,
     "totalPages": 3
-  },
-  "error": null
+  }
 }
 ```
 
 ## 조회 API 표준 요청 형식
 
-목록 조회 API 는 `PageListRequest<T>` 를 body 로 받습니다. 메서드는 POST 를 씁니다. 최상위 필드는 네 가지예요 — `page`(0부터, 음수는 0으로 보정) · `size`(기본 20, `[1, 200]` 으로 clamp) · `sorts`(정렬 목록) · `filterModel`(도메인별 **타입 있는 필터 DTO**).
+새 앱의 복합 목록 검색은 `PageListRequest<T>`를 body로 받는 POST 규약을 따라요. 최상위 필드는 `page`·`size`·`sorts`·`filterModel`이에요. `page`는 0부터 시작하고 음수는 0으로 보정해요. `size`는 기본 20이며 1~200으로 제한해요. `filterModel`에는 도메인이 정의한 필터 DTO를 넣어요. 운영 콘솔의 기존 GET 목록은 해당 endpoint 계약을 유지해요.
 
 클라이언트는 `conditions` 같은 자유형 Map 을 직접 보내지 않아요. 필터는 도메인이 정의한 `filterModel` 의 명시적 필드로만 표현되고, 서버의 Assembler 가 이를 `필드명_연산자` 조건 Map 으로 변환해 `QueryDslPredicateBuilder` 에 넘깁니다 (아래 [조건 연산자 규칙](#조건-연산자-규칙) 참고). `sorts` 의 `field` 키는 `filterModel`(`SortFieldMapper`)의 화이트리스트로 검증되어, 목록에 없는 키는 무시되고 기본 정렬로 fallback 해요 — 임의 컬럼 정렬로 인한 비공개 컬럼 노출·SQL injection 을 막는 장치입니다.
 
@@ -126,23 +131,34 @@ Content-Type: application/json
 {
   "data": {
     "content": [
-      { "id": 1, "title": "커피", "amount": 5000, "categoryId": 5 },
-      { "id": 2, "title": "라떼", "amount": 6000, "categoryId": 5 }
+      {
+        "id": 1,
+        "title": "커피",
+        "amount": 10000,
+        "categoryId": 5
+      },
+      {
+        "id": 2,
+        "title": "커피 라떼",
+        "amount": 12000,
+        "categoryId": 5
+      }
     ],
     "page": 0,
     "size": 20,
     "totalElements": 42,
     "totalPages": 3
-  },
-  "error": null
+  }
 }
 ```
 
 <a id="조건-연산자-규칙"></a>
 
+<a id="조건-연산자-규칙-서버-내부--assembler--querydslpredicatebuilder"></a>
+
 ### 조건 연산자 규칙 (서버 내부 — Assembler → QueryDslPredicateBuilder)
 
-`filterModel` 의 각 필드는 서버의 Assembler 가 아래 `필드명_연산자` 키로 변환합니다 (예: `minAmount: 10000` → `amount_gte`, `titleContains: "커피"` → `title_like`). 연산자를 생략하면 `eq` 로 동작합니다. 클라이언트가 이 키를 직접 보내는 게 아니라, 도메인이 필드→연산자 매핑을 Assembler 에서 결정해요.
+서버의 Assembler가 `filterModel`의 필드를 아래 `필드명_연산자` 형태로 바꿔요. 예를 들어 `minAmount: 10000`은 `amount_gte`, `titleContains: "커피"`는 `title_like`에 대응해요. 연산자를 생략하면 `eq`를 사용해요. 이 변환은 도메인이 정의하며, 클라이언트는 내부 조건 키를 직접 보내지 않아요.
 
 | 키 형식 | 의미 | 값 타입 |
 |---|---|---|
@@ -283,6 +299,8 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ---
 
+<a id="에러-코드--예외-처리"></a>
+
 ## 에러 코드 & 예외 처리
 
 에러 코드 체계, 예외 계층 구조, ExceptionHandler 매핑, 새 예외 추가 절차는 [`exception-handling.md`](../../convention/exception-handling.md) 에서 관리합니다.
@@ -307,17 +325,18 @@ Content-Type: application/json
 
 {
   "email": "user@example.com",
-  "password": "password123",
-  "displayName": "홍길동"
+  "password": "Password1234",
+  "displayName": "홍길동",
+  "proofToken": "<verify-code에서 발급받은 JWT>"
 }
 ```
 
 ### Query Parameter
 
-`GET` 요청의 필터링, 페이지네이션, 정렬은 query parameter 를 사용합니다.
+운영 콘솔처럼 GET 목록으로 정의된 기존 API는 각 엔드포인트가 정한 query parameter를 사용해요. 새 앱의 복합 목록 검색은 앞 절의 `POST /search`와 `PageListRequest<T>` 규약을 따라요. 모든 목록에 아래 GET 예제를 그대로 적용하지 않아요.
 
 ```http
-GET /api/apps/sumtally/expenses?page=0&size=20&sort=date,desc&categoryId=5
+GET /api/admin/apps/sumtally/users?page=0&size=20&query=user
 ```
 
 ### Path Variable
@@ -374,7 +393,7 @@ spring:
 
 null 필드를 빼면 네트워크 대역폭을 아끼고, 클라이언트가 "이 필드가 있는가 없는가"로 존재 여부를 판단하기 쉬워집니다.
 
-배열·리스트 필드는 다릅니다. 비어 있어도 null 로 생략하지 않고 빈 배열 `[]` 로 반환합니다. 클라이언트가 null 체크와 빈 배열 체크를 둘 다 하지 않게 하려는 규약이에요. `non_null` 설정은 빈 컬렉션을 생략하지 않으므로 Jackson 기본 동작으로도 빈 배열이 그대로 나가지만, 응답 객체가 null 컬렉션을 담지 않게 하는 건 각 DTO 의 책임입니다.
+배열·리스트가 비어 있으면 null 대신 `[]`로 반환해요. 클라이언트가 필드 누락과 빈 목록을 따로 처리하지 않도록 하는 규약이에요. `non_null`은 빈 컬렉션을 생략하지 않지만 null을 자동으로 빈 배열로 바꾸지는 않아요. 응답 DTO가 빈 컬렉션을 넣어야 해요.
 
 ```json
 // Good
@@ -392,18 +411,11 @@ null 필드를 빼면 네트워크 대역폭을 아끼고, 클라이언트가 "�
 
 ```java
 public record SignUpRequest(
-    @Email(message = "올바른 이메일 형식이 아닙니다")
-    @NotBlank
-    String email,
-
-    @NotBlank
-    @Size(min = 8, max = 72, message = "비밀번호는 8~72자여야 합니다")
-    String password,
-
-    @NotBlank
-    @Size(max = 30)
-    String displayName
-) { }
+    @Email @NotBlank String email,
+    @NotBlank @ValidPassword String password,
+    @NotBlank @Size(max = 30) String displayName,
+    @NotBlank String proofToken
+) {}
 ```
 
 컨트롤러는 파라미터에 `@Valid` 를 붙입니다.
@@ -428,8 +440,7 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
   "data": {
     "id": 123,
     "email": "user@example.com"
-  },
-  "error": null
+  }
 }
 ```
 
@@ -438,13 +449,15 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 ```json
 {
   "data": {
-    "user": { "id": 123, "email": "user@example.com" },
+    "user": {
+      "id": 123,
+      "email": "user@example.com"
+    },
     "tokens": {
       "accessToken": "eyJhbGc...",
       "refreshToken": "abc123..."
     }
-  },
-  "error": null
+  }
 }
 ```
 
@@ -452,7 +465,6 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ```json
 {
-  "data": null,
   "error": {
     "code": "CMN_001",
     "message": "올바른 이메일 형식이 아닙니다",
@@ -468,7 +480,6 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ```json
 {
-  "data": null,
   "error": {
     "code": "CMN_007",
     "message": "액세스 토큰이 만료되었습니다"
@@ -480,7 +491,6 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ```json
 {
-  "data": null,
   "error": {
     "code": "USR_001",
     "message": "유저를 찾을 수 없습니다",
@@ -495,7 +505,6 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ```json
 {
-  "data": null,
   "error": {
     "code": "USR_002",
     "message": "이미 사용 중인 이메일입니다"
@@ -507,11 +516,11 @@ public ApiResponse<AuthResponse> signUp(@RequestBody @Valid SignUpRequest reques
 
 ## 요약
 
-- 모든 응답은 `{data, error}` 래퍼로 감쌉니다.
-- 데이터가 있는 성공과 에러는 상호 배타적이고, 본문 없는 성공(204)은 바디 없이 전송됩니다 (코드 표현은 `ApiResponse.empty()` — 둘 다 `null`).
-- 성공은 HTTP 2xx 와 `data`, 실패는 HTTP 4xx·5xx 와 `error` 로 나갑니다.
-- 에러는 예외로 표현합니다. 컨트롤러는 `ApiResponse.error()` 를 직접 반환하지 않습니다 (상세: [`exception-handling.md`](../../convention/exception-handling.md)).
-- 날짜는 ISO 8601 UTC, 필드명은 camelCase, null 은 생략하되 빈 배열은 그대로 둡니다.
+- 앱·콘솔의 일반 JSON 응답은 `ApiResponse<T>`를 사용하고, `/health`·Actuator 등 별도 계약은 예외예요.
+- 데이터가 있는 성공은 `data`, 실패는 `error`를 포함해요. null 필드는 생략하고 빈 목록은 `[]`로 유지해요.
+- 204는 JSON을 보내지 않아요. 클라이언트는 본문 없이 성공으로 처리해요.
+- 일반 컨트롤러의 예외는 `GlobalExceptionHandler`가 오류 응답으로 바꿔요. 상세는 [예외 처리 규약](../../convention/exception-handling.md)을 참고해요.
+- 날짜는 ISO 8601 UTC, 필드명은 camelCase를 사용해요.
 
 ---
 

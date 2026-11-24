@@ -44,7 +44,7 @@ dev 자동배포(`deploy-dev.yml`)는 `APP_FLYWAY_MODE=AUTO` 를 고정 주입�
 
 템플릿이 자동으로 넣는 seed 는 **기본 subscription plan 2행** 입니다. `V008__init_subscription_plans.sql` 이 테이블 DDL 과 함께 무료 plan(`free`)과 샘플 유료 plan(`PRO`, dogfood/smoke-test 의 PG/IAP 흐름 검증용)을 INSERT 해요 — 모든 신규 가입자의 default 가 되는 참조 데이터입니다.
 
-**admin 계정 1명은 opt-in seed** 예요. `./tools/app/new-app.sh <slug> --seed-admin` 을 명시한 경우에만 생성기가 `V007__seed_admin_user.sql` 을 떨굽니다 (Step 15, 기본 off). 비밀번호는 앱별로 **랜덤 생성**되어 BCrypt 해시로만 저장되고, 평문은 생성 시 콘솔에 1회만 출력돼요 — 파생 앱들이 공유하는 고정/공개 비밀번호(계정 탈취 벡터)를 만들지 않기 위해서입니다.
+`--seed-admin`은 앱 스키마의 `users`에 샘플 계정을 넣는 선택 기능이에요. 콘솔의 `admin.admin_users` 계정과는 다르고, INSERT가 role을 지정하지 않아 기본 `user` 역할을 사용해요. `--skip-provision-db`를 함께 주면 이 파일 생성도 건너뛰어요. 생성 시 비밀번호는 무작위로 만들고 BCrypt 해시만 SQL에 저장하며 평문은 콘솔에 한 번 표시해요.
 
 ```sql
 -- new-app.sh Step 15 (--seed-admin) 가 생성하는 V007__seed_admin_user.sql 발췌
@@ -59,7 +59,7 @@ VALUES (
 );
 ```
 
-versioned `V***` 파일이라 Flyway 가 **한 번만** 실행합니다. 그래서 `ON CONFLICT` 없이도 멱등이 보장돼요. 시드를 비활성하려면 이 파일을 삭제하면 됩니다(이미 적용됐다면 해당 row 도 삭제). 운영에서는 첫 로그인 즉시 비밀번호를 바꾸는 것을 권장해요.
+versioned `V***` 파일은 적용 이력에 따라 한 번 실행돼요. 아직 어느 환경에도 적용하지 않았다면 생성한 시드 파일을 제외할 수 있지만, 이미 적용한 V007은 삭제하지 않아요. 적용 후 계정을 제거해야 한다면 새 변경이나 명시적인 계정 관리 절차로 처리해요. 운영에서 사용하는 계정은 첫 로그인 후 비밀번호를 바꿔요.
 
 그 외에 `V023__add_payment_refunds.sql` 이 과거 환불 건을 원장으로 백필하는 DML 을 담고 있고, 나머지 마이그레이션은 모두 스키마 정의(DDL)입니다. 카테고리·역할 같은 참조 데이터나 추가 테스트 계정이 필요하면 파생 레포가 아래 세 옵션 중 하나로 직접 구현합니다.
 
@@ -84,6 +84,8 @@ versioned `V***` 파일이라 Flyway 가 **한 번만** 실행합니다. 그래�
 > **혼동 주의** — 위 표의 `V007` 은 **앱 슬러그 schema** 의 admin 시드입니다. core 모듈(`core-auth-impl` 등)의 테스트 리소스에는 `db/migration/core/V007__init_auth_password_reset_tokens.sql` 이라는 동명 버전 번호가 있는데, 그건 core 네임스페이스의 **테스트 전용 스키마** 라 별개예요. 같은 V007 이라도 schema 가 다르면 다른 파일입니다.
 
 ---
+
+<a id="옵션-a--flyway-repeatable-migration"></a>
 
 ## 옵션 A — Flyway repeatable migration
 
@@ -117,6 +119,8 @@ ON CONFLICT (code) DO UPDATE
 `R__` 파일은 dev·staging·prod 모든 환경에서 실행됩니다. 그래서 운영에 들어가도 무관한 데이터만 둬야 해요. 개발자 계정 같은 것을 여기에 넣으면 안 됩니다.
 
 ---
+
+<a id="옵션-b--spring-applicationrunner"></a>
 
 ## 옵션 B — Spring `ApplicationRunner`
 
@@ -168,11 +172,15 @@ public class DevSeedRunner {
 
 ---
 
+<a id="옵션-c--testcontainers-fixture"></a>
+
 ## 옵션 C — Testcontainers fixture
 
 **언제 적합한가:** 통합 테스트·계약 테스트에서 테스트 데이터만 준비하고 싶을 때. 운영·개발 DB 와 완전히 분리됩니다.
 
 이 방법은 이미 템플릿에 구현돼 있습니다. 각 도메인의 `<X>Fixtures` 인터페이스와 `Jpa<X>Fixtures` 구현이 그것이에요.
+
+<a id="예시--authfixtures"></a>
 
 ### 예시 — AuthFixtures
 
@@ -215,6 +223,8 @@ public class JpaAuthFixtures implements AuthFixtures {
 운영·개발 DB 에는 전혀 영향을 주지 않습니다. Testcontainers 가 일회용 Docker Postgres 를 기동하기 때문이에요.
 
 ---
+
+<a id="개발-반복-픽스처--dbseedslugdevsql--reset---fixtures"></a>
 
 ## 개발 반복 픽스처 — `db/seed/<slug>.dev.sql` + `reset --fixtures`
 
@@ -264,7 +274,7 @@ apps/app-sumtally/src/main/resources/db/migration/sumtally/
 
 ### 개발자 테스트 계정 (옵션 B)
 
-`apps/app-<slug>/src/main/java/com/factory/apps/<slug>/config/<Slug>DevSeedRunner.java` 같은 위치에 `@Profile("dev")` 로 보호된 `ApplicationRunner` 를 두는 것이 자연스럽습니다. bootstrap 의 `MigrateOnlyRunner` 와 같은 패턴을 참고하되, seed 용도로는 옵션 B 의 예시 코드를 그대로 써도 돼요.
+앱별 `DevSeedRunner`를 둘 때는 실행 프로파일과 대상 DataSource를 명시해요. primary DataSource는 `SlugContext`가 없는 부팅 스레드에서 DB 접근을 거부하므로 위 예제의 `JdbcTemplate`을 그대로 주입하는 것만으로는 부족해요. 앱 전용 DataSource를 지정하거나 실행 구간에 slug를 설정하고 `finally`에서 해제해요. 중복 실행에 안전한 INSERT와 개발용 데이터만 사용해요.
 
 ---
 
@@ -309,11 +319,11 @@ seed 파일은 레포에 커밋돼 공개 상태가 됩니다. 다음은 커밋�
 
 ### 멱등성을 보장하십시오
 
-옵션 A (`R__`) 는 `ON CONFLICT ... DO UPDATE` 또는 `INSERT ... WHERE NOT EXISTS` 로 재실행에 안전하게 작성합니다. 옵션 B (`ApplicationRunner`) 는 실행 전에 존재 여부를 확인하고 skip 해요. 그렇지 않으면 재부팅마다 유니크 제약 위반이 발생합니다. 참고로 versioned `V***` 시드(템플릿의 `V007`)는 Flyway 가 한 번만 실행하므로 멱등 처리가 따로 필요 없습니다.
+반복 실행되는 시드는 재실행해도 중복이 생기지 않게 작성해요. `R__` SQL은 `ON CONFLICT ... DO UPDATE`나 `INSERT ... WHERE NOT EXISTS`를 사용하고, `ApplicationRunner`는 기존 데이터가 있으면 생성을 건너뛰어요. versioned `V***`는 같은 DB에서 한 번만 적용되지만, 이미 존재할 수 있는 데이터와 충돌하는지는 시드 설계에서 따로 판단해야 해요.
 
 ### 마이그레이션과 데이터를 한 파일에 섞지 마십시오
 
-`V018__init_expenses_and_seed.sql` 처럼 스키마와 데이터를 한 파일에 합치면, 체크섬이 한 번 고정된 뒤 데이터만 바꾸고 싶어도 새 V 파일을 만들어야 합니다. 스키마는 versioned `V`, 갱신되는 데이터는 repeatable `R` 로 분리하세요. 템플릿의 `V007` admin 시드는 "단 한 번만 넣고 갱신하지 않는다" 는 성격이라 예외적으로 versioned 를 씁니다.
+schema 변경과 자주 갱신할 데이터를 한 versioned 파일에 넣으면 데이터만 바꿀 때도 새 마이그레이션이 필요해요. schema는 `V`, 반복 갱신할 기준 데이터는 `R`로 나누어 관리해요. 템플릿의 선택 `V007`은 앱 사용자 초기 계정을 한 번 넣는 용도라 versioned를 사용해요. `--seed-admin`이라는 옵션명과 달리 운영 콘솔 계정을 생성하는 시드는 아니에요.
 
 ---
 

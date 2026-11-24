@@ -24,6 +24,8 @@
 | 소셜 로그인 토큰 검증 실패 | [`GoogleSignInService`](../../../core/core-auth-impl/src/main/java/com/factory/core/auth/impl/service/GoogleSignInService.java) 등 provider 별 service | WARN | 예: `Google token aud mismatch: allowed={}, actual={}` |
 | 회원 탈퇴 | [`WithdrawService`](../../../core/core-auth-impl/src/main/java/com/factory/core/auth/impl/service/WithdrawService.java)`.withdraw` | INFO | `User {} withdrew. Reason: {}` / `User {} withdrew. No reason provided.` |
 
+<a id="1-2-2fa-totp-twofactorservice"></a>
+
 ### 1-2. 2FA TOTP ([`TwoFactorService`](../../../core/core-auth-impl/src/main/java/com/factory/core/auth/impl/totp/TwoFactorService.java))
 
 | 이벤트 | 위치 | 레벨 | 메시지 형식 |
@@ -80,6 +82,8 @@
 | 파일 PII 원본 열람 (업로더·IP·기기) | [`AdminFileService`](../../../core/core-admin-impl/src/main/java/com/factory/core/admin/impl/AdminFileService.java) → 동일 repository | DB (`user_read_history`) | resource_type=`FILE`, resource_ref=파일 key |
 
 ---
+
+<a id="2-정책--현재-관행에서-도출"></a>
 
 ## 2. 정책 — 현재 관행에서 도출
 
@@ -149,19 +153,19 @@ Loki label 은 `app`(=`spring.application.name`, 본 템플릿은 `app-factory`)
 {app="app-factory", env="prod"} |= "Google webhook auth rejected"
 ```
 
-익명 401·429 는 의도적으로 무로깅이라 Loki 로 못 봐요 — `http_server_requests_seconds_count{status="401"|"429"}` 메트릭과 아래 RateLimitSpike 알림이 그 역할을 대신해요 (§2 의 6번).
+익명 인증 실패와 일반 rate limit 거부 중에는 로그를 남기지 않는 경로가 있어요. 이런 요청은 `http_server_requests_seconds_count{status=~"401|429"}`로 관찰해요. 콘솔 계정 잠금 같은 별도 429는 도메인 로깅 정책을 따르므로 모든 429가 무로깅인 것은 아니에요.
 
 ---
 
 ## 4. 알림 룰로 승격할 후보
 
-현재 [`infra/prometheus/rules.yml`](../../../infra/prometheus/rules.yml) 에는 보안 관련으로 RateLimitSpike(429 > 10/분, 3분 지속, severity info)가 이미 있어요. Loki 쪽은 ruler 미구성(`infra/loki/loki-config.yml` 에 ruler 섹션 없음)이라 로그 기반 알림은 현재 불가능하고, 후보는 메트릭 기반과 Loki ruler 도입 후보로 나뉘어요.
+현재 [Prometheus 규칙](../../../infra/prometheus/rules.yml)에는 429 응답이 분당 10회를 넘는 상태가 3분 이어질 때 알리는 `RateLimitSpike`가 있어요. 심각도는 info예요. Loki의 ruler는 구성돼 있지 않아 로그 기반 자동 경보를 바로 사용할 수는 없어요. 아래 후보를 추가할 때는 기존 메트릭으로 만들 수 있는 경보와 ruler 구성이 필요한 경보를 구분해요.
 
 | 후보 | 신호 | 근거 |
 |---|---|---|
 | 401 스파이크 | `http_server_requests_seconds_count{status="401"}` rate 급증 | 앱 로그인 실패는 익명이라 의도적 무로깅 — credential stuffing 을 잡는 신호 (콘솔 로그인 실패는 `code=ADMIN_001` 로그로도 보여요) |
 | 403 스파이크 | 동일 메트릭의 `status="403"` | 익명 403 은 무로깅이라 메트릭이 담당 — 인증된 주체의 403 은 `access denied` 로그로 주체까지 특정돼요 |
-| 콘솔 로그인 실패 반복 | WARN `code=ADMIN_001` 빈도 (Loki ruler 필요) | 콘솔은 계정 잠금을 타지 않아 시도가 무제한 — 임계 없는 유일한 인증 표면 |
+| 콘솔 로그인 실패 반복 | WARN `code=ADMIN_001` 빈도, 잠금 `ADMIN_028` 및 관련 메트릭 | 콘솔에도 IP strict 한도와 계정 잠금이 적용돼요. 반복 실패는 조사 신호이며 그 자체로 공격을 확정하지 않아요. |
 | cross-app 접근 차단 | WARN `cross-app access blocked` 발생 즉시 (Loki ruler 필요) | 정상 클라이언트에서는 발생하지 않음 — 탈취 토큰 재사용 신호 |
 | Google webhook 인증 실패 반복 | WARN `Google webhook auth rejected` 빈도 (Loki ruler 필요) | 유일하게 WARN 로그가 있는 webhook 인증 실패 — 반복이면 forged push 시도 |
 | backup code CAS 한도 소진 | WARN `2FA backup code CAS 재시도 한도 소진` 발생 즉시 (Loki ruler 필요) | 정상 사용에서 거의 발생 불가 — 동시 재사용 공격 신호 |

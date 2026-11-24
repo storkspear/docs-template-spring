@@ -1,10 +1,14 @@
+<a id="코어-데이터-모델-24-테이블--admin-스키마-3개"></a>
+
 # 코어 데이터 모델 (24 테이블 + admin 스키마 3개)
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~12분
 
 ## 개요
 
-이 문서는 `new-app.sh` 가 모든 파생 레포에 자동으로 깔아 주는 코어 테이블 중 **24 테이블**(per-slug)과, 운영 콘솔(`/api/admin/*`) 전용으로 딱 하나 존재하는 **`admin` 스키마**를 도메인 8 그룹으로 정리한 카탈로그입니다. 테이블마다 *용도 한 줄 · 주요 컬럼 · FK 관계 · 생성 마이그레이션 V번호 · 관련 ADR* 을 담아, 파생 레포 개발자가 이름만 보고도 무엇을 담는 테이블인지 바로 가늠할 수 있게 했어요. 컬럼/FK/인덱스/V번호는 모두 엔티티 `.java` 와 `tools/app/new-app.sh` 의 Flyway heredoc 에서 확인한 값입니다.
+`new-app.sh`가 앱별 스키마에 생성하는 공통 테이블과 운영 콘솔의 고정 `admin` 스키마를 정리한 카탈로그예요. 테이블의 용도, 주요 컬럼과 제약, 생성 마이그레이션을 확인할 수 있어요. 실제 정의는 엔티티와 생성기의 Flyway SQL을 기준으로 봐요.
+
+<a id="멀티테넌시--테이블은-앱별-schema-에"></a>
 
 ## 멀티테넌시 — 테이블은 앱별 schema 에
 
@@ -51,6 +55,8 @@
 
 ---
 
+<a id="1-identity--사용자-정체성"></a>
+
 ## 1. Identity — 사용자 정체성
 
 ### `users` (V001, +V013)
@@ -61,6 +67,8 @@
 - **FK**: 없음 (루트).
 - **인덱스**: `uk_users_email_active` — `email` UNIQUE 이되 `WHERE deleted_at IS NULL` 부분 인덱스라 soft-delete 후 같은 이메일 재가입을 허용해요. `idx_users_email`, `idx_users_totp_enabled` (`WHERE totp_enabled = true`, V013).
 - **관련 ADR**: [`ADR-012 · 앱별 독립 유저 모델`](../philosophy/adr-012-per-app-user-model.md), [`ADR-009 · BaseEntity`](../philosophy/adr-009-base-entity.md), [`ADR-029 · 비밀번호 정책`](../philosophy/adr-029-password-policy.md), [`ADR-030 · 2FA TOTP`](../philosophy/adr-030-2fa-totp.md).
+
+<a id="auth_social_identities-v002"></a>
 
 ### `auth_social_identities` (V002)
 
@@ -73,9 +81,13 @@ OAuth 소셜 로그인(애플·구글·카카오·네이버)과 사용자를 잇
 
 ---
 
+<a id="2-auth--credential--인증자격증명"></a>
+
 ## 2. Auth · Credential — 인증·자격증명
 
 토큰/코드 계열은 raw 값을 DB 에 저장하지 않고 **SHA-256 hex(64 chars)** 해시만 보관합니다. raw 토큰은 클라이언트(또는 이메일/문자)에만 한 번 전달돼요.
+
+<a id="auth_refresh_tokens-v003"></a>
 
 ### `auth_refresh_tokens` (V003)
 
@@ -86,6 +98,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **인덱스**: `uk_auth_refresh_tokens_hash` (UNIQUE `token_hash`), `idx_auth_refresh_tokens_user_id`, `idx_auth_refresh_tokens_family_id`.
 - **관련 ADR**: [`ADR-006 · HS256 JWT`](../philosophy/adr-006-hs256-jwt.md).
 
+<a id="auth_email_verification_codes-v016"></a>
+
 ### `auth_email_verification_codes` (V016)
 
 가입 **前** 이메일 소유를 확인하는 6자리 코드(verify-before-signup)예요. 계정 생성 전에 발급되므로 `user_id` FK 가 없고 email 로만 식별합니다.
@@ -95,6 +109,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **인덱스**: `idx_auth_email_verification_codes_email_created` (`email`, `created_at DESC`), `idx_auth_email_verification_codes_expires_at`.
 - **관련 ADR**: 전용 ADR 없음 (이메일 인증 흐름의 일부). `auth_email_verification_tokens` 와 단계가 다른 점에 유의하세요.
 
+<a id="auth_email_verification_tokens-v004-v026"></a>
+
 ### `auth_email_verification_tokens` (V004, V026)
 
 가입 **後** 이메일 인증(링크 클릭 방식) 토큰입니다. `auth_email_verification_codes`(가입 전 코드)와 단계를 구분하려고 별도 테이블로 둡니다.
@@ -103,6 +119,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **FK**: `user_id` → `users(id)`.
 - **인덱스**: `uk_auth_email_verification_tokens_hash` (UNIQUE), `idx_auth_email_verification_tokens_user_id`.
 - **관련 ADR**: 전용 ADR 없음.
+
+<a id="auth_password_reset_tokens-v005"></a>
 
 ### `auth_password_reset_tokens` (V005)
 
@@ -115,11 +133,15 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 
 ---
 
+<a id="3-phone--휴대폰-본인확인"></a>
+
 ## 3. Phone — 휴대폰 본인확인
+
+<a id="auth_phone_verification_codes-v015-옵트인"></a>
 
 ### `auth_phone_verification_codes` (V015, 옵트인)
 
-휴대폰 점유인증 OTP 코드 테이블입니다. raw 6자리는 문자로만 전달하고 DB 에는 SHA-256 hex 만 저장해요. 점유인증을 쓰지 않는 앱은 V015 파일을 삭제하면 됩니다. (email 은 `email_verification_*`, phone 도 이제 `phone_verification_*` 으로 `*_verification_*` 컨벤션을 통일했어요.)
+휴대폰 점유인증 코드는 DB에 SHA-256 해시로 저장해요. `V015`는 앱 생성 시 기본으로 생성하며, 기능을 사용하지 않으면 `app.features.phone-auth`로 Bean 등록을 끌 수 있어요. 이미 적용한 마이그레이션을 삭제하는 방식은 사용하지 않아요. 개발용 capture 어댑터는 응답·로그에 원문 코드를 노출할 수 있어 실제 발송 경로와 구분해요.
 
 - **주요 컬럼**: `phone_e164` (E.164 번호) · `code_hash` (SHA-256 hex) · `attempts` (SMALLINT, brute-force 가드) · `expires_at` · `used_at`.
 - **FK**: 없음 — 번호↔유저 식별은 `auth_social_identities(provider='phone')` 를 재사용하고, 이 테이블은 OTP 수명만 관리합니다.
@@ -128,7 +150,11 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 
 ---
 
+<a id="4-billing--구독결제알림"></a>
+
 ## 4. Billing — 구독·결제·알림
+
+<a id="subscription_plans-v008"></a>
 
 ### `subscription_plans` (V008)
 
@@ -148,6 +174,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **인덱스**: `idx_subscriptions_user_id`, `idx_subscriptions_status`, `idx_subscriptions_user_status` (`user_id`, `status`).
 - **관련 ADR**: [`ADR-020`](../philosophy/adr-020-subscription-domain-model.md), [`ADR-021 · 자동 갱신 실패 정책`](../philosophy/adr-021-renewal-failure-policy.md).
 
+<a id="payment_history-v009"></a>
+
 ### `payment_history` (V009)
 
 결제 이벤트 기록입니다. PG(PortOne) 결제와 IAP(Apple·Google) 결제를 `channel` 로 구분해 한 테이블에 담아요. 별도 *결제수단* 테이블이 없는 건 의도된 설계예요 — IAP/PG 측이 결제수단을 소유하므로 카드 정보를 직접 보관하지 않아 PCI 부담을 피합니다.
@@ -156,6 +184,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **FK**: `user_id` → `users(id)`.
 - **인덱스**: `uk_payment_history_external_id` (UNIQUE), `idx_payment_history_user_id`, `idx_payment_history_status`, `idx_payment_history_customer_uid` (`WHERE customer_uid IS NOT NULL`).
 - **관련 ADR**: [`ADR-019`](../philosophy/adr-019-billing-iap-payment-separation.md), [`ADR-022 · IAP Server Notifications`](../philosophy/adr-022-iap-server-notifications.md).
+
+<a id="payment_refunds-v023"></a>
 
 ### `payment_refunds` (V023)
 
@@ -166,6 +196,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **인덱스**: `idx_payment_refunds_payment_id`, `idx_payment_refunds_refunded_at`.
 - **관련 문서**: [`admin-console.md §4-11`](../api-and-functional/admin-console.md).
 
+<a id="subscription_renewals-v011"></a>
+
 ### `subscription_renewals` (V011)
 
 구독 자동 갱신 시도 이력입니다. 한 번의 재청구(성공/실패)마다 row 1개로, retry·backoff·운영 디버깅에 쓰여요. (`FAILED` → `next_retry_at` 도래 → 재시도 → `SUCCESS` 또는 `ABANDONED`.)
@@ -174,6 +206,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **FK**: `subscription_id` → `subscriptions(id)`, `payment_record_id` → `payment_history(id)`.
 - **인덱스**: `idx_subscription_renewals_subscription_id`, `idx_subscription_renewals_status`, `idx_subscription_renewals_due` (`WHERE status = 'FAILED' AND next_retry_at IS NOT NULL` — retry scheduler 핵심), `uk_subscription_renewals_subscription_attempt` (UNIQUE `subscription_id`, `attempt_no`).
 - **관련 ADR**: [`ADR-021 · 자동 갱신 실패 정책`](../philosophy/adr-021-renewal-failure-policy.md).
+
+<a id="user_notification_settings-v014"></a>
 
 ### `user_notification_settings` (V014)
 
@@ -184,16 +218,20 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **인덱스**: `uk_user_notification_settings_user_kind` (UNIQUE `user_id`, `kind`), `idx_user_notification_settings_user_id`.
 - **관련 ADR**: [`ADR-031 · 사용자 알림 설정`](../philosophy/adr-031-notification-preferences.md).
 
+<a id="payment_webhook_events-v010"></a>
+
 ### `payment_webhook_events` (V010)
 
-결제 웹훅의 멱등성(idempotency)을 보장하는 기록 테이블입니다. `(source, external_id)` UNIQUE 가 같은 웹훅의 중복 처리를 차단해요. `source` 는 PG 가 `portone`, IAP 는 `iap-ios`/`iap-android` 입니다.
+결제 웹훅의 처리 이력을 기록해요. `(source, external_id, event_status)` 고유 제약으로 같은 상태 이벤트의 중복을 제한해요. PG의 source는 `portone`, IAP는 `iap-ios`·`iap-android`이며, 같은 거래의 결제와 환불처럼 상태가 다른 알림은 구분해요.
 
 - **주요 컬럼**: `source` (기본 `'portone'`) · `external_id` · `payload` (jsonb, NOT NULL) · `received_at` · `processed_at` · `process_error` (실패 시 디버깅용, retry 허용).
 - **FK**: 없음.
-- **인덱스**: `uk_payment_webhook_events_external_id` (UNIQUE `(source, external_id)`), `idx_payment_webhook_events_received_at`.
+- **인덱스**: `uk_payment_webhook_events_external_id` (UNIQUE `(source, external_id, event_status)`), `idx_payment_webhook_events_received_at`.
 - **관련 ADR**: [`ADR-022 · IAP Server Notifications`](../philosophy/adr-022-iap-server-notifications.md), [`ADR-020`](../philosophy/adr-020-subscription-domain-model.md).
 
 ---
+
+<a id="5-device--audit--activity--디바이스감사활동"></a>
 
 ## 5. Device · Audit · Activity — 디바이스·감사·활동
 
@@ -206,6 +244,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **인덱스**: `idx_devices_user_id`, `idx_devices_push_token`.
 - **관련 ADR**: [`ADR-023 · 결제 알림 listener (push)`](../philosophy/adr-023-billing-notification-listener.md) — 알림 발송이 이 `push_token` 을 사용해요.
 
+<a id="audit_logs-v012"></a>
+
 ### `audit_logs` (V012)
 
 `@Audited` / `@AdminOnly` 액션을 자동 기록하는 감사 이력(append-only)입니다. AOP `@Around` + `Propagation.REQUIRES_NEW` 로 비즈 트랜잭션과 격리돼요. 앱 내부에서는 admin 환불(`PaymentController.refund`) 등 `@Audited` 액션이 여기 쌓이고, 운영 콘솔의 `GET /api/admin/audit-logs` 가 이 테이블을 slug 지정 조회 또는 전 슬러그 fan-out 병합 검색으로 읽어요 (자세히는 [`admin-console.md`](../api-and-functional/admin-console.md) 참고).
@@ -215,6 +255,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **인덱스**: `idx_audit_logs_actor_user_id`, `idx_audit_logs_action`, `idx_audit_logs_occurred_at` (`occurred_at DESC`), `idx_audit_logs_resource` (`resource_type`, `resource_id` · `WHERE resource_id IS NOT NULL`).
 - **관련 ADR**: [`ADR-028 · Audit log 도메인`](../philosophy/adr-028-audit-log-domain.md), [`ADR-027 · Admin role 권한`](../philosophy/adr-027-admin-role-authorization.md).
 
+<a id="audit_logs_archive-v021"></a>
+
 ### `audit_logs_archive` (V021)
 
 감사로그 콜드 보관 테이블입니다. `AuditRetentionScheduler` 가 핫 보관기간(기본 90일) 경과분을 `audit_logs` → 여기로 이관(archive)하고, 아카이브 보관기간(기본 365일) 경과분은 여기서 purge 해요 — `audit_logs` 를 가볍게 유지하면서 규정 보관은 만족시키는 2단 정책(ADR-028). 스키마는 `audit_logs` 와 동일 컬럼.
@@ -222,6 +264,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **주요 컬럼**: `audit_logs` 와 동일(`actor_user_id` · `actor_email` · `action` · `resource_type` · `resource_id` · `slug` · `result` · `details` · `ip_address` · `occurred_at`).
 - **인덱스**: `idx_audit_logs_archive_occurred_at` (`occurred_at` — purge 기준).
 - **관련 ADR**: [`ADR-028 · Audit log 도메인`](../philosophy/adr-028-audit-log-domain.md).
+
+<a id="user_activity_days-v017"></a>
 
 ### `user_activity_days` (V017)
 
@@ -233,6 +277,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **관련 ADR**: [`ADR-039 · admin 모듈`](../philosophy/adr-039-admin-module.md) — 운영 콘솔이 DAU/MAU/리텐션을 조회 가능하게 만들려고 신설한 테이블.
 
 ---
+
+<a id="5b-content--공유-게시물-core-content"></a>
 
 ## 5b. Content — 공유 게시물 (`core-content`)
 
@@ -247,7 +293,11 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 
 ---
 
+<a id="5c-analytics--제품-이벤트-core-analytics"></a>
+
 ## 5c. Analytics — 제품 이벤트 (`core-analytics`)
+
+<a id="analytics_events-v025"></a>
 
 ### `analytics_events` (V025)
 
@@ -256,6 +306,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **주요 컬럼**: `user_id` (비로그인/시스템은 null) · `event_name` (VARCHAR 80) · `properties` (TEXT, 메타데이터 JSON) · `occurred_at`.
 - **FK**: 없음(느슨 결합 — user 삭제와 독립).
 - **인덱스**: `idx_analytics_events_name_time` (`event_name, occurred_at`), `idx_analytics_events_occurred`.
+
+<a id="analytics_daily-v025"></a>
 
 ### `analytics_daily` (V025)
 
@@ -267,7 +319,11 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 
 ---
 
+<a id="6-admin--운영-콘솔-스키마-유일한-비-per-slug"></a>
+
 ## 6. Admin — 운영 콘솔 스키마 (유일한 비-per-slug)
+
+<a id="adminadmin_users-admin-v001v013-admin-스키마"></a>
 
 ### `admin.admin_users` (admin V001~V013, `admin` 스키마)
 
@@ -280,6 +336,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **관련 ADR**: [`ADR-039 · admin 모듈`](../philosophy/adr-039-admin-module.md), [`ADR-037 · core schema 폐기`](../philosophy/adr-037-core-schema-deprecation.md) — "폐기 대상이 아닌 이유".
 - **자세히**: [`admin-console.md`](../api-and-functional/admin-console.md) — 인증 흐름, 엔드포인트 카탈로그, 에러 코드.
 
+<a id="adminrole_permissions-admin-v003"></a>
+
 ### `admin.role_permissions` (admin V003)
 
 역할별 권한 grant 를 담는 편집 가능한 표입니다. 콘솔 계정의 효과 권한은 *코드 고정 baseline* ∪ *이 표* 로 결정되고, seed 는 코드 고정 매트릭스(`PermissionCatalog`)와 정합해요.
@@ -287,6 +345,8 @@ JWT refresh 토큰의 회전(rotation)을 지원하는 테이블입니다. 한 �
 - **주요 컬럼**: `role` (`viewer`/`support`/`admin`/`master`) · `permission` (`PERM_*`) — 복합 **PK `(role, permission)`**.
 - **FK**: 없음.
 - **관련 ADR**: [`ADR-039 · admin 모듈`](../philosophy/adr-039-admin-module.md).
+
+<a id="adminapp_min_versions-admin-v004-enabled-는-v007"></a>
 
 ### `admin.app_min_versions` (admin V004, `enabled` 는 V007)
 

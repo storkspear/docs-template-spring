@@ -21,9 +21,11 @@
 | 값 매핑 | `.kamal/secrets.example` | `KEY=$ENV_VAR` 매핑. Kamal 이 호스트 환경변수에서 값을 resolve |
 | 자격 export | `.github/workflows/deploy.yml` 의 `env:` 블록 | GitHub Secrets → GHA 호스트 환경변수로 export |
 
-GitHub Secrets store 자체는 다섯 번째 자리가 아니라, `.env.prod` 의 값이 흘러 들어가는 *저장소* 예요. `init-prod.sh` 가 `.env.prod` 의 값을 읽어 GitHub Secrets 와 Variables 에 push 하고, 그 값이 위 네 곳을 거쳐 컨테이너에 도달합니다.
+GitHub Secrets는 값을 저장하는 곳이에요. `init-prod.sh`는 REQUIRED 목록과 조건을 충족한 OPTIONAL 그룹, 별도로 발견한 `APP_CREDENTIALS_*`만 업로드해요. 새 키를 `.env.prod`에 적었다고 모두 자동으로 올라가지는 않으므로 init의 등록 목록과 Spring의 바인딩 경로도 함께 확인해요. OPTIONAL 그룹을 건너뛰어도 기존 원격 Secret을 자동으로 삭제하지는 않아요.
 
 계정/호스트에 속하는 자격(`GHCR_TOKEN`·`SSH_PRIVATE_KEY`·`TS_OAUTH_*`·`DEPLOY_HOST`·`DEPLOY_SSH_USER`)만 출처가 달라요. `.env.infra` 에서 `init-infra.sh` 가 **접미사 없이** 한 벌만 올리고, dev·prod 워크플로가 같은 값을 봐요. 이 키들은 컨테이너 안으로 주입되는 게 아니라 배포 파이프라인 자체가 쓰는 자격이라 4-Stage 를 타지 않아요.
+
+<a id="흐름--자격이-컨테이너에-도달하기까지"></a>
 
 ### 흐름 — 자격이 컨테이너에 도달하기까지
 
@@ -106,6 +108,8 @@ gh secret set MY_NEW_KEY --repo <owner>/<repo>
 
 ---
 
+<a id="3-dev-와-prod--_dev-suffix-로-격리"></a>
+
 ## 3. dev 와 prod — `_DEV` suffix 로 격리
 
 dev 서버를 함께 운영하면 같은 자격을 두 벌로 보관합니다. dev 자격은 GitHub Secrets / Variables 에 `_DEV` suffix 를 붙여 prod 와 분리 저장해요. 예를 들어 prod 는 `DB_URL`, dev 는 `DB_URL_DEV` 입니다.
@@ -126,29 +130,35 @@ env:
 
 ## 4. 자주 누락되는 케이스
 
+<a id="케이스-1--슬러그-컨트롤러가-새-port-의존을-추가한-경우"></a>
+
 ### 케이스 1 — 슬러그 컨트롤러가 새 Port 의존을 추가한 경우
 
-`<your-backend> new <slug>` 가 만드는 슬러그 컨트롤러는 core 의 Port (Auth · Iap · Payment) 에 의존합니다. 그 Port 가 prod profile 에서 자격을 검증하면, 자격이 누락된 환경에서는 부팅이 차단돼요.
+`new <slug>`가 생성하는 앱 컨트롤러는 헬스체크예요. 인증·IAP·결제는 core의 공유 컨트롤러가 `{appSlug}` 경로로 처리해요. 외부 자격 검증도 공유 모듈의 자동 구성에서 수행해요.
 
-대표 사례는 PortOne 자격(`APP_PAYMENT_PORTONE_*`)입니다. `*PaymentController` 가 `PaymentPort` 를 의존하고, prod·dev profile 에서 `PaymentAutoConfiguration` 의 `PortOneProdConfigGuard` bean 이 부팅 시점에 키 조합을 검증합니다. 검증 정책은 *짝을 맞추거나 전부 비우거나* 예요.
+PortOne 자격(`APP_PAYMENT_PORTONE_*`)이 대표적인 예예요. payment 기능이 활성일 때 공유 `PaymentController`는 `PaymentPort`를 사용해요. dev·prod에서는 `PortOneProdConfigGuard`가 부팅 중 키 조합을 검사하므로, 선택 기능이라도 잘못된 조합을 넣으면 부팅에 실패할 수 있어요.
 
 | PortOne 키 상태 | 부팅 |
 |---|---|
 | v1 key/secret, v2 key, webhook secret 전부 비어있음 | 통과 — 결제를 의도적으로 끈 것으로 보고 Stub fallback |
 | v1 key/secret 중 하나만 채워짐 | 차단 — 결제 불가인데 stub 이 조용히 뜨는 위험으로 fail-fast |
 | webhook secret 만 채워짐 | 차단 — 결제 자격 없음 |
-| v2 key 는 있는데 webhook secret 없음 | 차단 — 서명된 v2 webhook 을 검증할 수 없음 |
+| v2 key가 채워짐 | 차단 — webhook secret 유무와 관계없이 v2 결제 어댑터 미지원 |
 | v1 key/secret 둘 다 채워짐 | 통과 — PortOneAdapter 등록 (v1 webhook 은 서명이 없어 secret 불필요, `imp_uid` 재조회로 검증) |
 
-즉 "비어 있으면 안 된다" 가 아니라 *v1 key·secret 을 짝으로 다 채우거나 다 비우거나* 가 규칙입니다. 결제를 실제로 안 쓰더라도 반쪽만 채워두면 부팅이 막히므로, 키를 모두 비워 fallback 으로 보내는 게 정석이에요. v1 key·secret 두 개를 네 곳에 등록하면 총 8 곳을 한 번에 갱신하게 됩니다.
+v1 key·secret은 둘 다 채우거나 둘 다 비워요. 결제를 사용하지 않아도 한쪽만 채우면 부팅이 실패해요. 실제 연동을 추가할 때는 §4의 네 전달 지점에서 두 키가 모두 연결됐는지 확인해요. webhook secret의 전달 조건은 런타임 키 조합 검증과 별도로 확인해야 해요.
+
+<a id="케이스-2--bucketprovisioner-가-자동-생성하는-버킷"></a>
 
 ### 케이스 2 — `BucketProvisioner` 가 자동 생성하는 버킷
 
-`APP_STORAGE_MINIO_BUCKETS_0`, `_1` 처럼 인덱스가 붙는 키는 부팅 시 `BucketProvisioner` 가 만들 버킷 목록입니다. 한 곳에서 누락되면 목록이 비어 조용히 건너뛰어지므로, 부팅은 통과하지만 버킷이 만들어지지 않아요. 문제는 스토리지 호출이 처음 발생하는 시점에 가서야 드러납니다.
+앱 업로드 버킷은 등록된 앱 DataSource 목록과 `BucketNaming`으로 자동 파생해요. `APP_STORAGE_MINIO_BUCKETS_*`는 공유·임시 버킷을 추가하는 목록이에요. 이 목록이 비어도 앱 업로드 버킷은 준비하며, `new-app.sh`가 앱 버킷 슬롯을 추가하지는 않아요. 다만 현재 init의 storage OPTIONAL 그룹은 `BUCKETS_0`도 업로드 조건으로 검사하므로 CLI 조건과 runtime 자동 생성은 구분해요.
+
+<a id="케이스-3--app_credentials_slug_-소셜-로그인-자격"></a>
 
 ### 케이스 3 — `APP_CREDENTIALS_<SLUG>_*` (소셜 로그인 자격)
 
-`<your-backend> new <slug>` 는 이 키를 `.env.prod` 에만 자동으로 넣습니다. 나머지 세 곳(`config/deploy.yml` · `.kamal/secrets.example` · `deploy.yml`)은 아직 수동 추가예요. 자세한 흐름은 [`도그푸딩 FAQ Q17`](../../start/dogfood-faq.md#q17) 을 참조하세요.
+`<your-backend> new <slug>` 는 이 키를 `.env.prod` 에만 자동으로 넣습니다. 나머지 세 곳(`config/deploy.yml` · `.kamal/secrets.example` · `deploy.yml`)은 아직 수동 추가예요. 자세한 흐름은 [`도그푸딩 FAQ Q17`](../../start/dogfood-setup.md#app-credentials-chain) 을 참조하세요.
 
 ---
 
@@ -187,7 +197,7 @@ GHA 배포에서는 GitHub Secrets store 가 값의 출처예요. 로컬 배포�
 
 - [`dogfood-setup §5`](../../start/dogfood-setup.md) — `.env.prod` REQUIRED 4 + OPTIONAL 기능
 - [`dogfood-setup §3.7`](../../start/dogfood-setup.md) — `.env.infra` 공유 자격
-- [`FAQ Q17`](../../start/dogfood-faq.md#q17) — `APP_CREDENTIALS_<SLUG>_*` 수동 추가 흐름
+- [`FAQ Q17`](../../start/dogfood-setup.md#app-credentials-chain) — `APP_CREDENTIALS_<SLUG>_*` 수동 추가 흐름
 - `tools/init/init-prod.sh` — 운영 GitHub Secrets push 자동화
 - `tools/init/init-infra.sh` — 공유 자격 push 자동화 (접미사 없음)
 - `tools/deploy/deploy.sh` — 로컬 배포 진입점

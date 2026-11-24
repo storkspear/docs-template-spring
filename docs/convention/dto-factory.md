@@ -8,7 +8,7 @@
 
 ## 기본 원칙
 
-생성자가 먼저입니다. record 의 기본 생성자가 대부분의 상황을 덮어요.
+값을 그대로 전달한다면 record 생성자를 사용해요. 여러 인자를 의미 있는 기본값이나 도메인 표현으로 묶어야 할 때 팩토리를 검토해요. 생성자를 한 번 감싸기만 하는 메서드는 추가하지 않아요.
 
 ```java
 public record UserSummary(long id, String email, String displayName, boolean emailVerified) {}
@@ -27,6 +27,8 @@ new UserSummary(1L, "a@b.com", "홍길동", true);
 | `with<Field>(value)` | 자주 갱신되는 필드 하나만 바꿀 때 | 모든 필드에 기계적으로 만들 때 |
 
 ---
+
+<a id="fromx--단일-dto-를-변환할-때"></a>
 
 ## `from(X)` — 단일 DTO 를 변환할 때
 
@@ -52,12 +54,14 @@ public record UserSummary(long id, String email, String displayName, boolean ema
 public record AuthResponse(UserSummary user, AuthTokens tokens, String twoFactorToken) {
 
     public AuthResponse(UserSummary user, AuthTokens tokens) {
-        this(user, tokens, null, null);
+        this(user, tokens, null);
     }
 }
 ```
 
 ---
+
+<a id="of--정규화나-검증이-있을-때"></a>
 
 ## `of(...)` — 정규화나 검증이 있을 때
 
@@ -88,6 +92,8 @@ public static AuthTokens of(String access, String refresh) {
 다만 web 계층의 공용 응답 DTO 처럼, 같은 타입을 아주 많은 호출 사이트에서 만들고 일부 인자를 생략하는 오버로드를 제공할 때는 `of` 가 가독성을 높이기도 해요 (`ApiError.of(code, message)`, `PageRequest.of(page, size)`). 이건 "도메인 DTO 의 단순 래퍼" 와는 성격이 달라서 예외로 둬요. 새 도메인 DTO 를 만들 때는 위의 기준 — 정규화·검증이 있을 때만 — 을 따라요.
 
 ---
+
+<a id="withfieldvalue--자주-바뀌는-필드만"></a>
 
 ## `with<Field>(value)` — 자주 바뀌는 필드만
 
@@ -121,6 +127,8 @@ record 는 생성자만으로 충분해서 builder 를 두지 않아요. builder
 - 필수 필드와 선택 필드가 섞여 있으면 → `of` 팩토리로 처리해요.
 
 ---
+
+<a id="entity-에서-dto-로--entity-메서드-패턴"></a>
 
 ## Entity 에서 DTO 로 — Entity 메서드 패턴
 

@@ -4,7 +4,7 @@
 
 이 디렉토리는 `template-spring` 과 이를 파생한 모든 레포의 코딩 규약을 모아 둔 인덱스예요. 네이밍, 예외 처리, DTO 패턴, git 워크플로우처럼 실무 코드에 직접 적용되는 규칙을 다루고, 각 규칙의 상세 문서로 안내해요.
 
-규약은 취향이 아니라 일관성을 위한 계약입니다. 혼자 작업하더라도 6개월 뒤의 내가 과거 코드를 이해할 수 있어야 하고, 파생 레포가 여러 개로 늘어나면 각 레포의 코드 스타일이 비슷해야 [cherry-pick](../reference/glossary.md#개발-프로세스) 전파가 매끄러워요.
+규약은 코드를 일관되게 작성하고 변경을 이해하기 위한 기준이에요. 공통 코드의 형식을 맞추면 파생 저장소로 [cherry-pick](../reference/glossary.md#개발-프로세스)할 때 변경 내용을 비교하기도 쉬워요. 자동화할 수 있는 규칙은 빌드와 CI에서 확인해요.
 
 ---
 
@@ -31,10 +31,10 @@
 
 구조 재편으로 코드 작성 규약과 성격이 다른 문서들은 각자 별도 폴더에서 관리합니다. 자주 함께 보는 그룹은 다음과 같아요.
 
-- **시스템 구조** → [`structure/`](../structure/) — [`Module Dependencies`](../structure/module-dependencies.md), [`Architecture Rules (ArchUnit)`](../structure/architecture-rules.md), [`Multi-tenant`](../structure/multitenant-architecture.md), [`JWT Authentication`](../structure/jwt-authentication.md)
-- **API 계약** → [`api-and-functional/api/`](../api-and-functional/api/) — [`API Response`](../api-and-functional/api/api-response.md), [`JSON Contract`](../api-and-functional/api/json-contract.md), [`Versioning`](../api-and-functional/api/versioning.md), [`Flutter 연동`](../api-and-functional/api/flutter-backend-integration.md)
-- **기능 가이드** → [`api-and-functional/functional/`](../api-and-functional/functional/) — Push, Email, Observability, Rate Limiting, Storage, Migration, Seed Data 등
-- **테스팅** → [`production/test/`](../production/test/) — [`Contract Testing`](../production/test/contract-testing.md), [`Testing Strategy`](../production/test/testing-strategy.md)
+- **시스템 구조** → [`structure/`](../structure/architecture.md) — [`Module Dependencies`](../structure/module-dependencies.md), [`Architecture Rules (ArchUnit)`](../structure/architecture-rules.md), [`Multi-tenant`](../structure/multitenant-architecture.md), [`JWT Authentication`](../structure/jwt-authentication.md)
+- **API 계약** → [`api-and-functional/api/`](../api-and-functional/api/api-response.md) — [`API Response`](../api-and-functional/api/api-response.md), [`JSON Contract`](../api-and-functional/api/json-contract.md), [`Versioning`](../api-and-functional/api/versioning.md), [`Flutter 연동`](../api-and-functional/api/flutter-backend-integration.md)
+- **기능 가이드** → [`api-and-functional/functional/`](../api-and-functional/functional/billing-iap-payment.md) — Push, Email, Observability, Rate Limiting, Storage, Migration, Seed Data 등
+- **테스팅** → [`production/test/`](../production/test/testing-strategy.md) — [`Contract Testing`](../production/test/contract-testing.md), [`Testing Strategy`](../production/test/testing-strategy.md)
 
 ---
 

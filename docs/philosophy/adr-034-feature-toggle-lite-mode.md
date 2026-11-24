@@ -1,3 +1,5 @@
+<a id="adr-034--lite-모드-spring-profile--conditionalonproperty-기반-feature-toggle"></a>
+
 # ADR-034 — Lite 모드 (Spring profile + ConditionalOnProperty 기반 feature toggle)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~8분
@@ -8,13 +10,13 @@
 
 ## 결론부터
 
-template 이 공통 baseline 으로 모든 도메인을 갖춘다는 사실은 큰 비즈니스에는 즉시 가치를 주지만 작은 비즈니스에게는 부담이 될 수 있어요. 결제만 필요한 인디 앱이 audit log, 2FA, billing notification 인프라를 부팅 시점부터 유지하면 jar 크기, 메모리, 환경변수 셋업, DB 테이블 모두에 부가 비용이 누적됩니다. *Lite 모드* 는 그 baseline 을 유지하면서도 작은 비즈니스가 미사용 도메인을 손쉽게 끌 수 있도록 하는 결정이에요.
+사용하지 않는 기능은 Spring Bean 등록 조건으로 끌 수 있어요. 런타임 기능 플래그는 phone-auth·sms 등을 제공하며, 코드를 삭제하거나 별도 JAR를 만드는 방식은 아니에요. 비활성화해도 관련 코드와 마이그레이션은 남고, 의존 서비스는 Port 부재를 각자의 계약에 따라 처리해요.
 
 본 ADR 은 Spring `@ConditionalOnProperty` 기반의 feature toggle 메커니즘을 정의합니다. 8 개 도메인 — `audit`, `push`, `billing-notification`, `password-policy`, `email`, `payment`, `iap`, `2fa` — 마다 `app.features.<도메인>` properties 가 있고, 운영자가 `.env` 에 `false` 로 두면 해당 도메인의 모든 Bean 이 ApplicationContext 에서 누락됩니다. AutoConfiguration, Service, Adapter, Aspect 가 모두 conditional 로 묶여 있어, 비활성 도메인의 endpoint 는 자동으로 사라지고 의존하던 코드는 `ObjectProvider<Port>` 의 empty 응답을 받아 graceful 하게 동작해요.
 
 핵심 설계 분기는 모듈의 의존 방향에 따라 달라요. *Leaf 모듈* — 다른 도메인이 import 하지 않는 모듈 (audit, push 등) — 은 단순 `@ConditionalOnProperty` 만으로 안전하게 토글됩니다. 반면 *Non-leaf 모듈* — 다른 도메인이 import 하는 모듈 (예: email, password-policy) — 은 의존 측에서 `ObjectProvider<Port>` 형태로 lazy 의존해야 toggle off 시에도 컴파일과 부팅이 OK 예요. 이 패턴 분류가 [`ADR-024`](./adr-024-email-domain-extraction.md) 의 cross-cutting 모듈 추출과 자연스럽게 정합합니다.
 
-이 정책은 jar 크기 절감이나 DB schema 분리 같은 측면은 다루지 않아요. 코드는 모두 jar 안에 그대로 포함되고 (Spring conditional 의 trade-off), DB schema 도 미사용 도메인 테이블이 그대로 생성됩니다 (운영자가 무시 가능). 우리는 솔로 운영의 단순성과 toggle 한 줄로 끝나는 사용자 부담 0 을 더 큰 가치로 두고, jar 와 DB 의 완전한 분리는 *Phase 5 후속 작업* 으로 미뤄요.
+이 방식은 실행할 Bean을 선택하지만 코드와 의존성을 JAR에서 제거하지 않아요. 미사용 기능의 테이블도 마이그레이션 대상에 남아요. 모듈별 빌드나 스키마를 별도로 관리하는 복잡도를 피하는 대신 이 비용을 받아들여요. 설정을 바꾼 뒤에는 재시작과 동작 검증이 필요해요.
 
 이 ADR 의 범위는 toggle 메커니즘 선택의 트레이드오프 (Spring conditional vs Gradle module exclusion vs source 제거 명령), Leaf 와 Non-leaf 모듈의 패턴 분류, `ObjectProvider<Port>` lazy 의존 패턴, 비활성 도메인의 endpoint 자동 사라짐 동작, 그리고 사용자 측 UI 노출 (`Lite mode` 사용자 인터페이스, [`ADR-035`](./adr-035-lite-mode-user-interface.md)) 까지의 연결입니다.
 
@@ -34,7 +36,7 @@ template 이 공통 baseline 으로 모든 도메인을 갖추는 결정은 [`AD
 
 이 부담을 해결하려면 미사용 도메인을 비활성화할 수 있어야 하는데, 비활성화의 형태에 따라 복잡도 대 효과가 달라요. 가장 깔끔한 형태는 Gradle module exclusion 으로 비활성 도메인의 코드 자체를 jar 에서 제외하는 방식이지만, 2^8 = 256 가지 조합의 CI 검증이 필요해 사실상 비현실적입니다. 가장 부드러운 형태는 Spring conditional 로 코드는 jar 에 남되 Bean 만 비활성화하는 방식이고, 이 경우 모든 도메인 조합이 같은 jar 안에서 동작하므로 CI 검증도 단일 build 로 끝나요.
 
-trade-off 는 jar 크기와 의존성 classpath 풍부함입니다. Spring conditional 로 가면 비활성 도메인의 코드와 의존성 (FCM SDK, Resend SDK 등) 이 jar 안에 그대로 포함되어 jar 크기가 5~10MB 정도 더 큰 상태로 남아요. 다만 이 정도 jar 크기 차이는 현대 deploy 환경 (Docker, kamal 같은) 에서는 사실상 무시 가능한 비용이고, 솔로 운영 단순성의 가치가 압도적으로 큽니다.
+비활성 기능의 코드와 의존성도 클래스 경로에 남으므로 산출물 크기는 줄지 않아요. 실제 크기와 메모리 영향은 빌드·기동 결과로 확인해야 해요. 근거가 없는 MB 수치나 운영 영향이 전혀 없다는 표현 대신, 같은 산출물을 설정으로 운용한다는 장단점으로 비교해요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
@@ -43,6 +45,8 @@ trade-off 는 jar 크기와 의존성 classpath 풍부함입니다. Spring condi
 ---
 
 ## 옵션 비교
+
+<a id="option-a--spring-profile--conditionalonproperty"></a>
 
 ### Option A — Spring profile + `@ConditionalOnProperty`
 - `app.features.<domain>=true|false` properties
@@ -55,6 +59,8 @@ trade-off 는 jar 크기와 의존성 classpath 풍부함입니다. Spring condi
 - ❌ DB schema (V008~V014 — billing, audit, notification) 그대로 생성 — 운영자 무시 가능
 - 적용 모듈: payment, iap, push, email, 2FA, audit, billing-notification, password-policy
 
+<a id="option-b--gradle-module-exclusion-subset-build"></a>
+
 ### Option B — Gradle module exclusion (subset build)
 - `bootstrap/build.gradle` 에서 implementation project 의존을 conditional 추가
 - 예: `if (rootProject.ext.features.payment) implementation ':core:payment-impl'`
@@ -64,12 +70,16 @@ trade-off 는 jar 크기와 의존성 classpath 풍부함입니다. Spring condi
 - ❌ ArchUnit 룰 위반 가능성 (의존 제거 시 import 깨짐)
 - ❌ core-billing-api 가 다른 도메인에서 import 되면 제거 시 build 깨짐
 
+<a id="option-c--factory-feature-toggle-name-명령-자동-source-제거"></a>
+
 ### Option C — `factory feature toggle <name>` 명령 (자동 source 제거)
 - 사용자가 `<repo> feature disable payment` 명령 → 자동 git rm + sed import 정리 + DB 마이그레이션 제거
 - ✅ 가장 깔끔한 결과 (jar / source / DB 모두 정합)
 - ❌ 자동화 복잡 + 테스트 부담 (lite vs full 매트릭스 폭증)
 - ❌ 위험 — 실수 시 복구 어려움 (git rm 후 build 깨짐)
 - ❌ 파생 레포에 사용자 코드가 추가된 상태에서 toggle 시 충돌
+
+<a id="option-d--별도-template-repo-lite--full"></a>
 
 ### Option D — 별도 template repo (lite / full)
 - `template-spring-lite` / `template-spring` 두 레포 운영
@@ -98,9 +108,13 @@ Option A 의 단점 (jar 크기, 미사용 의존성, 미사용 schema) 는 본 
 
 ---
 
+<a id="결정--토글-가능한-모듈"></a>
+
 ## 결정 — 토글 가능한 모듈
 
 > 📌 **적용 범위**: 9 도메인 모두 안전 토글 가능. non-leaf 모듈은 의존 측에서 ObjectProvider 로 lazy 의존, leaf 모듈은 단순 ConditionalOnProperty.
+
+<a id="토글-적용-도메인-"></a>
 
 ### 토글 적용 도메인 (✅)
 
@@ -115,6 +129,8 @@ Option A 의 단점 (jar 크기, 미사용 의존성, 미사용 schema) 는 본 
 | `app.features.iap` | `@ConditionalOnProperty` | true | IapPort 미등록. BillingServiceImpl 호출 시 CMN_009 throw |
 | `app.features.2fa` | `@ConditionalOnExpression` | true | TwoFactorService 미등록. AuthServiceImpl 호출 시 CMN_009 throw |
 | `app.features.phone-auth` | `@ConditionalOnProperty` | true | PhoneAuthPort / 공유 PhoneAuthController 미등록 ([`ADR-038`](./adr-038-sms-phone-auth.md) 에서 추가) |
+
+<a id="의존-그래프--lazy-패턴"></a>
 
 ### 의존 그래프 + lazy 패턴
 
@@ -155,6 +171,8 @@ Email 만 silent skip 인 이유: 기존 정책 (이메일 발송 실패가 가�
 
 ---
 
+<a id="동작"></a>
+
 ## `factory feature` 명령 설계
 
 > **갱신 (2026-07-15)**: 이 설계는 `tools/app/feature.sh` 로 구현 완료됐어요 — `<repo> feature list/enable/disable` 이 실제로 동작합니다.
@@ -165,10 +183,9 @@ Email 만 silent skip 인 이유: 기존 정책 (이메일 발송 실패가 가�
 <repo> feature enable iap    # .env 의 APP_FEATURES_IAP=true (또는 unset)
 ```
 
-### 동작
-1. `.env` + `.env.prod` **둘 다** 동시 변경 — 로컬·운영 일관성 강제 (사용자 명시: "로컬 허용, 운영 비허용 = 혼란")
-2. 변경 후 `<repo> local server-test` 자동 실행 — 부팅 검증
-3. 부팅 로그에 disabled feature 명시 (`INFO ... feature disabled: 2fa`)
+1. 존재하는 `.env`·`.env.dev`·`.env.prod`의 값을 함께 바꿔요. 없는 파일은 새로 만들지 않고 건너뛰어요.
+2. `<repo> local server-test`와 `<repo> local api-test`로 변경 후 동작을 직접 확인해요. CLI는 이 명령을 안내하지만 실행하지 않아요.
+3. 실행 중인 서버에는 다음 재시작·배포부터 반영돼요. 현재 CLI 목록에는 phone-auth가 없으므로 이 플래그는 환경 설정에서 직접 관리해요.
 
 ### 검증
 - `<repo> feature list` → 표 출력 (모듈 / 활성 / `.env` line)
@@ -178,6 +195,8 @@ Email 만 silent skip 인 이유: 기존 정책 (이메일 발송 실패가 가�
 ---
 
 ## 사용자 비즈니스 시나리오
+
+<a id="lite--결제-없는-saas-블로그-커뮤니티-등"></a>
 
 ### Lite — 결제 없는 SaaS (블로그, 커뮤니티 등)
 ```bash
@@ -189,10 +208,14 @@ APP_FEATURES_AUDIT=false
 # 활성 = auth, user, device, push, email, storage
 ```
 
+<a id="full--모든-도메인-활성"></a>
+
 ### Full — 모든 도메인 활성
 ```bash
 # (default — 어떤 flag 도 .env 에 없음 = matchIfMissing=true)
 ```
+
+<a id="mid--결제--이메일만"></a>
 
 ### Mid — 결제 + 이메일만
 ```bash

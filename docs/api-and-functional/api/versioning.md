@@ -1,3 +1,5 @@
+<a id="버전-규약--api-버전-정책--deprecation-프로세스"></a>
+
 # 버전 규약 · API 버전 정책 · Deprecation 프로세스
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~7분
@@ -7,6 +9,8 @@
 > 📌 **현재 상태**: 최신 태그는 `template-v1.0.0` 입니다 (2026-07-21 버전 리셋 — 루트 `CHANGELOG.md` 참조). 이후 breaking change 는 major 를 올려요.
 
 ---
+
+<a id="버전-단위--템플릿-전체"></a>
 
 ## 버전 단위 — 템플릿 전체
 
@@ -29,13 +33,13 @@ breaking 인지 아닌지의 판단은 "파생 레포가 그대로 빌드되는�
 
 | breaking (major) | non-breaking (minor/patch) |
 |---|---|
-| Port 메서드 시그니처 변경 | 새 Port 메서드 추가 |
-| DTO 필드 rename·타입 변경 | DTO 에 optional 필드 추가 (NON_NULL + unknown IGNORE 정책 덕) |
+| Port 메서드 시그니처 변경·추상 메서드 추가 | 기존 구현체를 깨뜨리지 않는 default 메서드 추가 |
+| DTO 필드 rename·타입·record 생성자 변경 | HTTP 응답에 선택 필드 추가 (소비자가 미지 필드를 무시하는 조건) |
 | DB 스키마 변경 (신규 NOT NULL 컬럼) | 새 엔드포인트 추가 |
 | 환경변수 이름 변경 | — |
 | DTO suffix 변경 (`UserSummary` → `UserDigest`) | — |
 
-optional 필드 추가가 안전한 이유는 직렬화 정책에 있어요. 응답은 `NON_NULL` 이라 null 필드가 빠지고, 요청은 unknown 필드를 무시하므로, 클라이언트가 모르는 새 필드가 생겨도 깨지지 않아요.
+호환성은 HTTP 소비자와 Java 구현체를 나누어 판단해요. 선택 응답 필드 추가는 클라이언트가 알 수 없는 필드를 무시할 때 호환될 수 있어요. 반면 필수 요청 필드 추가, record 생성자 변경, 추상 Port 메서드 추가는 기존 소비자나 구현체를 깨뜨릴 수 있어요. 위 표를 적용할 때는 파생 레포의 컴파일과 실제 클라이언트 계약을 함께 확인해요.
 
 ---
 
@@ -61,7 +65,7 @@ optional 필드 추가가 안전한 이유는 직렬화 정책에 있어요. 응
 - **Cloudflare 리버스 프록시 재작성 (권장)** — `/api/v1/*` → `/api/*` 규칙 추가. 코드 0줄로 공유 core·앱별 컨트롤러를 균일하게 덮고, 앱별 격리 원칙도 그대로 유지돼요.
 - **코드 prefix 변경** — `common-web APP_BASE` + 앱마다 `<Slug>ApiEndpoints.BASE` 를 `/api/v1/...` 로 수정 (한 곳이 아니라 공유 core 1곳 + 앱별 N곳). URL 의 v1 을 코드·로그에 드러내고 싶을 때만 골라요.
 
-도입 시점 신호와 멀티 버전 공존 설계는 [`ADR-008`](../../philosophy/adr-008-no-api-versioning.md) 의 *도입 경로 두 가지* 에 기록돼 있어요. 지금은 그 구조를 준비할 필요조차 없어요.
+URL 버전이 필요한 조건과 여러 버전을 함께 운영하는 방법은 [ADR-008](../../philosophy/adr-008-no-api-versioning.md)의 도입 경로 절에 있어요. 현재는 URL 버전을 도입하지 않는 결정을 유지하고, 실제 호환성 요구가 생기면 그 기준으로 재검토해요.
 
 ---
 
@@ -144,6 +148,8 @@ optional 필드 추가가 안전한 이유는 직렬화 정책에 있어요. 응
 
 ## 릴리스 프로세스
 
+<a id="평상시-feat--fix"></a>
+
 ### 평상시 (feat · fix)
 
 ```bash
@@ -197,6 +203,8 @@ breaking 을 미루는 이유는 파생 레포 마이그레이션 시간을 확�
 [Active] ──deprecate──> [Deprecated] ──next major──> [Removed]
  v1.0.0                  v1.1.0 ~ v1.x.y              v2.0.0
 ```
+
+<a id="필수-요소--코드changelog문서"></a>
 
 ### 필수 요소 — 코드·CHANGELOG·문서
 
@@ -271,7 +279,7 @@ git tag -a template-v1.3.0 -m "..."
 git push origin template-v1.3.0
 ```
 
-태그는 코드를 바꾸지 않아요 — 실수해도 원복이 안전해요.
+태그를 지워도 커밋 내용은 바뀌지 않지만, 이미 만든 Release·자동화·파생 레포의 참조에는 영향이 있어요. 공개된 태그는 단순히 안전한 원복으로 보지 말고 참조 여부를 확인해 정정해요. `tag-validate.yml`도 push 이후 검증하므로 잘못된 태그의 원격 생성 자체를 막는 사전 gate는 아니에요.
 
 ### 자동 GitHub Release
 

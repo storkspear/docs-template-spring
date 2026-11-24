@@ -1,3 +1,5 @@
+<a id="ci--cd-전체-플로우--commit-부터-운영-반영까지"></a>
+
 # CI / CD 전체 플로우 — commit 부터 운영 반영까지
 
 > **유형**: Explanation · **독자**: Level 2 · **읽는 시간**: ~15분
@@ -22,7 +24,7 @@
 
 `git commit` 부터 사용자에게 노출되기까지 약 10~12분, billed 8~9분이에요 ([§4 시간 분석](#4-시간-분석--billed-8분의-정체) 실측 기준).
 
-흐름의 골격은 두 개의 워크플로우가 `workflow_run` 으로 이어지는 구조예요. CI 워크플로우가 main 에서 성공으로 끝나면 deploy 워크플로우가 자동으로 트리거됩니다. deploy 는 해당 SHA 를 다시 체크아웃해 jar 를 빌드하고, docker 이미지로 패키징해 GHCR 에 push 한 뒤, Mac mini 의 kamal 이 blue/green 으로 컨테이너를 교체합니다.
+자동 배포는 CI 완료 이벤트를 받은 뒤 결과와 환경별 배포 gate를 확인해 진행해요. main은 prod, develop은 dev 워크플로로 이어지고, 배포는 해당 SHA를 다시 checkout해 jar와 이미지를 만들어요. 수동 `workflow_dispatch`와 로컬 배포는 별도 경로이므로 CI 성공을 자동으로 보장하지 않아요. 수동 배포에서는 운영자가 검증한 SHA를 선택해요.
 
 여기서 한 가지 짚어 둘 게 있어요. CI 와 deploy 는 **각자 gradle 빌드를 한 번씩** 돌려요. CI 는 spotless · 테스트 · ArchUnit 까지 포함한 full build 를, deploy 는 `-x test` 로 jar 만 빠르게 패키징하는 build 를 합니다. CI 의 산출물을 artifact 로 넘겨 재사용하지 않는 이유는 storage 한도 때문인데, 자세한 배경은 [§4 시간 분석](#4-시간-분석--billed-8분의-정체) 과 [`I-12`](./decisions-infra.md) 에 정리돼 있어요.
 
@@ -252,6 +254,8 @@
 
 ## 3. Phase 별 세부
 
+<a id="phase-1--로컬"></a>
+
 ### PHASE 1 — 로컬
 
 husky `commit-msg` hook 이 두 가지를 검사합니다.
@@ -260,6 +264,8 @@ husky `commit-msg` hook 이 두 가지를 검사합니다.
 - `npx commitlint --edit` → Conventional Commits 룰 검사
 
 위반 시 commit 자체가 거절돼요 (`.git/objects` 생성 전).
+
+<a id="phase-2--feature-브랜치-push"></a>
 
 ### PHASE 2 — feature 브랜치 push
 
@@ -276,6 +282,8 @@ on:
 ```
 
 feature 작업 중 빠르게 확인하고 싶으면 로컬에서 `<repo> ci-test` 를 돌리면 돼요.
+
+<a id="분-절약-스위치--ci_on_push"></a>
 
 #### 분 절약 스위치 — `CI_ON_PUSH`
 
@@ -312,6 +320,8 @@ CI 를 끄면 "전체 test 는 CI 가 책임진다" 는 전제도 같이 깨져�
 에 ArchUnit(r1~r22, 16초)을 넣어 뒀지만, 전체 `./gradlew build`(약 13분)는 여전히 빠져
 있어요. **큰 변경 뒤에는 `./gradlew build` 를 직접 돌리거나 CI 를 수동 1회 실행하세요.**
 
+<a id="phase-3--pr-생성"></a>
+
 ### PHASE 3 — PR 생성
 
 PR 을 열면 7개 워크플로우가 동시에 돕니다. 코드 게이트(ci · docs-check · security-scan · contract-snapshot)와 메타 게이트(commit-lint · pr-title · changelog-check)로 나눠 볼 수 있어요.
@@ -328,11 +338,15 @@ PR 을 열면 7개 워크플로우가 동시에 돕니다. 코드 게이트(ci �
 
 branch protection 이 켜져 있으면 이 중 하나라도 fail 일 때 Merge 버튼이 회색으로 막혀요.
 
+<a id="phase-4--merge"></a>
+
 ### PHASE 4 — Merge
 
 GitHub squash merge 가 새 commit 을 `main` 에 push 합니다.
 
 ⚠️ **불가역** — 코드가 이미 main 에 들어간 뒤라, 이후 fail 이 나도 자동 revert 가 되지 않아요.
+
+<a id="phase-5--post-merge-ci"></a>
 
 ### PHASE 5 — Post-merge CI
 
@@ -341,6 +355,8 @@ GitHub squash merge 가 새 commit 을 `main` 에 push 합니다.
 이 단계가 곧 CI → CD 게이트의 출발점이에요. CI 가 여기서 fail 이면 다음 Phase 의 `workflow_run` 이 success 로 발동하지 않아 deploy 가 시작되지 않습니다.
 
 > 참고로 이전 구조에서는 CI 가 jar artifact 를 업로드하고 deploy 가 그걸 내려받아 재사용했는데, artifact storage 한도(Free tier 500MB)를 빠르게 소진하는 문제로 폐기됐어요. 지금은 CI 가 artifact 를 만들지 않고, deploy 가 같은 SHA 에서 jar 를 다시 빌드합니다 ([`I-12`](./decisions-infra.md)).
+
+<a id="phase-6--workflow_run--deploy"></a>
 
 ### PHASE 6 — workflow_run + deploy
 
@@ -369,7 +385,9 @@ gate:                            gate:
 
 이게 **명시적 CI → CD 게이트** 예요. CI fail 이면 해당 환경의 deploy 가 시작되지 않습니다. template 레포는 `DEPLOY_ENABLED` / `DEPLOY_ENABLED_DEV` 가 미설정이라 gate 가 항상 skip 으로 떨어져 안전한 no-op 으로 남아요.
 
-gate 를 통과하면 deploy job 이 SHA 를 체크아웃해 `./gradlew bootstrap:bootJar -x test` 로 jar 를 빌드하고, `Dockerfile.runtime` 으로 arm64 이미지를 buildx 빌드해 GHCR 에 `:<sha>` 태그로 push 합니다. dev 경로는 같은 GHCR repo 에 `:dev-<sha>` 태그로 격리해서 올려요. 그 뒤 `kamal deploy --skip-push --version=<sha>` 가 kamal 의 자체 빌드를 건너뛰고(이미 push 한 이미지를 그대로 swap), Mac mini 가 이미지를 pull 해 blue/green 으로 교체합니다.
+배포 job은 대상 SHA를 체크아웃하고 `./gradlew bootstrap:bootJar -x test`로 jar를 만들어요. 이어 `Dockerfile.runtime`으로 arm64 이미지를 빌드해 GHCR에 올려요. prod 태그는 `:<sha>`, dev 태그는 `:dev-<sha>`예요. Kamal은 `--skip-push`로 이미 올라간 이미지를 사용하고, Mac mini에서 새 컨테이너를 준비한 뒤 트래픽을 전환해요. 이 과정에서 Kamal이 이미지를 다시 빌드하지는 않아요.
+
+<a id="phase-7--운영-노출"></a>
 
 ### PHASE 7 — 운영 노출
 
@@ -382,6 +400,8 @@ cloudflared tunnel 이 외부 도메인을 Mac mini :80 으로 outbound 연결�
 
 ---
 
+<a id="4-시간-분석--billed-8분의-정체"></a>
+
 ## 4. 시간 분석 — billed 8분의 정체
 
 | 단계 | wall-clock | billed (GHA Actions minutes) |
@@ -393,9 +413,11 @@ cloudflared tunnel 이 외부 도메인을 Mac mini :80 으로 outbound 연결�
 
 CI 와 deploy 는 직렬이에요. deploy 가 CI 의 success 를 기다렸다가 시작하기 때문이에요. 그래서 wall-clock 은 두 단계의 합에 가깝고, billed 분은 각 단계의 실행 시간을 더한 값이에요.
 
-deploy 가 jar 를 다시 빌드하는데도 비용이 크게 늘지 않는 이유는 `-x test` 덕분이에요. CI 가 이미 테스트 · spotless · OWASP 를 검증했으니, deploy 빌드는 테스트를 건너뛰고 jar 패키징만 합니다. artifact 를 주고받는 대신 빌드를 한 번 더 하는 트레이드오프인데, storage 사용을 0 으로 만들면서 ci ↔ deploy 결합을 단일 build 경로로 단순화하는 선택이에요 ([`I-12`](./decisions-infra.md)).
+deploy 단계는 `bootstrap:bootJar -x test`로 테스트를 생략하고 jar를 다시 만들어요. CI artifact를 전달하는 대신 배포 대상 SHA에서 패키징하는 방식이에요. jar 전달용 artifact 저장 공간을 줄이고 빌드 경로를 단순하게 유지하려는 선택이에요. 자동 배포는 앞선 CI 성공을 확인하지만 수동 dispatch는 그 조건을 우회할 수 있고, OWASP 검사는 실패를 차단하지 않으므로 모든 배포가 동일한 검증을 거쳤다고 보지는 않아요 ([I-12](./decisions-infra.md)).
 
 ---
+
+<a id="5-안전망--어디서-막히나"></a>
 
 ## 5. 안전망 — 어디서 막히나
 
@@ -413,6 +435,9 @@ deploy 가 jar 를 다시 빌드하는데도 비용이 크게 늘지 않는 이�
 | 라우팅 swap | kamal-proxy | swap 실패 시 트래픽 안 옮김 (Blue 그대로) |
 
 ---
+
+<a id="6-함정-17개-자세히--pitfallsstartdogfood-pitfallsmd"></a>
+<a id="6-함정-17개-자세히--pitfalls"></a>
 
 ## 6. 함정 17개 (자세히 → [`pitfalls`](../../start/dogfood-pitfalls.md))
 
@@ -443,7 +468,7 @@ deploy 가 jar 를 다시 빌드하는데도 비용이 크게 늘지 않는 이�
 
 - [`도그푸딩 환경 셋업 가이드`](../../start/dogfood-setup.md) — 셋업 가이드 (정상 흐름)
 - [`도그푸딩 함정 모음 (사고 실록)`](../../start/dogfood-pitfalls.md) — 함정 모음 (사고 실록)
-- [`도그푸딩 FAQ`](../../start/dogfood-faq.md) — 자주 묻는 질문
+- [`도그푸딩 FAQ`](../../start/dogfood-setup.md) — 자주 묻는 질문
 - [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) — 운영 배포 (cloudflared, observability)
 - [`운영 런북 (Runbook)`](./runbook.md) — 평시 운영 / 장애 대응
 - [`인프라 결정 기록 (Decisions — Infrastructure) I-09 ~ I-14`](./decisions-infra.md) — 결정 카드

@@ -1,16 +1,18 @@
+<a id="adr-022--iap-server-notifications-apple-v2--google-rtdn"></a>
+
 # ADR-022 — IAP Server Notifications (Apple V2 + Google RTDN)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
 **Status**: Accepted. Apple V2 와 Google RTDN webhook 을 `IapNotification` 통합 모델로 정규화해요. `BillingPort.handleIapNotification` 단일 진입점이라 정책 layer 가 platform 에 무관합니다.
 
-> **테이블 리네임 (2026-06-30)**: 본 ADR 이 재활용하는 `webhook_events` 는 현재 `payment_webhook_events` (엔티티 `PaymentWebhookEvent`), `payment_records` 는 `payment_history` 로 리네임됐어요. 멱등성 메커니즘 (`(source, external_id)` UNIQUE) 자체는 그대로예요. 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요.
+> **테이블 리네임 (2026-06-30)**: 본 ADR 이 재활용하는 `webhook_events` 는 현재 `payment_webhook_events` (엔티티 `PaymentWebhookEvent`), `payment_records` 는 `payment_history` 로 리네임됐어요. 현재 고유 키는 `(source, external_id, event_status)`예요. 같은 외부 ID의 상태 변화도 구분해요. 아래 본문은 결정 당시 이름을 보존하니, 현재 스키마는 [`data-model`](../reference/data-model.md) 을 참고하세요.
 
 ---
 
 ## 결론부터
 
-IAP (In-App Purchase) 결제는 *최초 구매 시점* 의 receipt 검증만으로 끝나는 흐름이 아니에요. 사용자가 구독을 결제한 뒤에도 *매월 자동 갱신*, *Apple/Google 측 환불 처리*, *가족 공유 해지로 인한 강제 취소*, *카드 만료로 인한 갱신 실패* 같은 사건들이 *결제 시점 이후* 에 계속 일어납니다. PG 결제는 *우리가 직접 갱신·환불·취소를 처리* 하지만, IAP 는 *결제 처리 주체가 Apple/Google* 이라 우리가 그 이벤트를 *능동적으로 알아낼 길이 없어요* — Apple App Store 와 Google Play 가 *Server Notification webhook* 으로 백엔드에 통보해 줘야만 인지할 수 있습니다.
+스토어 구독은 최초 구매 이후에도 갱신·환불·취소가 발생하므로 서버 알림을 처리해야 해요. Apple과 Google의 서로 다른 알림을 각 디코더에서 해석하고, Billing의 공통 처리로 연결해요. 알림 발신자 인증, 거래 식별, 중복 이벤트 처리는 각각 별도의 검증 경계로 다뤄요.
 
 본 ADR 은 Apple App Store Server Notifications V2 + Google Play Real-Time Developer Notifications (RTDN) 의 두 webhook 흐름을 통합 처리하는 구조를 정의합니다. 두 platform 의 webhook 은 *형식이 본질적으로 달라요* — Apple 은 JWS (이중 서명) 형태이고, Google 은 Pub/Sub bearer JWT 형태입니다. raw 이벤트 type 도 다르고 (Apple 의 `DID_RENEW` vs Google 의 `SUBSCRIPTION_RENEWED`), 사용자 식별 방식도 다르고 (Apple 의 `originalTransactionId` vs Google 의 `purchaseToken`), 응답 페이로드도 제각각이에요. 이 차이를 *정책 layer (`BillingPort`)* 까지 끌고 가면 비즈니스 코드가 *if (platform == "apple")* 분기로 가득 차버립니다.
 
@@ -24,7 +26,7 @@ IAP (In-App Purchase) 결제는 *최초 구매 시점* 의 receipt 검증만으�
 
 IAP 결제는 *결제 시점 이후의 사건* 을 백엔드가 인지할 수 있는 *유일한 채널이 server notification webhook* 이에요. PG 결제는 *우리가 능동적으로 PG API 를 호출해서* 결제 상태·환불·갱신을 처리할 수 있지만, IAP 는 *Apple·Google 이 결제 주체* 라 우리가 *능동 호출할 API 자체가 없어요*. Apple 의 `Get Transaction Info` API 가 *조회는 가능* 하지만, *언제 갱신이 일어났는지, 사용자가 환불받았는지* 같은 사건을 *알아낼 트리거* 가 없으면 결국 *주기적 polling* 이 필요한데, 그것도 *수만 사용자의 transaction 을 매시간 조회* 하는 비용이 너무 커요.
 
-server notification 이 그 트리거 역할을 합니다. Apple·Google 이 *사건이 발생한 시점에 webhook 으로 통보* 해 주므로 백엔드는 *그 통보만 정확히 처리* 하면 사용자 권한 관리가 자동화돼요. 통보를 받지 못하면 *사용자가 환불받았는데 우리 시스템에서는 여전히 ACTIVE 인* 상태가 발생하고, *가족 공유로 강제 취소된 구독에서 사용자 권한이 그대로 유지* 되는 정합성 사고가 누적됩니다.
+서버 알림은 구매 이후 변경을 백엔드에 전달해요. 알림을 인증하고 기존 거래와 연결한 뒤 구독 상태를 갱신해야 해요. 도착하지 않거나 거래를 찾지 못한 알림도 있으므로 수신만으로 모든 상태가 자동 일치한다고 보장하지 않아요. 현재 no-op·재처리 경로를 함께 확인해야 해요.
 
 문제는 두 platform 의 *형식이 본질적으로 다르다* 는 점이에요. Apple V2 는 JWS (JSON Web Signature) 의 이중 서명 구조 — *outer signedPayload* 안에 *inner signedTransactionInfo* 가 또 JWS 로 감싸져 있어 두 단계 검증이 필요해요. cert chain (leaf → intermediate → Apple Root CA G3) 검증 + ES256 서명 확인이 둘 다 필요한 *비교적 복잡한* 형태입니다. Google RTDN 은 Pub/Sub 의 bearer JWT 로 도착하는 형태로, Google service account 의 RS256 토큰을 JWKS 공개키로 검증하는 *비교적 간단한* 형태예요. Apple 은 *cert 기반 PKI*, Google 은 *JWKS 기반 OAuth* 라 검증 메커니즘 자체가 다릅니다.
 
@@ -121,6 +123,8 @@ BillingPort.handleIapNotification(notification)
 
 ---
 
+<a id="did_renew-의-user-식별"></a>
+
 ## DID_RENEW 의 user 식별
 
 Apple/Google notification 자체에는 user 정보가 없어요 (transactionId·purchaseToken 만 있어요). 우리의 PaymentRecord 에 저장된 `originalTransactionId` (= IAP channel 의 customer_uid 컬럼) 와 매칭하여 user 를 식별합니다:
@@ -151,8 +155,10 @@ long userId = existing.getUserId();
 
 ### Idempotency
 
-- `webhook_events` 의 `(source, external_id)` UNIQUE 제약을 활용해요. 여기서 external_id 는 알림 1건마다 고유한 **notificationId**(Apple `notificationUUID` / Google Pub/Sub `messageId`)예요 — `transactionId` 가 **아니에요**. Google 은 구독 생애 내내 `purchaseToken`(=transactionId)이 불변이라, transactionId 로 dedup 하면 갱신·환불 알림이 최초 구매와 같은 키로 충돌해 영구 skip 되기 때문이에요. 같은 notificationId 의 두 번째 호출(재전송)은 markProcessed 만 확인하고 처리를 skip 합니다.
+- 현재 `payment_webhook_events`의 `(source, external_id, event_status)` 고유 제약을 사용해요. 여기서 external_id 는 알림 1건마다 고유한 **notificationId**(Apple `notificationUUID` / Google Pub/Sub `messageId`)예요 — `transactionId` 가 **아니에요**. Google 은 구독 생애 내내 `purchaseToken`(=transactionId)이 불변이라, transactionId 로 dedup 하면 갱신·환불 알림이 최초 구매와 같은 키로 충돌해 영구 skip 되기 때문이에요. 같은 notificationId 의 두 번째 호출(재전송)은 markProcessed 만 확인하고 처리를 skip 합니다.
 - contract test `duplicateTransactionId_idempotencySkipsSecondCall`(재전송 skip)·`sameTransactionId_distinctNotificationIds_bothProcessed`(다른 이벤트는 각각 처리) 가 검증해요.
+
+<a id="race--동시성"></a>
 
 ### Race / 동시성
 
@@ -183,17 +189,23 @@ long userId = existing.getUserId();
 
 ## 대안 비교
 
+<a id="옵션-a--platform-별-billingport-메소드-handleapplenotification--handlegooglenotification"></a>
+
 ### 옵션 A — platform 별 BillingPort 메소드 (handleAppleNotification / handleGoogleNotification)
 
 - 단순해요 — 각 platform 마다 별 method 가 있어요.
 - ❌ 정책 layer 가 platform 형식을 알아야 해요 → 채널 분리 (ADR-019) 위반이에요.
 - ❌ 새 platform 추가 시 BillingPort 변경이 필요해요 (Stripe 등 추가 시 메소드가 폭증해요).
 
+<a id="옵션-b--iapnotification-통합-모델--단일-진입점--채택"></a>
+
 ### 옵션 B — IapNotification 통합 모델 + 단일 진입점 ★ 채택
 
 - Decoder 가 platform-specific decode → 통합 모델로 변환해요
 - 정책 layer 는 platform 에 무관하고 type 만 분기해요
 - 새 platform 추가 시 Decoder 만 추가하면 돼요 (BillingPort 변경 없음)
+
+<a id="옵션-c--iapporthandlenotification-iap-도메인-안에-정책"></a>
 
 ### 옵션 C — IapPort.handleNotification (Iap 도메인 안에 정책)
 

@@ -1,3 +1,5 @@
+<a id="adr-027--admin-role-권한-시스템-adminonly"></a>
+
 # ADR-027 — Admin role 권한 시스템 (`@AdminOnly`)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
@@ -12,9 +14,9 @@
 
 서비스가 자라면 *일반 사용자가 접근하면 안 되는 운영자 전용 endpoint* 가 늘어나요. 결제 강제 환불, 구독 강제 취소, 사용자 role 변경, plan 정의 수정 같은 *시스템 상태를 직접 조작* 하는 기능들이에요. 이런 endpoint 가 일반 사용자 토큰으로 접근 가능하면 *권한 escalation* 이 곧바로 일어나므로, *권한 검증을 컨벤션 수준에서 명시적으로 강제* 하는 메커니즘이 필요합니다.
 
-본 ADR 은 운영자 전용 endpoint 를 표시하는 `@AdminOnly` meta annotation 을 도입합니다. 이 어노테이션은 Spring Security 의 `@PreAuthorize("hasRole('ADMIN')")` 을 한 번 감싼 *도메인 의도가 명시적인* 표기예요. 컨트롤러 메서드나 클래스에 `@AdminOnly` 한 줄을 붙이면 *그 endpoint 가 운영자 전용임* 이 코드만 봐도 명확해지고, 일반 사용자 JWT 가 들어오면 Spring Security 가 *403 Forbidden* 으로 자동 차단합니다.
+`@AdminOnly`는 앱 사용자에게 `ROLE_ADMIN`이 있는지 검사하는 어노테이션이에요. 컨트롤러 메서드나 클래스에 붙여 앱 안의 관리자 기능을 제한해요. `/api/admin/*` 운영 콘솔은 이 역할과 분리된 콘솔 토큰과 `PERM_*` 권한을 사용해요. 두 종류의 관리자를 같은 권한으로 해석하지 않아요.
 
-권한 검증 자체는 JWT 의 `role` claim 위에서 작동해요. 사용자가 로그인하면 발급되는 JWT 의 payload 에 `role` 필드가 `"user"` 또는 `"admin"` 으로 포함되고, `JwtAuthFilter` 가 이 값을 Spring Security 의 GrantedAuthority (`ROLE_USER`·`ROLE_ADMIN`) 로 매핑합니다. `@PreAuthorize` 가 그 GrantedAuthority 를 검증하는 흐름이라 [`ADR-006`](./adr-006-hs256-jwt.md) 의 JWT 인프라와 자연스럽게 연결돼요. `AppSlugVerificationFilter` ([`ADR-013`](./adr-013-per-app-auth-endpoints.md)) 와 같은 chain 에서 검증되어 앱 단위 격리와 role 단위 권한의 이중 방어선이 작동합니다.
+앱 로그인 JWT의 `role`을 `JwtAuthFilter`가 `ROLE_USER`·`ROLE_ADMIN` 같은 GrantedAuthority로 바꿔요. `@AdminOnly`는 이 권한을 확인하고, `AppSlugVerificationFilter`는 요청 경로와 토큰의 앱이 맞는지 따로 확인해요. 역할 검사와 앱 경계 검사가 서로 다른 조건을 담당해요([ADR-006](./adr-006-hs256-jwt.md), [ADR-013](./adr-013-per-app-auth-endpoints.md)).
 
 이 ADR 의 범위는 `@AdminOnly` 어노테이션 정의, JWT role claim 의 발급·검증 흐름, Spring Security 의 `@EnableMethodSecurity` 활성화, 권한 부족 시의 응답 처리 (401 vs 403), 그리고 향후 moderator·billing_ops 같은 추가 role 도입을 위한 확장 경로까지입니다.
 
@@ -32,7 +34,7 @@
 
 Spring Security 의 method security 방식은 *선언적* 이에요. `@PreAuthorize("hasRole('ADMIN')")` 한 줄을 메서드에 붙이면 *AOP 가 자동으로 권한 검증* 을 실행하고, 권한 부족 시 *AccessDeniedException* 을 던져 표준 403 응답으로 처리됩니다. 컨트롤러 코드 안의 권한 분기 로직이 사라지고, *어느 endpoint 가 admin 전용인지* 가 어노테이션으로 명확히 드러나요.
 
-다만 `@PreAuthorize("hasRole('ADMIN')")` 자체는 *문자열 SPEL* 형태라 *오타 가능성* 과 *도메인 의미가 약한* 부분이 있어요. *`@AdminOnly`* 라는 의도가 명확한 meta annotation 으로 한 번 감싸면 *오타 차단 + 도메인 의도 표현* 이 동시에 가능합니다. 다른 도메인이 *moderator 전용* 이나 *billing_ops 전용* 같은 추가 role 을 도입할 때도 같은 패턴 (`@ModeratorOnly`, `@BillingOpsOnly`) 으로 자연스럽게 확장돼요.
+반복되는 `@PreAuthorize("hasRole('ADMIN')")` 표현식을 `@AdminOnly` 한곳에 모아요. 호출 지점에는 앱 관리자 전용이라는 의도가 드러나고 표현식을 중복 작성하는 일을 줄여요. 필요해지면 moderator나 billing_ops도 별도 역할과 검증 규칙을 정의할 수 있어요. 어노테이션으로 감쌌다고 권한 모델 전체의 오류가 자동으로 사라지는 것은 아니에요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
@@ -48,7 +50,7 @@ Spring Security 의 method security 방식은 *선언적* 이에요. `@PreAuthor
 | **컨벤션** | `@AdminOnly` meta annotation = `@PreAuthorize("hasRole('ADMIN')")` wrapping |
 | **JWT role claim** | 기존 그대로 — `role` claim (소문자 "admin") |
 | **GrantedAuthority** | 기존 — `ROLE_` prefix + uppercase ("ROLE_ADMIN") |
-| **응답 코드** | 미인증 401 (`JsonAuthenticationEntryPoint`) / 권한 부족 403 (Spring Security default) |
+| **응답 코드** | 미인증 401 (`JsonAuthenticationEntryPoint`) / 권한 부족 403 (`JsonAccessDeniedHandler`) |
 | **사용 위치** | controller method 또는 type level. type level = 모든 메소드 admin |
 
 ---
@@ -69,7 +71,7 @@ public ApiResponse<RefundResult> refund(@RequestBody RefundRequest request) {
 
 ```java
 @RestController
-@RequestMapping("/api/admin/...")
+@RequestMapping("/api/apps/{appSlug}/management")
 @AdminOnly
 public class AdminPanelController {
     // 모든 메소드 admin only
@@ -167,7 +169,7 @@ public @interface AdminOrModerator {}
 - **Admin endpoint 신규** — 사용자 role 변경·plan 등록·subscription 강제 cancel·운영 통계 조회 같은 추가 기능이에요. 비즈니스별로 다르므로 derived 앱에서 추가하는 걸 권장해요.
 - **Admin 전용 controller convention** — 모든 admin 메소드를 `<Slug>AdminController` 로 분리해요. type level `@AdminOnly` 를 적용하고 ArchUnit 으로 강제할 수 있어요.
 - **2FA / 추가 인증** — admin 액션 시 한 번 더 비밀번호 입력 (sudo 모드)
-- **Audit 로그** — 누가 언제 무엇을 admin 액션 했는지 (별도 table)
+- **Audit 로그** — 이후 [ADR-028](./adr-028-audit-log-domain.md)에서 구현했어요. 앱 작업의 기록 대상과 한계는 해당 문서에서 확인해요.
 - **role 다중화** — 앱 사용자의 `users.role` 은 여전히 user/admin 단일이에요. moderator/billing_ops 등 추가는 비즈니스 결정에 맡겨요. 다만 운영 콘솔 계정은 이후 별도 admin 모듈이 역할·권한 (PERM_*) 기반 RBAC 로 구현됐어요 ([`ADR-039`](./adr-039-admin-module.md) 참조).
 - **role enum 화** — `String role` → `Role enum (USER, ADMIN, ...)` — 타입 안전성 ↑
 

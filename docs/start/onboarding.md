@@ -1,8 +1,10 @@
+<a id="onboarding--템플릿-첫-사용-가이드"></a>
+
 # Onboarding — 템플릿 첫 사용 가이드
 
 > **유형**: How-to · **독자**: Level 1 · **읽는 시간**: ~1~2시간 (실제 셋업 포함)
 
-이 문서는 GitHub Template 을 "Use this template" 으로 복제한 직후부터 **내 노트북에서 Spring 앱이 살아 움직이는 순간** 까지, 첫 사용자를 옆에서 한 단계씩 안내하는 가이드예요. 처음 보는 도구가 나오면 설치하는 법까지 같이 짚고, 왜 이 단계가 필요한지를 먼저 설명한 뒤 명령을 보여줘요.
+`Use this template`으로 파생 저장소를 만든 뒤 로컬에서 첫 앱을 실행하는 절차예요. 도구 확인, 로컬 설정, 앱 생성, 기동과 검증 순서로 진행해요. 원격 운영 환경의 자격 발급과 배포는 로컬 실행을 확인한 뒤 전용 문서에서 다뤄요.
 
 전체 흐름은 시간 순으로 이렇게 흘러가요.
 
@@ -40,6 +42,8 @@
 먼저 노트북에 필요한 도구를 갖춰요. 이미 다 설치돼 있다면 [§2 레포 만들기](#2-레포-만들기--첫-기동) 로 바로 넘어가도 돼요.
 
 > **이 팩토리는 macOS 기준이에요** (brew · bash · Kamal 전제). Linux 도 대부분 동작하고, 각 도구마다 Linux 설치 경로를 함께 적어 뒀어요. **Windows 는 직접 지원하지 않아요** — WSL2(Windows Subsystem for Linux) 안에서 Linux 환경으로 진행하는 걸 권장해요.
+
+<a id="한-번에-진단하기--factory-doctor"></a>
 
 ### 한 번에 진단하기 — `./factory doctor`
 
@@ -95,6 +99,8 @@ gh --version && gh auth status   # 설치 + 로그인 확인 (gh auth login 으�
 
 ---
 
+<a id="2-레포-만들기--첫-기동"></a>
+
 ## 2. 레포 만들기 + 첫 기동
 
 이 절은 **첫 작업자의 최초 셋업** 흐름이에요. 템플릿에서 내 레포를 만들고, clone 해서, 명령 하나로 로컬 환경을 띄우고, 첫 앱까지 올리는 happy path 를 한 번에 따라가요.
@@ -113,6 +119,8 @@ git clone git@github.com:<your-org>/myapp-backend.git
 cd myapp-backend
 ```
 
+<a id="23-factory-install--명령어-등록"></a>
+
 ### 2.3 `./factory install` — 명령어 등록
 
 clone 직후 가장 먼저 할 일은 `factory` 를 설치하는 거예요. `factory` 는 셋업 · 기동 · 테스트 · 배포 · 정리를 한곳에서 호출하는 명령 dispatcher 인데, 매번 `bash ./factory ...` 로 부르긴 번거로워요.
@@ -129,6 +137,8 @@ clone 직후 가장 먼저 할 일은 `factory` 를 설치하는 거예요. `fac
 설치하면 어디서든 `<repo> init`, `<repo> test` 같은 명령을 쓸 수 있어요. `~/.local/bin` 이 `PATH` 에 없다는 경고가 뜨면, 안내대로 `~/.zshenv` 에 `export PATH="$HOME/.local/bin:$PATH"` 한 줄을 추가하세요. 명령 전체 매트릭스와 별칭 변경법은 [`CLI 가이드`](./cli-guide.md) 에 정리돼 있어요.
 
 > symlink 를 등록하지 않아도 `bash ./factory <verb>` 또는 `bash tools/<스크립트>.sh` 직접 호출로 동등하게 동작해요.
+
+<a id="24-repo-init--로컬-환경-셋업"></a>
 
 ### 2.4 `<repo> init` — 로컬 환경 셋업
 
@@ -270,6 +280,8 @@ DB schema 와 role 생성은 **기본 동작**이라 플래그가 필요 없어�
 <repo> test         # spring UP 재확인
 ```
 
+<a id="34-두-번째-세-번째-앱--명령은-똑같아요"></a>
+
 ### 3.4 두 번째, 세 번째 앱 — 명령은 똑같아요
 
 `new app` 은 멱등(여러 번 호출해도 안전)하게 설계돼서, 첫 앱이든 열 번째 앱이든 같은 명령으로 추가해요.
@@ -409,6 +421,8 @@ set -a; source .env; set +a
 SPRING_PROFILES_ACTIVE=local ./gradlew :bootstrap:bootRun
 ```
 
+<a id="62-db-연결-실패--connection-refused-localhost5433"></a>
+
 ### 6.2 DB 연결 실패 — `Connection refused localhost:5433`
 
 원인 — Postgres 컨테이너가 안 떠 있어요.
@@ -453,6 +467,8 @@ docker compose -f infra/docker-compose.local.yml up -d postgres
 ./gradlew :bootstrap:bootRun
 ```
 
+<a id="66-jwt_secret-가-32자-미만이라고-나와요"></a>
+
 ### 6.6 `JWT_SECRET` 가 32자 미만이라고 나와요
 
 증상 — `app.jwt.secret must be at least 32 characters (256 bits) for HS256`.
@@ -475,6 +491,8 @@ openssl rand -hex 32   # 64자 출력 → 이 값을 복사
 해결 — 급하면 Ctrl+C 두 번 또는 `kill -9 <pid>`. 처리 중인 요청이 없으면 즉시 종료돼요.
 
 ---
+
+<a id="7-아직-미구현--stub-상태인-기능"></a>
 
 ## 7. 아직 미구현 / Stub 상태인 기능
 
@@ -527,6 +545,8 @@ openssl rand -hex 32   # 64자 출력 → 이 값을 복사
 
 ---
 
+<a id="-책-목차--journey-23단계"></a>
+
 ## 📖 책 목차 — Journey 2~3단계
 
 이 문서는 [`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **2단계 (어떻게 써? 로컬 개발)** 와 **3단계 (클론 후 뭐부터? 첫 앱 모듈 추가)** 에 해당해요.
@@ -536,5 +556,5 @@ openssl rand -hex 32   # 64자 출력 → 이 값을 복사
 | ← 이전 | [`Architecture Reference`](../structure/architecture.md) | 1단계 — 모듈 구조 한눈에 |
 | → 다음 | [`소셜 로그인 설정 가이드`](./social-auth-setup.md) | 4단계 — 외부 자격 증명 발급 (Google/Apple) |
 
-**막혔을 때**: [§6 흔한 에러](#6-흔한-에러) · [`도그푸딩 함정`](./dogfood-pitfalls.md) · [`FAQ`](./dogfood-faq.md) · [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
+**막혔을 때**: [§6 흔한 에러](#6-흔한-에러) · [`도그푸딩 함정`](./dogfood-pitfalls.md) · [`FAQ`](dogfood-setup.md) · [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
 **왜 이렇게?**: [`Repository Philosophy`](../philosophy/README.md) (39개 ADR) · [`인프라 결정 기록`](../production/deploy/decisions-infra.md)

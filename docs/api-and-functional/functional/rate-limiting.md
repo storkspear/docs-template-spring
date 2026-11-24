@@ -53,7 +53,9 @@ test 프로파일에는 별도 설정이 없어 `RateLimitProperties` 의 기본
 
 나머지 경로에는 default 한도가 적용돼요.
 
-토큰 갱신 경로인 `REFRESH` 는 의도적으로 strict 에서 뺐어요. access token 의 수명이 15분이라 정상 유저도 하루 96회까지 갱신하는데, strict 10 rpm 을 걸면 정상 사용까지 막힙니다. 대신 default 60 rpm 으로 두어, 공격자의 초당 반복은 막으면서 정상 갱신에는 여유를 줬어요.
+현재 `REFRESH`는 strict 목록에 없으므로 default 한도를 사용해요. prod 기본값은 60 rpm이에요. 이 정책은 실제 갱신 요청의 빈도와 재시도를 보고 평가해요. 하루 최대 갱신 횟수와 분당 한도를 직접 비교해 정상 요청이 차단된다고 설명하지 않아요.
+
+신뢰 IP 헤더를 사용하는 전제도 확인해요. Cloudflare가 `CF-Connecting-IP`를 덮어쓰고 origin 직접 접근을 막아야 이 값을 신뢰할 수 있어요. `server.forward-headers-strategy=framework`에서는 fallback `getRemoteAddr()`도 전달 헤더의 영향을 받을 수 있어요.
 
 ## 초과 시 응답
 
@@ -79,7 +81,13 @@ Content-Type: application/json
 
 ## 검증
 
-`RateLimitFilterTest` 가 필터 동작을 단위 테스트로 검증해요. strict 한도까지의 정상 통과, 초과 시 429, `TOTP_LOGIN`·`KAKAO`·`NAVER`·2FA 관리·콘솔 로그인 경로의 strict 적용, 퍼센트 인코딩 경로가 strict 를 비껴가지 못함, 공개 민감 경로가 인증 principal 과 무관하게 IP 로 세어짐, 인증 민감 경로가 principal 로 세어짐, 앱별·IP별 버킷 분리, 비민감 경로의 default 적용, 선행 default 트래픽이 strict 한도를 무력화하지 못함, 신뢰 헤더(`CF-Connecting-IP`) 기반 버킷 키와 스푸핑된 `X-Forwarded-For` 무시, 전역 비활성화 동작을 각각 확인합니다. 초과 케이스는 strict 한도를 3으로 잡고 4번째 호출에서 429 와 `CMN_429` 가 나오는지를 봅니다.
+`RateLimitFilterTest`는 한도, 경로 분류, 버킷 키를 나누어 검증해요.
+
+- 한도: 정상 통과·초과 429·전역 비활성화·default 요청이 strict 한도를 우회하지 못하는지 확인해요. strict를 3으로 둔 경우 네 번째 요청의 `CMN_429`도 검사해요.
+- 경로: TOTP 로그인·Kakao·Naver·2FA 관리·콘솔 로그인과 퍼센트 인코딩 경로에 strict가 적용되는지 확인해요.
+- 버킷 키: 공개 민감 경로는 인증 여부와 무관하게 IP로, 인증이 필요한 민감 경로는 사용자로 세는지 확인해요. 앱·IP별 분리와 신뢰 헤더 처리도 검사해요.
+
+필터 단위 테스트가 프록시 배포의 신뢰 경계까지 검증하는 것은 아니므로 origin 접근 제한과 전달 헤더 설정은 별도로 확인해요.
 
 ## 관련 문서
 

@@ -18,9 +18,11 @@
 
 ---
 
+<a id="local-개발--minio-접근"></a>
+
 ## Local 개발 — MinIO 접근
 
-`<repo> local start` 또는 `<repo> local init` 이 docker-compose 로 MinIO 컨테이너를 자동 기동해요. Spring 이 부팅을 마치면 `BucketProvisioner` 가 `app.storage.minio.buckets` 설정 (`APP_STORAGE_MINIO_BUCKETS_0`, `_1`, ...) 에 적힌 버킷을 자동으로 만듭니다 (`core-storage-impl/.../BucketProvisioner.java`).
+로컬 MinIO를 띄우고 Spring이 시작되면 `BucketProvisioner`가 등록된 앱 DataSource를 기준으로 앱 업로드 버킷을 준비해요. 이름은 `BucketNaming`의 `<prefix><하이픈을 제거한 slug>-uploads` 규칙을 따라요. `APP_STORAGE_MINIO_BUCKETS_*`에는 별도 공유·임시 버킷만 적어요.
 
 | 항목 | 로컬 default |
 |---|---|
@@ -28,9 +30,9 @@
 | MinIO 콘솔 (브라우저) | `http://localhost:9001` |
 | Access Key | `.env` 의 `APP_STORAGE_MINIO_ACCESS_KEY` (default `minioadmin`) |
 | Secret Key | `.env` 의 `APP_STORAGE_MINIO_SECRET_KEY` (default `minioadmin`) |
-| 자동 생성 bucket | `.env` 의 `APP_STORAGE_MINIO_BUCKETS_0`, `_1`, ... 에 적힌 이름 |
+| 자동 생성 bucket | 등록된 앱의 `<prefix><normalizedSlug>-uploads`와 `APP_STORAGE_MINIO_BUCKETS_*` 공유 목록의 합집합 |
 
-buckets 키가 비어 있으면 `BucketProvisioner` 가 그대로 건너뛰어요. 부팅은 통과하지만 버킷은 만들어지지 않습니다. `<repo> new <slug>` 로 새 슬러그를 추가하면 비어 있는 다음 인덱스에 버킷 이름이 자동으로 붙어요 (`tools/app/new-app.sh`).
+공유 버킷 목록이 비어도 등록된 앱의 업로드 버킷은 자동 생성해요. 앱마다 BUCKETS 슬롯을 추가할 필요는 없고 `new-app.sh`도 이 슬롯을 주입하지 않아요. 버킷 준비가 비동기인 기본 설정에서는 Spring readiness가 정상이어도 스토리지 준비가 실패할 수 있으므로 준비 로그와 실제 업로드를 확인해요.
 
 운영에서는 endpoint 가 NAS 의 MinIO (예: `http://100.x.x.x:9000`) 나 별도의 S3 호환 서비스로 바뀌고, access key 와 secret key 도 운영용으로 따로 발급한 값을 씁니다. 버킷 자동 생성은 환경변수 기반이라 동작 자체는 로컬과 같아요. 자세한 절차는 [`스토리지 셋업 가이드`](../../production/setup/storage-setup.md) 를 참고하세요.
 
@@ -38,7 +40,7 @@ buckets 키가 비어 있으면 `BucketProvisioner` 가 그대로 건너뛰어�
 
 ## Signed URL 패턴 (권장)
 
-업로드는 다음 흐름으로 흘러갑니다.
+다음은 `StoragePort`의 presigned PUT을 소비하는 커스텀 도메인을 설계할 때의 예시예요. 권한·quota 검사와 완료 처리 API는 소비자가 구현해야 해요. 내장 파일 API의 실제 POST policy 계약은 이 절 아래에서 별도로 구분해요.
 
 ```
 [client] → [server]   UploadUrlRequest (bucket, objectKey, sizeBytes, contentType)
@@ -58,64 +60,46 @@ buckets 키가 비어 있으면 `BucketProvisioner` 가 그대로 건너뛰어�
 
 다운로드는 더 짧아요. 권한을 확인한 뒤 `generatePresignedDownload(bucket, key, ttl)` 로 GET URL 을 발급합니다. TTL 의 기본값은 `app.storage.minio.signed-url-ttl` (default `PT5M`, 5분) 이고, 호출 시 직접 넘기면 그 값이 우선합니다.
 
-TTL 기본 5분은 `MinioProperties.signedUrlTtl` 에서 옵니다. 발급 URL 의 상한 크기는 `UploadUrlResponse.maxSize` 로 함께 내려가는데, 이 값은 `app.storage.minio.max-upload-bytes` (default 10MB) 예요.
+일반 `StoragePort` presigned PUT의 기본 TTL은 5분이며 기본 최대 크기는 10MB예요. 내장 앱 파일 API는 별도 계약으로, `UploadProperties`의 크기·종류 제한을 확인한 뒤 10분짜리 presigned POST policy를 발급해요. 크기와 Content-Type을 서명에 묶으며 앱의 상한은 `app.uploads.max-size-bytes`로 설정해요. 운영 콘솔의 콘텐츠 업로드는 별도 10분 PUT 계약이므로 클라이언트가 세 방식을 혼동하지 않아야 해요.
 
 ---
 
 ## Bucket 네이밍 (2-tier 환경 분리)
 
-bucket 네이밍은 [`인프라 결정 기록`](../../production/deploy/decisions-infra.md) I-07 에서 정한 **2-tier 정책** 입니다. 환경마다 다른 bucket 을 쓰되, 코드는 환경을 모르고 `.env` 의 bucket 이름만 읽어 스위치해요. 이 정책은 `core-storage-impl` 이 강제하는 게 아니라 운영 컨벤션이라, 파생 레포가 자기 환경에 맞게 적용합니다.
+I-07의 2-tier 정책은 초기 결정 기록이에요. 현재 내장 파일 API는 모든 환경에서 앱별 버킷 `<prefix><하이픈을 제거한 slug>-uploads`를 사용해요. `BucketProvisioner`와 `FileController`·`AttachmentServiceImpl`·`AdminFileService`·`AdminContentService`가 같은 `BucketNaming`을 공유하므로 프로비저닝 이름과 실제 업로드 대상이 함께 계산돼요.
 
-> 템플릿 레포 자체의 로컬 docker-compose MinIO 는 `.env.example` 의 기본값 `basic-bucket` 을 그대로 씁니다 (템플릿 통합 테스트용). 파생 레포가 `Use this template` 로 생성된 뒤에 아래 2-tier 규약을 적용하세요. 이 차이는 [`스토리지 셋업 가이드`](../../production/setup/storage-setup.md) 에도 정리돼 있어요.
+| 환경 예시 | prefix | slug=`gym-log`의 업로드 버킷 |
+|---|---|---|
+| local·prod 기본값 | 빈 값 | `gymlog-uploads` |
+| prod와 MinIO를 공유하는 dev | `dev-` | `dev-gymlog-uploads` |
 
-| 환경 | bucket 컨벤션 | 예시 | 특징 |
-|---|---|---|---|
-| 로컬 개발 | `dev-shared` (단일, 파생 레포 공유) | `dev-shared` | disposable. `mc rb --force dev-shared` 로 수시 wipe 가능 |
-| 운영 | `<slug>-<category>` (앱별 + 용도별 분리) | `voicechat-voices`, `sumtally-receipts` | 각자 lifecycle / retention 정책. 철수 시 bucket 단위 정리 용이 |
+`APP_STORAGE_MINIO_BUCKETS_*`에는 별도 공유·임시 버킷만 적어요. 앱 업로드 버킷은 등록된 DataSource에서 자동 파생하므로 슬롯을 추가하지 않아요. `new-app.sh`도 앱 버킷 슬롯을 주입하지 않아요.
 
-`.env` 설정은 환경에 따라 이렇게 달라져요.
-
-```bash
-# 로컬
-APP_STORAGE_MINIO_BUCKETS_0=dev-shared
-
-# 운영 (앱·용도별로 여러 줄)
-APP_STORAGE_MINIO_BUCKETS_0=sumtally-receipts
-APP_STORAGE_MINIO_BUCKETS_1=sumtally-avatars
-```
-
-버킷을 직접 만들 필요는 없어요. `BucketProvisioner` 가 Spring 부팅 시 등록된 앱 슬러그의 업로드 버킷과 `.env` 의 공유 버킷을 읽어 없으면 생성하고 lifecycle 정책(아래 Retention 절)을 적용합니다. 앱 업로드 버킷은 등록된 슬러그마다 `BucketNaming.forSlug` 로 자동 파생되므로 `.env` 에 적지 않아요 (`new-app.sh` 도 주입하지 않습니다). `.env` 의 `APP_STORAGE_MINIO_BUCKETS_<N>` 은 앱과 무관한 공유·임시 버킷 전용이에요. 다른 category 의 앱 버킷이 필요하면 파생 레포가 `BucketProvisioner` 를 override 해요.
-
-**런타임의 업로드 대상 버킷명**(위 `BucketProvisioner` 가 만드는 이름과는 별개 관심사)은 `BucketNaming`(core-storage-api, 구현 `DefaultBucketNaming`)이 `<prefix><slug>-uploads` 로 계산해요 — `FileController`·`AttachmentServiceImpl`·admin 콘솔 `AdminFileService`/`AdminContentService` 4곳이 이 빈 하나를 공유합니다. `prefix` 는 `app.storage.bucket-prefix`(env `APP_STORAGE_BUCKET_PREFIX`, 기본 빈 값)예요 — dev-server 가 prod 와 MinIO 인스턴스를 공유하는 배포에서 `dev-` 로 설정해 격리합니다(`init-dev.sh` 자동 처리, 상세는 [`스토리지 버킷 격리`](../../production/setup/storage-bucket-isolation.md)). 이 prefix 는 `APP_STORAGE_MINIO_BUCKETS_*`(provisioning 이름)와 항상 일치해야 해요 — 어긋나면 provisioning 은 `dev-<slug>-uploads` 를 만드는데 런타임은 `<slug>-uploads`(prod 버킷)에 업로드하는 사고가 납니다.
+공유 목록의 이름은 설정한 prefix와 일치해야 하고, 실제 MinIO를 쓰는 dev 프로필은 빈 prefix로 부팅할 수 없어요. 자세한 부팅 검증·IAM 경계·추가와 정리 절차는 [스토리지 버킷 격리](../../production/setup/storage-bucket-isolation.md)에서 관리해요.
 
 ## Object Key 패턴 (환경 무관, 항상 동일)
 
-```
+내장 첨부 도메인은 `AttachmentServiceImpl.create`가 만든 flat UUID를 object key로 사용해요. 앱 파일 API의 `key`가 이 값이고, 앱별 버킷 안에서 같은 키로 POST 업로드·GET 다운로드를 해요. 버킷 이름만 환경에 따라 달라져요.
+
+커스텀 업로드 도메인의 키 규약은 다음과 같아요. 이 규약은 운영 컨벤션이며 `StoragePort`가 자동으로 조립하거나 강제하지 않아요.
+
+```text
 {appSlug}/{category}/{yyyy}/{MM}/{dd}/{userId}/{uuid}.{ext}
 ```
 
-적용 예:
-
-- 로컬: `dev-shared` 버킷의 `sumtally/receipts/2026/04/01/u123/abc.png`
-- 운영: `sumtally-receipts` 버킷의 `sumtally/receipts/2026/04/01/u123/abc.png` (경로 중복이지만 코드 분기는 없어요)
-
-이 키 패턴은 `core-storage-impl` 이 만들어 주는 게 아닙니다. `StoragePort` 는 호출자가 넘긴 `objectKey` 를 그대로 쓰므로, 키를 위 규약대로 조립하는 건 포트를 소비하는 앱의 책임이에요. 그래서 **파생 앱이 직접 만드는 커스텀 업로드 도메인**은 같은 규약을 따르도록 컨벤션으로 고정합니다.
-
-> **예외 — 템플릿 내장 `core-attachment`(및 admin 첨부) 도메인**: 이 도메인은 위 계층형 키를 쓰지 않고 `AttachmentServiceImpl.create` 가 `storageKey = UUID.randomUUID().toString()` (path 세그먼트 없는 flat UUID) 를 `objectKey` 로 씁니다. `storageKey` 자체가 비추측 공개 식별자로 앱 파일 계약(`GET /api/apps/{appSlug}/files/{key}`)에 그대로 노출되고, 버킷 이름 `<slug>-uploads` 가 이미 slug+category 를 담고 있어 path 세그먼트가 불필요하기 때문이에요. `FileController.issueUpload` / `download` 도 이 flat 키를 presigned POST policy·GET 의 objectKey 로 그대로 씁니다 (`new-app.sh` V018 코멘트의 'UUID 기반 비추측 오브젝트 키'와 동일 의도). 파생 앱이 위 계층형 규약을 따르는 커스텀 업로드 도메인을 별도로 만드는 건 물론 가능해요.
+예를 들어 별도로 정의한 영수증 도메인은 dev의 `dev-sumtally-receipts`와 prod의 `sumtally-receipts`에 같은 `sumtally/receipts/2026/04/01/u123/abc.png` 키를 사용할 수 있어요. 이 버킷과 소비 코드는 커스텀 도메인에서 준비해야 하며, 내장 첨부의 기본값은 아니에요.
 
 ### 설계 근거
 
-코드가 환경을 모르게 두는 게 핵심이에요. Spring 은 `.env` 의 bucket 값만 읽고, 키는 늘 `{appSlug}/{category}/...` 로 시작합니다. 덕분에 로컬과 운영 사이에 object 를 그대로 복사해도 키가 깨지지 않고, 나중에 bucket 을 통합해도 키 충돌이 없어요. S3 는 prefix 를 자동으로 인식하므로 "폴더를 미리 만든다" 는 개념도 없습니다 — 첫 업로드 시 prefix 가 바로 생겨요.
-
-각 필드의 역할은 이래요.
+환경별 차이는 endpoint·bucket에 두고 object key를 유지하면 데이터를 옮길 때 키를 다시 만들 필요가 없어요. S3의 prefix는 키 문자열의 일부라 폴더를 먼저 만들지 않아도 돼요. 커스텀 계층형 키의 각 필드는 다음 역할을 해요.
 
 | 필드 | 역할 |
 |---|---|
-| `{appSlug}` | `dev-shared` 안에서 앱 구분. 운영에선 redundant 하지만 일관성을 위해 유지 |
-| `{category}` | receipts · avatars · voices 등 용도별 구분 |
-| `{yyyy}/{MM}/{dd}` | MinIO 의 prefix 기반 lifecycle rule 적용 용이 |
-| `{userId}` | 유저별 조회·삭제 용이 |
-| `{uuid}` | 충돌 방지 |
+| `{appSlug}` | 공유 버킷에서도 앱을 구분해요 |
+| `{category}` | receipts·avatars·voices 등 용도를 구분해요 |
+| `{yyyy}/{MM}/{dd}` | 날짜별 조회·정리 조건을 표현해요 |
+| `{userId}` | 사용자별 조회·삭제에 활용해요 |
+| `{uuid}` | 이름 충돌을 줄여요 |
 
 ## Retention (Lifecycle)
 
@@ -128,9 +112,9 @@ APP_STORAGE_MINIO_BUCKETS_1=sumtally-avatars
 
 앱 업로드 버킷에 기간 만료를 걸지 않는 이유는, 사용자가 지우지 않은 첨부(프로필 사진·게시물 이미지)가 N일 뒤 조용히 사라지고 DB 의 `attachment_file` 행만 남기 때문이에요. 첨부의 삭제 시점은 도메인이 결정하고, 스토리지는 그 결정을 따릅니다. 같은 이름이 두 분류에 모두 들어 있으면 앱 버킷 정책(만료 없음)이 우선하고, 접두사만 다른 옛 수동 항목(예: dev 가 `dev-` 접두사인데 `.env` 에 `<slug>-uploads` 가 남은 경우)도 다른 환경의 앱 버킷으로 보고 만료를 걸지 않아요.
 
-> **purge 스케줄러는 기본 켜짐.** 버킷 만료가 없어진 뒤로는 `AttachmentPurgeScheduler` 가 유일한 정리 경로라 `app.attachment.purge.enabled` 의 기본값이 `true` 예요 (`APP_ATTACHMENT_PURGE_ENABLED=false` 로 끌 수 있고, test 프로필은 꺼 둬요). 매일 04:00 에 **soft-delete 후 30일(`purge_at`) 지난 첨부만** 지우고, 검역(QUARANTINED)·연관된 첨부·공유 버킷은 손대지 않아요. 게시물 purge(`APP_CONTENT_PURGE_ENABLED`, 기본 꺼짐)를 켜면 03:30 에 먼저 돌아 그 글의 첨부를 purge 대기로 넘겨요. 끄고 운영하면 soft-delete 된 첨부와 GDPR 소거 대기분이 스토리지에 그대로 남아요.
+> **purge 스케줄러는 기본 켜짐이에요.** `APP_ATTACHMENT_PURGE_ENABLED=false`로 끌 수 있고 test 프로필은 꺼져 있어요. 기본 실행 시각은 매일 04:00예요. `DELETED` 상태이면서 `purge_at`이 지난 첨부를 지우며, 보통 soft-delete 후 30일이 기준이에요. 이미 삭제 상태가 된 첨부는 연관 정보가 남아 있어도 대상이 될 수 있어요. `QUARANTINED` 상태와 공유 버킷은 이 경로의 대상이 아니에요. 게시물 purge는 별도 opt-in인 `APP_CONTENT_PURGE_ENABLED`로 켜며 기본 03:30에 실행돼요.
 >
-> **미연관(orphan) 회수는 opt-in** — `APP_UPLOADS_ORPHAN_PURGE_ENABLED=true`(기본 false). `/files/uploads` 는 게시물 전용이 아닌 범용 업로드 API 라, 연관(`associate`/`associateByKeys`) 없이 storage key 만 자기 테이블에 보관하는 앱에서 이 회수를 켜면 24시간(`app.uploads.orphan-grace`, 하한 1시간) 지난 멀쩡한 파일이 지워져요. 게시물 본문에 `attachment://{id}` 로만 참조하고 `attachmentIds` 에 넣지 않은 첨부도 미연관이라 같은 대상이고, 미연관 첨부를 soft-delete 했다가 24시간 뒤 복원해도 그날 밤 회수 대상이에요. 모든 업로드가 게시물에 연관되는 앱에서만 켜세요.
+> **미연관 회수는 별도 opt-in이에요.** `APP_UPLOADS_ORPHAN_PURGE_ENABLED=true`일 때만 `ACTIVE`이고 `associated_id`가 없으며 생성 후 유예 시간(기본 24시간, 하한 1시간)을 지난 첨부를 회수해요. 키를 자기 테이블에만 보관하거나 본문에 `attachment://{id}`로만 참조하는 것은 첨부 도메인의 연관 등록이 아니에요. 이런 범용 업로드를 사용하면 정상 파일도 대상이 될 수 있으므로 회수 옵션을 켜기 전에 사용 방식을 확인해요. 복원된 미연관 첨부도 생성 시각 기준 유예를 지났다면 다음 회수 대상이 돼요.
 
 공유 버킷의 기간을 바꾸려면 `APP_STORAGE_MINIO_DEFAULT_RETENTION_DAYS` 를 조정하고, 버킷마다 다른 정책이 필요하면 파생 레포가 자기 `BucketProvisioner` 빈을 override 합니다.
 
@@ -138,7 +122,7 @@ APP_STORAGE_MINIO_BUCKETS_1=sumtally-avatars
 
 ## 파일 크기 상한
 
-템플릿 기본값은 **10MB** 이고, `APP_STORAGE_MINIO_MAX_UPLOAD_BYTES` 로 조정해요. 정상적인 음성 (약 120KB) 이나 이미지 (약 2MB) 에는 여유가 충분하고, 악용을 막는 게 주 목적입니다. 동영상 앱처럼 큰 파일을 다루면 100MB 등으로 올려요.
+일반 `StoragePort` 업로드의 기본 상한은 10MiB(10,485,760바이트)이며 `APP_STORAGE_MINIO_MAX_UPLOAD_BYTES`로 조정해요. 내장 앱 파일 API의 상한은 별도 `app.uploads.max-size-bytes`이고 기본값도 10MiB예요. JVM 시작 옵션으로 지정한다면 `-Dapp.uploads.max-size-bytes=5242880`처럼 전달해요. 현재 배포 목록에 자동 연결된 항목은 아니에요. 사용하는 업로드 경로의 설정을 바꿔야 하며, 크기를 늘리는 것만으로 내장 파일 API의 허용 Content-Type까지 늘어나지는 않아요.
 
 ## 폴리모픽 모델 (`StorageObject`)
 

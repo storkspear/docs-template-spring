@@ -1,3 +1,5 @@
+<a id="운영-콘솔-api--admin-console"></a>
+
 # 운영 콘솔 API — admin-console
 
 > **유형**: Explanation · **독자**: Level 2 · **읽는 시간**: ~15분
@@ -16,7 +18,7 @@
 
 ## 1. 개요
 
-`core-admin-impl` 모듈이 이 API 를 제공합니다. 앱 데이터를 저장하는 곳은 아니고, 이미 존재하는 앱별 schema 를 **fan-out** 으로 읽기만 하는 조회 중심 콘솔이에요. 운영자 계정과 역할·권한만 담는 `admin` schema 가 유일한 예외적인 신규 저장소입니다 — `V001` 이 `admin_users` 를 만들고, `V002` 가 RBAC 역할 컬럼(`role`, 기본 `master`)을, `V003` 이 역할별 권한 grant 표(`role_permissions`)를 만들고, 이후 `V004~V010` 이 앱 최소버전 테이블(`app_min_versions`)과 권한 시드·세분화(`APP_VERSION_*`·`SCHEMA_READ`·RBAC 15종 신설, `CONTENT_WRITE`·`FILES_WRITE` 폐기)를 얹어요.
+`core-admin-impl`이 운영 콘솔 API를 제공해요. 앱별 스키마를 조회·합산하고, 권한에 따라 환불·모더레이션·사용자 탈퇴 같은 쓰기도 수행해요. 콘솔 자체의 `admin` 스키마에는 운영자 계정·역할별 권한·앱 최소버전 규칙을 저장해요. 앱 데이터와 콘솔 인증 데이터를 구분해 관리하는 구조예요.
 
 ```text
 [React admin] ──(콘솔 JWT: role + permissions)──> /api/admin/*  ──> core-admin-impl (bootstrap jar 안)
@@ -32,11 +34,15 @@
 
 ---
 
+<a id="2-인증-흐름--env-시더--콘솔-jwtrbac--bearer"></a>
+
 ## 2. 인증 흐름 — env 시더 → 콘솔 JWT(RBAC) → Bearer
 
 ### 2-1. 최초 계정 시딩
 
 부팅 시 `admin_users` 테이블이 비어 있고 `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 모두 채워져 있으면, `AdminAccountSeeder` 가 1계정을 시드합니다(비어 있으면 조용히 no-op). 표시 이름은 고정값 `"operator"`, 역할은 최고 등급 `master` 예요 — 이후 콘솔에서 다른 티어 계정을 발급합니다. 이미 계정이 1개 이상 있으면 다시 시드하지 않습니다.
+
+<a id="2-2-로그인--콘솔-jwt-role--permissions"></a>
 
 ### 2-2. 로그인 → 콘솔 JWT (role + permissions)
 
@@ -85,6 +91,8 @@ UPDATE admin_users SET failed_attempts = 0, last_failed_at = NULL, locked_until 
 
 콘솔 세션은 앱 유저 access token(`app.jwt.access-token-ttl`, 기본 15분)과 별도로 `app.jwt.admin-access-token-ttl`(기본 `PT12H`, 12시간)을 TTL 로 씁니다. `JwtService.issueAccessToken` 은 앱 유저 전용 TTL 만 계속 쓰고, `issueAdminAccessToken` 은 콘솔 전용 TTL 을 써서 — 운영자가 앱 유저와 같은 15분마다 재로그인하지 않게 분리했어요.
 
+<a id="2-3-권한-검사--rbac-4티어--양방향-격리"></a>
+
 ### 2-3. 권한 검사 — RBAC 4티어 + 양방향 격리
 
 인가의 유일한 계약은 `permissions` claim 이에요. `JwtAuthFilter` 가 claim 의 `PERM_*` 값들을 `GrantedAuthority` 로 변환하고, `SecurityConfig` 가 `/api/admin/**` 리소스별로 `hasAuthority(PERM_*)` 를 검사합니다(예: 결제 환불 POST 는 `PERM_PAYMENTS_WRITE`, 감사로그는 `PERM_AUDIT_READ`). 매칭되지 않은 나머지 콘솔 경로는 최소 유효 콘솔 토큰을 요구하는 fail-safe(`authenticated()`)예요.
@@ -100,6 +108,8 @@ UPDATE admin_users SET failed_attempts = 0, last_failed_at = NULL, locked_until 
 | JWT 없이 `/api/admin/**`(로그인·헬스 제외) 호출 | 401 CMN_004 |
 
 콘솔 권한 체계를 앱 내부 `role`(`user`/`admin`, [`ADR-027`](../philosophy/adr-027-admin-role-authorization.md))과 완전히 분리한 이유는 앱 admin 이 전체 콘솔에 침입하는 걸 막기 위해서예요. 자세한 배경은 [`ADR-039`](../philosophy/adr-039-admin-module.md) §결정-1 을 참고하세요.
+
+<a id="발송-권한--채널별-3권한-v112"></a>
 
 #### 발송 권한 — 채널별 3권한 (v1.12)
 
@@ -182,6 +192,8 @@ UPDATE admin_users SET failed_attempts = 0, last_failed_at = NULL, locked_until 
 
 `USERS_UNMASK`/`FILES_UNMASK` 권한은 별도 엔드포인트가 아니라 목록·상세(#9~10, #19) 응답의 **PII 마스킹 해제**를 결정해요 — 권한이 없으면 같은 엔드포인트가 마스킹(`●●●●`)된 값을 돌려줍니다. 마스킹 티어를 위한 단건 원본 열람이 `reveal`(#11, #20)이고, 열람 사실은 `user_read_history` 에 남아요. 예외로 GDPR **export(#42)** 는 전 PII 원본 번들을 반환하는 전용 엔드포인트라 별도 권한 `USERS_EXPORT` 로 게이팅해요(UNMASK 에서 분리 — `USERS_READ` 선행 필요, UNMASK 만으로는 403). **탈퇴(#43)** 는 쓰기 권한 `USERS_WRITE`(신규) 로, UNMASK 만으로는 삭제되지 않아요.
 
+<a id="경로-매처에-없는-권한--서버-검사-위치"></a>
+
 #### 경로 매처에 없는 권한 — 서버 검사 위치
 
 카탈로그(`PermissionCatalog.ALL`)의 권한 중 위 표의 경로 매처에 나오지 않는 것은 14개예요. 각각 어디서 검사하는지, 서버 검사가 없다면 왜 없는지를 정리했어요.
@@ -203,6 +215,8 @@ UI 전용 권한은 버튼을 숨기는 용도라, 같은 데이터를 다른 �
 
 ## 4. 엔드포인트 상세
 
+<a id="4-1-get-apiadminapps--앱-목록"></a>
+
 ### 4-1. `GET /api/admin/apps` — 앱 목록
 
 슬러그별 유저 수·활성 구독 수 요약. `AdminSlugRegistry.slugs()` 가 열거한 모든 앱을 순회합니다.
@@ -210,12 +224,21 @@ UI 전용 권한은 버튼을 숨기는 용도라, 같은 데이터를 다른 �
 ```json
 {
   "data": [
-    { "slug": "gymlog", "userCount": 128, "activeSubscriptions": 34 },
-    { "slug": "sumtally", "userCount": 512, "activeSubscriptions": 201 }
-  ],
-  "error": null
+    {
+      "slug": "gymlog",
+      "userCount": 128,
+      "activeSubscriptions": 34
+    },
+    {
+      "slug": "sumtally",
+      "userCount": 512,
+      "activeSubscriptions": 201
+    }
+  ]
 }
 ```
+
+<a id="4-2-get-apiadmindashboardmetrics--대시보드-fan-out-합산"></a>
 
 ### 4-2. `GET /api/admin/dashboard/metrics` — 대시보드 fan-out 합산
 
@@ -227,17 +250,32 @@ UI 전용 권한은 버튼을 숨기는 용도라, 같은 데이터를 다른 �
     "generatedAt": "2026-07-07T09:00:00Z",
     "window": "30d",
     "totals": {
-      "users": 640, "newUsers": 45, "dau": 88, "mau": 310,
-      "revenue": 8000000, "refunded": 120000,
-      "activeSubscriptions": 235, "failures24h": 2,
-      "renewalFailures7d": 6, "webhookPending": 1, "webhookFailed": 3
+      "users": 640,
+      "newUsers": 45,
+      "dau": 88,
+      "mau": 310,
+      "revenue": 8000000,
+      "refunded": 120000,
+      "activeSubscriptions": 235,
+      "failures24h": 2,
+      "renewalFailures7d": 6,
+      "webhookPending": 1,
+      "webhookFailed": 3
     },
     "perSlug": [
-      { "slug": "gymlog", "users": 128, "newUsers": 10, "dau": 20, "mau": 70,
-        "revenue": 2000000, "refunded": 0, "activeSubscriptions": 34, "failures24h": 0 }
+      {
+        "slug": "gymlog",
+        "users": 128,
+        "newUsers": 10,
+        "dau": 20,
+        "mau": 70,
+        "revenue": 2000000,
+        "refunded": 0,
+        "activeSubscriptions": 34,
+        "failures24h": 0
+      }
     ]
-  },
-  "error": null
+  }
 }
 ```
 
@@ -245,20 +283,29 @@ UI 전용 권한은 버튼을 숨기는 용도라, 같은 데이터를 다른 �
 
 `renewalFailures7d`/`webhookPending`/`webhookFailed` 는 §4-9(운영 신호)와 **동일 SQL 시맨틱**을 전 슬러그로 합산한 치명신호 필드예요(v1.7, additive). `perSlug`(`SlugMetricsResponse`)에는 반영하지 않고 `totals` 에만 추가했어요 — 앱별 세부 신호는 §4-9 `GET /api/admin/apps/{slug}/ops` 로 확인하세요.
 
+<a id="4-3-get-apiadminappsslugmetrics--앱-단일-지표"></a>
+
 ### 4-3. `GET /api/admin/apps/{slug}/metrics` — 앱 단일 지표
 
 ```json
 {
   "data": {
-    "slug": "gymlog", "generatedAt": "2026-07-07T09:00:00Z",
-    "users": 128, "newUsers7d": 6, "premiumUsers": 34,
-    "dau": 20, "mau": 70, "revenue30d": 2000000, "activeSubscriptions": 34
-  },
-  "error": null
+    "slug": "gymlog",
+    "generatedAt": "2026-07-07T09:00:00Z",
+    "users": 128,
+    "newUsers7d": 6,
+    "premiumUsers": 34,
+    "dau": 20,
+    "mau": 70,
+    "revenue30d": 2000000,
+    "activeSubscriptions": 34
+  }
 }
 ```
 
 대시보드가 `newUsers`(window 기준)를 쓰는 것과 달리, 이 엔드포인트는 `newUsers7d`(고정 7일)·`revenue30d`(고정 30일)로 필드명 자체에 기간이 붙어 있어요 — window 파라미터가 없습니다.
+
+<a id="4-4-get-apiadminappsslugusers--사용자-목록"></a>
 
 ### 4-4. `GET /api/admin/apps/{slug}/users` — 사용자 목록
 
@@ -268,15 +315,26 @@ UI 전용 권한은 버튼을 숨기는 용도라, 같은 데이터를 다른 �
 {
   "data": {
     "content": [
-      { "id": 1, "email": "user@example.com", "displayName": "홍길동", "nickname": "gil",
-        "role": "user", "isPremium": true, "emailVerified": true,
-        "createdAt": "2026-01-15T03:20:00Z", "deletedAt": null }
+      {
+        "id": 1,
+        "email": "user@example.com",
+        "displayName": "홍길동",
+        "nickname": "gil",
+        "role": "user",
+        "isPremium": true,
+        "emailVerified": true,
+        "createdAt": "2026-01-15T03:20:00Z"
+      }
     ],
-    "page": 0, "size": 20, "totalElements": 128, "totalPages": 7
-  },
-  "error": null
+    "page": 0,
+    "size": 20,
+    "totalElements": 128,
+    "totalPages": 7
+  }
 }
 ```
+
+<a id="4-5-get-apiadminappsslugusersuserid--사용자-상세"></a>
 
 ### 4-5. `GET /api/admin/apps/{slug}/users/{userId}` — 사용자 상세
 
@@ -285,24 +343,50 @@ UI 전용 권한은 버튼을 숨기는 용도라, 같은 데이터를 다른 �
 ```json
 {
   "data": {
-    "user": { "id": 1, "email": "user@example.com", "displayName": "홍길동", "nickname": "gil",
-              "role": "user", "isPremium": true, "emailVerified": true,
-              "createdAt": "2026-01-15T03:20:00Z", "deletedAt": null, "updatedAt": "2026-06-01T00:00:00Z" },
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "displayName": "홍길동",
+      "nickname": "gil",
+      "role": "user",
+      "isPremium": true,
+      "emailVerified": true,
+      "createdAt": "2026-01-15T03:20:00Z",
+      "updatedAt": "2026-06-01T00:00:00Z"
+    },
     "devices": [
-      { "id": 9, "platform": "ANDROID", "deviceName": "Pixel 8", "lastSeenAt": "2026-07-06T22:00:00Z", "createdAt": "2026-01-15T03:21:00Z" }
+      {
+        "id": 9,
+        "platform": "ANDROID",
+        "deviceName": "Pixel 8",
+        "lastSeenAt": "2026-07-06T22:00:00Z",
+        "createdAt": "2026-01-15T03:21:00Z"
+      }
     ],
     "subscriptions": [
-      { "id": 3, "planId": 2, "status": "ACTIVE", "startedAt": "2026-06-01T00:00:00Z",
-        "expiresAt": "2026-07-01T00:00:00Z", "cancelledAt": null, "cancelReason": null }
+      {
+        "id": 3,
+        "planId": 2,
+        "status": "ACTIVE",
+        "startedAt": "2026-06-01T00:00:00Z",
+        "expiresAt": "2026-07-01T00:00:00Z"
+      }
     ],
     "recentPayments": [
-      { "id": 11, "channel": "PG", "amount": 9900, "currency": "KRW", "status": "PAID",
-        "paidAt": "2026-06-01T00:00:00Z", "refundedAt": null }
+      {
+        "id": 11,
+        "channel": "PG",
+        "amount": 9900,
+        "currency": "KRW",
+        "status": "PAID",
+        "paidAt": "2026-06-01T00:00:00Z"
+      }
     ]
-  },
-  "error": null
+  }
 }
 ```
+
+<a id="4-5-1-get-apiadminappsslugusersuseridexport--gdpr-개인정보-export-v111"></a>
 
 ### 4-5-1. `GET /api/admin/apps/{slug}/users/{userId}/export` — GDPR 개인정보 export (v1.11)
 
@@ -311,26 +395,93 @@ GDPR 열람권(Art.15)·개인정보보호법 대응을 위해 한 사용자의 
 ```json
 {
   "data": {
-    "exportedAt": "2026-07-21T09:00:00Z", "slug": "gymlog",
-    "user": { "id": 1, "email": "user@example.com", "displayName": "홍길동", "nickname": "gil", "role": "user", "isPremium": true, "emailVerified": true, "createdAt": "2026-01-15T03:20:00Z", "deletedAt": null, "updatedAt": "2026-06-01T00:00:00Z" },
-    "socialProviders": ["google"],
-    "devices": [ { "id": 9, "platform": "ANDROID", "deviceName": "Pixel 8", "lastSeenAt": "2026-07-06T22:00:00Z", "createdAt": "2026-01-15T03:21:00Z" } ],
-    "subscriptions": [ { "id": 3, "planId": 2, "status": "ACTIVE", "startedAt": "2026-06-01T00:00:00Z", "expiresAt": "2026-07-01T00:00:00Z", "cancelledAt": null, "cancelReason": null } ],
-    "payments": [ { "id": 11, "channel": "PG", "amount": 9900, "currency": "KRW", "status": "PAID", "paidAt": "2026-06-01T00:00:00Z", "refundedAt": null } ],
-    "notificationSettings": [ { "kind": "MARKETING", "pushEnabled": true, "emailEnabled": false } ],
-    "activityDays": ["2026-07-01", "2026-07-02"],
-    "posts": [ { "id": 5, "board": "free", "title": "내 글", "status": "ACTIVE", "createdAt": "2026-06-10T00:00:00Z" } ],
-    "attachments": [ { "id": 8, "storageKey": "…", "originalFilename": "a.png", "sizeBytes": 1024, "status": "ACTIVE", "createdAt": "2026-06-10T00:00:00Z" } ]
-  },
-  "error": null
+    "exportedAt": "2026-07-21T09:00:00Z",
+    "slug": "gymlog",
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "displayName": "홍길동",
+      "nickname": "gil",
+      "role": "user",
+      "isPremium": true,
+      "emailVerified": true,
+      "createdAt": "2026-01-15T03:20:00Z",
+      "updatedAt": "2026-06-01T00:00:00Z"
+    },
+    "socialProviders": [
+      "google"
+    ],
+    "devices": [
+      {
+        "id": 9,
+        "platform": "ANDROID",
+        "deviceName": "Pixel 8",
+        "lastSeenAt": "2026-07-06T22:00:00Z",
+        "createdAt": "2026-01-15T03:21:00Z"
+      }
+    ],
+    "subscriptions": [
+      {
+        "id": 3,
+        "planId": 2,
+        "status": "ACTIVE",
+        "startedAt": "2026-06-01T00:00:00Z",
+        "expiresAt": "2026-07-01T00:00:00Z"
+      }
+    ],
+    "payments": [
+      {
+        "id": 11,
+        "channel": "PG",
+        "amount": 9900,
+        "currency": "KRW",
+        "status": "PAID",
+        "paidAt": "2026-06-01T00:00:00Z"
+      }
+    ],
+    "notificationSettings": [
+      {
+        "kind": "MARKETING",
+        "pushEnabled": true,
+        "emailEnabled": false
+      }
+    ],
+    "activityDays": [
+      "2026-07-01",
+      "2026-07-02"
+    ],
+    "posts": [
+      {
+        "id": 5,
+        "board": "free",
+        "title": "내 글",
+        "status": "ACTIVE",
+        "createdAt": "2026-06-10T00:00:00Z"
+      }
+    ],
+    "attachments": [
+      {
+        "id": 8,
+        "storageKey": "…",
+        "originalFilename": "a.png",
+        "sizeBytes": 1024,
+        "status": "ACTIVE",
+        "createdAt": "2026-06-10T00:00:00Z"
+      }
+    ]
+  }
 }
 ```
+
+<a id="4-5-2-delete-apiadminappsslugusersuserid--콘솔-탈퇴-soft-delete-v111"></a>
 
 ### 4-5-2. `DELETE /api/admin/apps/{slug}/users/{userId}` — 콘솔 탈퇴 (soft-delete, v1.11)
 
 GDPR 삭제권(Art.17) 대응의 접수 단계예요. 앱 유저 `withdraw`(auth) 와 동일 시맨틱(`deleted_at` 세팅 + 해당 유저의 refresh token 전체 revoke)을 콘솔 경로로 노출하고, 쓰기 권한 `USERS_WRITE` 로 게이팅합니다(신규 권한 — 재로그인 시 JWT claim 반영). 상태 확인(행 잠금)과 두 쓰기(soft-delete·토큰 revoke)는 같은 앱 스키마라 한 트랜잭션으로 묶여, 하나가 실패하면 둘 다 되돌아가고 재시도할 수 있어요. 본문 없는 성공은 `ApiResponse.empty()`. 이미 탈퇴된 사용자는 400 `ADMIN_024`, 이미 익명화된 사용자는 410 `ADMIN_025`, 미존재는 404 `ADMIN_005`.
 
 soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:00, `app.user.erasure.enabled=true` 일 때만 활성)가 도메인별 처리표대로 완전삭제/익명화합니다 — auth 토큰·소셜·기기·알림설정·활동일·인증코드는 **hard delete**, `users`(email 을 `deleted-{id}@erased.invalid` 마커로 + PII 소거)·`payment_history`(`raw_response`/`customer_uid` 만 제거)·`posts`(`author_nickname`)·`analytics_events`(`user_id` NULL)는 **익명화**, 결제·구독·감사 원장은 **법정 보존**(GDPR Art.17(3)(b) 예외), 첨부는 `AttachmentPort.softDelete` 로 전환해 기존 `AttachmentPurgeScheduler` 가 스토리지까지 낙수 삭제해요. 유예기간은 `app.user.erasure.grace-days`(기본 30). ACTIVE 구독이 남은 사용자는 스킵(운영자가 정리 후 다음 sweep 처리). 상세 절차는 [`gdpr-request-runbook.md`](../production/gdpr-request-runbook.md).
+
+<a id="4-6-get-apiadminappsslugbilling--빌링-요약"></a>
 
 ### 4-6. `GET /api/admin/apps/{slug}/billing` — 빌링 요약
 
@@ -339,22 +490,38 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 ```json
 {
   "data": {
-    "slug": "gymlog", "from": "2026-06-07T00:00:00Z", "to": "2026-07-07T00:00:00Z",
-    "gross": 5000000, "refunded": 100000, "net": 4900000,
+    "slug": "gymlog",
+    "from": "2026-06-07T00:00:00Z",
+    "to": "2026-07-07T00:00:00Z",
+    "gross": 5000000,
+    "refunded": 100000,
+    "net": 4900000,
     "byChannel": [
-      { "channel": "PG", "amount": 3000000, "count": 15 },
-      { "channel": "IAP", "amount": 2000000, "count": 8 }
+      {
+        "channel": "PG",
+        "amount": 3000000,
+        "count": 15
+      },
+      {
+        "channel": "IAP",
+        "amount": 2000000,
+        "count": 8
+      }
     ],
     "activeSubscriptions": 34,
     "dailySeries": [
-      { "date": "2026-06-07", "amount": 150000 }
+      {
+        "date": "2026-06-07",
+        "amount": 150000
+      }
     ]
-  },
-  "error": null
+  }
 }
 ```
 
 `gross`/`net` 시맨틱은 §5 를 참고하세요 — **환불 여부와 무관하게 한 번이라도 결제된 금액의 총합**입니다.
+
+<a id="4-7-get-apiadminaudit-logs--감사로그-검색"></a>
 
 ### 4-7. `GET /api/admin/audit-logs` — 감사로그 검색
 
@@ -364,17 +531,30 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 {
   "data": {
     "content": [
-      { "id": 77, "actorUserId": 3, "actorEmail": "admin@gymlog.local", "action": "PAYMENT_REFUND",
-        "resourceType": "PaymentHistory", "resourceId": "11", "slug": "gymlog", "result": "SUCCESS",
-        "ipAddress": "127.0.0.1", "occurredAt": "2026-07-06T10:00:00Z" }
+      {
+        "id": 77,
+        "actorUserId": 3,
+        "actorEmail": "admin@gymlog.local",
+        "action": "PAYMENT_REFUND",
+        "resourceType": "PaymentHistory",
+        "resourceId": "11",
+        "slug": "gymlog",
+        "result": "SUCCESS",
+        "ipAddress": "127.0.0.1",
+        "occurredAt": "2026-07-06T10:00:00Z"
+      }
     ],
-    "page": 0, "size": 20, "totalElements": 3, "totalPages": 1
-  },
-  "error": null
+    "page": 0,
+    "size": 20,
+    "totalElements": 3,
+    "totalPages": 1
+  }
 }
 ```
 
 > **알려진 한계** — `slug` 미지정(전 슬러그) 조회는 각 슬러그에서 `(page+1)*size` 만큼 가져온 뒤 메모리에서 병합·정렬·페이징합니다. 솔로 규모(앱 수 ~10, 로그 수만 건)에선 문제없지만 커지면 커서 방식 개선이 필요해요([`ADR-039`](../philosophy/adr-039-admin-module.md) 후속 참고).
+
+<a id="4-8-get-apiadminanalyticsmetric--분석-시계열"></a>
 
 ### 4-8. `GET /api/admin/analytics/{metric}` — 분석 시계열
 
@@ -392,19 +572,27 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 ```json
 {
   "data": {
-    "metric": "dau", "interval": "day",
+    "metric": "dau",
+    "interval": "day",
     "points": [
-      { "ts": "2026-07-01", "value": 18 },
-      { "ts": "2026-07-02", "value": 22 }
+      {
+        "ts": "2026-07-01",
+        "value": 18
+      },
+      {
+        "ts": "2026-07-02",
+        "value": 22
+      }
     ]
-  },
-  "error": null
+  }
 }
 ```
 
 `dau` 시계열은 `user_activity_days` 추적 시작일 이전 구간에는 데이터가 없습니다 — 차트는 데이터가 쌓인 구간만 표시하세요.
 
 **`slug` 생략 시 — 전 슬러그 합산 모드(v1.7)**: `slug` 를 지정하면 그 앱만(기존 동작), 생략(또는 blank)하면 `AdminSlugRegistry.slugs()` 전체를 순회해 동일 쿼리를 돌리고 **일자(`ts`)별로 값을 sum-merge** 합니다 — 한쪽 슬러그에만 있는 날짜도 결과에 그대로 포함돼요(그 날짜의 값 = 그 슬러그 값 그대로). 응답 shape 은 단일 슬러그 조회와 동일합니다.
+
+<a id="4-8b-get-apiadminanalyticsevents--제품-이벤트-요약-v110"></a>
 
 ### 4-8b. `GET /api/admin/analytics/events` — 제품 이벤트 요약 (v1.10)
 
@@ -413,20 +601,31 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 ```json
 {
   "data": [
-    { "eventName": "post_created", "count": 128, "uniqueUsers": 74 },
-    { "eventName": "payment_succeeded", "count": 31, "uniqueUsers": 29 }
-  ],
-  "error": null
+    {
+      "eventName": "post_created",
+      "count": 128,
+      "uniqueUsers": 74
+    },
+    {
+      "eventName": "payment_succeeded",
+      "count": 31,
+      "uniqueUsers": 29
+    }
+  ]
 }
 ```
 
 `uniqueUsers` 는 **일별 순 사용자의 기간 합**이라 pre-aggregated daily 특성상 기간 전체의 절대 unique 는 아닙니다(같은 유저가 여러 날 활동 시 중복 가산). 발생수(`count`)가 채택 지표의 헤드라인이에요.
+
+<a id="4-8c-get-apiadminanalyticseventseventname--단일-이벤트-추이-v110"></a>
 
 ### 4-8c. `GET /api/admin/analytics/events/{eventName}` — 단일 이벤트 추이 (v1.10)
 
 특정 이벤트의 일별 발생수 시계열(드릴다운). 응답 shape 은 §4-8 시계열과 동일(`metric` 자리에 `eventName`). 리터럴 `/events` 는 §4-8 의 `/{metric}` 보다 우선 매핑되므로 충돌하지 않습니다. 미집계 이벤트명은 빈 `points` 를 반환해요(에러 아님).
 
 > **롤업 타이밍**: 두 엔드포인트 모두 `analytics_daily`(야간 롤업 산물)를 읽으므로, 오늘 발생한 원본 이벤트는 다음 롤업(`AnalyticsRetentionScheduler`, 기본 04:15) 후 반영됩니다. 원본(`analytics_events`)은 90일 후 purge 되고 집계는 daily 에 영구 보존됩니다.
+
+<a id="4-9-get-apiadminappsslugops--운영-신호-v15"></a>
 
 ### 4-9. `GET /api/admin/apps/{slug}/ops` — 운영 신호 (v1.5)
 
@@ -436,17 +635,21 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 {
   "data": {
     "slug": "gymlog",
-    "renewalAttempts7d": 40, "renewalFailures7d": 3,
-    "webhookPending": 0, "webhookFailed": 1,
-    "retentionD1": 50.0, "retentionD7": 33.3
-  },
-  "error": null
+    "renewalAttempts7d": 40,
+    "renewalFailures7d": 3,
+    "webhookPending": 0,
+    "webhookFailed": 1,
+    "retentionD1": 50.0,
+    "retentionD7": 33.3
+  }
 }
 ```
 
 `renewalFailures7d` 는 `subscription_renewals.status <> 'SUCCESS'`(즉 `FAILED` + `ABANDONED`) 를 모두 셉니다 — 재시도 대기 중인 것도, 최종 실패한 것도 운영자가 봐야 할 신호이기 때문이에요. `retentionD1`/`retentionD7` 은 코호트 크기가 0이면 `null` 입니다(React 는 "데이터 수집 중"으로 표시).
 
 이 카드의 숫자를 **건별로 펴는 드릴다운**이 아래 §4-9a(갱신 실패)·§4-9b(웹훅) 두 개예요. 두 층의 판정 기준은 `AdminOpsService` 안에서 SQL 술어 상수/헬퍼(`renewalFailureFilter`, `WEBHOOK_PENDING_FILTER`, `WEBHOOK_FAILED_FILTER`)로 **공유**해요 — "카드엔 3건인데 목록은 5건" 같은 어긋남이 나면 콘솔 신뢰가 통째로 깨지기 때문이에요.
+
+<a id="4-9a-get-apiadminappsslugopsrenewal-failures--갱신-실패-드릴다운-v113"></a>
 
 ### 4-9a. `GET /api/admin/apps/{slug}/ops/renewal-failures` — 갱신 실패 드릴다운 (v1.13)
 
@@ -475,6 +678,8 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 > **권한이 §4-9 보다 강한 이유 — `PAYMENTS_READ`**: 카드(§4-9)는 집계 숫자만 돌려주지만 이 목록은 **구독자 이메일(결제 PII)** 을 실어요. 결제-사용자 조인 목록을 `PAYMENTS_READ` 로 묶은 이 콘솔의 선례(#16 결제 내역·매출분석 최근 거래)와 동일 논리라, viewer 급 `APPS_READ` 로는 403 이에요.
 
 `status` 는 `FAILED`(재시도 대기) 또는 `ABANDONED`(재시도 소진 후 최종 실패) 두 값이에요. `nextRetryAt`/`errorCode`/`errorMessage` 는 값이 없으면 응답에서 **필드 자체가 빠져요**(전역 `default-property-inclusion: non_null`) — 재시도가 소진된 `ABANDONED` 행에 `nextRetryAt` 이 없는 게 정상이에요.
+
+<a id="4-9b-get-apiadminappsslugopswebhooksstatuspendingfailed--웹훅-드릴다운-v113"></a>
 
 ### 4-9b. `GET /api/admin/apps/{slug}/ops/webhooks?status=pending|failed` — 웹훅 드릴다운 (v1.13)
 
@@ -506,9 +711,11 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 }
 ```
 
+<a id="4-10-get-apiadminappsslugpayments--결제-내역-목록-v15"></a>
+
 ### 4-10. `GET /api/admin/apps/{slug}/payments` — 결제 내역 목록 (v1.5)
 
-`payment_history` 를 `users` 와 조인해 이메일까지 함께 보여주는 목록 조회예요. `query` 는 `users.email` 에 대한 `ILIKE` 부분일치, `channel`/`status`/`type` 은 정확 일치, `from`/`to` 는 `paid_at` 기준 ISO-8601 범위(형식이 잘못되면 400 `ADMIN_004`). `page`/`size` 는 §4-4 와 동일한 clamp 규칙.
+`payment_history`를 `users`와 조인해 사용자 이메일을 함께 반환해요. `query`는 이메일 부분 검색, `channel`·`status`·`type`은 정확 일치 필터예요. `from`·`to`는 결제 시각(`paid_at`), `refundFrom`·`refundTo`는 환불 시각(`refunded_at`)의 양끝을 포함하는 범위예요. 날짜는 ISO-8601로 받고 파싱 실패는 `ADMIN_004`로 처리해요. `page`·`size` 보정은 §4-4와 같아요. 응답에는 환불 사유 `refundReason`도 포함해요.
 
 `paymentType` 은 `payment_history.payment_type` 컬럼(기록 시점 확정)이에요 — 구독 활성화/갱신이 이 결제 건을 `payment_record_id` 로 링크하는 순간 같은 트랜잭션에서 `"SUBSCRIPTION"` 으로 확정되고, 그 외에는 기본값 `"ONE_TIME"`(단건 결제)이에요. `type` 쿼리 파라미터로 이 컬럼 값을 그대로 필터링할 수 있어요.
 
@@ -518,17 +725,31 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 {
   "data": {
     "content": [
-      { "id": 11, "userId": 1, "userEmail": "user@example.com", "channel": "PG",
-        "amount": 9900, "refundedAmount": 0, "currency": "KRW", "status": "PAID",
-        "paidAt": "2026-06-01T00:00:00Z", "refundedAt": null,
-        "externalId": "imp_123456789", "paymentType": "SUBSCRIPTION",
-        "periodStart": "2026-06-01T00:00:00Z", "periodEnd": "2026-07-01T00:00:00Z" }
+      {
+        "id": 11,
+        "userId": 1,
+        "userEmail": "user@example.com",
+        "channel": "PG",
+        "amount": 9900,
+        "refundedAmount": 0,
+        "currency": "KRW",
+        "status": "PAID",
+        "paidAt": "2026-06-01T00:00:00Z",
+        "externalId": "imp_123456789",
+        "paymentType": "SUBSCRIPTION",
+        "periodStart": "2026-06-01T00:00:00Z",
+        "periodEnd": "2026-07-01T00:00:00Z"
+      }
     ],
-    "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
-  },
-  "error": null
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
+  }
 }
 ```
+
+<a id="4-11-post-apiadminappsslugpaymentspaymentidrefund--pg-환불-write-v16--부분환불-v19"></a>
 
 ### 4-11. `POST /api/admin/apps/{slug}/payments/{paymentId}/refund` — PG 환불 (write, v1.6 · 부분환불 v1.9)
 
@@ -550,34 +771,63 @@ soft-delete 후 **30일 유예**가 지나면 `UserErasureScheduler`(기본 05:0
 5. 요청 금액이 남은 잔액을 초과하면 400 `ADMIN_020`(환불 금액 오류). `amount` 는 `@Positive` 라서 0·음수는 그 전에 bean validation(422 `CMN_*`)에서 걸러져요 — `ADMIN_020` 은 "잔액 초과" 전용이에요.
 6. 그 외 PortOne 이 거부하는 케이스는 `PaymentPort` 예외를 `GlobalExceptionHandler` 가 매핑해요.
 
-**감사로그**: `@Audited("admin.payment.refund")` 가 `AuditAspect` 를 트리거해요. 컨트롤러가 `SlugContext` 를 스왑한 *이후* 서비스를 호출하기 때문에, 감사 이벤트는 `"admin"` 이 아니라 **대상 앱 슬러그의 스키마**(`audit_logs`)에 남습니다.
+**감사로그**는 `@Audited("admin.payment.refund")`가 대상 앱 스키마에 남겨요. 컨트롤러가 대상 slug로 컨텍스트를 바꾼 상태에서 서비스를 호출하기 때문이에요.
+
+환불은 외부 PG 호출과 로컬 DB 반영을 하나의 트랜잭션으로 묶지 못해요. 로컬 결제 누적액과 환불 원장 기록은 함께 반영하지만, PG 성공 뒤 로컬 반영이 실패하거나 같은 결제에 요청이 겹치는 상황은 별도 확인이 필요해요. 실패 응답을 받으면 바로 같은 환불을 반복하지 말고 PG 상태와 원장을 먼저 대조해요.
 
 부분환불 응답(12000 중 4000 환불 → 잔액 8000):
 
 ```json
 {
   "data": {
-    "id": 11, "userId": 1, "userEmail": "user@example.com", "channel": "PG",
-    "amount": 12000, "refundedAmount": 4000, "currency": "KRW", "status": "PARTIALLY_REFUNDED",
-    "paidAt": "2026-06-01T00:00:00Z", "refundedAt": "2026-07-07T09:10:00Z",
-    "externalId": "imp_123456789", "paymentType": "SUBSCRIPTION",
-    "periodStart": "2026-06-01T00:00:00Z", "periodEnd": "2026-07-01T00:00:00Z"
-  },
-  "error": null
+    "id": 11,
+    "userId": 1,
+    "userEmail": "user@example.com",
+    "channel": "PG",
+    "amount": 12000,
+    "refundedAmount": 4000,
+    "currency": "KRW",
+    "status": "PARTIALLY_REFUNDED",
+    "paidAt": "2026-06-01T00:00:00Z",
+    "refundedAt": "2026-07-07T09:10:00Z",
+    "externalId": "imp_123456789",
+    "paymentType": "SUBSCRIPTION",
+    "periodStart": "2026-06-01T00:00:00Z",
+    "periodEnd": "2026-07-01T00:00:00Z"
+  }
 }
 ```
 
 IAP 결제 환불 시도 응답:
 
 ```json
-{ "data": null, "error": { "code": "ADMIN_006", "message": "PG 결제만 콘솔에서 환불할 수 있어요.", "details": { "channel": "IAP" } } }
+{
+  "error": {
+    "code": "ADMIN_006",
+    "message": "PG 결제만 콘솔에서 환불할 수 있어요.",
+    "details": {
+      "channel": "IAP"
+    }
+  }
+}
 ```
 
 잔액 초과 환불 시도 응답:
 
 ```json
-{ "data": null, "error": { "code": "ADMIN_020", "message": "환불 금액이 환불 가능 잔액을 벗어났어요.", "details": { "requested": 9999, "refundable": 8000 } } }
+{
+  "error": {
+    "code": "ADMIN_020",
+    "message": "환불 금액이 환불 가능 잔액을 벗어났어요.",
+    "details": {
+      "requested": 9999,
+      "refundable": 8000
+    }
+  }
+}
 ```
+
+<a id="4-12-get-apiadmindashboardtop-customers--결제-top-n-고객-v17"></a>
 
 ### 4-12. `GET /api/admin/dashboard/top-customers` — 결제 TOP N 고객 (v1.7)
 
@@ -590,12 +840,25 @@ IAP 결제 환불 시도 응답:
 ```json
 {
   "data": [
-    { "slug": "gymlog", "userId": 7, "userEmail": "vip@example.com", "totalAmount": 990000, "paymentCount": 12 },
-    { "slug": "sumtally", "userId": 3, "userEmail": "big@example.com", "totalAmount": 450000, "paymentCount": 5 }
-  ],
-  "error": null
+    {
+      "slug": "gymlog",
+      "userId": 7,
+      "userEmail": "vip@example.com",
+      "totalAmount": 990000,
+      "paymentCount": 12
+    },
+    {
+      "slug": "sumtally",
+      "userId": 3,
+      "userEmail": "big@example.com",
+      "totalAmount": 450000,
+      "paymentCount": 5
+    }
+  ]
 }
 ```
+
+<a id="4-13-get-apiadminappsslugfiles--업로드-파일-목록-v18"></a>
 
 ### 4-13. `GET /api/admin/apps/{slug}/files` — 업로드 파일 목록 (v1.8)
 
@@ -618,50 +881,86 @@ IAP 결제 환불 시도 응답:
         "associatedId": 42,
         "uploadedBy": "42",
         "uploadedIp": "203.0.113.7",
-        "userAgent": "Dart/3.4 (dart:io)",
-        "deleteReason": null,
-        "deletedAt": null,
-        "purgeAt": null
+        "userAgent": "Dart/3.4 (dart:io)"
       }
     ],
     "page": 0,
     "size": 20,
     "totalElements": 1,
     "totalPages": 1
-  },
-  "error": null
+  }
 }
 ```
 
 응답은 [`API Response Format`](./api/api-response.md) 의 표준 `PageResponse<T>` envelope(`content`/`page`/`size`/`totalElements`/`totalPages`)예요.
 
+<a id="4-14-post-apiadminappsslugfilesquarantine--파일-검역-write-v18"></a>
+
 ### 4-14. `POST /api/admin/apps/{slug}/files/quarantine` — 파일 검역 (write, v1.8)
 
-유해 컨텐츠 대응용 write 액션이에요. `key`(= `attachment_file.id`)의 상태를 `AttachmentPort.quarantine(slug, id)` 로 `QUARANTINED` 로 전환합니다 — 스토리지 오브젝트는 옮기지 않고 상태 컬럼만 바꿔요. 이미 `QUARANTINED`(또는 `DELETED`)면 엔티티가 조용히 no-op 하므로 재검역해도 에러 없이 현재 상태의 파일을 200 으로 돌려줍니다(옛 `ADMIN_008` 은 현재 미발생 — §7 참고). 응답은 갱신된 파일 1건(`AdminFileResponse`) — 액션 응답은 프론트가 즉시 refetch 하므로 `url` 이 항상 `null` 이고, 나머지 필드는 §4-13 과 동일 구조예요. `FILES_UNMASK` 가 없으면 목록과 똑같이 업로더·IP·기기가 마스킹돼요(검역·삭제·복원 액션 응답 전부).
+유해 콘텐츠에 연결된 파일을 검역하는 작업이에요. `key`는 `attachment_file.id`이고, `AttachmentPort.quarantine(slug, id)`가 상태를 `QUARANTINED`로 바꿔요. 스토리지 객체를 다른 곳으로 옮기지는 않아요. 이미 `QUARANTINED`이거나 `DELETED`이면 상태를 바꾸지 않고 현재 파일 정보를 200으로 반환해요. 옛 `ADMIN_008`은 현재 발생하지 않아요 (§7).
+
+응답은 `AdminFileResponse` 한 건이에요. 상태 변경 응답에는 다운로드 URL을 발급하지 않아 Java의 `url`은 null이고 실제 JSON에서는 생략돼요. 화면은 목록을 다시 조회해요. `FILES_UNMASK` 권한이 없으면 검역·삭제·복원 응답에서도 목록과 같이 업로더·IP·기기를 마스킹해요.
 
 ```json
-{ "data": { "key": "42", "status": "QUARANTINED", "quarantined": true, "url": null, "size": 10240, "originalFilename": "avatar.png", "contentType": "image/png", "deleteReason": null, "deletedAt": null, "purgeAt": null }, "error": null }
+{
+  "data": {
+    "key": "42",
+    "status": "QUARANTINED",
+    "quarantined": true,
+    "size": 10240,
+    "originalFilename": "avatar.png",
+    "contentType": "image/png"
+  }
+}
 ```
+
+<a id="4-15-post-apiadminappsslugfilesrestore--파일-복원-write-v18"></a>
 
 ### 4-15. `POST /api/admin/apps/{slug}/files/restore` — 파일 복원 (write, v1.8)
 
 검역을 해제해 `AttachmentPort.restore(slug, id)` 로 `QUARANTINED` → `ACTIVE` 로 되돌려요. `QUARANTINED` 가 아니면 엔티티가 조용히 no-op 하므로 비검역 파일을 복원해도 에러 없이 현재 상태를 200 으로 돌려줍니다(옛 `ADMIN_009` 은 현재 미발생 — §7 참고). 응답은 §4-14 와 동일 구조(`url=null`)예요.
 
 ```json
-{ "data": { "key": "42", "status": "ACTIVE", "quarantined": false, "url": null, "size": 10240, "originalFilename": "avatar.png", "contentType": "image/png", "deleteReason": null, "deletedAt": null, "purgeAt": null }, "error": null }
+{
+  "data": {
+    "key": "42",
+    "status": "ACTIVE",
+    "quarantined": false,
+    "size": 10240,
+    "originalFilename": "avatar.png",
+    "contentType": "image/png"
+  }
+}
 ```
+
+<a id="4-16-delete-apiadminappsslugfiles--파일-삭제-write-v18"></a>
 
 ### 4-16. `DELETE /api/admin/apps/{slug}/files` — 파일 삭제 (write, v1.8)
 
 **soft-delete** 예요(불가역 삭제 아님). 본문 `{ "reason": "..." }`(필수, `AdminFileDeleteRequest`)를 받아 `AttachmentPort.softDelete(slug, id, reason, null)` 로 상태를 `DELETED` 로 전환하고 `deleteReason`·`deletedAt`·`purgeAt`(= `deletedAt` + 30일)을 기록합니다. 스토리지 오브젝트/row 의 실제 삭제는 30일 유예 뒤 `AttachmentPurgeScheduler` 가 수행해요. 유예 기간 안에는 `POST .../files/restore-deleted?key`(§3 #23)로 되살릴 수 있어요. 삭제 전에 검역 중이던 파일은 `ACTIVE` 가 아니라 `QUARANTINED` 로 돌아가고(삭제→복원이 검역 해제의 우회로가 되지 않게), `DELETED` 가 아닌 파일에 restore-deleted 를 부르면 그대로 200 이에요. 이미 삭제된 파일을 다시 지우면 사유만 바뀌고 `deletedAt` 은 유지되며 `purgeAt` 은 뒤로 밀리지 않아요. 응답은 삭제 처리된 파일 1건(`AdminFileResponse`, `status=DELETED`, `url=null`) — 204 가 아니라 200 입니다.
 
 ```json
-{ "data": { "key": "42", "status": "DELETED", "quarantined": false, "url": null, "size": 10240, "originalFilename": "avatar.png", "contentType": "image/png", "deleteReason": "규정 위반 신고 처리", "deletedAt": "2026-07-07T09:30:00Z", "purgeAt": "2026-08-06T09:30:00Z" }, "error": null }
+{
+  "data": {
+    "key": "42",
+    "status": "DELETED",
+    "quarantined": false,
+    "size": 10240,
+    "originalFilename": "avatar.png",
+    "contentType": "image/png",
+    "deleteReason": "규정 위반 신고 처리",
+    "deletedAt": "2026-07-07T09:30:00Z",
+    "purgeAt": "2026-08-06T09:30:00Z"
+  }
+}
 ```
 
 **§4-13~4-16 공통 검증 순서**: `AdminSlugRegistry.has(slug)` 가 false 면 404 `ADMIN_003`(`AdminSlugNotFoundException`)으로 존재하지 않는 슬러그를 먼저 걸러내요. 검역/복원/삭제 대상 `key` 가 숫자가 아니거나 해당 `attachment_file.id` 가 없으면(`AttachmentPort.get(slug, id)` 로 확인) 404 `ADMIN_010`(`FILE_NOT_FOUND`, `AdminFileNotFoundException`)으로 응답합니다.
 
 **감사로그**: 검역/복원/삭제/삭제복원 write 액션은 `@Audited("admin.file.quarantine"/"admin.file.restore"/"admin.file.delete"/"admin.file.restore-deleted")` 가 §4-11 환불과 동일하게 `AuditAspect` 를 트리거해요. 포트 호출은 대상 슬러그를 인자로 직접 받고(StoragePort presign 은 bucket 이름으로 라우팅) `SlugContext` 를 보지 않지만, 감사 이벤트를 대상 앱 슬러그의 스키마에 남기기 위해 컨트롤러가 서비스 호출 전 `SlugContext` 를 대상 슬러그로 스왑(`try`)하고 호출 후 원복(`finally`)합니다.
+
+<a id="4-17-get-apiadminappsslugcontent--모더레이션-v110"></a>
 
 ### 4-17. `GET /api/admin/apps/{slug}/content` + 모더레이션 (v1.10)
 
@@ -684,6 +983,8 @@ IAP 결제 환불 시도 응답:
   - 본문과 `properties` 에 살아 있는 `attachment://{id}` 참조는 목록에 없어도 지켜집니다 — 클라이언트가 목록을 만들다 빠뜨려도 사진이 사라지지 않아요.
   - 작성(`POST .../content`)은 떼어낼 것이 없어 붙이기만 합니다.
 - **첨부 정리 배치는 기본 켜짐, 게시물 정리 배치는 기본 꺼짐**: `app.attachment.purge.enabled`(기본 true)가 떼어낸 사진·지운 첨부를 치우고, `app.content.purge.enabled` 를 켜지 않으면 지운 글은 디스크에 남아요(그 글의 첨부도 글이 purge 될 때 비로소 purge 대기로 넘어가요). 순서가 중요해서 게시물(03:30)이 첨부(04:00)보다 **먼저** 돌아야 같은 밤에 저장소까지 정리됩니다.
+
+<a id="4-18-getput-apiadminappsslugapp-versions--앱-최소버전-2단계강제경고-규칙-v112"></a>
 
 ### 4-18. `GET`/`PUT /api/admin/apps/{slug}/app-versions` — 앱 최소버전 2단계(강제/경고) 규칙 (v1.12)
 
@@ -747,9 +1048,12 @@ Content-Type: application/json
       "storeUrl": "https://apps.apple.com/app/id0000000000",
       "message": "새 버전으로 업데이트해주세요"
     },
-    { "platform": "ANDROID", "enabled": true, "warnMinVersion": "2.0.0" }
-  ],
-  "error": null
+    {
+      "platform": "ANDROID",
+      "enabled": true,
+      "warnMinVersion": "2.0.0"
+    }
+  ]
 }
 ```
 
@@ -768,15 +1072,21 @@ Content-Type: application/json
 
 `enabled=false` 면 force/warn 값이 있어도 게이트 미적용이고, `enabled=true` 라도 둘 다 `null` 이면 게이트 없음이에요 — 어느 쪽이든 검증은 통과해요. 전 건 검증을 통과해야 트랜잭션 1개로 그 슬러그 몫만 replace 하고(부분 실패 없음, 다른 슬러그 행은 그대로), 성공하면 `DbAppVersionResolver` 의 30초 TTL 캐시를 즉시 evict 해서 다음 요청부터 곧바로 반영돼요. `AppVersionValidationException` 은 도메인 전용 `ADMIN_*` 코드가 아니라 공통 `CommonError.VALIDATION_ERROR`(`CMN_001`)를 그대로 쓰는 `BaseException` 계열이에요.
 
+<a id="해석-규칙-읽기-쪽--필터앱-조회-엔드포인트가-공유"></a>
+
 #### 해석 규칙 (읽기 쪽 — 필터·앱 조회 엔드포인트가 공유)
 
-`DbAppVersionResolver.resolve(slug, platform)` 이 `(slug, platform)` 단일 키로 직접 조회해요 — 우선순위 체인이나 `'*'`/`ALL` 폴백은 없어요(앱당 고정 iOS/Android 2행이라 매칭되는 행은 최대 1개). 매칭 행이 **없을 때만** yml(`AppVersionProperties`) fallback 으로 넘어가고, 그마저 없으면 게이트 없음(`null`)이에요. 행이 존재하면 값이 비어 있거나 `enabled=false` 여도 그 행이 authoritative 라 yml 이 되살리지 않아요(콘솔이 진실의 출처 — 명시적 off 를 yml 이 덮으면 사고). `enabled=false` 면 force/warn 값이 있어도 서버 필터는 절대 막지 않아요. **서버 필터(426)는 오직 `forceMinVersion` tier 만 강제해요** — 클라 버전이 `forceMinVersion` **이하(≤)** 면 426, 그 외(경고 구간 포함)엔 전부 통과시켜요. `warnMinVersion` 미달 판정과 경고 UI 는 클라 스플래시 몫이에요.
+`DbAppVersionResolver`는 `(slug, platform)`에 해당하는 한 행을 조회해요. `*`·`ALL` 같은 대체 규칙은 없어요. 행이 없을 때만 yml의 `AppVersionProperties`를 사용하고, 그 설정도 없으면 버전 게이트를 적용하지 않아요.
+
+행이 있으면 비어 있는 값이나 `enabled=false`도 그대로 적용해요. 콘솔에서 끈 설정을 yml이 다시 켜지 않도록 하는 규칙이에요. 이 버전 필터는 `forceMinVersion` 이하(≤)인 요청에 426을 반환하고, `warnMinVersion`은 서버 차단에 사용하지 않아요. 경고 여부와 화면 표시는 클라이언트가 판단해요.
 
 #### 앱쪽 소비처
 
 이 규칙이 실제로 게이트를 거는 곳은 앱 API 쪽입니다 — `MinAppVersionFilter`(`X-App-Platform` 헤더 + 426 `CMN_010`)와, 스플래시가 능동 조회하는 공개 엔드포인트(`GET /api/apps/{appSlug}/app-version`). 두 경로 모두 [`Flutter ↔ Backend Integration`](./api/flutter-backend-integration.md) 문서(최소 앱 버전 게이트 섹션)가 정본이에요.
 
 ---
+
+<a id="4-19-post-apiadminanalyticsrollup--수동-롤업지금-집계-v112"></a>
 
 ### 4-19. `POST /api/admin/analytics/rollup` — 수동 롤업("지금 집계", v1.12)
 
@@ -786,8 +1096,11 @@ Content-Type: application/json
 
 ```json
 {
-  "data": { "slugs": 2, "eventNames": 7, "aggregatedThrough": "2026-07-29T04:21:00Z" },
-  "error": null
+  "data": {
+    "slugs": 2,
+    "eventNames": 7,
+    "aggregatedThrough": "2026-07-29T04:21:00Z"
+  }
 }
 ```
 
@@ -796,6 +1109,8 @@ Content-Type: application/json
 권한은 조회용 `ANALYTICS_READ` 가 아니라 전용 `PERM_ANALYTICS_ROLLUP` 이에요 — `analytics_daily` 에 쓰는 작업이라 읽기와 분리했고(`REQUIRES_READ` 로 `ANALYTICS_READ` 에 의존), 시드는 집행 권한 패턴대로 `admin`·`master` 에만 부여합니다(V011). `viewer`·`support` 는 조회만 유지해요.
 
 ---
+
+<a id="4-20-get-apiadminappsslugschema--앱-스키마-조회erd-콘솔-phase-1"></a>
 
 ### 4-20. `GET /api/admin/apps/{slug}/schema` — 앱 스키마 조회(ERD 콘솔, Phase 1)
 
@@ -809,17 +1124,33 @@ Content-Type: application/json
         "name": "widgets",
         "comment": "Widget catalog",
         "columns": [
-          { "name": "id", "type": "bigint", "nullable": false, "defaultValue": null, "primaryKey": true, "comment": null },
-          { "name": "name", "type": "character varying(100)", "nullable": false, "defaultValue": null, "primaryKey": false, "comment": "Display name" }
+          {
+            "name": "id",
+            "type": "bigint",
+            "nullable": false,
+            "primaryKey": true
+          },
+          {
+            "name": "name",
+            "type": "character varying(100)",
+            "nullable": false,
+            "primaryKey": false,
+            "comment": "Display name"
+          }
         ],
         "foreignKeys": [],
         "indexes": [
-          { "name": "uk_widget_email_active", "columns": ["email"], "unique": true }
+          {
+            "name": "uk_widget_email_active",
+            "columns": [
+              "email"
+            ],
+            "unique": true
+          }
         ]
       }
     ]
-  },
-  "error": null
+  }
 }
 ```
 
@@ -831,6 +1162,8 @@ Content-Type: application/json
 ---
 
 ## 5. 핵심 시맨틱 정의
+
+<a id="5-1-gross-수금총액--status-in-paid-refunded-partially_refunded"></a>
 
 ### 5-1. gross 수금총액 — `status IN ('PAID', 'REFUNDED', 'PARTIALLY_REFUNDED')`
 
@@ -848,6 +1181,8 @@ Content-Type: application/json
 
 > **환불 원장으로 기간 귀속 정확**: `refunded` 는 `payment_history.refunded_amount`(누적)·`refunded_at`(마지막 값)이 아니라 `payment_refunds` **건별 원장**에서 집계합니다 — 한 결제를 서로 다른 기간에 걸쳐 여러 번 부분환불해도 각 건이 자기 기간에 정확히 잡혀요(예: 6월 4000 + 7월 3000 → 6월 4000·7월 3000). 과거(원장 도입 전) 환불 건은 V023 마이그레이션이 누적액 1행(시각=마지막 환불 시각)으로 백필합니다.
 
+<a id="5-2-리텐션-정의--코호트-d1d7"></a>
+
 ### 5-2. 리텐션 정의 — 코호트 D1/D7
 
 `retentionD1`/`retentionD7` 은 "가입 후 N일째에도 활동했는가" 를 코호트로 계산합니다.
@@ -861,6 +1196,8 @@ Content-Type: application/json
 
 ---
 
+<a id="6-활동-ping--dau-를-설계로-보장-user-도메인-소유"></a>
+
 ## 6. 활동 ping — DAU 를 설계로 보장 (user 도메인 소유)
 
 이 엔드포인트는 `core-admin-impl` 이 아니라 **`core-user-impl` 소유**지만, admin 콘솔의 DAU/MAU/리텐션 지표(§4-2, §4-3, §4-8, §4-9)의 유일한 원천이라 여기서 함께 설명합니다.
@@ -871,6 +1208,8 @@ Content-Type: application/json
 - **클라이언트(Flutter) 호출 정책**: 부팅(인증 복원 후)·포그라운드 복귀 시 fire-and-forget 호출. 로그인 상태에서만, **6시간 스로틀**, 실패는 조용히 무시하고 **성공 시에만** 마지막 호출 시각을 갱신(장애 구간의 신호 유실 방지), 부팅을 블로킹하지 않음.
 
 ---
+
+<a id="7-에러-코드--admin_001--admin_028"></a>
 
 ## 7. 에러 코드 — `ADMIN_001` ~ `ADMIN_028`
 
@@ -908,7 +1247,12 @@ Content-Type: application/json
 에러 응답은 다른 모든 API 와 동일한 `ApiResponse` 래퍼를 씁니다.
 
 ```json
-{ "data": null, "error": { "code": "ADMIN_003", "message": "알 수 없는 앱이에요.", "details": null } }
+{
+  "error": {
+    "code": "ADMIN_003",
+    "message": "알 수 없는 앱이에요."
+  }
+}
 ```
 
 `ADMIN_*` 코드는 모두 `AdminError` enum + `BaseException` 계열(예: `AdminSlugNotFoundException`/`AdminPaymentNotFoundException`/`AdminFileNotFoundException`/`AdminAccountException`)이라 공용 `GlobalExceptionHandler` 가 자동 매핑하고, `ADMIN_004`(날짜 파싱 실패)와 `ADMIN_005`(유저 없음의 JDBC 0-rows 케이스)는 admin 컨트롤러 전용 `AdminControllerAdvice` 가 매핑합니다. 쿼리 파라미터 검증 실패 중 **허용값 열거형**(§4-9b 웹훅 `status`)은 `ADMIN_*` 이 아니라 공용 `CMN_001`(VALIDATION_ERROR, 422)로 나가요 — `details.{param, rejected, allowed}` 까지 enum 바인딩 실패 응답과 같은 모양이라 콘솔이 두 경로를 한 코드로 처리할 수 있어요(`AdminWebhookStatusValidationException`, `AppVersionValidationException` 과 동일 계열). 이미 환불된 결제처럼 "포트가 거부하는" 케이스는 이 카탈로그에 없고 `core-payment-api`(`PaymentError`)/`core-billing-api`(`BillingError`)/`core-storage-api`(`StorageError`) 쪽 코드가 그대로 노출돼요. 전체 에러 코드 카탈로그는 [`exception-handling.md`](../convention/exception-handling.md) 를 참고하세요.

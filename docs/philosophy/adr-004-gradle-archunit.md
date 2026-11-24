@@ -1,3 +1,5 @@
+<a id="adr-004--gradle-모듈-경계--archunit-22규칙으로-의존-강제"></a>
+
 # ADR-004 · Gradle 모듈 경계 + ArchUnit 22규칙으로 의존 강제
 
 
@@ -9,13 +11,13 @@
 
 ## 결론부터
 
-Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`, Rust 컴파일러처럼 **컨벤션을 문서가 아니라 빌드 자체가 강제** 하는 장치입니다. 우리 프로젝트에서 그 역할을 하는 것이 `DependencyRules.groovy` DSL 과 ArchUnit 의 조합이에요. 전자는 빌드 시, 후자는 소스 스캔 시 작동합니다. 사람이 "이 규칙 지켜주세요" 라고 부탁하는 대신, 규칙 위반 시 빌드가 실패하도록 설계했습니다.
+모듈의 프로젝트 의존성은 `DependencyRules.groovy`가 검사하고, 패키지·타입·메서드의 구조는 ArchUnit이 검사해요. 자동화된 규칙에 어긋나면 빌드가 실패해요. 코드 가독성이나 모든 런타임 동작까지 이 검사들이 판단하는 것은 아니므로 리뷰와 동작 검증을 함께 해요.
 
 여기서 *컨벤션* 은 추상 개념이 아니라 [`docs/convention/`](../convention/README.md) 의 8 개 문서 — [네이밍](../convention/naming.md), [설계 원칙](../convention/design-principles.md), [DTO Factory](../convention/dto-factory.md), [동적 쿼리](../convention/dynamic-query.md), [Records / Classes](../convention/records-and-classes.md), [코드 주석](../convention/code-comments.md), [Git Workflow](../convention/git-workflow.md), [예외 처리](../convention/exception-handling.md) — 가 정리한 *구체 규칙* 들이에요. 본 ADR 의 ArchUnit 22 규칙과 Gradle convention plugin 5 종이 그 컨벤션을 *기계가 검증할 수 있는 형태* 로 강제합니다.
 
 ## 왜 이런 고민이 시작됐나?
 
-[`ADR-001`](./adr-001-modular-monolith.md) 에서 "2단계 방어" 를 선언했어요. [`ADR-003`](./adr-003-api-impl-split.md) 에서 "-api/-impl 을 분리해서 추출 가능성을 보장한다" 고 선언했고요. 이 선언들이 **실제로 지켜지려면** 누군가가 규칙 위반을 감지해야 합니다. 이 결정이 답해야 할 물음은 이거예요.
+[ADR-001](./adr-001-modular-monolith.md)의 모듈 경계와 [ADR-003](./adr-003-api-impl-split.md)의 공개 계약을 유지하려면 위반을 찾을 방법이 필요해요. Gradle과 ArchUnit으로 검사할 항목을 나누고, 코드 변경 때 같은 기준을 반복해서 확인하도록 했어요.
 
 > **컨벤션을 어떤 수단으로 강제할 것인가?**  
 > PR 리뷰? Git hook? CI lint? 어느 수준의 강제력이 솔로 인디 스케일에 맞는가?
@@ -23,6 +25,8 @@ Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`
 "모듈 경계를 지켜야 한다" 를 문서에 써놓는 것만으로는 부족합니다. **사람은 실수해요**. 특히 솔로 개발자는 피곤한 새벽에 급한 버그 수정하다가 경계를 넘을 수 있습니다. PR 리뷰어도 없고, 내가 내 코드를 리뷰하면 같은 실수를 놓칠 확률이 높아요. 기계가 대신 막아줘야 합니다.
 
 ## 고민했던 대안들
+
+<a id="option-1--pr-리뷰--문서에-의존"></a>
 
 ### Option 1 — PR 리뷰 / 문서에 의존
 
@@ -32,6 +36,8 @@ Python 의 [`ruff`](https://docs.astral.sh/ruff/), TypeScript 의 `tsc --strict`
 - **단점**: 솔로 → 리뷰어가 없어요. 문서 전체를 먼저 읽어야 실수를 피할 수 있어요. 실수가 main 까지 올라간 뒤 한참 지나서야 발견돼요.
 - **탈락 이유**: 솔로 인디 환경에서는 강제력이 실질적으로 0이에요.
 
+<a id="option-2--git-pre-commit-hook-로컬"></a>
+
 ### Option 2 — Git pre-commit hook (로컬)
 
 husky 같은 도구로 로컬 커밋 순간에 검증해요.
@@ -40,11 +46,15 @@ husky 같은 도구로 로컬 커밋 순간에 검증해요.
 - **단점**: `git commit --no-verify` 로 우회 가능. CI 환경과 로컬 환경 규칙 동기화 어려움.
 - **부분 채택**: 커밋 메시지 검증 ([`ADR-002`](./adr-002-use-this-template.md) 의 Conventional Commits) 에는 사용. 하지만 **구조 규칙** 에는 부적합.
 
+<a id="option-3--전통적-java-lint-도구-checkstyle-pmd-spotbugs"></a>
+
 ### Option 3 — 전통적 Java lint 도구 (Checkstyle, PMD, SpotBugs)
 
 - **장점**: 성숙하고 안정적이에요. IDE 통합도 잘 돼요.
 - **단점**: 기본 rule set 이 **우리 특화 규칙** (-api/-impl 경계, multi-module 의존) 을 커버하지 못해요. 커스텀 rule 작성은 가능하지만 ArchUnit 보다 유연성이 떨어져요.
 - **탈락 이유**: 범용 도구라 아키텍처 검증에는 맞춤 도구가 더 나아요.
+
+<a id="option-4--gradle-convention-plugin--archunit--채택"></a>
 
 ### Option 4 — Gradle convention plugin + ArchUnit ★ (채택)
 
@@ -58,6 +68,8 @@ Gradle 의 빌드 단계 검증과 ArchUnit 의 소스 스캔 검증, 두 레이
 
 `DependencyRules.groovy` DSL + ArchUnit 조합. 두 도구가 **서로 다른 실수** 를 잡도록 역할 분담.
 
+<a id="도구-선택의-메타-철학--왜-두-도구"></a>
+
 ### 도구 선택의 메타 철학 — 왜 두 도구?
 
 한 도구로 모든 걸 하려고 하면 복잡도가 폭발합니다. 대신 **각 도구가 가장 잘하는 시점** 에서 활약하게 하면 전체 구조가 단순해져요.
@@ -68,6 +80,8 @@ Gradle 의 빌드 단계 검증과 ArchUnit 의 소스 스캔 검증, 두 레이
 | **ArchUnit** | Test 단계 (컴파일 후) | 소스 코드에서 금지된 클래스 **import / 참조** |
 
 두 도구의 책임이 **겹치지 않습니다**. Gradle 은 "이 모듈이 뭘 의존한다고 선언했나" 를 보고, ArchUnit 은 "실제 .class 파일이 뭘 참조하나" 를 봅니다.
+
+<a id="dsl-설계--dependencyrulesgroovy"></a>
 
 ### DSL 설계 — `DependencyRules.groovy`
 
@@ -119,9 +133,13 @@ if (name.startsWith('testFixtures')) return
 
 이유: 테스트에서는 **교차 모듈 의존이 필요한 경우** 가 있습니다. 예를 들어 `core-auth-impl` 의 테스트는 `core-user-impl` 의 V001/V002 마이그레이션이 필요 → `testImplementation project(':core:core-user-impl')` 필수. 일반 규칙을 적용하면 테스트 작성 불가능. 이 예외는 [`contract-testing.md`](https://github.com/storkspear/template-spring/blob/main/docs/production/test/contract-testing.md) 에 공식화.
 
+<a id="나머지-archunit-규칙-r16-r18r22--네이밍dto메타데이터"></a>
+
 ### 나머지 ArchUnit 규칙 (r16, r18~r22) — 네이밍/DTO/메타데이터
 
 [`ADR-001`](./adr-001-modular-monolith.md) 은 r1~r5 를, [`ADR-003`](./adr-003-api-impl-split.md) 은 r6~r11, r13~r15, r17, r21 을 다뤘어요. [`ADR-002`](./adr-002-use-this-template.md) 는 r7, r8 을 다뤘고요. 여기서는 남은 **r16, r18, r19, r20, r22** 를 소개합니다.
+
+<a id="r16--exception--exception-패키지"></a>
 
 ##### r16 — `*Exception` → `..exception..` 패키지
 
@@ -135,6 +153,8 @@ public static final ArchRule EXCEPTIONS_MUST_RESIDE_IN_EXCEPTION_PACKAGE =
 ```
 
 **목적**: Exception 클래스를 패키지 한 곳에 모아 검색과 관리를 쉽게. 예외 계층이 분산되면 "이 예외가 어떤 도메인 거지?" 가 모호해집니다.
+
+<a id="r18--dto-는-record-또는-sealed-interface"></a>
 
 ##### r18 — DTO 는 record (또는 sealed interface)
 
@@ -159,6 +179,8 @@ public class AuthResponse {
 }
 ```
 
+<a id="r19--dto-네이밍-접미사"></a>
+
 ##### r19 — DTO 네이밍 접미사
 
 ```java
@@ -177,6 +199,8 @@ public static final ArchRule DTO_NAMING_SUFFIX =
 
 **목적**: DTO 이름이 제각각이면 (`UserData`, `AuthInfo`, `TokenBundle` 등) 용도 파악이 어려워집니다. 접미사를 제한해서 이름만 보면 용도가 즉시 이해되게 했어요. **이름이 곧 문서** 가 되는 규칙이에요.
 
+<a id="r20--deprecated-는-since--forremoval-속성-필수"></a>
+
 ##### r20 — `@Deprecated` 는 `since` + `forRemoval` 속성 필수
 
 ```java
@@ -188,6 +212,8 @@ public static final ArchRule DEPRECATED_MUST_DECLARE_SINCE_AND_FOR_REMOVAL =
 ```
 
 **목적**: [`ADR-002`](./adr-002-use-this-template.md) 의 **Deprecation 유예 기간** 을 실천하는 규칙. 단순히 `@Deprecated` 만 붙이면 "언제부터? 언제 제거?" 가 모호. `@Deprecated(since = "0.4.0", forRemoval = true)` 처럼 명시하면 파생 레포가 "내가 지금 v0.3.0 기반인데 이 API 는 v0.4.0 부터 deprecated 니까 아직 사용 가능" 판단 가능.
+
+<a id="r22--mapper-클래스-금지"></a>
 
 ##### r22 — `*Mapper` 클래스 금지
 
@@ -203,6 +229,8 @@ public static final ArchRule NO_MAPPER_CLASSES =
 ```
 
 **목적**: DTO 변환을 별도 `*Mapper` 클래스로 만들지 말고 **Entity 의 `to<Dto>()` 메서드** 로 하라는 강제. 상세는 ADR-016 에서 다룹니다.
+
+<a id="counter-example--dsl-타이밍을-잘못-설계하면"></a>
 
 ## Counter-example — DSL 타이밍을 잘못 설계하면?
 
@@ -246,7 +274,7 @@ CI 는 녹색인데 실제로는 규칙 위반이 main 까지 올라갑니다.
 
 **러닝 커브** — DSL · Gradle lifecycle · ArchUnit 문법 세 가지를 이해해야 완전히 파악할 수 있어요. 완화: 단순해서 건드릴 일이 거의 없어요.
 
-**ArchUnit 은 bootstrap 테스트에만 의존** — r1~r22 의 실제 스캔은 `BootstrapArchitectureTest` 에서만 완전히 작동. 개별 모듈 테스트에서는 자기 classpath 안의 클래스만 보여서 일부 규칙은 vacuously true. 완화: CI 에서 반드시 `./gradlew :bootstrap:test` 실행.
+**전체 조립 상태에서 검사해야 해요.** `BootstrapArchitectureTest`는 bootstrap의 클래스 경로를 기준으로 모듈을 함께 검사해요. 개별 모듈 테스트에서는 다른 모듈의 클래스가 없어 관련 규칙이 검사할 대상을 찾지 못할 수 있어요. 따라서 CI에서 `./gradlew :bootstrap:test`를 실행해 전체 경계도 확인해요.
 
 ## 교훈
 
@@ -261,6 +289,8 @@ CI 는 녹색인데 실제로는 규칙 위반이 main 까지 올라갑니다.
 (b) 가 채택됨.
 
 **교훈**: 기계 강제의 엄격함은 실무 필요에 의해 미세 조정되어야 합니다.
+
+<a id="또-하나의-교훈--규칙을-번호로-식별하는-것의-가치"></a>
 
 ### 또 하나의 교훈 — 규칙을 "번호로" 식별하는 것의 가치
 

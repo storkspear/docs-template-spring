@@ -1,3 +1,5 @@
+<a id="app-scaffolding--앱-모듈-만들기와-지우기"></a>
+
 # App Scaffolding — 앱 모듈 만들기와 지우기
 
 > **유형**: How-to · **독자**: Level 1~2 · **읽는 시간**: ~20분
@@ -6,7 +8,7 @@
 
 ## 개요
 
-이 문서는 새 앱 도메인 모듈을 만드는 `tools/app/new-app.sh` 와, 그 정확한 역방향인 `tools/app/remove-app.sh` 를 자세히 다뤄요. [`onboarding.md`](./onboarding.md) 의 §3 이 "첫 앱을 올려서 Spring 을 띄우는" 흐름만 짧게 보여줬다면, 이 문서는 그 한 줄 명령이 안에서 무엇을 만들고 무엇을 검증하는지를 끝까지 풀어 줘요.
+`tools/app/new-app.sh`가 생성하는 코드·설정·마이그레이션과 검증 조건을 설명해요. 앱을 제거할 때는 `remove-app.sh`가 지우는 코드·스키마·버킷 범위를 별도로 확인해야 해요. 생성과 삭제가 모든 외부 자원에서 정확한 역연산은 아니에요. 처음 실행하는 순서는 [온보딩](./onboarding.md)을 따라가세요.
 
 이 템플릿은 하나의 바이너리로 여러 앱을 호스팅하는 모듈러 모놀리스예요. 앱을 하나 추가하려면 [Gradle](../reference/glossary.md#프레임워크--빌드) 모듈, [AutoConfiguration](../reference/glossary.md#spring-어노테이션--런타임), 컨트롤러 스켈레톤, [Flyway](../reference/glossary.md#데이터베이스) 마이그레이션, DataSource 설정, `.env` 변수, Postgres [schema](../reference/glossary.md#데이터베이스) 와 [role](../reference/glossary.md#데이터베이스) 까지 여러 곳을 한꺼번에 손대야 해요. 이걸 매번 손으로 반복하면 빠뜨리는 곳이 생기죠. `new-app.sh` 는 이 과정을 한 번에, 멱등하게 처리합니다.
 
@@ -15,6 +17,8 @@
 > **최소 명령**: `<repo> new <slug>` (또는 `./tools/app/new-app.sh <slug>`). DB schema·role 생성은 **기본 동작**이라 별도 플래그가 필요 없어요. DB 작업을 빼고 싶을 때만 `--skip-provision-db` 를 붙여요.
 
 ---
+
+<a id="1-사전-조건--repo-init-으로-환경-부팅"></a>
 
 ## 1. 사전 조건 — `<repo> init` 으로 환경 부팅
 
@@ -203,6 +207,8 @@ apps/app-<slug>/src/main/resources/META-INF/spring/
 com.factory.apps.<slugPackage>.config.<SlugPascal>AppAutoConfiguration
 ```
 
+<a id="34-datasource-config--앱별-격리"></a>
+
 ### 3.4 DataSource Config — 앱별 격리
 
 각 앱은 독립된 schema, DataSource, Flyway 히스토리를 가져요. `<SlugPascal>DataSourceConfig` 가 이걸 담당해요.
@@ -250,6 +256,8 @@ public class <SlugPascal>DataSourceConfig extends AbstractAppDataSourceConfig {
 > 생성자가 슬러그 자격(`<SLUG_UPPER>_DB_*`)과 코어 자격(`DB_*`) 을 함께 받는 게 핵심이에요. 슬러그 자격이 비어 있으면 `AbstractAppDataSourceConfig` 가 코어 `DB_URL` 에서 `currentSchema` 만 슬러그로 바꿔 자동 derive 해요. 그래서 운영 `.env.prod` 는 코어 `DB_URL` 한 벌만 채우면 멀티앱이 자동으로 동작합니다. 설계 상세는 [`ADR-018 · SchemaRoutingDataSource`](../philosophy/adr-018-schema-routing-datasource.md) 를 참고하세요.
 
 Repository scan 을 `apps.<slugPackage>.repository` 로만 한정하는 건, `core-*` 레포지토리가 이미 자기 AutoConfiguration 의 `@EnableJpaRepositories` 로 default EMF 에 등록됐기 때문이에요. 여기서 코어 패키지를 다시 스캔하면 `BeanDefinitionOverrideException` 이 나요.
+
+<a id="35-flyway-migration--공통-v001v027"></a>
 
 ### 3.5 Flyway Migration — 공통 V001~V027
 
@@ -303,6 +311,8 @@ apps/app-<slug>/src/main/resources/db/migration/<slugPackage>/
 여기서 V007 만 위 디렉토리 목록에 없는 걸 눈치챘을 거예요. `V007__seed_admin_user.sql` 은 `--seed-admin` 을 붙였을 때만, DB provisioning 이 끝난 뒤 별도 단계에서 생성돼요 (§5.2). 본인 도메인 테이블은 그다음 빈 번호(현재 **V028**)부터 직접 작성하면 돼요 (§7).
 
 마이그레이션 경로가 `db/migration/<slugPackage>/` 처럼 하이픈을 뺀 패키지명으로 격리돼 있어서, 각 앱 DataSource 의 Flyway 가 자기 디렉토리만 읽어요.
+
+<a id="36-readme--settingsgradle--bootstrapgradle-업데이트"></a>
 
 ### 3.6 README · settings.gradle · bootstrap.gradle 업데이트
 
@@ -365,6 +375,8 @@ APP_CREDENTIALS_<SLUG_UPPER>_FCM_SERVICE_ACCOUNT_JSON=
 ```
 
 `<app-package>` 는 `APP_PACKAGE_PREFIX` 를 먼저 보고, 없으면 `BASE_DOMAIN` 을 뒤집어 `cloud.storkspear.<slug>` 같은 형태로 추정해 채워요. 탐색 순서는 소유 순서를 따라 `.env` → `.env.prod` → `.env.infra` 예요 — `BASE_DOMAIN` 은 계정 전체가 공유하는 값이라 평소엔 `.env.infra` 에만 있어요. 둘 다 없으면 `com.example.<slug>` placeholder 가 들어가는데, 로컬 테스트엔 무방하지만 실제 스토어 등록 전에는 본인 값으로 바꿔야 해요. 실제 값 발급 방법은 [`소셜 로그인 설정 가이드`](./social-auth-setup.md) 를 참고하세요. `FCM_SERVICE_ACCOUNT_JSON` 은 비워 두면 푸시 발송이 graceful no-op 이라, 푸시를 쓸 때만 채우면 돼요.
+
+<a id="44-멱등성--이미-있는-키는-skip"></a>
 
 ### 4.4 멱등성 — 이미 있는 키는 skip
 
@@ -444,6 +456,8 @@ export DB_PSQL_URL='postgresql://postgres.<ref>:<pw>@aws-1-<region>.pooler.supab
 ```
 
 `DB_PSQL_URL` 은 schema·role 을 **생성할 권한이 있는 관리자 자격**이어야 해요 (앱 role 이 아니라). 로컬에선 docker-compose 의 superuser, 운영에선 [Supabase](../reference/glossary.md#데이터베이스) 의 `postgres` 같은 계정이에요. `psql` 도 설치돼 있어야 해요 (`brew install libpq` 또는 `postgresql`).
+
+<a id="55-provision_db-함수-내부-동작"></a>
 
 ### 5.5 `provision_db` 함수 내부 동작
 
@@ -565,6 +579,8 @@ admin 계정 시드 없음 — 필요하면 --seed-admin 으로 재실행하거�
 
 이어서 빨간 배너로 가장 중요한 다음 동작을 한 번 더 강조해요.
 
+<a id="71-반드시--spring-재기동"></a>
+
 ### 7.1 반드시 — spring 재기동
 
 이미 떠 있는 spring 프로세스는 새 모듈을 자동으로 감지하지 못해요. 새 controller 와 `DataSourceConfig` 가 jar 에 컴파일돼야 `/api/apps/<slug>/*` 가 동작하므로, `new` 뒤에는 재기동이 필요해요.
@@ -618,6 +634,8 @@ DROP SCHEMA <slugPackage> CASCADE;
 -- 그다음 new 재실행 또는 init-app-schema.sql 수동 실행
 ```
 
+<a id="83-slug_upper_db_passwordchange_me-가-남아-있음"></a>
+
 ### 8.3 `<SLUG_UPPER>_DB_PASSWORD=CHANGE_ME` 가 남아 있음
 
 `--skip-provision-db` 를 썼거나, 스크립트가 치환 전에 실패한 경우예요. `.env` 에 직접 값을 넣거나, schema 를 drop 한 뒤 `new` 로 재실행하면 자동 치환돼요.
@@ -659,6 +677,8 @@ slug 자체는 하이픈을 허용하지만, schema·role 이름에는 `SLUG_PAC
 
 `<repo> remove` 는 `<repo> remove app <slug>` 와 같고, 둘 다 `remove-app.sh` 를 호출해요.
 
+<a id="101-제거-대상--new-appsh-가-추가한-것의-역"></a>
+
 ### 10.1 제거 대상 — `new-app.sh` 가 추가한 것의 역
 
 | 대상 | 동작 |
@@ -669,6 +689,8 @@ slug 자체는 하이픈을 허용하지만, schema·role 이름에는 `SLUG_PAC
 | **Firebase 프로젝트** | dev 프로젝트는 confirm 후 삭제 (gcloud 필요, 30일 복구 가능). prod 는 자동 삭제하지 않고 Console 링크만 안내 |
 
 `new-app.sh` 가 건드린 곳과 정확히 같은 지점을 역순으로 정리하므로, 추가와 제거를 반복해도 잔재가 남지 않아요.
+
+<a id="102-prod-는-차단--실데이터--공유-소스-보호"></a>
 
 ### 10.2 prod 는 차단 — 실데이터 + 공유 소스 보호
 

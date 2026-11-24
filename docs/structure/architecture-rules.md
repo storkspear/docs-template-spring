@@ -10,7 +10,7 @@
 
 ## 개요
 
-ArchUnit 으로 강제되는 22 개 규칙 r1~r22 의 전체 목록이에요. 각 규칙의 내용과 위반 예시, 규칙 정의 위치, 새 규칙 추가 절차, 테스트 실행 방법까지 담아요. 규칙 자체의 도입 배경은 [`ADR-004`](../philosophy/adr-004-gradle-archunit.md) 에 있고, 여기서는 규칙 목록을 빠르게 찾는 데 집중해요.
+r1~r22 번호로 관리하는 규칙의 목록이에요. r12는 예약 번호이며 활성 규칙은 21개예요. 각 규칙의 적용 범위·위반 예시·추가 절차와 테스트 명령을 담아요. 도입 배경은 [ADR-004](../philosophy/adr-004-gradle-archunit.md)를 참고하세요.
 
 > r12 는 현재 비어 있는 예약 번호예요. 활성 규칙은 21 개고, 번호 체계는 r22 까지 이어져요. 자세한 사유는 [r12 항목](#r12-예약-번호) 을 참고하세요.
 
@@ -18,9 +18,9 @@ ArchUnit 으로 강제되는 22 개 규칙 r1~r22 의 전체 목록이에요. �
 
 ## 1. 왜 ArchUnit 인가
 
-모듈 의존 방향, DTO 구조, Entity 위치 같은 구조적 결정을 문서로만 관리하면 몇 주 안에 어긋납니다. 리뷰에서 매번 잡아내는 것은 비효율적이고, 사람이 개입해야 지켜지는 규칙은 결국 깨집니다.
+모듈 의존 방향, DTO 구조, 엔티티 위치를 테스트로 검사하면 리뷰에서 반복해서 확인할 항목을 줄일 수 있어요.
 
-ArchUnit 은 이런 규칙을 JUnit 테스트로 강제합니다. 규칙 위반이 있으면 CI 빌드가 실패하므로 규칙이 자동으로 지켜져요. 규칙이 실제 구조와 어긋나면 테스트가 깨지면서 리팩터링의 진입점 역할을 합니다.
+ArchUnit은 JUnit 테스트에서 클래스와 패키지의 정적 관계를 검사해요. 검사 대상에 위반이 있으면 CI가 실패하고, 메시지에서 문제가 된 의존 관계를 확인할 수 있어요.
 
 ### 목적
 
@@ -70,6 +70,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 ## 3. 규칙 전체 목록
 
+<a id="r1-apps_must_not_depend_on_core_impl"></a>
+
 ### r1: APPS_MUST_NOT_DEPEND_ON_CORE_IMPL
 
 **내용** — `..apps..` 패키지의 클래스는 `..core..impl..` 패키지에 의존할 수 없습니다.
@@ -77,6 +79,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 **목적** — 앱은 core 의 Port 인터페이스만 사용하고 구현체 내부에 커플링되지 않습니다. 덕분에 core repository 의 내부 변경이 앱에 영향을 주지 않아요.
 
 **위반 예시** — `apps.sumtally.SomeService` 가 `core.auth.impl.service.EmailAuthService` 를 import 하는 경우.
+
+<a id="r2-apps_must_not_depend_on_each_other"></a>
 
 ### r2: APPS_MUST_NOT_DEPEND_ON_EACH_OTHER
 
@@ -86,6 +90,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `apps.sumtally.something` 이 `apps.gymlog.other` 를 사용하는 경우.
 
+<a id="r3-core_impl_must_not_depend_on_each_other"></a>
+
 ### r3: CORE_IMPL_MUST_NOT_DEPEND_ON_EACH_OTHER
 
 **내용** — `com.factory.core.<a>.impl..` 과 `com.factory.core.<b>.impl..` 은 서로 의존할 수 없습니다. ArchUnit slices 로 검사해요.
@@ -93,6 +99,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 **목적** — core-*-impl 간 직접 의존을 금지해서 impl 을 독립적으로 교체할 수 있게 유지합니다. 다른 도메인이 필요하면 반드시 그 도메인의 `*Port` 인터페이스만 참조합니다.
 
 **위반 예시** — `core.auth.impl.service.AuthServiceImpl` 이 Port 가 아니라 `core.user.impl.service.UserServiceImpl` 을 직접 의존하는 경우.
+
+<a id="r4-common_must_not_depend_on_core"></a>
 
 ### r4: COMMON_MUST_NOT_DEPEND_ON_CORE
 
@@ -102,6 +110,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `common.web.SomeHelper` 가 `core.user.api.UserPort` 를 import 하는 경우.
 
+<a id="r5-common_must_not_depend_on_apps"></a>
+
 ### r5: COMMON_MUST_NOT_DEPEND_ON_APPS
 
 **내용** — `com.factory.common..` 은 `com.factory.apps..` 에 의존할 수 없습니다.
@@ -109,6 +119,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 **목적** — common 은 모든 레이어의 최하단이에요. 상위 레이어를 참조하면 의존 순환이 생깁니다.
 
 **위반 예시** — `common.logging.LogContext` 가 `apps.sumtally.Something` 을 import 하는 경우.
+
+<a id="r6-core_api_must_not_depend_on_core_impl"></a>
 
 ### r6: CORE_API_MUST_NOT_DEPEND_ON_CORE_IMPL
 
@@ -118,6 +130,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `core.auth.api.AuthPort` 가 `core.auth.impl.service.EmailAuthService` 를 return type 에 노출하는 경우.
 
+<a id="r7-core_api_must_not_depend_on_apps"></a>
+
 ### r7: CORE_API_MUST_NOT_DEPEND_ON_APPS
 
 **내용** — `core.<module>.api..` 는 `apps..` 에 의존할 수 없습니다. 상위 방향을 차단해요.
@@ -125,6 +139,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 **목적** — 의존 방향은 항상 apps → core 입니다. 반대 방향이 생기면 순환이 되어 모듈을 독립적으로 빌드할 수 없게 돼요.
 
 **위반 예시** — `core.user.api.UserPort` 가 `apps.sumtally.SomeClass` 를 파라미터로 받는 경우.
+
+<a id="r8-core_impl_must_not_depend_on_apps"></a>
 
 ### r8: CORE_IMPL_MUST_NOT_DEPEND_ON_APPS
 
@@ -134,6 +150,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `core.auth.impl.service.AuthServiceImpl` 이 `apps.sumtally.SumtallySomeClass` 를 import 하는 경우.
 
+<a id="r9-core_api_must_not_depend_on_jpa"></a>
+
 ### r9: CORE_API_MUST_NOT_DEPEND_ON_JPA
 
 **내용** — `core.<module>.api..` 는 `jakarta.persistence..`, `org.hibernate..`, `org.springframework.data.jpa..`, `org.springframework.data.repository..` 에 의존할 수 없습니다.
@@ -141,6 +159,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 **목적** — 추출 가능성의 핵심이에요. core-api 가 JPA 에 오염되면 다른 저장소 구현으로 교체하거나 api 만 떼어 별도 서비스로 추출하기 어려워집니다.
 
 **위반 예시** — `core.user.api.UserPort` 가 `org.springframework.data.jpa.repository.JpaRepository` 를 extend 하는 경우.
+
+<a id="r10-core_api_must_not_use_jpa_annotations"></a>
 
 ### r10: CORE_API_MUST_NOT_USE_JPA_ANNOTATIONS
 
@@ -150,9 +170,11 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `core.user.api.dto.UserSummary` 에 `@Entity` 를 붙이는 경우.
 
+<a id="r11-port_methods_must_not_expose_entities"></a>
+
 ### r11: PORT_METHODS_MUST_NOT_EXPOSE_ENTITIES
 
-**내용** — `core.<module>.api..` 의 interface 메서드는 `..impl.entity..` 패키지 타입을 return type 이나 parameter 로 노출할 수 없습니다.
+**내용** — `core.<module>.api..` 인터페이스의 메서드는 raw 반환·파라미터 타입으로 `..impl.entity..` 타입을 노출할 수 없어요. r11 자체는 `List<User>` 같은 제네릭 내부 타입을 재귀적으로 검사하지 않으므로 다른 의존 규칙과 함께 확인해요.
 
 **목적** — Port 가 엔티티를 노출하면 소비자인 apps 가 엔티티의 lazy loading, proxy 같은 JPA 내부 세부사항에 엮입니다. DTO 로 경계를 끊어야 api·impl 분리 효과가 유지돼요.
 
@@ -162,13 +184,17 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 현재 구조에서 vacuous 한 예약 번호예요. 단일 모듈 안에서 api·impl 서브패키지 분할이 생기면 그때 재평가합니다. 활성 규칙이 아니라 `ArchitectureRules.java` 에 상수가 선언되어 있지 않고, 테스트 클래스에는 `// r12: reserved` 주석만 남아 있어요. [§4 의 번호 재사용 금지 원칙](#규칙-번호-재사용-금지) 에 따라 이 번호는 다른 규칙에 다시 쓰지 않습니다.
 
+<a id="r13-spring_beans_must_reside_in_impl_or_apps"></a>
+
 ### r13: SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS
 
 **내용** — `@Service`, `@Component`, `@Repository`, `@Controller`, `@RestController` 어노테이션이 붙은 클래스는 `core.<module>.impl..`, `apps..`, `bootstrap..` 패키지에만 존재해야 합니다.
 
-**목적** — api 모듈에 Spring 빈이 있으면 api 가 Spring 컨텍스트를 강제로 끌어와 테스트와 추출을 어렵게 만들어요. 빈은 구현 레이어에만 있어야 합니다.
+**목적** — API 모듈에 stereotype 빈이 들어오지 않도록 위치를 제한해요. 이 규칙은 위에 나열한 어노테이션을 검사하며, `common`의 설정 클래스가 `@Bean`으로 등록하는 인프라까지 금지하는 규칙은 아니에요.
 
 **위반 예시** — `core.user.api` 에 `@Service` 가 붙은 클래스가 있는 경우.
+
+<a id="r14-port_interfaces_must_reside_in_api"></a>
 
 ### r14: PORT_INTERFACES_MUST_RESIDE_IN_API
 
@@ -178,6 +204,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `core.user.impl.SomePort` 인터페이스.
 
+<a id="r15-service_impl_must_reside_in_impl"></a>
+
 ### r15: SERVICE_IMPL_MUST_RESIDE_IN_IMPL
 
 **내용** — 이름이 `ServiceImpl` 로 끝나는 (`com.factory..` 안의) 클래스는 `core.<module>.impl..` 패키지에만 존재해야 합니다.
@@ -185,6 +213,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 **목적** — 구현체 접미사의 위치를 강제합니다. api 에 `XxxServiceImpl` 이 있으면 구현 노출이 되어 r6 의 정신에 어긋나요.
 
 **위반 예시** — `core.user.api.UserServiceImpl`.
+
+<a id="r16-exceptions_must_reside_in_exception_package"></a>
 
 ### r16: EXCEPTIONS_MUST_RESIDE_IN_EXCEPTION_PACKAGE
 
@@ -194,6 +224,8 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `core.auth.impl.service.SomeException`.
 
+<a id="r17-repositories_must_reside_in_impl_repository"></a>
+
 ### r17: REPOSITORIES_MUST_RESIDE_IN_IMPL_REPOSITORY
 
 **내용** — 이름이 `Repository` 로 끝나는 (`com.factory..` 안의) 클래스는 `..impl.repository..` 또는 `com.factory.apps..repository..` 패키지에만 존재해야 합니다.
@@ -202,13 +234,17 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `core.user.api.UserRepository` (api 패키지에 노출).
 
+<a id="r18-dtos_must_be_records"></a>
+
 ### r18: DTOS_MUST_BE_RECORDS
 
 **내용** — `..dto..` 패키지의 클래스는 record 이거나, 다형 DTO 인 경우 sealed interface 여야 합니다.
 
-**목적** — DTO 는 불변 데이터 컨테이너예요. `class` 로 쓰면 setter, 상속, equals·hashCode 버그가 들어오기 쉽습니다. record 는 언어 차원에서 이를 보장해요.
+**목적** — DTO를 데이터 전달에 집중시키고 필드 대입, 생성자, `equals`·`hashCode` 구현을 일관되게 유지해요. record의 컴포넌트 참조는 final이지만, 내부 컬렉션이나 객체까지 깊은 불변성이 보장되는 것은 아니에요.
 
 **위반 예시** — `core.user.api.dto.UserSummary` 가 일반 `class` 인 경우.
+
+<a id="r19-dto_naming_suffix"></a>
 
 ### r19: DTO_NAMING_SUFFIX
 
@@ -226,11 +262,13 @@ bootstrap/src/test/java/.../BootstrapArchitectureTest.java
 
 **위반 예시** — `core.auth.api.dto.AuthData` (허용되지 않은 suffix).
 
+<a id="r20-deprecated_must_declare_since_and_for_removal"></a>
+
 ### r20: DEPRECATED_MUST_DECLARE_SINCE_AND_FOR_REMOVAL
 
-**내용** — `@Deprecated` 어노테이션이 붙은 멤버는 `since = "..."` 와 `forRemoval = ...` 속성을 반드시 지정해야 합니다.
+**내용** — 규약상 `@Deprecated`에는 `since`와 `forRemoval`을 명시해요. 현재 r20은 `com.factory..` 클래스에 선언된 멤버에서 비어 있지 않은 `since`와 `forRemoval` 속성 값을 확인해요. 클래스 자체의 어노테이션이나 소스에서 기본값을 직접 적었는지까지 검사하는 규칙은 아니에요.
 
-**목적** — 언제 deprecated 됐는지, 제거 예정인지를 명시하게 해서 유지보수를 강제합니다. 빈 `@Deprecated` 는 소비자가 언제까지 유예가 있는지 알 수 없어요.
+**목적** — 사용 중단을 알린 시점과 제거 계획을 소비자가 확인할 수 있게 해요. 자동 검사 범위와 별개로 두 속성을 명시하는 규약을 지켜요.
 
 위반과 올바른 예시는 이렇게 나뉘어요.
 
@@ -244,6 +282,8 @@ public void oldMethod() { ... }
 
 [`versioning.md`](../api-and-functional/api/versioning.md) 의 Deprecation 절차와 연동됩니다.
 
+<a id="r21-entities_must_reside_in_impl_entity"></a>
+
 ### r21: ENTITIES_MUST_RESIDE_IN_IMPL_ENTITY
 
 **내용** — `@jakarta.persistence.Entity` 어노테이션이 붙은 (`com.factory..` 안의) 클래스는 `..impl.entity..` 또는 `com.factory.apps..entity..` 패키지에만 존재해야 합니다.
@@ -251,6 +291,8 @@ public void oldMethod() { ... }
 **목적** — core 도메인의 `@Entity` 는 `..impl.entity..` 에, 앱 모듈 자체의 `@Entity` 는 `apps.<slug>.entity` 에 삽니다. 후자는 `AbstractAppDataSourceConfig` 의 `entityPackagesToScan` 기본값이에요. 엔티티가 api 패키지에 있으면 r9 (JPA 독립) 가 자동으로 깨지므로 위치를 함께 강제해요. controller·dto 로의 유출도 여전히 막습니다.
 
 **위반 예시** — `core.user.api.User` 에 `@Entity` 가 붙은 경우.
+
+<a id="r22-no_mapper_classes"></a>
 
 ### r22: NO_MAPPER_CLASSES
 
@@ -301,7 +343,7 @@ bootstrap 의 test classpath 가 common · core · apps · bootstrap 전 모듈�
 ./gradlew :common:common-testing:test --tests ArchitectureTest
 ```
 
-common-testing 의 test classpath 에는 자기 모듈 클래스만 있어 대부분 규칙이 vacuously true 로 통과합니다. `ArchitectureRules` 자체의 문법 오류만 빠르게 잡는 용도예요.
+common-testing의 제한된 test classpath에는 앱과 core 구현이 없어서 해당 대상을 찾는 규칙은 위반 검사 없이 통과할 수 있어요. 규칙 구현의 빠른 피드백에 사용하고, 전체 경계 검증은 `BootstrapArchitectureTest`로 진행해요.
 
 ### 위반 시 출력
 

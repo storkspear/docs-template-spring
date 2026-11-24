@@ -1,3 +1,5 @@
+<a id="adr-039--admin-모듈--cross-app-운영-콘솔-superadmin--admin-스키마--in-process-fan-out"></a>
+
 # ADR-039 · admin 모듈 — cross-app 운영 콘솔 (superadmin + admin 스키마 + in-process fan-out)
 
 **Status**: Accepted. `core/core-admin-impl` 모듈로 구현 완료(`feat/admin-module`, 도그푸딩까지 완료). `admin` 스키마 + 슬러그 fan-out(`AdminSlugRegistry`) + 활동 추적(`user_activity_days`, V017)으로 `/api/admin/*` 콘솔을 제공합니다 — 현행 엔드포인트 카탈로그는 [`admin-console.md §3`](../api-and-functional/admin-console.md) 이 단일 출처예요. 이 ADR 이 신설한 `ROLE_SUPERADMIN` 단일 권한은 이후 viewer/support/admin/master 4티어 + 리소스별 `PERM_*` 권한 RBAC 로 확장됐어요(§결정 1 의 갱신 참고).
@@ -6,11 +8,11 @@
 
 ## 결론부터
 
-`template-react-admin` 은 9개 `/api/admin/*` 엔드포인트 계약을 이미 갖고 있었지만 template-spring 쪽 구현은 0개였습니다. 이 ADR 은 그 실물을 채우는 결정이에요. 핵심은 **"per-app 격리 원칙을 깨지 않으면서 cross-app 콘솔을 어떻게 얹는가"** 입니다.
+앱별 데이터 저장 경계를 유지하면서 운영자가 여러 앱을 조회·관리할 수 있도록 `core-admin-impl`을 추가했어요. 운영자 계정은 앱 사용자와 분리하고, `/api/admin/*`는 콘솔의 리소스별 권한으로 보호해요. 앱 데이터는 각 스키마에 두고 같은 프로세스 안에서 필요한 DataSource를 선택해 접근해요. 초기 조회 전용 범위를 넘어 사용자 탈퇴·환불 같은 변경 기능도 추가됐으므로, 현재 계약은 [콘솔 API 문서](../api-and-functional/admin-console.md)를 기준으로 봐요.
 
 답은 세 갈래입니다. ① 앱 사용자 권한(`ROLE_ADMIN`)과 완전히 분리된 `ROLE_SUPERADMIN` 을 신설해 양방향 격리를 강제하고(이후 4티어 RBAC 로 확장), ② 운영자 계정·권한만 담는 **`admin` 스키마**(`admin_users` — 이후 RBAC 확장으로 `role_permissions` 추가)를 라우팅 대상에서 제외된 고정 DataSource 로 붙이며, ③ cross-app 조회는 별도 서비스나 메시지 큐 없이 **같은 JVM 안에서 슬러그별 DataSource 를 순회하는 in-process fan-out** 으로 처리합니다. 여기에 운영에 실제로 필요한데 조회 불가능했던 DAU/MAU 지표는 라벨만 유지한 채 버리지 않고, **활동 추적 테이블(`user_activity_days`)을 신설해 진짜 데이터로 만들었습니다.**
 
-`admin` 스키마는 [ADR-037](./adr-037-core-schema-deprecation.md) 이 폐기한 "공유 core schema" 의 부활이 **아닙니다** — 거기엔 앱 데이터가 한 byte 도 없고, 담는 건 공장 운영자 계정 하나뿐이에요.
+`admin` 스키마는 앱 계정을 공유하는 저장소가 아니라 운영 콘솔의 메타데이터를 보관해요. 현재는 운영자 계정·권한과 앱 최소 버전 설정 등을 담으며 앱 슬러그 라우팅에서는 제외돼요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -24,6 +26,8 @@
 
 ## 고민했던 대안들
 
+<a id="option-1--per-app-admin-화면만-cross-app-콘솔-없음"></a>
+
 ### Option 1 — per-app admin 화면만 (cross-app 콘솔 없음)
 
 각 앱(`apps/app-<slug>`)이 자기 admin 화면을 갖고, 운영자는 앱마다 따로 로그인해서 확인.
@@ -31,6 +35,8 @@
 - **장점**: 기존 `ROLE_ADMIN` + `AppSlugVerificationFilter` 인프라를 그대로 재사용. 새 role·새 schema 불필요.
 - **단점**: 앱이 10개면 로그인도 10번, 대시보드도 10개. "오늘 전체 매출이 얼마인가" 같은 가장 기본적인 질문에 답하려면 운영자가 직접 10개 창을 열고 암산해야 합니다.
 - **탈락 이유**: 프롤로그의 제약 2(시간이 가장 희소한 자원)를 정면 위반. 앱 수가 늘수록 확인 비용이 선형 증가하는데, 이 프로젝트의 존재 이유가 "앱 추가 비용을 0에 가깝게" 이므로 앱이 늘수록 운영 비용도 늘어나는 구조는 받아들일 수 없었습니다.
+
+<a id="option-2--공유-core-스키마-부활"></a>
 
 ### Option 2 — 공유 core 스키마 부활
 
@@ -40,6 +46,8 @@
 - **단점**: [ADR-037](./adr-037-core-schema-deprecation.md) 이 core schema 를 폐기한 이유가 바로 "앱 데이터가 어디 있는지 모호해지는 것" 이었습니다. cross-app 조회 편의를 위해 앱 데이터의 일부(또는 파생 집계)를 다시 공유 schema 로 끌어오기 시작하면, "이 유저 row 는 어느 schema 가 진실인가" 라는 이미 해결한 문제가 재발합니다.
 - **탈락 이유**: ADR-037 의 교훈을 정면으로 되돌리는 안. `admin_users` 하나만 예외로 두는 것과, "cross-app 조회용 공유 schema" 를 다시 만드는 것은 규모가 다른 결정입니다 — 전자는 앱 데이터를 담지 않지만 후자는 결국 앱 데이터의 파생물을 담게 됩니다.
 
+<a id="option-3--별도-배포-admin-전용-서비스"></a>
+
 ### Option 3 — 별도 배포 (admin 전용 서비스)
 
 관리 콘솔 백엔드를 별도 Spring Boot 프로세스로 분리, 각 앱 DB 에 읽기 전용으로 접속.
@@ -48,16 +56,20 @@
 - **단점**: [ADR-001](./adr-001-modular-monolith.md)(모듈러 모놀리스)이 "운영 단위 1" 을 지키기 위해 채택한 구조와 정면으로 충돌합니다. 프로세스 하나, 배포 파이프라인 하나, 모니터링 하나를 유지하려고 이미 다 모아 놨는데, admin 콘솔 하나 때문에 다시 프로세스를 쪼개면 [ADR-007](./adr-007-solo-friendly-operations.md)(솔로 친화적 운영)의 전제가 깨집니다.
 - **탈락 이유**: 이 프로젝트가 각 도메인을 하나의 JAR 안에 모듈로 격리해 온 이유(ADR-001) 와 정확히 같은 이유로 기각. cross-app 조회 자체도 네트워크 홉이 필요 없어지는 이점(같은 JVM·같은 DB 인스턴스)을 스스로 포기하는 셈입니다.
 
+<a id="option-4--in-process-fan-out--채택"></a>
+
 ### Option 4 — in-process fan-out ★ (채택)
 
 `core-admin-impl` 을 기존 모듈러 모놀리스 **안에** 추가하고, cross-app 조회는 이미 존재하는 `<slug>DataSource` 빈들을 순회하는 방식으로 처리.
 
-- **힘 A 만족** (per-app 격리 유지): 앱 데이터는 여전히 자기 schema 에만 있고, admin 모듈은 그걸 *읽기만* 합니다. 쓰기는 하지 않고, 앱 스키마 구조 자체도 바꾸지 않아요.
-- **힘 B 만족** (cross-app 가시성): 슬러그 순회 + 메모리 합산으로 "전체 매출", "전체 DAU" 같은 질문에 한 번의 로그인·한 화면으로 답합니다.
-- **네트워크 홉 없음**: 모든 앱이 한 JVM·한 DB 인스턴스에 있으므로 MSA 라면 필요했을 분산 트랜잭션이나 서비스 간 호출이 전혀 없습니다 — "MSA composition 의 로컬 버전"인 셈이에요.
-- **운영자 계정 저장은 예외적으로 새 schema**: `admin_users` 는 앱 데이터가 아니므로 ADR-037 의 폐기 대상이 아니라고 판단, 별도 `admin` schema 로 신설(§결정 참고).
+- **앱 데이터의 저장 경계 유지**: 데이터는 각 앱 스키마에 남아요. 초기 구현은 조회 중심이었고, 현재는 권한을 확인한 사용자 탈퇴·환불 등의 쓰기 경로도 제공해요.
+- **여러 앱을 한 화면에서 확인**: 슬러그별 조회 결과를 합산해 전체 매출과 DAU를 한 번의 콘솔 로그인으로 확인해요.
+- **서비스 간 HTTP 호출 없이 조합**: 같은 JVM에서 슬러그별 JdbcTemplate을 이용하므로 집계를 위해 별도 서비스 호출을 추가하지 않아요. DB 접근과 여러 스키마의 조회 비용까지 없어지는 것은 아니에요.
+- **운영자 계정의 별도 저장**: 앱 사용자와 다른 운영자 계정은 고정 `admin` 스키마에 두고 앱 라우팅에서 제외해요(§결정 참고).
 
 ## 결정
+
+<a id="1-role_superadmin--양방향-격리"></a>
 
 ### 1. `ROLE_SUPERADMIN` — 양방향 격리
 
@@ -81,6 +93,8 @@
 
 양방향으로 격리됩니다. `/api/admin/**` 는 콘솔 계정의 JWT(리소스별 `PERM_*` authority)만 허용하고, 콘솔 JWT 로 `/api/apps/{slug}/**` 를 호출하면 기존 `AppSlugVerificationFilter` 가 403 을 냅니다(JWT 의 `appSlug` claim 이 `"admin"` 고정값이라 어떤 실제 슬러그와도 일치하지 않음).
 
+<a id="2-admin-스키마--admin_users--유일한-비-per-slug-예외"></a>
+
 ### 2. `admin` 스키마 + `admin_users` — 유일한 비-per-slug 예외
 
 운영자 계정은 앱 데이터가 아니므로 per-slug schema 에 둘 이유가 없습니다. 별도 `admin` schema 를 만들고, 라우팅(`SlugContext`)을 타지 않는 **고정 DataSource** 로 바인딩합니다.
@@ -93,6 +107,8 @@ public DataSource adminDataSource(...) { ... }   // ADMIN_DB_* 미설정 시 cor
 
 이 빈은 `RoutingDataSourceConfig` 의 슬러그 열거 대상에서 명시적으로 제외됩니다(§교훈의 fail-secure 이슈 참고). `admin_users` 는 v1 에선 `id, email(unique), password_hash, display_name, created_at, updated_at` 여섯 컬럼뿐인 축소판 유저 테이블이었고, 이후 RBAC 확장으로 `role` 컬럼(V002)과 역할별 권한 grant 테이블 `role_permissions`(V003)가 admin 스키마에 추가됐어요. `ADMIN_EMAIL`/`ADMIN_PASSWORD` env 가 채워져 있고 테이블이 비어 있을 때만 `AdminAccountSeeder` 가 부팅 시 최고 티어(master) 1계정을 시드합니다.
 
+<a id="3-in-process-fan-out--adminslugregistry"></a>
+
 ### 3. in-process fan-out — `AdminSlugRegistry`
 
 `RoutingDataSourceConfig` 가 이미 `<slug>DataSource` 네이밍 컨벤션으로 전 앱의 DataSource 빈을 갖고 있다는 점을 그대로 재사용합니다. `AdminSlugRegistry` 가 `Map<String, DataSource>` 를 주입받아 `"DataSource"` suffix 를 가진 빈 중 `"admin"`(콘솔 자신)과 빈 문자열을 제외한 나머지를 슬러그 목록으로 노출합니다.
@@ -104,6 +120,8 @@ public JdbcTemplate jdbcFor(String slug) { ... }   // unknown slug → AdminSlug
 ```
 
 단건/목록 조회(사용자·디바이스·구독·결제 이력)는 `SELECT ... WHERE user_id = ?` 형태로 슬러그 하나의 JdbcTemplate 을 직접 쓰고, 집계성 조회(대시보드 합산·앱별 metrics·빌링·분석 시계열·감사로그 cross-app 검색)는 슬러그 목록을 순회하며 각자의 JdbcTemplate 으로 조회한 뒤 애플리케이션 메모리에서 합산·병합·정렬합니다. 계획 문서 대비 두 가지를 의도적으로 바꿨습니다 — impl→impl 의존 금지 규칙 때문에 다른 `core-*-impl` 의 리포지토리를 재사용할 수 없어 전부 `JdbcTemplate` 직접 조회로 구현했고(JPA 미사용), 응답 DTO 는 ArchUnit r18/r19(record + `Response` suffix) 를 만족하도록 전부 최상위 record 로 통일했습니다.
+
+<a id="4-user_activity_days--daumau리텐션의-진짜-원천"></a>
 
 ### 4. `user_activity_days` — DAU/MAU/리텐션의 진짜 원천
 

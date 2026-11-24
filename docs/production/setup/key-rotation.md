@@ -24,6 +24,8 @@
 
 ---
 
+<a id="키-종류--교체-주기"></a>
+
 ## 키 종류 + 교체 주기
 
 | 키 | 권장 주기 | 즉시 폐기 트리거 |
@@ -39,6 +41,8 @@
 > `JWT_SECRET` 은 dev·prod 가 각각 별도 값입니다. prod 는 `JWT_SECRET`, dev 는 `JWT_SECRET_DEV` 로 GitHub Secrets 에 분리 저장돼요 ([`Secret Chain 4-Stage §3`](./secret-chain-4stage.md)). 한쪽을 교체해도 다른 쪽은 그대로입니다.
 
 ---
+
+<a id="공통-흐름--재발급-후-적용"></a>
 
 ## 공통 흐름 — 재발급 후 적용
 
@@ -57,11 +61,13 @@
 <repo> prod test        (배포 후 health 확인)
 ```
 
-두 init 모두 소유한 REQUIRED 키를 항상 GitHub Secrets 로 다시 push 하고, `gh secret set` 이 overwrite 라 재실행은 멱등합니다. dev 도 쓰는 레포라면 공유 자격 교체 시 `infra init` 한 번이면 끝이에요 — 접미사 없는 한 벌이라 dev·prod 양쪽이 동시에 새 값을 받아요 ([`키 발급 통합 §5`](./key-issuance.md#5-발급-후--4-stage-동기화)). 단 `JWT_SECRET`·`GHCR_TOKEN` 처럼 `config/deploy.yml`·`.kamal/secrets.example`·`deploy.yml` 에 이미 등록된 키는 4 곳 동기화를 새로 손댈 필요가 없어요 — *값만* 바뀌고 *키 이름* 은 그대로니까요.
+각 init은 자신이 관리하는 키를 GitHub에 갱신해요. 공유 자격을 바꿨다면 `infra init`으로 dev·prod 워크플로가 함께 읽는 저장값을 갱신할 수 있어요. 이미 실행 중인 컨테이너의 환경변수는 바뀌지 않으므로 해당 값을 소비하는 환경을 다시 배포해야 해요. 키 이름이 그대로라면 기존 주입 매핑을 새로 만들 필요는 없어요.
 
 ---
 
 ## 즉시 폐기 절차
+
+<a id="1-github-pat-ghcr_token"></a>
 
 ### 1. GitHub PAT (`GHCR_TOKEN`)
 
@@ -79,7 +85,7 @@
 
 **폐기**: [login.tailscale.com/admin/settings/oauth](https://login.tailscale.com/admin/settings/oauth) 에서 노출된 client 옆 메뉴(⋯) → *Delete*. 같은 client 로 join 했던 ephemeral device 는 admin → Machines 에서 자동으로 expired 표시되므로 별도 정리가 필요 없어요.
 
-**재발급**: [`키 발급 통합 §4.4`](./key-issuance.md#44-tailscale-oauth-deploy_enabledtrue-시-필수) 의 절차로 새 client 를 발급합니다.
+**재발급**: [`키 발급 통합 §4.4`](./key-issuance.md#44-tailscale-oauth-gha-자동-배포-시-필수--envinfra) 의 절차로 새 client 를 발급합니다.
 - ⚠️ scope 2개를 모두 체크해야 해요 — `Devices → Core → Write` + `Keys → Auth Keys → Write`, 둘 다 `tag:ci`. 하나라도 빠지면 배포 시 403 이 떠요 ([`I-14`](../deploy/decisions-infra.md)).
 - ACL 의 `tagOwners` 가 이미 정의돼 있으면 그대로 두면 됩니다 (재정의 불필요).
 
@@ -87,19 +93,15 @@
 1. 새 Client ID + Secret → `.env.infra` 의 `TS_OAUTH_CLIENT_ID`·`TS_OAUTH_SECRET` 갱신
 2. `<repo> infra init` 실행
 
+<a id="3-운영-서버-ssh-키-ssh_private_key"></a>
+
 ### 3. 운영 서버 SSH 키 (`SSH_PRIVATE_KEY`)
 
-**폐기**: 운영 서버(Mac mini 등)의 `~/.ssh/authorized_keys` 에서 옛 공개키 줄을 삭제합니다.
-
-```bash
-ssh <운영서버계정>@<운영서버주소> \
-  "sed -i '' '/deploy@/d' ~/.ssh/authorized_keys"
-# Linux 운영 서버라면 sed -i '/deploy@/d' (BSD/GNU sed 차이)
-```
+**폐기**: `authorized_keys`에서 교체 대상 공개키의 실제 값과 fingerprint를 확인해 해당 줄만 제거해요. `deploy@` 같은 주석으로 일괄 삭제하면 다른 배포 키까지 지울 수 있어요. 예정된 교체라면 새 키를 먼저 등록해 새 세션 접속을 확인한 뒤 옛 키를 제거해요. 키 노출 사고의 폐기 순서는 사고 대응 판단에 따라 별도로 정해요.
 
 로컬에 보관한 옛 private/public 키 파일도 함께 지워요.
 
-**재발급**: [`키 발급 통합 §3.2`](./key-issuance.md#32-ssh_private_key--운영-서버-접근-키) 의 절차로 새 ed25519 키를 발급합니다 (passphrase 없이 — Kamal 이 비대화형으로 사용).
+**재발급**: [`키 발급 통합 §3.2`](./key-issuance.md#32-ssh_private_key--운영-서버-접근-키--envinfra) 의 절차로 새 ed25519 키를 발급합니다 (passphrase 없이 — Kamal 이 비대화형으로 사용).
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/deploy_key -C "deploy@$(hostname)" -N ""
@@ -112,6 +114,8 @@ ssh-keygen -t ed25519 -f ~/.ssh/deploy_key -C "deploy@$(hostname)" -N ""
 
 **확인**: `verify-server.sh` Step 3 (SSH + Tailscale) 이 PASS 면 정상입니다.
 
+<a id="4-db-password-db_password"></a>
+
 ### 4. DB password (`DB_PASSWORD`)
 
 **폐기 + 재발급** (한 번에):
@@ -121,6 +125,8 @@ ssh-keygen -t ed25519 -f ~/.ssh/deploy_key -C "deploy@$(hostname)" -N ""
 4. `<repo> prod init` 실행
 
 ⚠️ 현재 운영 컨테이너가 옛 password 로 연결 중이라면, 새 password 적용 후 `<repo> prod deploy`(또는 재기동)로 컨테이너를 갱신해야 끊김이 풀려요. `DB_PASSWORD` 는 외부 DB 발급값이라 `prod init` 이 자동 생성하지 않습니다 — 반드시 콘솔 reset 값을 직접 채워야 해요.
+
+<a id="5-jwt_secret"></a>
 
 ### 5. `JWT_SECRET`
 
@@ -136,9 +142,11 @@ openssl rand -base64 64 | tr -d '\n'
 1. 결과값 → `.env.prod` 의 `JWT_SECRET` 갱신 (비워두면 `prod init` 이 자동 재생성)
 2. `<repo> prod init` → `<repo> prod deploy`
 
-**무효화 범위 — access token 만, refresh token 은 살아있어요.** 서명 키는 HS256 access token 에만 쓰입니다. access token 은 새 키로 검증에 실패해 즉시 무효가 돼요. 반면 refresh token 은 `SecureRandom` 으로 만든 *불투명(opaque) 문자열* 이고 DB 에 SHA-256 해시로만 저장돼서, `JWT_SECRET` 과 무관해요. 그래서 유효한 refresh token 을 가진 클라이언트는 재로그인 없이 `/auth/refresh` 로 새 access token 을 곧바로 받습니다. *모든 사용자에게 강제 재로그인* 을 걸려면 `JWT_SECRET` 교체만으로는 부족하고, refresh token 까지 별도로 일괄 revoke 해야 해요.
+**무효화 범위는 토큰 종류에 따라 달라요.** JWT 서명 키를 바꾸면 기존 앱·콘솔 access token뿐 아니라 같은 키로 서명한 2FA 대기 토큰과 이메일 인증 proof도 검증에 실패해요. 앱의 refresh token은 DB에 해시로 저장한 불투명 문자열이어서 키 교체만으로 폐기되지 않아요. 유효한 refresh token이 있으면 새 access token을 받을 수 있지만, refresh를 제공하지 않는 운영 콘솔은 다시 로그인해야 해요. 앱 사용자에게도 재로그인을 요구하려면 refresh token을 별도로 revoke해야 해요.
 
 > **blue/green 전환 중 주의.** `prod deploy` 는 blue(옛 컨테이너)가 도는 동안 green(새 컨테이너)을 띄우고 cutover 합니다. 두 컨테이너가 잠깐 공존하는 구간에 옛 키의 blue 와 새 키의 green 이 서로 다른 서명 키를 쓰므로, 막 발급된 access token 이 다른 쪽 컨테이너로 라우팅되면 401 이 날 수 있어요. access token TTL 이 15분이라 cutover 직후 짧은 구간에만 영향이 있고, 클라이언트가 refresh 로 곧 새 토큰을 받으므로 자연 회복됩니다. 사용자 영향을 줄이려면 트래픽이 낮은 시간대에 교체하세요.
+
+<a id="6-portone-webhook-secret-app_payment_portone_webhook_secret"></a>
 
 ### 6. PortOne webhook secret (`APP_PAYMENT_PORTONE_WEBHOOK_SECRET`)
 
@@ -150,7 +158,9 @@ openssl rand -base64 64 | tr -d '\n'
 1. PortOne 콘솔의 webhook secret 과 `.env.prod` 의 `APP_PAYMENT_PORTONE_WEBHOOK_SECRET` 을 **동일하게** 맞춰요. `webhook-signature` 헤더는 공백으로 구분해 여러 서명을 담을 수 있어 회전 구간에도 옛·새 secret 서명이 함께 와요.
 2. `<repo> prod init` 실행
 
-⚠️ 가드 규칙: `APP_PAYMENT_PORTONE_API_V1_KEY`·`_API_V1_SECRET` 은 둘 다 채우거나 둘 다 비워야 하고, `_API_V2_KEY` 를 채우면 `_WEBHOOK_SECRET` 도 필수예요. 하나만 어긋나면 `PortOneProdConfigGuard` 가 부팅을 차단합니다 ([`Secret Chain 4-Stage §4`](./secret-chain-4stage.md#4-자주-누락되는-케이스)).
+현재 dev·prod는 PortOne v1만 지원해요. v1 key·secret은 함께 채워야 하고, webhook secret만 있는 상태도 부팅을 차단해요. v2 key는 webhook secret 유무와 관계없이 차단하므로 v2 어댑터를 구현하기 전에는 비워 둬요.
+
+<a id="7-cosign-서명-키-cosign_key_path"></a>
 
 ### 7. cosign 서명 키 (`COSIGN_KEY_PATH`)
 
@@ -169,7 +179,7 @@ cosign generate-key-pair      # 새 암호 입력 → 새 cosign.key + cosign.pu
 2. `.env.prod` 의 `COSIGN_PASSWORD` 를 새 암호로 갱신 (경로가 그대로면 `COSIGN_KEY_PATH` 는 불변)
 3. 다음 `<repo> prod deploy` 부터 새 키로 서명
 
-**주의 — 교체 직후의 rollback**: 옛 키로 서명된 기존 GHCR 이미지는 새 `cosign.pub` 검증에 실패해 rollback 이 차단돼요. 교체 직후 known-good 이미지 하나를 새 키로 재서명해 두거나 (`cosign sign --key ~/.factory/cosign.key ghcr.io/<owner>/<repo>@<digest>`), 재배포 1회로 서명 세대를 갱신하세요. 긴급 상황에서는 `<repo> prod rollback <sha> --no-verify` 로 우회하되 이미지 신뢰를 별도로 확인해야 합니다.
+**키 교체 직후 rollback을 확인해요.** 옛 개인 키로 서명한 이미지는 새 `cosign.pub`로 검증되지 않아요. 되돌릴 이미지 digest를 새 키로 다시 서명하거나, 정상 동작을 확인한 이미지를 새 키로 배포해 둬요. GHA의 OIDC keyless 서명은 이 개인 키 교체와 별도 경로예요. `--no-verify`는 검증을 생략하므로 긴급 복구에 사용한다면 이미지의 출처와 digest를 별도로 확인해야 해요.
 
 ---
 

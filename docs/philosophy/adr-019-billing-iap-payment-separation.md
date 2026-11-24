@@ -1,3 +1,5 @@
+<a id="adr-019--billing--iap--payment-도메인-분리"></a>
+
 # ADR-019 · billing / iap / payment 도메인 분리
 
 **Status**: Accepted. 결제 코어를 *정책 layer (`core-billing`) + 채널 layer (`core-iap`, `core-payment`)* 의 3 도메인으로 분리해 운영합니다. IAP receipt 검증 / subscription 정책 / PG 결제가 단일 모듈에 혼재하면 책임 경계가 흐려지기 때문이에요.
@@ -6,7 +8,7 @@
 
 ## 결론부터
 
-구독형 SaaS 의 결제 도메인은 표면적으로 한 단어 *결제* 처럼 보이지만, 실제로는 *세 가지 결이 다른 책임* 으로 나뉘어요. **Billing** 은 *이 사용자가 어떤 plan 으로 무엇을 받고 있는가* — 구독 상태, 갱신 정책, 환불 정책 같은 *비즈니스 정책* 영역입니다. **IAP** (In-App Purchase) 는 Apple App Store·Google Play 의 *스토어 결제 채널* 로, Apple·Google 이 결제 처리 자체를 대행하고 우리는 *receipt 만 받아 검증* 하는 형태예요. 수수료는 30% 이고 우리 환불 API 는 없어요. **Payment** 는 *PG (Payment Gateway) 직접 결제* 로, 한국에서는 포트원을 통해 카드·계좌이체·간편결제를 *우리가 직접 처리* 하고 *환불 API 와 webhook 도 직접 운영* 합니다. 수수료는 3% 이고 환불·웹훅이 우리 책임이에요.
+결제를 구독 정책과 외부 결제 채널로 나눠요. `core-billing`은 요금제·구독 상태·갱신 정책을 관리하고, `core-iap`은 Apple·Google 구매 검증과 알림을, `core-payment`는 PG 결제 검증·환불·웹훅을 처리해요. Billing은 각 채널의 Port를 호출하므로 간접적인 외부 통신도 발생해요. 채널별 수수료와 지원 지역은 이 코드가 정하는 계약이 아니에요.
 
 이 세 가지가 *결제 흐름이 본질적으로 다른* 영역이라 한 모듈에 넣으면 시그니처가 어색해지고 이름이 모호해져요. 본 ADR 은 결제 코어 모듈을 *정책 layer 하나 (`core-billing`)* + *채널 layer 둘 (`core-iap`, `core-payment`)* 의 3 도메인으로 분리한 결정을 기록합니다. Billing 이 위에 있고 두 채널을 아래에서 호출하는 형태로, *채널이 늘어나도 정책 layer 는 동일* 한 구조예요.
 
@@ -41,15 +43,19 @@ core-billing      ← 구독/플랜 정책 layer (위)
 
 > **대안 분석의 한계** — 본 ADR 은 *한 방향적 결정* 이에요. IAP 와 PG 의 결제 흐름이 본질적으로 다르다는 점이 이미 *결정의 전제* 라서, *단일 도메인 통합* 이 합리적 대안으로 성립하지 않아요. 그래서 형식적 대안 비교보다는 *왜 다른 분리 형태가 부적합한가* 를 짧게 기록합니다.
 
+<a id="option-1--단일-core-billing-안에-iap--pg-모두-흡수"></a>
+
 ### Option 1 — 단일 `core-billing` 안에 IAP + PG 모두 흡수
 
 가장 단순한 구조예요. 결제 관련 모든 코드 — IAP receipt 검증, subscription 정책, PG 결제 — 를 한 모듈 `core-billing` 안에 두는 형태입니다. 모듈 수가 적어 IDE 트리도 깔끔해 보이고, 결제 관련 로직을 한 곳에서 찾을 수 있다는 점이 매력이에요.
 
 문제는 *책임 경계의 흐림* 이 빠르게 누적된다는 점이에요. BillingPort 의 시그니처가 `registerPurchase(IapReceiptRequest)` 와 `getSubscriptionStatus(userId, productId)` 처럼 *receipt 검증 + subscription 상태* 가 혼재하는 형태로 자라났고, PG 결제까지 추가하려면 *registerPurchase 가 IapReceiptRequest 와 PaymentRequest 둘 다 받는* 비대한 DTO/method 가 필요했어요. 시그니처 안에서 *어떤 채널의 결제인지* 를 if-else 로 분기하는 패턴이 곳곳에 깔리는 미래가 보였습니다.
 
-이름의 모호함도 부담이에요. *billing* 이 *청구/구독 정책* 인지 *IAP 영수증 검증* 인지 분간이 안 되니, 새 사람이 이 모듈을 처음 보면 *receipt 검증이 왜 billing 안에 있지?* 라는 질문이 자연스럽게 떠오릅니다. PG 통합이 추가되는 시점에 이 모호함이 *정책 layer + 채널 두 개* 가 모두 한 모듈에 모이는 형태로 폭발해요.
+한 모듈이 구독 정책과 IAP 검증, PG 통신을 모두 맡으면 이름만으로 책임을 찾기 어려워요. 외부 채널을 바꿀 때 정책 코드까지 함께 읽어야 하는 부담도 생겨요. Billing의 정책과 IAP·Payment의 채널 처리를 나눠 변경할 위치를 분명히 했어요.
 
 탈락 이유는 *PG 통합 임박 시점에 도메인 경계가 흐려지는 방향* 으로만 진화한다는 점입니다.
+
+<a id="option-2--iap-만-분리-billing--payment-통합-유지"></a>
 
 ### Option 2 — IAP 만 분리 (billing + payment 통합 유지)
 
@@ -59,11 +65,15 @@ core-billing      ← 구독/플랜 정책 layer (위)
 
 탈락 이유는 *결국 분리 압력이 같은 형태로 다시 발생* 한다는 점이에요. 한 단계 미루는 결정이 되어 *지금 명확히 분리* 하는 편이 정합합니다.
 
+<a id="option-3--3-도메인-분리-billing--iap--payment--채택"></a>
+
 ### Option 3 — 3 도메인 분리 (billing / iap / payment) ★ (채택)
 
-정책 layer 하나와 채널 layer 둘로 명확히 나누는 형태입니다. *billing* 은 외부 의존 0 의 비즈니스 정책 모듈, *iap* 와 *payment* 는 각자의 외부 시스템 (Apple·Google·포트원) 과의 어댑터 모듈이에요. 결제 흐름이 *채널 → 정책* 의 단방향이라 의존 방향도 자연스럽게 정렬됩니다.
+Billing은 요금제·구독 정책을, IAP와 Payment는 각 결제 채널의 검증과 통신을 맡아요. Billing도 PaymentPort·IapPort를 호출하므로 외부 통신의 영향에서 독립적인 것은 아니에요. 외부 이벤트가 채널에서 Billing으로 들어오는 흐름과 Billing이 채널 Port를 호출하는 흐름을 구분해요.
 
 이름 자체가 *layer 관계* 를 드러내는 점이 추가 가치예요. *Billing > {IAP, Payment}* 의 위계가 단어에서 즉시 읽히고, 새 사람이 *어디에 무엇이 있는지* 를 모듈 이름만으로 빠르게 파악할 수 있어요. 새 채널 (예: 베트남 *VNPay* 통합) 이 추가되더라도 *core-vnpay* 같은 별도 채널 모듈로 들어가면 되어 정책 layer 는 흔들리지 않습니다.
+
+<a id="결정--채택한-분리"></a>
 
 ## 결정 — 채택한 분리
 
@@ -105,6 +115,8 @@ IAP 도 같은 흐름:
 | **Payment** | "PG 직접 결제 (카드/계좌)" — **채널** |
 
 `Billing > {IAP, Payment}` 의 layer 관계가 이름에서 명확히 드러납니다. `billing/payment` 두 단어만으로는 "둘 중 어느게 위 layer 인지" 가 불명확해요.
+
+<a id="pg-채널-전략--포트원-추상화"></a>
 
 ## PG 채널 전략 — 포트원 추상화
 

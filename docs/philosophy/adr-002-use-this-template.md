@@ -1,3 +1,5 @@
+<a id="adr-002--github-template-repository-패턴-use-this-template"></a>
+
 # ADR-002 · GitHub Template Repository 패턴 (Use this template)
 
 **Status**: Accepted. `template-v*` 태그 + 자동 Release 워크플로우 + `cross-repo-cherry-pick.md` 가이드로 cherry-pick 전파 흐름을 운영합니다.
@@ -8,9 +10,9 @@
 
 ## 결론부터
 
-이 레포는 **"완성된 프로젝트" 가 아니라 "프로젝트의 출발점"** 입니다. `create-react-app`, `cargo new`, `django-admin startproject` 와 비슷한 위치에 있어요 — 다만 우리만의 아키텍처와 인프라가 이미 녹아있는 출발점. `Use this template` 버튼을 누르면 깨끗한 사본이 만들어지고, 그 사본부터가 실제 개발이 일어나는 곳이에요. 원본 레포는 앞으로도 계속 "깨끗한 출발점" 상태를 유지합니다.
+이 저장소는 새 프로젝트를 시작할 때 사용할 공통 기반이에요. `Use this template`으로 파생 저장소를 만든 뒤 앱 고유의 비즈니스 코드를 추가해요. 원본에서는 공통 기능과 생성·검증 도구를 계속 개선하고, 파생 저장소는 필요한 변경을 검토해 가져와요.
 
-> 중요한 구분: 이 레포 자체는 직접 개발하지 않습니다. 여기엔 뼈대, 포트 인터페이스, 공통 인프라만 있습니다. 실제 비즈니스 로직 — 예를 들어 "가계부 앱의 예산 계산", "운동 앱의 운동 기록" — 은 파생 레포의 영역입니다.
+> 원본에는 여러 앱이 공유할 기능과 개발·운영 도구를 두고, 예산 계산이나 운동 기록처럼 앱 고유의 기능은 파생 저장소에서 개발해요. 원본의 공통 코드를 개선하지 않는다는 뜻은 아니에요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -36,6 +38,8 @@
 
 ## 고민했던 대안들
 
+<a id="option-1--한-레포에-여러-도메인-공존-모노레포"></a>
+
 ### Option 1 — 한 레포에 여러 도메인 공존 (모노레포)
 
 `apps/sumtally/`, `apps/rny/`, `apps/gymlog/` 같은 식으로 한 레포에 모든 앱을 넣는 구조. 공통 코드는 `core/` 에.
@@ -48,6 +52,8 @@
   - 원본 레포를 공개 템플릿으로 쓸 수 없음 — 특정 도메인 코드가 박혀있으니.
 - **탈락 이유**: 솔로 인디 전제와 맞지 않아요. Google·Meta 같은 대기업의 모노레포는 강력한 빌드 인프라가 있어 가능하지만, 솔로는 감당할 수 없어요.
 
+<a id="option-2--github-fork-사용"></a>
+
 ### Option 2 — GitHub Fork 사용
 
 각 앱은 원본을 Fork 해서 만들어요. 원본에 공통 코드 개선이 생기면 upstream 에서 merge 합니다.
@@ -59,6 +65,8 @@
   - merge 로 upstream 변경을 자동 반영하면 원치 않는 변경까지 강제돼요.
 - **탈락 이유**: 협업 방향성이 달라요. Fork 는 오픈소스 기여 모델이고, 우리 필요는 "시작점 복제 모델" 이에요.
 
+<a id="option-3--공통-코드를-jar-라이브러리로-배포"></a>
+
 ### Option 3 — 공통 코드를 JAR 라이브러리로 배포
 
 `core-*` 를 `@factory/core-auth@1.0.0` 같은 Maven 의존성으로 발행. 각 앱 레포가 버전 고정해서 의존.
@@ -69,6 +77,8 @@
   - 공통 코드 개선마다 "수정 → 라이브러리 발행 → 각 앱에서 버전 올림 → 테스트 → 배포" 사이클.
   - 가장 큰 문제: 라이브러리는 로직만 공유합니다. `users` 테이블 같은 **DB 스키마와 Flyway 마이그레이션은 라이브러리로 표현 불가**.
 - **탈락 이유**: 운영 오버헤드 + 공통 DB 스키마 공유 불가능.
+
+<a id="option-4--github-use-this-template--cherry-pick-전파--채택"></a>
 
 ### Option 4 — GitHub "Use this template" + cherry-pick 전파 ★ (채택)
 
@@ -95,6 +105,8 @@ cherry-pick 모델에서는 내가 원본 릴리스 노트를 읽고 **"이 변�
 
 **GitHub "Use this template" 모델을 채택하되, 4가지 장치로 실효성을 확보합니다.** 단순히 파일 복제만 하면 "어느 버전까지 반영했는지 알 수 없는" 혼돈이 오거든요.
 
+<a id="장치-1--conventional-commits-강제"></a>
+
 ### 장치 1 — Conventional Commits 강제
 
 모든 커밋이 `<type>(<scope>): <subject>` 형식을 따릅니다. 이유는 cherry-pick 때 "어느 커밋이 공통 코드 개선인지" 를 기계가 알아볼 수 있게 하기 위함입니다.
@@ -113,6 +125,8 @@ git log template-v0.3.0..template-v0.4.0 \
 - **[`.github/workflows/pr-title.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/pr-title.yml)** — PR 제목도 같은 형식 강제.
 
 [`commitlint.config.mjs`](https://github.com/storkspear/template-spring/blob/main/commitlint.config.mjs) 가 canonical 규칙. [`.gitmessage`](https://github.com/storkspear/template-spring/blob/main/.gitmessage) 가 에디터 템플릿으로 개발자 학습을 돕습니다.
+
+<a id="장치-2--템플릿-전체-단위-semver--태그"></a>
 
 ### 장치 2 — 템플릿 전체 단위 SemVer + 태그
 
@@ -138,6 +152,8 @@ Pending sync: v0.4.0 (auth.isPremium 필요)
 
 "내가 지금 어느 버전까지 반영했는가" 를 git 대신 **사람이 읽는 문서** 로 관리. 간단하지만 효과적입니다.
 
+<a id="장치-3--changelog-강제-업데이트"></a>
+
 ### 장치 3 — CHANGELOG 강제 업데이트
 
 모든 feat/fix PR 은 [`CHANGELOG.md`](https://github.com/storkspear/template-spring/blob/main/CHANGELOG.md) 의 `[Unreleased]` 섹션 갱신이 필수입니다. [`changelog-check.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/changelog-check.yml) 이 PR 단계에서 검증합니다.
@@ -158,6 +174,8 @@ Pending sync: v0.4.0 (auth.isPremium 필요)
 
 `docs:`, `chore:`, `style:`, `ci:` 타입은 skip. 태그가 push 되면 [`release.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/release.yml) 이 해당 버전 섹션을 CHANGELOG 에서 추출해서 GitHub Release 본문으로 자동 등록합니다.
 
+<a id="장치-4--deprecation-유예-기간"></a>
+
 ### 장치 4 — Deprecation 유예 기간
 
 Breaking change 를 도입할 때 **최소 1 minor 주기의 Deprecation 기간** 을 거칩니다. 이유는 파생 레포가 따라올 시간 확보.
@@ -169,6 +187,8 @@ Breaking change 를 도입할 때 **최소 1 minor 주기의 Deprecation 기간*
 3. 파생 레포는 v0.4.0 ~ v1.0.0 사이에 마이그레이션
 
 ArchUnit 규칙 r20 (`DEPRECATED_MUST_DECLARE_SINCE_AND_FOR_REMOVAL`) 이 `@Deprecated(since, forRemoval)` 형식을 강제해서 **기계가 읽을 수 있는 메타데이터** 로 남깁니다.
+
+<a id="counter-example-1--fork-와의-실질적-차이"></a>
 
 ## Counter-example 1 — Fork 와의 실질적 차이
 
@@ -198,6 +218,8 @@ $ gh repo fork storkspear/template-spring \
 ```
 
 이 한계가 앱 공장 전략의 핵심을 정면 부정합니다. Use this template 은 이 제약이 없습니다.
+
+<a id="counter-example-2--템플릿-순수성-의-기계-강제-archunit-r7-r8"></a>
 
 ## Counter-example 2 — "템플릿 순수성" 의 기계 강제 (ArchUnit r7, r8)
 

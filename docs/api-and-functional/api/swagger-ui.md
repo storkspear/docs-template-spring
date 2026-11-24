@@ -1,3 +1,5 @@
+<a id="swagger-ui--api-탐색"></a>
+
 # Swagger UI — API 탐색
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~4분
@@ -30,11 +32,13 @@
 2. **OpenAPI 생성** — springdoc 가 등록된 모든 `@RestController` 를 순회하면서 `@RequestMapping`·`@PathVariable`·`@RequestBody` 메타데이터를 분석해 OpenAPI 3 스펙을 만듭니다. `@Operation` 으로 단 요약·설명도 이때 반영됩니다.
 3. **Swagger UI 노출** — `/swagger-ui.html` 이 위 스펙을 사람이 읽는 UI 로 렌더링합니다.
 
-`OpenApiConfig` 의 `openAPI()` 빈이 여기에 한 가지를 더 얹어요. 모든 엔드포인트가 Bearer JWT 를 요구한다는 보안 스킴을 글로벌로 등록해서, Swagger UI 의 "Authorize" 버튼으로 토큰을 한 번 입력하면 이후 모든 호출에 자동으로 첨부됩니다.
+`OpenApiConfig`는 Bearer JWT 스킴을 문서에 등록해 Swagger UI에서 토큰을 입력할 수 있게 해요. 이는 API의 인증 정책을 강제하는 장치가 아니에요. 공개 경로와 보호 경로의 실제 인증·권한은 `SecurityConfig`가 결정해요.
+
+<a id="슬러그별-컨트롤러--healthcontroller-하나--core-공유"></a>
 
 ## 슬러그별 컨트롤러 — HealthController 하나 + core 공유
 
-`<repo> new <slug>` 가 만드는 앱 모듈의 컨트롤러는 `<Slug>HealthController` **1 개**뿐이에요 (`@Tag(name = "<slug>")`, `GET /api/apps/<slug>/health`). 인증·결제·IAP 는 슬러그별 사본이 아니라 core 의 **공유 런타임 빈**이 `{appSlug}` path 변수로 모든 앱을 처리합니다 (ADR-013 B).
+`<repo> new <slug>`는 앱 전용 `<Slug>HealthController`를 만들어요. 이 컨트롤러는 `@Tag(name = "<slug>")`와 `GET /api/apps/<slug>/health`를 사용해요. 인증·결제·IAP 컨트롤러는 앱마다 복제하지 않고 core의 공유 빈이 `{appSlug}`로 요청을 구분해요. 앱 전용 기능이 필요할 때 해당 모듈에 컨트롤러를 추가해요.
 
 | Controller | 소유 모듈 | base path | `@Tag` |
 |---|---|---|---|
@@ -85,7 +89,7 @@ springdoc:
 | `dev` | 노출 | `SPRINGDOC_SWAGGER_UI_ENABLED=false`·`SPRINGDOC_API_DOCS_ENABLED=false` 환경변수로 차단 |
 | `prod` | 차단 (yml 고정) | 권장하지 않음. 필요하면 stage·internal 전용 yml 로만 제한적 활성화 |
 
-dev 는 환경변수로 켜고 끌 수 있지만 prod 는 yml 에 `false` 로 고정돼 있어요. 운영에서 상시 공개가 필요한 조직 도메인이라면 Spring Security 로 `/swagger-ui/**` 와 `/v3/api-docs/**` 경로를 인증 뒤로 두는 방식이 더 안전해요.
+prod YAML은 Swagger UI와 OpenAPI를 비활성화하는 기본 정책을 제공해요. 환경변수 등 우선순위가 높은 외부 설정으로 덮어쓸 수 있으므로, YAML의 false만으로 변경이 불가능하다고 보지는 않아요. 운영 설정도 이 비활성 정책을 유지해요.
 
 ## 관련 문서
 

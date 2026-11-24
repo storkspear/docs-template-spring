@@ -95,7 +95,7 @@ psql "$DB_URL" -c "SELECT version, description, success, installed_on
 | V027 | users 로그인 계정 잠금 컬럼 (failed_attempts 등) | 공통 — LoginLockoutService |
 | **V028 ~** | 앱별 도메인 테이블 | 운영자가 직접 작성 |
 
-V001~V027 이 이미 차 있으므로 본인 도메인 테이블은 V028 부터 시작합니다. V007 을 생성하지 않았어도 그 번호는 시드용으로 비워 둬요. 마이그레이션 세트는 계속 늘어나니, 정확한 다음 번호는 앱 생성 직후 `new-app.sh` 의 안내 메시지와 마이그레이션 디렉토리에서 확인하세요. V 파일은 `apps/app-<slug>/src/main/resources/db/migration/<slug>/` 에 위치해요.
+기본 생성 세트가 V001~V027이면 도메인 마이그레이션은 V028부터 시작해요. V007을 생성하지 않았더라도 그 번호는 시드용으로 남겨 둬요. 기본 세트는 이후에 늘어날 수 있으므로 앱 생성 직후 안내와 실제 마이그레이션 디렉토리를 확인해 다음 번호를 정해요. 경로는 `apps/app-<slug>/src/main/resources/db/migration/<slug>/`예요.
 
 ### 2-3. 기존 앱에 새 공통 마이그레이션 반영 (back-fill)
 
@@ -110,6 +110,8 @@ V001~V027 이 이미 차 있으므로 본인 도메인 테이블은 V028 부터 
 ## 3. 부팅 시 마이그레이션 실패
 
 local / test 부팅이나 운영자가 `migrate-prod.sh` 를 돌리는 시점에 Flyway 가 실패하는 경우입니다. 부팅 로그에서 `org.flywaydb.core.api.FlywayException` 을 먼저 확인하세요.
+
+<a id="a-sql-syntax--데이터-충돌"></a>
 
 ### A. SQL syntax / 데이터 충돌
 
@@ -144,14 +146,11 @@ WHERE pid IN (
 );
 ```
 
-해당 PID 가 정상 Spring 인스턴스 (다른 배포가 진행 중) 라면 그대로 기다립니다. 10분 이상 idle 인 좀비 인스턴스만 강제 종료하세요.
+다른 정상 배포가 잠금을 보유하고 있으면 완료될 때까지 기다려요. 오래 idle 상태라는 이유만으로 종료하지 않고, 어떤 작업의 세션인지와 현재 배포 상태를 먼저 확인해요. 종료가 필요하다고 확인한 PID 하나에만 적용해요.
 
 ```sql
--- 위험 — 운영 인스턴스를 죽이면 트래픽에 영향이 갑니다. 좀비 확인 후에만 실행
-SELECT pid, pg_terminate_backend(pid)
-FROM pg_locks
-WHERE locktype = 'advisory' AND granted = true
-  AND pid NOT IN (SELECT pid FROM pg_stat_activity WHERE state = 'active');
+-- 위 조회에서 확인한 대상 PID 한 개로 바꿔 실행해요.
+SELECT pg_terminate_backend(<확인한_PID>);
 ```
 
 본 connection 자체가 holder 인 드문 경우엔 lock 만 풀면 됩니다.
@@ -166,7 +165,7 @@ SELECT pg_advisory_unlock_all();
 ERROR: Validate failed: Migration checksum mismatch for migration version 1
 ```
 
-이미 적용된 V001 같은 SQL 파일을 나중에 수정한 경우입니다. 적용된 V스크립트는 수정하지 않는 게 원칙이에요. 항상 새 V스크립트로 정정합니다. history 의 checksum 을 직접 갱신하는 우회도 있지만 권장하지 않아요.
+이미 적용한 V 파일을 바꿨다면 먼저 적용 당시 원본을 복원해 checksum 불일치를 해소해요. 필요한 스키마 변경은 새 V 파일로 추가해요. 새 V 파일만 추가해도 기존 파일의 checksum 불일치는 그대로 남아요. history를 정정해야 하는 경우에는 실제 스키마와 적용 이력을 대조해 원인을 확인한 뒤 해당 항목만 수정해요.
 
 ```sql
 -- 권장 X — silent 한 schema drift 위험. 정정 V스크립트가 정도
@@ -178,7 +177,7 @@ SET checksum = <new_checksum> WHERE version = '1';
 
 ### 3-1. Repair 명령
 
-Flyway 의 `repair` 는 schema_history 의 inconsistent state 를 정리합니다. failed migration entry (`success = false`) 삭제, checksum 자동 갱신, deleted V스크립트의 missing entry 보정, metadata 일관성 갱신을 한 번에 처리해요.
+`repair`는 `flyway_schema_history`의 실패·checksum·누락 기록을 현재 마이그레이션 파일에 맞춰 정리하는 작업이에요. 실제 테이블이나 데이터가 기대한 상태인지 대신 확인해 주지는 않아요. 실행 전에 적용 이력과 파일 변경 이유를 대조하고, 복원이나 새 마이그레이션이 필요한 상황인지 먼저 판단해요.
 
 | 환경 | 권장 | 사유 |
 |---|---|---|
@@ -213,6 +212,8 @@ psql "$DB_URL" -c "DROP SCHEMA <slug> CASCADE; CREATE SCHEMA <slug>;"   # 데이
 dev / prod 에서는 방법 1 이 유일한 경로예요. checksum 을 손으로 갱신하는 건 V스크립트 변경을 silent 하게 받아들이는 셈이라, 반드시 [§5.3](#5-3-부팅-시-validate-실패-대응) 의 시나리오 판별을 먼저 거치세요.
 
 ---
+
+<a id="4-운영-마이그레이션--prod-migrate"></a>
 
 ## 4. 운영 마이그레이션 — `prod migrate`
 
@@ -283,6 +284,8 @@ print(crc - 0x100000000 if crc > 0x7FFFFFFF else crc)
 
 ---
 
+<a id="5-prod--dev-validate-실패와-긴급-대응"></a>
+
 ## 5. prod / dev validate 실패와 긴급 대응
 
 ### 5-1. 운영 DB 직접 조회
@@ -308,12 +311,14 @@ dev / prod 부팅 시 `Flyway validate failed` 가 나는 시나리오와 대응
 | `Applied migration not resolved` | schema_history 에 V018 이 있는데 classpath 에 없음 | V018 파일이 jar 에 빠짐 → build 검증 |
 | `Migration checksum mismatch` | 적용된 V스크립트 수정 또는 `migrate-prod.sh` checksum 불일치 ([§4-2](#4-2-migrate-prodsh-가-하는-일)) | V스크립트를 고쳤다면 새 V로 정정. 도구 checksum 불일치면 부팅 로그에서 Flyway 가 기대하는 checksum 을 추출해 history 를 갱신 |
 
-checksum 불일치 정정은 부팅 로그의 expected 값을 그대로 넣습니다.
+부팅 로그의 expected checksum을 그대로 복사해 history를 덮어쓰지는 않아요. 적용 당시 SQL·현재 SQL·실제 스키마를 대조해 수정 원인을 확인하고, 원본 복원으로 해결할 수 있는지 먼저 판단해요. 도구의 checksum 계산 차이로 확인된 경우에만 검증한 값으로 해당 이력을 정정해요.
 
 ```sql
 UPDATE <schema>.flyway_schema_history
 SET checksum = <expected> WHERE version = '<N>';
 ```
+
+<a id="5-4-긴급-우회--disabled"></a>
 
 ### 5-4. 긴급 우회 — DISABLED
 

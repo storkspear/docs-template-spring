@@ -1,3 +1,5 @@
+<a id="adr-025--결제-알림-listener-의-email-채널-통합"></a>
+
 # ADR-025 — 결제 알림 listener 의 email 채널 통합
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-결제 알림은 *사용자에게 권한 변경의 사유를 알리는 채널* 이라 ([`ADR-023`](./adr-023-billing-notification-listener.md)), 그 채널이 *얼마나 도달하는가* 가 운영의 핵심이에요. push 만으로는 *앱이 미설치된 사용자*, *알림 권한을 거부한 사용자*, *FCM 토큰이 만료된 사용자* 에게 도달하지 못합니다. email 은 그 갭을 메우는 fallback 채널이고, 두 채널을 동시에 보내면 *둘 중 하나라도 도달* 할 확률이 크게 올라가요.
+결제 알림에 email 채널을 추가해 push와 함께 사용해요. 현재 listener는 push를 처리한 뒤 email을 순서대로 처리하며, 등록된 채널과 사용자 설정에 따라 발송 여부를 결정해요. email은 push 실패 때만 호출하는 fallback이 아니에요. 한 채널의 발송 예외를 처리해 다음 채널을 시도하지만, 사용자에게 실제로 도착했는지는 별도 문제예요.
 
 본 ADR 은 결제 알림 listener 에 *email 채널* 을 추가해 push + email 을 동시에 발송하는 듀얼 채널 구조를 정의합니다. 발송 대상은 [`ADR-021`](./adr-021-renewal-failure-policy.md) 과 [`ADR-022`](./adr-022-iap-server-notifications.md) 가 발행하는 갱신 실패, 갱신 포기, IAP REFUND, IAP REVOKE 이벤트들이에요. 두 채널 중 *어느 한쪽이 비활성* 인 환경 (예: PushPort 만 있고 EmailPort 가 없는 환경, 또는 그 반대) 도 자연스럽게 지원하도록 `@AnyNestedCondition` 으로 *OR 조건 등록* 패턴을 도입했고, *한 채널의 발송 실패가 다른 채널을 막지 않는* 격리 정책도 함께 잡았습니다.
 
@@ -28,7 +30,7 @@ push 알림 한 채널만으로는 *알림 도달률* 에 구조적 한계가 �
 
 이 세 가지 케이스에서 *email 은 자연스러운 fallback* 이에요. 사용자의 email 주소는 *기기, 앱 설치, OS* 와 무관하게 안정적이고, 이메일 클라이언트는 거의 모든 사용자가 *어떤 형태로든 확인하는* 채널입니다. 발송 도달률이 push 보다 *느릴 수 있지만* (사용자가 메일을 봐야 하므로), *결제 같은 비긴급 알림* 은 *반드시 도달* 하는 게 *즉시 도달* 보다 가치가 커요.
 
-이메일을 별도 채널이 아니라 *push 와 동시에 발송* 하는 듀얼 구조로 잡은 이유도 여기 있습니다. *한쪽만 보내는 분기 로직* 은 *어떤 사용자가 push 를 받을 수 있는지* 를 우리가 정확히 판단해야 한다는 부담을 만들어요. 두 채널을 동시에 보내면 *둘 중 도달하는 쪽으로 사용자가 인지* 하면 되어, 우리는 *발송 시도* 의 책임만 지면 됩니다. push 가 성공하면 사용자는 email 을 무시하고, push 가 도달하지 않으면 email 이 fallback 으로 작동하는 자연스러운 흐름이에요.
+어느 채널이 실제로 사용자에게 도착할지 서버가 미리 알 수 없으므로, 사용할 수 있고 사용자가 허용한 채널에 각각 발송을 시도해요. 현재는 push 다음 email을 순서대로 처리해요. Push 성공 여부로 email 발송을 결정하지 않으며, 두 번의 시도가 수신을 보장하는 것도 아니에요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
@@ -114,6 +116,8 @@ app.billing.notification:
 
 ---
 
+<a id="검증-본-사이클-13건--현재-총-23건"></a>
+
 ## 검증 (본 사이클 13건 — 현재 총 23건)
 
 `SubscriptionNotificationListenerTest` 는 지금 `@Test` 23건이고, 그중 본 사이클이 다루는 13건은 이거예요 (나머지는 [`ADR-026`](./adr-026-billing-notification-metrics.md) 의 메트릭 6건, [`ADR-031`](./adr-031-notification-preferences.md) 의 preference 3건, SlugContext 복원 1건):
@@ -138,11 +142,15 @@ app.billing.notification:
 
 ## 대안 비교
 
+<a id="옵션-a--별도-listener-클래스-분리-pushlistener--emaillistener"></a>
+
 ### 옵션 A — 별도 listener 클래스 분리 (`PushListener` + `EmailListener`)
 
 - 각자 ConditionalOnBean(PushPort) / ConditionalOnBean(EmailPort)
 - ❌ 코드 중복 — 같은 이벤트, 같은 분기 (RenewalFailed → 템플릿 결정 → 발송)
 - ❌ 두 listener 가 같은 SlugContext 셋업 / 정리 — 동일 처리
+
+<a id="옵션-b--단일-listener--objectprovider--채택"></a>
 
 ### 옵션 B — 단일 listener + ObjectProvider ★ 채택
 
@@ -150,6 +158,8 @@ app.billing.notification:
 - ObjectProvider 로 nullable 의존 — Spring 표준 패턴
 - 템플릿 한 곳 (Template 클래스가 둘 다 가짐)
 - 설정 단순 (`notification.enabled` 하나)
+
+<a id="옵션-c--notificationdispatcher-추상화"></a>
 
 ### 옵션 C — NotificationDispatcher 추상화
 

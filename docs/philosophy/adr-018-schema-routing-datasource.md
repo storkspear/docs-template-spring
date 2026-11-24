@@ -1,3 +1,5 @@
+<a id="adr-018--schemaroutingdatasource--service-layer-의-슬러그-격리"></a>
+
 # ADR-018 · SchemaRoutingDataSource — service-layer 의 슬러그 격리
 
 **Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — *core fallback* → `IllegalStateException` (fail-secure). slug 없는 DB 접근은 *configuration 오류* 로 간주, silent core fallback 폐기. `SchemaRoutingDataSource` 가 `SlugContext` (ThreadLocal) 의 슬러그 값으로 connection 을 슬러그별 DataSource 로 분기해요. INSERT / SELECT 가 자동으로 슬러그 schema 로 라우팅됩니다.
@@ -6,11 +8,11 @@
 
 ## 결론부터
 
-[`ADR-005`](./adr-005-db-schema-isolation.md) 의 *앱당 schema 격리* 가 데이터베이스 레벨에서 작동하려면 **서버의 service-layer 도 그 격리를 따라야 해요**. controller 가 URL 에서 받은 슬러그로 자기 앱의 DataSource 를 골랐다 해도, service 가 single Bean 으로 동작하면서 항상 default DataSource 로 INSERT 를 하면 격리가 무너집니다. testsvc 슬러그의 회원가입이 core schema 의 users 테이블에 INSERT 되는 형태로요.
+여러 앱이 하나의 공통 서비스를 사용하더라도 데이터는 요청한 앱의 스키마에 저장해야 해요. 공통 core 저장소는 라우팅 DataSource와 기본 EntityManager·트랜잭션 매니저를 사용하고, `SlugContext`가 연결을 얻는 시점의 앱을 정해요. 생성된 앱의 고유 저장소는 앱 전용 EntityManager·트랜잭션 매니저를 사용한다는 차이를 함께 구분해요.
 
 `SchemaRoutingDataSource` 는 그 격리를 service-layer 까지 완성하는 메커니즘이에요. Spring 의 `AbstractRoutingDataSource` 를 확장한 단일 Bean 으로, connection 을 잡는 시점에 `SlugContext` (ThreadLocal) 의 현재 슬러그 값을 보고 해당 슬러그의 `<slug>DataSource` — 슬러그별 HikariCP pool — 로 분기해요. 요청이 들어오면 `AppSlugMdcFilter` 가 URL 의 `{appSlug}` 를 `SlugContext.set` 으로 박아두고, 요청이 끝나면 finally 블록에서 `clear` 합니다.
 
-이 구조의 장점은 *service Bean 은 그대로 단일* 이라는 점이에요. `AuthServiceImpl` 한 개가 모든 슬러그의 회원가입을 처리하지만, *connection 자체가 슬러그별로 분기되므로* `INSERT INTO users` 가 *현재 요청의 슬러그 schema* 로 자동으로 흘러가요. `@Transactional` 도 단일 TransactionManager 그대로 쓰고, JPA Repository 도 default EntityManagerFactory 그대로 쓰는데, *connection 이 결정하는 search_path* 덕에 자연스럽게 격리가 작동합니다.
+공통 서비스와 저장소는 하나의 구현을 유지하면서 연결 대상만 슬러그별로 선택해요. 공통 core 저장소는 기본 라우팅 EntityManager·트랜잭션 매니저를 사용해요. 연결을 얻기 전에 올바른 `SlugContext`가 설정돼 있어야 하며, 이미 시작한 트랜잭션에서 슬러그를 바꾸면 같은 보장을 기대할 수 없어요. 앱 고유 저장소의 전용 EntityManager·트랜잭션 매니저와도 구분해요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -25,6 +27,8 @@ ThreadLocal 기반 라우팅은 *Spring 의 표준 패턴* 이에요. `AbstractR
 이 결정이 답해야 할 물음은 이거예요.
 
 > **service-layer 가 슬러그를 명시적으로 받지 않으면서도 슬러그별 schema 격리를 자연스럽게 따르게 하는 구조는 무엇인가?**
+
+<a id="결정--채택한-패턴"></a>
 
 ## 결정 — 채택한 패턴
 
@@ -57,6 +61,8 @@ public class SchemaRoutingDataSource extends AbstractRoutingDataSource {
 }
 ```
 
+<a id="bootstrapconfigroutingdatasourceconfig--primary-datasource-를-routing-으로"></a>
+
 ### `bootstrap/config/RoutingDataSourceConfig` — Primary `dataSource` 를 routing 으로
 
 ```java
@@ -84,9 +90,13 @@ public DataSource dataSource(Map<String, DataSource> allDataSources) {
 
 이 발췌는 설명용 축약본이에요. **정본은 [`RoutingDataSourceConfig`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/java/com/factory/bootstrap/config/RoutingDataSourceConfig.java) 의 `dataSource(...)`** 이고, `SchemaRoutingDataSource` javadoc 의 예제도 같은 이유로 그쪽을 정본으로 가리킵니다. 가드 조건을 고칠 일이 생기면 정본만 고치면 돼요.
 
+<a id="appslugmdcfilter--request-진입-시-slugcontextset--finally-clear"></a>
+
 ### `AppSlugMdcFilter` — request 진입 시 SlugContext.set + finally clear
 
 기존 MDC 주입 filter 에 `SlugContext.set/clear` 한 줄 추가. JwtAuthFilter 뒤, AppSlugVerificationFilter 앞.
+
+<a id="abstractappdatasourceconfig--hibernatedefault_schema-제거"></a>
 
 ### `AbstractAppDataSourceConfig` — `hibernate.default_schema` 제거
 

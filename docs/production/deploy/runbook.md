@@ -4,7 +4,7 @@
 
 평시 배포와 롤백, 장애 대응 절차를 한곳에 모은 문서예요. 긴급 상황에서 빠르게 찾을 수 있도록 증상에서 명령으로 가는 최단 경로를 우선했어요. 파생 레포의 최초 onboarding 은 [`운영 배포 가이드 (파생레포 onboarding)`](./deployment.md) 에서 따로 다뤄요.
 
-> **설계 배경**: [`ADR-007 · 솔로 친화적 운영`](../../philosophy/adr-007-solo-friendly-operations.md) — 운영 단위 1, 관리형 서비스 선호, 회색 지대 없는 CI. 운영 구성 상세는 [`인프라 (Infrastructure)`](./infrastructure.md), 배포 결정 근거는 [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) 을 참고하세요.
+> **설계 배경**: [ADR-007 · 솔로 친화적 운영](../../philosophy/adr-007-solo-friendly-operations.md)은 단일 애플리케이션 배포 단위를 유지하고, 관리형 서비스와 직접 운영의 시간·비용·복구 책임을 비교해요. 필수 CI 검사와 참고용 검사를 구분해 배포를 판단해요. 구성은 [인프라](./infrastructure.md), 선택한 이유는 [인프라 결정 기록](./decisions-infra.md)에서 확인해요.
 
 이 문서의 명령은 파생 레포 기준이에요. `<repo>` 자리에 본인 레포의 alias 를 넣어 그대로 복사해 쓰면 됩니다.
 
@@ -45,7 +45,7 @@ kamal deploy --skip-push --version=<sha>  (이미지 swap, kamal 은 빌드 안 
 옛 GHCR 이미지 cleanup (공유 패키지 최신 10개 버전 유지)
 ```
 
-CI 가 실패하면 deploy 가 시작되지 않아요. gate 가 차단하기 때문에 테스트가 깨진 코드는 절대 운영에 반영되지 않습니다. GHCR cleanup 은 스토리지 한도 관리를 위해 최신 10개 package version 만 남겨요. 단, dev 와 prod 가 같은 GHCR 패키지를 공유하고 cleanup 액션이 태그 필터를 지원하지 않아 환경별 세대 보존은 보장되지 않습니다 — 직전 이미지가 정리됐다면 롤백은 workflow_dispatch 재빌드 (아래 옵션 B) 로 하세요.
+CI 완료 이벤트로 시작한 자동 배포는 CI 결과와 배포 gate를 확인해요. 수동 `workflow_dispatch`와 로컬 배포는 별도 경로이므로 테스트 실패 코드가 절대 배포될 수 없다는 보장은 없어요. 수동 배포에서는 검증한 SHA를 선택해요. GHCR 정리는 dev·prod가 공유하는 패키지의 최신 10개 버전을 남기므로 환경별 롤백 이미지 보존도 따로 확인해요. 필요한 이미지가 정리됐다면 해당 SHA를 다시 빌드해 배포해요.
 
 ### 수동 재배포 (GitHub Actions)
 
@@ -105,6 +105,8 @@ cosign verify \
 
 상황에 따라 세 가지 방법이 있어요. 빠른 순서대로 옵션 A → B → C 입니다.
 
+<a id="옵션-a--kamal-rollback-직전-배포로"></a>
+
 ### 옵션 A — kamal rollback (직전 배포로)
 
 가장 빠른 경로지만 **조건이 좁아요.** `kamal rollback` 은 이미지를 다시 받아 컨테이너를 만드는 게
@@ -131,9 +133,13 @@ curl -s https://<도메인>/actuator/info | jq .build
 아니면 실패로 끝내요. `kamal rollback` 은 내부적으로 실패해도 종료코드 0 을 내기 때문이에요.
 **실패했다면 곧장 옵션 B 로 가세요** — 대개 이 경로가 정답입니다.
 
+<a id="옵션-b--gha-workflow_dispatch-특정-sha-재배포"></a>
+
 ### 옵션 B — GHA workflow_dispatch (특정 SHA 재배포)
 
 여러 단계 이전으로 돌아가야 할 때 사용해요. Actions 탭의 deploy workflow 에서 "Run workflow" 를 누르고 `version` 칸에 되돌릴 commit SHA 를 입력합니다. deploy job 이 그 SHA 에서 jar 부터 다시 빌드해 이미지를 만들고 배포하므로, GHCR 에 옛 이미지가 남아 있지 않아도 되지만 8분 안팎이 걸려요.
+
+<a id="옵션-c--revert-pr-코드-자체를-되돌림"></a>
 
 ### 옵션 C — revert PR (코드 자체를 되돌림)
 
@@ -142,6 +148,8 @@ curl -s https://<도메인>/actuator/info | jq .build
 ---
 
 ## 블루-그린 배포와 Flyway 원칙
+
+<a id="prod-는-부팅-시-validate-만-합니다-validate_only"></a>
 
 ### prod 는 부팅 시 validate 만 합니다 (VALIDATE_ONLY)
 
@@ -174,6 +182,8 @@ migrate 를 빼먹고 배포하면 Green 부팅 시 validate 가 `Resolved migra
 
 파괴적 DDL 이 필요하면 두 번의 배포로 나눠요. 첫 배포에서 코드와 신규 컬럼 추가 migration 을 함께 올린 뒤, 모든 요청이 신규 필드를 쓰는지 확인합니다. 그다음 배포에서 구 컬럼 삭제 migration 을 적용해요.
 
+<a id="보조-경로--컨테이너-migrate-only-모드"></a>
+
 ### 보조 경로 — 컨테이너 migrate-only 모드
 
 표준 적용 경로는 위의 `migrate-prod.sh` 예요. 로컬에 psql 이 없는 등 그 경로를 쓸 수 없을 때는 배포 이미지를 `migrate-only` 모드로 한 번 돌려 migrate 만 수행할 수 있습니다. prod profile 은 VALIDATE_ONLY 가 기본이라 `APP_FLYWAY_MODE=AUTO` 를 함께 줘야 실제 migrate 가 실행돼요.
@@ -190,6 +200,8 @@ docker run --rm --env-file /path/to/prod.env -e APP_FLYWAY_MODE=AUTO \
 ---
 
 ## 로그 확인
+
+<a id="1차-진단--컨테이너-직접"></a>
 
 ### 1차 진단 — 컨테이너 직접
 
@@ -296,6 +308,8 @@ docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 
 ---
 
+<a id="운영-환경-정리--clear-와-force-clear"></a>
+
 ## 운영 환경 정리 — clear 와 force-clear
 
 도그푸딩이 끝났거나 운영 환경을 처음부터 다시 구성해야 할 때 사용해요. 두 명령은 삭제 범위가 다르므로 상황에 맞게 골라야 합니다.
@@ -306,14 +320,14 @@ docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 <repo> prod clear        # 'YES' 명시 confirm 후 진행
 ```
 
-`prod force-clear` 는 clear 의 모든 동작에 더해 데이터와 관측성까지 영구 삭제합니다. 슬러그를 지정하면 그 앱의 schema 와 bucket 만, 슬러그를 생략하면 모든 앱의 schema 와 bucket 을 전부 삭제해요.
+`prod force-clear`는 먼저 배포 서비스 전체를 정리한 뒤 데이터를 삭제해요. slug를 지정해도 같은 JAR에 포함된 다른 앱의 서비스가 함께 내려갈 수 있어요. 데이터 삭제 범위는 slug 지정 시 해당 스키마와 스크립트가 일치시킨 버킷이며, slug를 생략하면 조회된 비시스템 스키마와 버킷 전체예요. 등록된 앱만 대상으로 제한하는 명령은 아니므로 실행 전 인벤토리를 확인해요.
 
 ```bash
 <repo> prod force-clear myapp   # 해당 앱만 (myapp schema + myapp-* bucket)
 <repo> prod force-clear         # 모든 앱 schema + bucket + 관측성 전부 삭제
 ```
 
-`force-clear` 는 5단계 confirm 을 차례로 거치고, 한 단계라도 'y' 외 입력이 들어오면 즉시 abort 됩니다. 단계 순서는 DB 데이터, Storage 데이터, 관측성 데이터, 백업 의향, 최종 확인이에요. 백업 의향 단계에서 'y' 를 선택하면 manual 백업 명령을 출력하고 종료합니다. 자동 백업은 아직 개발 중이라 manual 절차만 안내돼요.
+확인 단계는 DB·Storage·관측성·백업 의향·최종 확인 순서이며, 대상이 없는 단계는 건너뛸 수 있어요. 삭제 확인은 `y`가 아니면 중단하지만 백업 의향은 반대예요. 백업을 하겠다고 `y`를 고르면 수동 백업 안내 후 종료하고, 계속하려면 `n`을 선택해요. 자동 백업은 제공하지 않아요. 일부 정리에 실패하면 실패 종료코드와 남은 대상을 확인해요.
 
 > **코드 정리와 데이터 정리는 별개예요.** `force-clear <slug>` 는 데이터와 인프라 (schema · bucket · 컨테이너) 만 영구 삭제하고, 코드 모듈은 그대로 둡니다. 데이터만 초기화한 뒤 재배포하려는 경우를 위한 동작이에요. 앱을 완전히 은퇴시켜 코드까지 제거하려면 `local` 또는 `dev` 환경에서 `remove app <slug>` 를 추가로 실행합니다. 이 명령은 `new app` 의 역방향이고 `tools/app/remove-app.sh` 가 처리해요. `remove app` 은 실데이터와 공유 소스를 보호하기 위해 prod 를 지원하지 않으므로, prod 배포 앱의 표준 은퇴 순서는 다음과 같아요.
 >
@@ -326,15 +340,19 @@ docker compose -f <repo>/infra/docker-compose.observability.yml up -d
 
 ### 왜 clear 는 관측성을 보존하는가
 
-관측성 스택은 Grafana 대시보드, Loki 로그 스트림, Prometheus 메트릭으로 이뤄져 있고, 모든 슬러그가 공유하는 단일 인스턴스예요. 슬러그 하나만 정리하려는 운영자가 관측성까지 지우면 다른 슬러그의 모니터링 히스토리도 함께 잃게 됩니다. 그래서 `clear` 는 의도적으로 관측성을 건드리지 않아요. 데이터도 보존합니다 — schema 와 bucket 이 남아 있으면 재배포만으로 서비스가 그대로 복원되기 때문이에요. 공유 `core` schema 는 폐기돼 더는 존재하지 않고 ([`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md)) 모든 데이터가 슬러그 단위 schema 와 bucket 에 있으므로, 삭제가 필요하면 `force-clear <slug>` 로 슬러그 단위로 정리합니다.
+Grafana·Loki·Prometheus는 여러 앱이 공유해요. 한 앱을 정리하면서 관측성 데이터까지 지우면 다른 앱의 이력도 잃을 수 있어 `clear`는 기본적으로 관측성을 보존해요. schema와 bucket도 남겨 재배포 때 데이터를 다시 사용할 수 있게 해요. 다만 데이터가 남아 있다는 사실만으로 모든 운영 상태의 복원이 보장되지는 않아요.
+
+데이터 삭제가 필요하면 `force-clear`의 실제 인벤토리와 공용 서비스 정리 범위를 확인해요. slug를 지정해도 공용 컨테이너·DNS·ingress 정리가 포함되므로, 앱 하나만 중단하는 명령으로 사용하지 않아요.
 
 `force-clear` 는 모든 슬러그를 한꺼번에 정리할 때를 위해 관측성까지 삭제하는 옵션을 제공해요. 슬러그를 지정하지 않은 `prod force-clear` 단독 호출이 그 시나리오에 해당합니다.
 
 슬러그를 지정한 `prod force-clear <slug>` 에서는 `[3/5]` 관측성 단계가 confirm 없이 자동으로 건너뜁니다 — 관측성 스택은 전 슬러그 공유라 전체 모드에서만 confirm 을 띄워요. slug 모드에선 관측성 SSH 조회조차 하지 않습니다.
 
-운영자 본인의 정적 페이지 (`homepage-nginx`) 와 다른 도메인의 DNS 레코드, bluebirds NAS 같은 다른 머신은 어느 명령으로도 영향받지 않아요. 자세한 동작은 `tools/cleanup/cleanup-server.sh` 와 `tools/cleanup/force-clear-server.sh` 의 첫 30줄 주석에서 확인할 수 있습니다.
+정리 대상은 배포 설정과 스크립트가 찾은 리소스로 결정돼요. 다른 사이트·DNS·호스트가 대상에 포함되지 않았는지는 dry-run과 인벤토리로 확인해요. 특히 공유 관측성과 kamal-proxy 관련 작업은 같은 호스트의 다른 서비스에도 영향을 줄 수 있어요. 범위는 `cleanup-server.sh`·`force-clear-server.sh`의 실제 구현을 기준으로 판단해요.
 
 ---
+
+<a id="백업--현재-수동"></a>
 
 ## 백업 — 현재 수동
 

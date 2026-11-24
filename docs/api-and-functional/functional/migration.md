@@ -4,7 +4,7 @@
 
 **설계 근거**: [`ADR-015 · Conventional Commits + SemVer`](../../philosophy/adr-015-conventional-commits-semver.md)
 
-이 디렉토리는 breaking change 가 있는 템플릿 버전마다, 그 버전으로 옮겨 가는 단계별 가이드를 담습니다. 파생 레포가 새 버전을 따라잡을 때 "어디가 깨지고, 무엇을 어떻게 고쳐야 하는지" 를 한 파일에서 확인하는 자리예요.
+이 문서는 템플릿 버전 변경을 파생 레포에 반영하는 가이드의 작성 기준을 정해요. 코드·API 호환성이 바뀔 때 무엇을 어떻게 옮기는지 설명하는 자리예요. DB 스키마 변경 절차는 [`Flyway 런북`](../../production/deploy/flyway-runbook.md)에서 확인해요.
 
 ---
 
@@ -30,50 +30,49 @@ migration guide 는 모든 버전마다 쓰지 않아요. breaking change 가 �
 
 한 변경마다 Before / After / Reason / Migration Steps / Deprecation 정책을 한 묶음으로 둬요. 코드 스니펫은 실제로 깨지는 호출 한 줄이면 충분합니다.
 
-```markdown
-# Migration Guide: v0.2.0 → v0.3.0
+````markdown
+# Migration Guide: v1.9.0 → v2.0.0
 
 ## Overview
-v0.3.0 에서 도입된 breaking change 요약.
+v2.0.0에서 제거한 API와 대체 사용법을 정리해요.
 
 ## 1. ModulePort.oldMethodName → newMethodName
 
-### Before (v0.2.0)
+### Before (v1.9.0)
 ```java
 modulePort.oldMethodName(new RequestType(arg));
-```text
+```
 
-### After (v0.3.0)
+### After (v2.0.0)
 ```java
 modulePort.newMethodName(new RequestType(arg));
-```text
+```
 
 ### Reason
-실제 deprecation 사유 (네이밍 일관성·도메인 분리·API 단순화 등).
+이름을 바꾼 이유와 두 메서드의 동작 차이가 있는지 설명해요.
 
 ### Migration Steps
-1. 전역 search/replace: `oldMethodName` → `newMethodName`
-2. 테스트 실행해 이상 없는지 확인
+1. 기존 호출을 찾아 새 API로 옮겨요.
+2. 입력·출력·예외 계약과 테스트 결과를 확인해요.
 
 ### Deprecation 정책
-- v0.3.0 에서 `@Deprecated(since = "v0.3.0", forRemoval = true)` 로 마킹
-- v1.0.0 에서 제거
-```
+- v1.8.0에서 `@Deprecated(since = "1.8.0", forRemoval = true)`로 표시했어요.
+- v1.9.0까지 기존 API를 유지하고 v2.0.0에서 제거해요.
+````
 
 ---
 
 ## Deprecation 흐름과의 관계
 
-breaking change 는 갑자기 나타나지 않아요. 신규 API 를 먼저 추가하고, 기존 API 를 deprecated 로 마킹한 뒤, 여러 minor 주기 동안 둘 다 동작시키다가, 다음 major 에서야 기존 API 를 제거합니다. 이 단계적 흐름 덕에 파생 레포는 한 번에 깨지지 않고 천천히 따라올 시간을 법니다.
+호환성을 유지하며 API를 옮기려면 새 API를 먼저 추가하고 기존 API를 deprecated로 표시해요. 이후 minor 버전에서 두 API를 함께 유지한 뒤, 정해진 다음 major에서 기존 API를 제거해요. 파생 레포는 이 기간에 호출부를 옮기고 계약 테스트로 동작을 확인해요.
 
 ```text
-v0.2.0  신규 API 추가 + 기존 API @Deprecated
-v0.3.0  기존 API 여전히 동작 (deprecated 경고)
-v0.4.0  기존 API 여전히 동작 (deprecated 경고)
-v1.0.0  기존 API 제거 → breaking — migration guide 필수
+v1.8.0  신규 API 추가 + 기존 API @Deprecated
+v1.9.0  기존 API 유지, deprecated 경고
+v2.0.0  기존 API 제거 → migration guide 필요
 ```
 
-그래서 migration guide 의 "Before" 는 deprecated 된 옛 사용법, "After" 는 신규 사용법이 됩니다. deprecation 마킹·removal 시점·CHANGELOG 기록 규칙의 전체 정의는 [`버전 규약 · Deprecation 프로세스`](../api/versioning.md) 에 있어요.
+가이드의 Before에는 제거될 API의 사용법을, After에는 대체 API의 사용법을 적어요. deprecation 표시와 제거 시점, CHANGELOG 기록 기준은 [버전 규약](../api/versioning.md)에서 관리해요.
 
 ---
 
@@ -93,7 +92,7 @@ v1.0.0  기존 API 제거 → breaking — migration guide 필수
 
 ## 현재 상태
 
-최신 릴리스는 `template-v0.3.0` 입니다 (git tag 기준, 2026-07). 지금까지의 릴리스에는 migration guide 를 요구하는 breaking change 가 없어 아직 작성된 가이드는 없어요. 첫 breaking 변경이 나오는 버전부터 `v<...>.md` 파일이 이 디렉토리에 쌓입니다.
+루트 `CHANGELOG.md`는 2026-07-21에 `template-v1.0.0`으로 버전 기준을 정리한 기록을 담고 있어요. 적용할 버전과 변경 내용은 해당 태그·CHANGELOG를 확인해요. 이 문서에 최신 버전 번호를 별도로 반복해 관리하지 않아요.
 
 ---
 

@@ -1,3 +1,5 @@
+<a id="adr-003--core-모듈을--api---impl-로-분리"></a>
+
 # ADR-003 · core 모듈을 `-api` / `-impl` 로 분리
 
 **Status**: Accepted. core 의 16 개 도메인 중 15 개 (user, auth, phone-auth, device, push, billing, iap, payment, storage, email, sms, audit, attachment, content, analytics) 가 `-api`·`-impl` 쌍으로 구성돼 있어요 (admin 은 운영 콘솔 특성상 `core-admin-impl` 단독 — [ADR-039](./adr-039-admin-module.md)). ArchUnit 9 개 규칙 (r6, r9~r11, r13~r15, r17, r21) 이 이 구조를 강제합니다.
@@ -6,7 +8,7 @@
 
 ## 결론부터
 
-REST API 서버와 클라이언트를 떠올려보세요. 클라이언트는 **API 스펙** (OpenAPI 문서) 만 알고 HTTP 호출을 합니다. 서버 내부가 PostgreSQL 을 쓰는지 MongoDB 를 쓰는지, Java 로 짜였는지 Go 로 짜였는지 전혀 신경 쓰지 않습니다. 같은 원리를 한 JVM 안의 모듈 간 호출에 적용한 것이 `-api` / `-impl` 분리예요. `-api` 모듈은 "스펙과 DTO", `-impl` 은 "내부 구현" 을 담고, 앱 모듈은 스펙만 보고 호출합니다.
+공통 도메인은 공개 계약을 담는 `-api`와 구현을 담는 `-impl`로 나눠요. 다른 앱이나 도메인은 Port와 DTO를 통해 호출하고, 구현 클래스와 저장소에는 직접 의존하지 않아요. `-api`도 공용 웹 타입과 검증·직렬화 라이브러리를 사용할 수 있으므로, 모든 프레임워크 의존이 없는 순수 Java 모듈이라는 뜻은 아니에요.
 
 > Java 표준 라이브러리로 비유하면 `java.sql.Connection` (인터페이스, 모든 앱이 의존) vs `org.postgresql.jdbc.PgConnection` (구현체, 특정 벤더). 앱은 Connection 만 알고, 실제 구현체는 런타임에 주입. 같은 패턴입니다.
 
@@ -55,6 +57,8 @@ public AuthResponse signup(SignUpRequest req) {
 
 ## 고민했던 대안들
 
+<a id="option-1--단일-core-auth-모듈-apiimpl-미분리"></a>
+
 ### Option 1 — 단일 `core-auth` 모듈 (api/impl 미분리)
 
 `core-auth/src/main/java/...` 에 인터페이스, 구현, 엔티티, Repository 가 모두 공존.
@@ -62,6 +66,8 @@ public AuthResponse signup(SignUpRequest req) {
 - **장점**: 모듈 수가 절반이에요. 파일이 덜 복잡해요.
 - **단점**: 앱이 의존 선언할 때 "인터페이스만 보기" 가 언어 레벨로 강제되지 않아요. Java 는 public 클래스면 어디서든 import 가 가능해요. 앱이 실수로 `AuthServiceImpl` 을 import 해도 컴파일이 성공해요.
 - **탈락 이유**: 추출 가능성이 파괴돼요. [`ADR-001`](./adr-001-modular-monolith.md) 의 약속을 지킬 수 없어요.
+
+<a id="option-2--런타임-전략-패턴-spring-qualifier"></a>
 
 ### Option 2 — 런타임 전략 패턴 (Spring `@Qualifier`)
 
@@ -73,6 +79,8 @@ public AuthResponse signup(SignUpRequest req) {
   - Spring 이 없는 환경 (테스트 등) 에서는 이 강제가 무력화돼요.
 - **탈락 이유**: 경계가 런타임 어노테이션에만 의존해요. 빌드 시스템 수준의 기계 강제력이 없어요.
 
+<a id="option-3--java-9-모듈-시스템-module-infojava"></a>
+
 ### Option 3 — Java 9+ 모듈 시스템 (`module-info.java`)
 
 Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 외부에서 접근하도록 허용해요.
@@ -80,6 +88,8 @@ Java 9 에서 도입된 `module-info.java` 로 `exports` 선언한 패키지만 
 - **장점**: Java 언어 레벨에서 강제돼요.
 - **단점**: Spring Boot 와 Java 9 모듈 시스템의 궁합이 어려워요. classpath 와 module path 가 혼재하는 문제가 있고, 디버깅도 까다로워요.
 - **탈락 이유**: 이론적으로 완벽하지만 Spring Boot 생태계와 궁합이 나빠 실무 채택이 많지 않아요.
+
+<a id="option-4---api---impl-gradle-모듈-분리--채택"></a>
 
 ### Option 4 — `-api` / `-impl` Gradle 모듈 분리 ★ (채택)
 
@@ -117,6 +127,8 @@ core/
 
 이 분리를 **실효성 있게** 유지하기 위한 장치 3가지를 덧붙입니다.
 
+<a id="장치-1--port-인터페이스-패턴"></a>
+
 ### 장치 1 — Port 인터페이스 패턴
 
 `-api` 모듈의 인터페이스는 `*Port` 접미사를 사용합니다 (Hexagonal Architecture 용어). 실제 예시 ([`AuthPort.java`](https://github.com/storkspear/template-spring/blob/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java)):
@@ -142,6 +154,8 @@ public interface AuthPort {
 - 파라미터와 반환 타입은 **DTO 만** 씁니다 (`Request`·`Response`·`Tokens` 등). Entity 는 금지 (r11).
 - JavaDoc 에는 구현 내부 힌트까지 포함해도 돼요. 하지만 파라미터로 Entity 를 노출하지 않아요.
 - throws 절의 Exception 도 `-api` 모듈의 `exception/` 패키지에 정의해요 (`AuthException` 등).
+
+<a id="장치-2--primary--secondary-adapter-구분"></a>
 
 ### 장치 2 — Primary / Secondary Adapter 구분
 
@@ -181,6 +195,8 @@ public class ResendEmailAdapter implements EmailPort {
 - Primary Adapter 는 "우리 시스템의 비즈니스 로직" 을 담아요. 테스트가 복잡해요.
 - Secondary Adapter 는 "외부 시스템과의 HTTP/TCP 연결" 만 담아요. 테스트는 HttpClient mock 으로 단순해요.
 
+<a id="장치-3--archunit-9개-규칙이--api-impl-경계-강제"></a>
+
 ### 장치 3 — ArchUnit 9개 규칙이 `-api`/`-impl` 경계 강제
 
 [`ADR-001`](./adr-001-modular-monolith.md) 의 2단계 방어(ArchUnit 22규칙) 중 **9개가 이 결정과 직접 연관** 됩니다.
@@ -196,6 +212,8 @@ public class ResendEmailAdapter implements EmailPort {
 | **r15** | `SERVICE_IMPL_MUST_RESIDE_IN_IMPL` | `*ServiceImpl` 클래스가 `-api` 에 놓이는 것 |
 | **r17** | `REPOSITORIES_MUST_RESIDE_IN_IMPL_REPOSITORY` | `*Repository` 가 `impl.repository` 바깥에 놓이는 것 |
 | **r21** | `ENTITIES_MUST_RESIDE_IN_IMPL_ENTITY` | `@Entity` 가 `impl.entity` 바깥에 놓이는 것 |
+
+<a id="extraction-critical-이-무슨-뜻인가--r9-의-특별함"></a>
 
 ### "extraction-critical" 이 무슨 뜻인가 — r9 의 특별함
 
@@ -218,6 +236,8 @@ public interface AuthPort {
 - → HTTP 클라이언트 프로젝트가 **JPA 런타임을 전부 가져야 해요**
 
 HTTP 클라이언트는 DB 를 안 씁니다. HTTP 로 요청만 보내는데 JPA 를 가져야 한다? 이건 모순이에요. r9 는 이 모순을 **지금 이 시점에서** 차단합니다.
+
+<a id="counter-example--entity-누출-시도"></a>
 
 ## Counter-example — Entity 누출 시도
 

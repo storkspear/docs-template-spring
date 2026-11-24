@@ -1,328 +1,236 @@
+<a id="adr-007--솔로-친화적-운영"></a>
+
 # ADR-007 · 솔로 친화적 운영
 
-**Status**: Accepted. 운영 모든 결정의 **상위 판단 기준** 이에요. 개별 ADR 들은 이 원칙의 구체 적용이고, 실제로는 단일 bootstrap JAR + 관리형 서비스 스택 + 한 Postgres 인스턴스 + 하나의 GitHub Actions CI 로 운영하고 있어요.
+**Status**: Accepted. 2026-11-24 개정: 솔로 한 사람이 감당할 수 있어야 한다는 상위 기준은 유지하고, 관리형 서비스와 직접 운영을 함께 사용하는 현재 구성에 맞춰 운영 방침을 정리했어요.
 
-> **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
+> **유형**: ADR · **독자**: Level 3
 
 ## 결론부터
 
-운영 결정은 전부 한 가지 물음에 답합니다 — **"솔로 한 사람이 감당 가능한가?"**. 이 물음이 통과하지 못하면 기각해요. 단일 JAR 배포 · Supabase/Resend/FCM/R2 같은 관리형 서비스 의존 · 로컬 개발 우선 · 코드가 문서 · CI 는 빨간불 아니면 초록불 — 전부 이 원칙의 파생입니다. 동시에 **"우리 목표가 아닌 것"** 도 명시 — HA 99.99%, 멀티 리전, 무중단 배포, 분산 트레이싱. 이것들은 "나쁘다" 가 아니라 **"지금 필요하지 않다"**.
+모든 운영 결정의 상위 기준은 **솔로 한 사람이 감당할 수 있는가**예요. 도입 비용뿐 아니라 반복 작업, 장애 대응, 백업·복구, 이후 변경에 드는 시간을 함께 판단해요.
+
+관리형 서비스와 직접 운영 중 하나만 고집하지 않아요. 현재는 Supabase·Resend·FCM 같은 외부 서비스와 홈서버의 Spring·MinIO·관측 스택을 함께 사용해요. 어느 쪽이든 실제 지출과 유지 시간을 비교하고, 운영자가 책임질 수 있는 범위에서 선택해요.
+
+로컬 개발, 공통 기능 재사용, 필요한 기능만 선택하는 구조, 자격의 소유자별 관리 원칙은 유지해요. Kamal의 blue-green 배포도 현재 운영 방식에 포함해요. 다만 99.99% 가용성 SLA 보장, 멀티 리전, Kubernetes·서비스 메시, 마이크로서비스 분산 추적을 기본 운영 목표로 두지는 않아요.
 
 ## 왜 이런 고민이 시작됐나?
 
-[`프롤로그의 제약 3 (복권 사기 모델)`](./README.md#제약-3--복권-사기-모델) 에서 우리는 한 명이 **여러 앱을 동시에** 운영하는 구조를 전제로 했어요. 이 구조의 현실은 아래처럼 보입니다:
+[프롤로그](./README.md)는 한 사람이 여러 앱을 개발하고 운영하는 상황을 전제로 해요. 앱마다 서버·배포·관측·자격 관리를 따로 만들면 공통 기능을 구현하는 것 외에도 관리할 대상이 늘어나요. 개발 중에도 버그 대응, 배포, 사용자 문의, 상태 확인에 시간을 나눠 써야 해요.
 
-- 오전 9시: 개발 (앱 A 신기능)
-- 11시: 앱 B 버그 리포트 대응
-- 오후 2시: 앱 C 배포
-- 3시: 앱 D 유저 문의 응대
-- 5시: 전체 모니터링 확인
-- 7시: 다시 앱 A 개발 복귀
+이 ADR은 운영 부담이 늘 때마다 같은 기준으로 판단하기 위한 기록이에요. 어떤 기술이 일반적으로 우수한지를 정하는 대신, 현재 앱에 필요한 효과와 운영자가 맡아야 할 일을 비교해요. 앱 수나 특정 일정만으로 감당할 수 있는 범위를 단정하지는 않아요.
 
-문제는 **각 앱이 "자기 몫의 운영 부담"** 을 가져온다는 거예요. 유지 가능한 범위를 넘으면 다음 중 하나 발생:
-
-1. **어느 앱이든 버린다** — 실제 앱 공장의 공장성 파괴
-2. **운영 수준을 낮춘다** — 장애 대응 지연, 유저 이탈
-3. **번아웃** — 개발 자체가 중단
-
-이 결정이 답할 물음은 이거예요.
-
-> **솔로 개발자가 N 개 앱을 동시 운영하는 것이 지속 가능하려면, 각 운영 결정의 상위 기준은 무엇이어야 하는가?**
-
-단순히 "단순하게 하자" 가 아니라 — **"새 운영 결정 하나하나가 솔로 여유 시간을 얼마나 잡아먹는가"** 를 계산하는 **명시적 프레임** 이 필요했어요.
+> 새 운영 방식을 도입했을 때, 한 사람이 평소 관리와 장애 복구를 계속 책임질 수 있나요?
 
 ## 고민했던 대안들
 
+<a id="option-1--업계-표준-따르기-마이크로서비스--k8s--분산-추적--9999-sla"></a>
+
 ### Option 1 — 업계 표준 따르기 (마이크로서비스 · K8s · 분산 추적 · 99.99% SLA)
 
-테크 조직의 기본 스택. "대기업 backend 처럼" 을 기본값으로.
+확장과 팀별 독립 운영에 필요한 도구를 처음부터 도입하는 방식이에요. 여러 팀이 서비스를 따로 배포하거나 높은 가용성을 요구받는 환경에서는 검토할 이유가 있어요.
 
-- **장점**:
-  - 확장 시점 도달 시 그대로 통함 (ambition 을 미리 확보)
-  - 이력서상 매력적 (채용 대비)
-  - 업계 표준이라 레퍼런스/인재 풀 풍부
-- **단점**:
-  - **모든 스택 레이어가 운영 부담을 추가** — K8s 는 노드/Helm/Ingress 관리, 분산 추적은 Zipkin/Jaeger 운영, HA 99.99% 는 멀티 리전 페일오버
-  - 앱당 운영 부담 = 스택 복잡도 × 앱 수 → 앱 3개만 되어도 솔로 임계치 초과
-  - "쓸 데가 없는 복잡도" — 하루 유저 100명 규모에서 K8s 노드 자동 스케일링은 비즈니스 가치 0
-- **탈락 이유**: 이력서 이득 vs 실제 운영 붕괴 위험. 앱 공장 전략 ([`제약 3`](./README.md#제약-3--복권-사기-모델)) 의 "여러 앱 시도" 자체가 불가능해짐.
+하지만 이 템플릿에 모두 도입하면 클러스터, 배포 설정, 서비스 간 통신, 추적 시스템까지 운영 대상이 늘어요. 현재 요구가 없는 기능을 준비하느라 앱 개발과 운영 검증에 쓸 시간을 줄일 수 있어요. 그래서 이 구성을 기본값으로 채택하지 않아요. 필요성이 확인되면 해당 요구와 비용을 따로 검토해요.
 
-### Option 2 — 각 결정을 "감당 시간" 기준으로 개별 판단
+<a id="option-2--각-결정을-감당-시간-기준으로-개별-판단"></a>
 
-스택 전체에 라벨을 붙이지 않고, 개별 결정마다 "내가 감당 가능한가?" 를 묻는 방식.
+### Option 2 — 각 결정을 감당 시간 기준으로 개별 판단
 
-- **장점**:
-  - 유연해요. 맥락별로 판단할 수 있어요.
-- **단점**:
-  - **기준이 매 순간 재계산돼요** — 지칠 때는 "다 접자", 컨디션 좋을 때는 "다 도입하자" 가 되어 결과적으로 무원칙에 빠져요.
-  - 과거 결정과의 일관성 점검이 불가능해요 — "이 결정이 제약 1 과 정합?" 같은 메타 질문을 물을 축이 없어요
-  - 다른 사람이 레포를 보면 결정의 근거가 흩어져 있어 복원 불가
-- **탈락 이유**: 원칙 없이 판단하는 건 결국 원칙 있는 판단보다 더 많은 피로를 낳아요. 매번 재고하는 비용이 누적됩니다.
+매번 상황에 맞게 판단할 수 있다는 장점이 있어요. 다만 판단 기준과 이유를 남기지 않으면, 비슷한 결정을 다시 검토하거나 과거 선택과의 차이를 설명하기 어려워요.
 
-### Option 3 — "솔로 감당 가능성" 을 **명시적 상위 원칙** 으로 선언 ★ (채택)
+개별 판단은 계속하되 공통 기준과 기록 없이 운영하는 방식은 채택하지 않아요.
 
-모든 운영 결정의 **메타 기준** 으로 "솔로가 감당 가능한가?" 를 선언. 개별 결정들은 이 원칙의 파생물이라는 구조.
+<a id="option-3-솔로-감당-가능성-을-명시적-상위-원칙-으로-선언-채택"></a>
+<a id="option-3--솔로-감당-가능성-을-명시적-상위-원칙-으로-선언--채택"></a>
 
-- **장점**:
-  - **결정 프레임 통일** — 새 결정이 들어왔을 때 물을 질문이 명확
-  - **일관성 자동 검증** — 개별 결정들이 상위 원칙과 정합한지 점검 가능
-  - **"비목표" 명시로 거부 근거 보존** — "HA 99.99% 왜 안 해?" 에 매번 해명할 필요가 없어요
-  - **ADR 들의 서사 통일** — 각 ADR 이 왜 그렇게 결정됐는지의 뿌리가 이 원칙
-- **단점**:
-  - 원칙 선언 자체는 문서 작업이에요. 코드 변화는 없어요.
-  - 잘못된 원칙이면 하위 결정들이 전부 틀어져요 (단일 실패 지점)
-- **채택 이유**:
-  - 단점 중 "원칙이 틀릴 수 있다" 는 아래 '교훈' 섹션에서 검증 가능
-  - 앱 공장 전략의 성립 전제이기도 함 — 원칙 없이 감당은 불가능
+### Option 3 — 솔로 감당 가능성을 명시적 상위 원칙으로 선언 ★ (채택)
+
+각 결정에 같은 질문을 적용하고, 채택한 이유와 맡게 될 운영 책임을 ADR에 남겨요. 비목표도 적어 두어 어떤 요구를 아직 지원하지 않는지 알 수 있게 해요.
+
+이 원칙만으로 좋은 설계가 자동으로 나오지는 않아요. 예상한 비용과 실제 운영 부담이 다르면 판단을 다시 검토해야 해요. 따라서 도입 시의 편의와 이후의 유지 비용을 함께 보는 기준으로 사용해요.
 
 ## 결정
 
 ### 상위 원칙 선언
 
-> **모든 운영 결정은 "솔로 한 사람이 감당 가능한가?" 를 통과해야 한다.**
+> 모든 운영 결정은 솔로 한 사람이 감당할 수 있어야 해요.
 
-이 원칙의 **현재 구체 적용** 은 아래와 같아요.
+판단할 때는 다음을 확인해요.
+
+- 지금 필요한 기능이나 운영 문제를 해결하는지 확인해요.
+- 정기 점검, 업데이트, 자격 교체, 백업·복구를 누가 어떻게 수행할지 정해요.
+- 앱이 늘어날 때 같은 작업을 반복해야 하는지 확인해요.
+- 초기 도입 비용과 이후에 줄어드는 작업량을 함께 비교해요.
+- 비용·시간 목표를 넘거나 장애 복구가 어려워지면 구성을 재검토해요.
+
+<a id="적용-1--단일-배포-단위"></a>
 
 ### 적용 1 — 단일 배포 단위
 
-```
-bootstrap/ (모든 core-*-impl 포함)
-   │
-   │ bootJar
-   ▼
-bootstrap/build/libs/bootstrap.jar  ← 단일 fat JAR
-   │
-   │ docker build
-   ▼
-Single container image  ← 단일 배포 유닛
+`bootstrap`이 공통 구현 모듈과 등록된 앱을 하나의 실행 JAR로 조립하고, 이를 하나의 애플리케이션 이미지로 배포해요. 앱별 마이크로서비스를 각각 배포하는 방식은 기본 구조로 사용하지 않아요.
+
+```text
+common + core + 등록된 앱
+             ↓ bootstrap:bootJar
+          실행 JAR
+             ↓ 이미지 빌드
+      환경별 Spring 애플리케이션 배포
 ```
 
-```gradle
-// bootstrap/build.gradle 발췌
-plugins { id 'factory.bootstrap-module' }
+단일 배포 단위는 호스트의 컨테이너가 항상 하나라는 뜻은 아니에요. dev와 prod는 별도 서비스로 실행하고, blue-green 전환 중에는 이전·새 애플리케이션 컨테이너가 함께 있을 수 있어요. MinIO와 관측 스택도 애플리케이션과 별도로 운영해요.
 
-dependencies {
-    implementation project(':common:common-logging')
-    implementation project(':common:common-web')
-    // core-auth-impl · core-device-impl · core-push-impl ... 모두 포함
-}
-```
+<a id="적용-2-관리형-서비스-선호"></a>
+<a id="적용-2--관리형-서비스-선호"></a>
 
-여러 서비스를 동시에 배포하지 않습니다. 한 명령 = 한 개 배포.
+### 적용 2 — 관리형 서비스와 직접 운영의 비교
 
-### 적용 2 — 관리형 서비스 선호
+관리형 서비스는 운영 작업을 줄일 수 있어요. 직접 운영도 기존 장비와 공통 인프라를 활용할 수 있으므로, **두 방식에 드는 시간·비용·복구 책임을 함께 비교해요**.
 
-직접 운영하지 않고 **외부 관리** 에 맡깁니다. 우리가 직접 운영하는 건 Spring Boot 프로세스 + 몇 개의 bash 스크립트뿐.
+현재 구성에서 맡는 일은 다음과 같아요.
 
-| 영역 | 관리형 | 우리 역할 |
+| 영역 | 현재 구성 | 운영자가 맡는 일 |
 |---|---|---|
-| Postgres | Supabase | 스키마 정의, 마이그레이션 |
-| 이메일 | Resend | API 호출 + 템플릿 |
-| 푸시 알림 | FCM (Firebase) | 디바이스 토큰 관리 + send 호출 |
-| 스토리지 | Cloudflare R2 (MinIO 호환) | 업로드 API |
-| 배포 | GitHub Actions + 맥미니 | bash 스크립트 + blue/green swap |
+| 데이터베이스 | Supabase의 PostgreSQL | 앱별 스키마·권한, 마이그레이션, 백업·복구 절차 확인 |
+| 이메일 | Resend | 발신 설정, 자격 관리, 발송 결과 확인 |
+| 푸시 알림 | FCM | 앱 자격과 디바이스 토큰 관리, 발송·수신 확인 |
+| 애플리케이션 호스트 | Mac mini 홈서버 | 호스트·Docker·네트워크·디스크 상태와 복구 관리 |
+| 파일 스토리지 | NAS의 MinIO | 접근 권한, 용량, 데이터 보존·복구 관리 |
+| 관측 | Prometheus·Loki·Grafana, 선택적으로 Alertmanager | 수집·보존·대시보드 관리와 알림 도착 확인 |
+| 빌드·배포 | GitHub Actions·GHCR·Kamal | CI 결과, 이미지·자격, 배포·롤백 확인 |
 
-각 관리형 서비스의 비용 (월 단위) 은 의식적으로 추적. 운영 부담 → 돈으로 환산해서 비교.
+관측 스택은 공통 인프라로 운영하고 dev·prod를 환경 라벨로 구분해요. Alertmanager는 알림 자격을 갖추고 해당 프로필을 활성화했을 때 사용해요. 로컬 개발 환경에는 이 운영 관측 스택을 기본으로 띄우지 않아요.
+
+관리형 요금만 보거나 직접 운영의 전기·장비·저장 공간·유지 시간을 빠뜨리지 않아요. 월 비용은 실제 사용량과 직접 운영 지출을 합산해 기록하고, 서비스 조건이 달라지면 다시 비교해요.
+
+<a id="적용-3--로컬-개발-우선"></a>
 
 ### 적용 3 — 로컬 개발 우선
 
-```yaml
-# infra/docker-compose.local.yml 발췌
-services:
-  postgres:
-    image: postgres:16-alpine
-  minio:
-    image: cgr.dev/chainguard/minio@sha256:ad134b2dd572ae0d989d6807c3e45516cc75a34883a8021db2ff04be5d1d496a
-```
+일상 개발과 실험은 로컬에서 진행해요. 로컬 Docker의 PostgreSQL·MinIO와 필요한 개발용 어댑터로 피드백을 얻고, 실제 외부 서비스와의 연결은 dev 환경에서 확인해요. 운영 환경을 실험용으로 사용하지 않아요.
 
-개발은 **로컬 Docker** 에서. 프로덕션에서 실험 금지. 설정은 환경마다 파일 단위로 분리해요 — `application-local.yml` 은 로컬 docker, `application-dev.yml` 은 Mac mini dev 서버, `application-prod.yml` 은 운영용이에요.
+환경별 설정은 `.env`와 `application-local.yml`, `.env.dev`와 `application-dev.yml`, `.env.prod`와 `application-prod.yml`로 구분해요. 로컬에서 성공했다는 이유만으로 운영 자격이나 외부 연결까지 검증됐다고 보지는 않아요.
 
-```yaml
-# application-local.yml — 모든 actuator endpoint 노출 (디버깅 편의)
-management:
-  endpoints.exposure.include: "*"
+local 프로파일은 디버깅에 필요한 Actuator endpoint를 넓게 노출해요. dev·prod는 health·info·prometheus로 노출 범위를 제한하고, 실제 접근 통제는 보안 설정과 운영 네트워크에서 함께 관리해요.
 
-# application-dev.yml + application-prod.yml — 민감 endpoint 제한 (외부 노출 차단)
-management:
-  endpoints.exposure.include: health,info,prometheus
-```
+<a id="적용-4--코드가-문서"></a>
 
 ### 적용 4 — 코드가 문서
 
-긴 README 를 쓰기보다 **스크립트를 완성** 하는 걸 우선.
+반복 절차는 가능한 한 실행 가능한 스크립트로 제공해요. 새 앱 생성, 환경 초기화, 배포, 검증을 매번 수작업으로 재현하지 않도록 해요.
 
 ```bash
-# 새 앱 추가: 한 줄
-./tools/app/new-app.sh gymlog
+# 새 앱 뼈대 생성
+./tools/app/new-app.sh <slug>
 
-# 도그푸딩 환경 셋업: 한 줄
-bash tools/dogfooding/setup.sh
-
-# 파생 레포 부팅: 세 줄 (로컬 + 공유 인프라 + 환경)
+# 파생 저장소의 로컬·공유 인프라·운영 환경 초기화
 bash tools/init/init-local.sh
 bash tools/init/init-infra.sh
-bash tools/init/init-prod.sh     # 또는 init-dev.sh — 둘은 서로 순서 무관
+bash tools/init/init-prod.sh
+# dev를 사용할 때는 init-dev.sh로 해당 환경을 준비해요.
 ```
 
-"README 를 자주 업데이트한다" 는 약속보다, 스크립트가 의도대로 동작한다는 게 더 신뢰 가능.
+명령이 있다고 필요한 자격과 입력까지 사라지는 것은 아니에요. 문서에는 준비 조건, 영향을 받는 자원, 실패 시 확인할 위치를 남겨요. 명령의 실제 동작은 코드에 맞추고, 같은 절차를 여러 문서에 복제하지 않아요. 시험 배포와 정리는 [도그푸딩 가이드](../start/dogfood-setup.md)를 따라 파생 저장소에서 진행해요.
+
+공통 기능도 필요한 범위에서 사용해요. Lite 모드의 기능 토글과 외부 자격이 없는 상태의 동작은 서로 다르므로, 기능을 끌 때는 [기능 토글 가이드](../production/operations/feature-toggle.md)의 지원 범위와 의존 관계를 확인해요.
+
+<a id="적용-5--자격의-소유자는-자격이-속한-곳"></a>
 
 ### 적용 5 — 자격의 소유자는 자격이 속한 곳
 
-셋업 스크립트를 환경(local·dev·prod)으로 나누면 자연스러워 보이지만, 모든 자격이 환경에 속하지는 않습니다. Mac mini 한 대, Cloudflare 계정 하나, GitHub 계정 하나, tailnet 하나는 dev 도 prod 도 아닌 **계정/호스트의 것**이고, 두 환경이 같은 것을 씁니다.
+공유 호스트와 계정의 자격을 prod 환경의 소유로 두지 않아요. SSH·Cloudflare·GHCR·Tailscale처럼 dev와 prod가 함께 사용하는 값은 계정·호스트에 속하고, DB 연결이나 앱 자격은 사용하는 환경에 속해요.
 
-이 구분을 무시하고 공유 자격을 `prod init` 에 얹어 두면 세 가지가 따라옵니다.
+공유 값을 `prod init`에서만 등록하면 dev만 사용하는 저장소도 prod 초기화에 의존하게 돼요. 두 환경이 같은 이름의 Secret을 각각 올리면 나중에 실행한 값으로 덮어쓸 수도 있어요. 이를 피하려고 다음처럼 나눠요.
 
-- dev 만 쓰는 레포가 prod 셋업을 강제로 거쳐야 합니다. "인디 앱은 dev 하나로 충분" 이라는 전제와 정면으로 어긋납니다.
-- 접미사가 없는 시크릿 한 벌을 두 워크플로가 보므로, 나중에 실행한 쪽이 앞선 값을 덮어씁니다.
-- 문서에 "dev 는 `.env.prod` 에서 fallback" 같은 문장이 생깁니다. 읽기만 되고 쓰기는 안 되는 반쪽 fallback 이라, 겉으로는 순서 무관해 보이는데 실제로는 순서 의존입니다.
+| 소유 범위 | 파일 | 등록 책임 |
+|---|---|---|
+| 로컬 개발 | `.env` | 로컬 초기화 |
+| 공유 계정·호스트 | `.env.infra` | `infra init`이 공유 자격을 접미사 없이 등록 |
+| 환경별 설정 | `.env.dev`·`.env.prod` | 각 환경의 init이 해당 값을 등록 |
 
-그래서 소유자를 셋으로 나눕니다 — `.env` (로컬), `.env.infra` (계정/호스트), `.env.<env>` (환경). `<repo> infra init` 이 공유 자격을 접미사 없이 한 벌만 올리고, `dev init` 과 `prod init` 은 각자의 환경 값만 다룹니다. dev 와 prod 는 서로를 선행 조건으로 요구하지 않습니다.
+공유 인프라를 준비한 뒤에는 dev와 prod 중 어느 환경을 먼저 초기화해도 돼요. 서로의 환경 초기화를 선행 조건으로 요구하지 않아요.
 
-읽기는 `load_infra_env` 하나로 모읍니다. `.env.infra` 를 먼저 깔고 환경 파일을 뒤에 얹으므로, 같은 키가 양쪽에 있으면 환경 파일이 이깁니다 — 특정 환경만 다른 자격을 써야 할 때의 탈출구가 남고, `.env.infra` 가 없는 레포도 그대로 동작합니다.
+`load_infra_env`는 `.env.infra`를 먼저 읽고 환경 파일을 나중에 읽어요. 같은 키가 양쪽에 있으면 환경 파일이 우선하므로 특정 환경만 다른 값을 사용할 수 있어요. 공통 로더는 `.env.infra`가 없는 기존 저장소도 읽을 수 있지만, 새 초기화 절차의 필수 입력까지 면제하는 것은 아니에요. 값의 소유자와 전달 경로를 분명히 해서 초기화 순서에 대한 기억에 의존하지 않도록 해요.
 
-솔로 운영에서 이게 중요한 이유는, **한 사람이 셋업 순서를 기억할 필요가 없어지기** 때문입니다. 어느 쪽을 먼저 하든 같은 결과가 나오면 순서는 문서에 적을 대상조차 아닙니다.
+<a id="적용-6--ci-는-빨간불-아니면-초록불"></a>
 
 ### 적용 6 — CI 는 빨간불 아니면 초록불
 
-```yaml
-# .github/workflows/ci.yml 발췌
-- name: Build
-  run: ./gradlew build --no-daemon --stacktrace  # 테스트 + ArchUnit 전부 포함
+필수 검사가 실패한 상태를 정상으로 취급하지 않아요. 포맷, 빌드·테스트, ArchUnit, 설정된 커버리지 기준처럼 배포 판단에 사용하는 검사는 성공과 실패를 명확히 구분해요. 이 원칙이 모든 경고를 실패로 바꾸거나 커버리지 100%를 요구한다는 뜻은 아니에요.
 
-# 빌드 실패 → main push/merge 차단
-# 경고 무시 · 테스트 스킵 · 커버리지 <100% 허용 같은 회색 지대 없음
-```
+현재 `ci.yml`은 main·develop 대상 PR과 두 브랜치의 push, 수동 실행을 처리해요. `CI_ON_PUSH=false`는 push 검증을 건너뛰게 하므로, 자동 배포에 CI 성공이 필요한 파생 저장소에서는 실행 조건을 함께 확인해요. 자동 배포는 다음처럼 나뉘어요.
 
-회색 지대 — 경고만 있는 상태, 일부 테스트 스킵, "나중에 고치면 됨" — 를 만들지 않아요. 회색 지대는 솔로의 정신력을 매일 조금씩 갉아먹는다는 걸 반복 경험으로 학습했어요.
+| 검증 브랜치 | 배포 환경 | 배포 조건 |
+|---|---|---|
+| `develop` | dev | 해당 CI 성공과 `DEPLOY_ENABLED_DEV=true` |
+| `main` | prod | 해당 CI 성공과 `DEPLOY_ENABLED=true` |
 
-### 비목표 — "우리 목표가 아닌 것" 명시
+각 배포는 대상 SHA의 이미지를 준비하고 Kamal로 새 컨테이너의 health를 확인한 뒤 트래픽을 전환해요. 수동 배포는 별도 경로이므로 검증한 SHA를 선택해야 해요. 머지 전 검사를 강제하려면 저장소의 branch protection도 설정해야 해요.
 
-이 원칙의 뒷면은 아래가 **우리 목표가 아니다** 라는 선언.
+실패해도 배포를 막지 않는 검사는 구분해서 관리해요. 현재 OWASP 검사는 CI에서 `continue-on-error`로 실행하고, gitleaks는 별도 보안 워크플로예요. 결과를 확인하고 후속 조치를 해야 하며, CI 성공을 모든 보안 검사의 통과로 해석하지 않아요. 정확한 게이트는 [CI/CD 흐름](../production/deploy/ci-cd-flow.md)이 정본이에요.
 
-| 비목표 | 왜 아닌가 |
+<a id="비목표--우리-목표가-아닌-것-명시"></a>
+
+### 비목표 — 우리 목표가 아닌 것 명시
+
+| 비목표 | 현재 범위와 이유 |
 |---|---|
-| **고가용성 99.99% SLA** | 인디 스케일에서는 99% 면 충분. 관리형 서비스의 SLA 에 편승. |
-| **전 세계 멀티 리전** | 국내 유저 대상. Seoul 리전 하나면 충분. 멀티 리전 = 복제 지연 · 데이터 정합성 관리 추가. |
-| **무중단 배포 보장** | Kamal 의 blue/green swap 으로 다운타임을 30초 내로 줄이지만, 이를 SLA 수준으로 *보장* 하는 추가 장치 (커넥션 드레이닝 · 세션 이관 등) 는 두지 않아요. |
-| **마이크로서비스 분산 추적** | 단일 프로세스라 필요하지 않아요. 한 로그 파일에 전부 들어 있어요. |
-| **쿠버네티스 / Helm** | `infra/` 에 관련 파일이 없어요. 운영 단위 1 = 컨테이너 1 = K8s 가 불필요해요. |
+| 99.99% 고가용성 SLA 보장 | 이 템플릿은 해당 가용성을 측정·보증하는 운영 체계를 제공하지 않아요. 외부 서비스의 SLA만으로 앱 전체의 가용성을 보장하지도 않아요. |
+| 멀티 리전 배포 | 기본 운영에 리전 간 복제·장애 전환을 넣지 않아요. 실제 지연·복구 요구가 생기면 데이터 정합성과 운영 비용을 함께 검토해요. |
+| 모든 상황의 무중단 보장 | Kamal blue-green은 채택하지만 호스트·외부 서비스 장애, 장기 요청, 호환되지 않는 스키마 변경까지 무중단을 보장하지 않아요. 고정된 중단 시간을 약속하지 않아요. |
+| 마이크로서비스 분산 추적 | 단일 애플리케이션 프로세스를 기본으로 로그·메트릭·알림을 관리해요. Jaeger·Zipkin 같은 분산 추적 체계를 기본으로 추가하지 않아요. |
+| Kubernetes·Helm·서비스 메시 | 현재 배포 단위에 클러스터와 서비스 간 제어 계층을 추가하지 않아요. 독립 서비스 운영 요구가 생기면 다시 판단해요. |
 
-이것들은 "**중요하지 않다**" 가 아니라 **"우리 단계에서는 필요하지 않다"** 입니다. 필요해지는 시점이 오면 그때 추가.
+blue-green 자체나 관측 스택의 직접 운영은 비목표가 아니에요. 현재 채택한 수단이며, 같은 상위 기준으로 유지 비용을 점검해요. 비목표를 바꿀 때는 새 요구와 감당할 운영 책임을 후속 결정으로 남겨요.
 
 ## 이 선택이 가져온 것
 
 ### 긍정적 결과
 
-**결정 시간 단축** — 새로운 기술/스택이 제안됐을 때, "솔로 감당 가능?" 한 질문으로 대부분 필터링. 세부 비교를 거치지 않고도 거절 가능.
+운영 단위와 자격의 소유자가 정해져 있어 새 앱에도 같은 절차를 사용할 수 있어요. 공통 관측 스택을 사용하면 앱마다 별도 수집·대시보드 체계를 만들 필요를 줄일 수 있어요. 관리형 비용과 직접 운영 시간을 나란히 비교할 기준도 생겨요.
 
-**원칙의 파급 효과** — [`ADR-001 (모듈러 모놀리스)`](./adr-001-modular-monolith.md) 의 "운영 단위 1", [`ADR-005 (단일 Postgres)`](./adr-005-db-schema-isolation.md) 의 "Supabase 관리형", [`ADR-006 (HS256 JWT)`](./adr-006-hs256-jwt.md) 의 "비밀 키 1 개" — 전부 본 ADR 의 파생이에요. 결정들의 서사가 통일됩니다.
-
-**비용 추적의 가시성** — 관리형 서비스 지출이 월 $50~$100 (Supabase + Resend + FCM + R2 + 도메인) 수준이에요. 앱이 10 개여도 동일합니다. 솔로 개발자의 가처분 시간 vs 관리형 지출의 트레이드오프가 숫자로 드러나요.
-
-**번아웃 회피** — 매 결정마다 "이거 감당 가능한가?" 를 물으므로 감당 불가 결정이 사전 차단돼요. 실제 운영 1 년이 지나도 여전히 개발이 지속 중이에요.
+[모듈러 모놀리스](./adr-001-modular-monolith.md), [앱별 스키마](./adr-005-db-schema-isolation.md), [HS256 JWT](./adr-006-hs256-jwt.md) 같은 결정도 이 기준 아래에서 이해할 수 있어요. 실제 효과는 각 환경의 지출과 운영에 든 시간을 기록해 확인해요.
 
 ### 부정적 결과
 
-**확장 시점에 부채로 돌아올 가능성** — 만약 한 앱이 대박 터져서 유저 수가 10배 증가하면, 관리형 서비스의 제약이나 단가가 문제될 수 있어요. K8s · 분산 추적 · 멀티 리전이 진짜로 필요해질 수도 있고요. 완화: 본 ADR 은 **"지금 필요하지 않다"** 를 명시해요 — 필요해진 시점에 도입하면 됩니다. 현재 구조는 미래 확장 경로가 차단되지 않아요 (단일 Postgres → 멀티 인스턴스, 모놀리스 → 마이크로서비스 모두 이행 가능해요).
+한 호스트와 공유 관측 스택에 의존하므로 호스트 장애나 자원 경합이 여러 환경에 영향을 줄 수 있어요. 직접 운영하는 MinIO와 관측 데이터에는 용량·업데이트·백업·복구 책임이 남아요. 관리형 서비스도 요금, 한도, 장애, 외부 자격 관리의 영향을 받아요.
 
-**레퍼런스·인재 풀 협소** — "한국 인디가 썼던 기법" 은 "대기업 backend" 레퍼런스보다 적어요. 대부분의 튜토리얼이 K8s · 마이크로서비스 전제라 번역이 필요해요. 완화: 본 문서화 프로젝트 (ADR 시리즈) 가 그 "레퍼런스 부재" 를 스스로 채우는 행위예요.
+트래픽·팀·복구 요구가 바뀌면 배포 단위나 데이터베이스 구성을 다시 나눠야 할 수 있어요. 모듈 경계는 그 작업을 돕지만 전환 비용을 없애지는 않아요. blue-green 중에는 이전 코드와 새 코드가 함께 실행될 수 있으므로 스키마 변경의 호환성도 지켜야 해요.
 
-**채용 시 "너무 단순한 스택" 인식** — 주니어 개발자가 본 레포를 보고 "기술 스택이 평범해서 배울 게 없다" 고 느낄 위험이 있어요. 완화: 본 ADR 시리즈 자체가 "평범한 스택을 왜 선택했는가" 의 깊이를 보여줘요. 단순함이 단지 게으름이 아니라 **의도적 선택** 임을 증명해요.
+### 비목표 명시의 효과
 
-### "비목표" 명시의 효과
-
-비목표 선언은 단순한 스타일이 아니에요. 다음 두 가지를 방지:
-
-1. **반복 설명 비용 제거** — "왜 K8s 안 써?" 같은 질문에 매번 답변 대신 본 문서를 가리키면 끝
-2. **slippery slope 방지** — 작은 "있으면 좋지" 결정들이 쌓여 운영 부담 임계치를 넘는 걸 차단해요. 비목표는 **명시적 거절** 이 되어 슬쩍 추가되지 못하게 막아요.
+비목표는 검토한 범위와 아직 맡지 않은 운영 책임을 알려줘요. 같은 논의를 반복할 때 이전 이유를 확인할 수 있고, 새 기능이 추가될 때 현재 책임 범위를 넘는지도 판단할 수 있어요. 요구가 달라졌는데도 재검토를 막기 위한 규칙으로 사용하지 않아요.
 
 ## 교훈
 
-### "비목표" 선언이 선언 자체로 가치를 가져요
+### 비목표 선언이 선언 자체로 가치를 가져요
 
-"무엇을 할 것인가" 만 ADR 에 기록하면 같은 질문이 반복적으로 들어옵니다 — "왜 K8s 안 써?", "왜 HA 를 99.99% 안 세팅?", "왜 분산 추적 안 깔아?".
-
-매번 답변하는 피로 + "혹시 내가 틀린 게 아닐까?" 재검토 비용이 누적되는 구조예요. 그래서 **비목표 명시** 를 추가:
-
-```markdown
-## 비목표
-- 고가용성 99.99% SLA → 99% 면 충분
-- 멀티 리전 → Seoul 하나면 충분
-- 무중단 배포 → 30초 다운타임 수용
-- 분산 추적 → 단일 프로세스라 불필요
-```
-
-이후 같은 질문이 오면 이 섹션을 가리킴. **재고 비용이 0 으로** 떨어짐. 답변 작성 시간 절약 + 심리적 안정 (이미 검토했음).
-
-**교훈**: ADR 은 "무엇을 할 것인가" 만 아니라 "무엇을 안 할 것인가" 도 명시해야 해요. 비목표 선언은 문서 길이만 늘리는 게 아니라 **미래의 재고 비용을 선불** 하는 셈이에요.
+무엇을 채택했는지만큼 무엇을 제공하지 않는지도 적어요. 특히 blue-green을 사용한다는 설명과 가용성을 보장한다는 약속을 구분해요. 독자가 현재 운영의 한계를 알 수 있어야 해요.
 
 ### 원칙은 예외를 관리해야 해요
 
-"솔로 감당 가능?" 이라는 원칙이 있어도 예외가 생겨요. 예를 들어 [`ADR-015 (Conventional Commits + SemVer)`](./adr-015-conventional-commits-semver.md) 의 commitlint · husky · CHANGELOG · tag-validate 는 **초기 셋업 비용이 커요** — 감당 가능성만 보면 과하게 보일 수 있어요.
+초기 비용이 있다는 이유만으로 자동화나 검사를 거절하지 않아요. [Conventional Commits와 SemVer](./adr-015-conventional-commits-semver.md), 문서 검증, 배포 자동화처럼 이후의 반복 작업을 줄이는 수단은 유지 비용까지 함께 비교해요. 기대한 절감 효과가 나타나지 않으면 구성과 범위를 다시 검토해요.
 
-그런데 이 초기 비용이 **미래의 솔로 감당 가능성을 높여주는 투자** 라는 걸 실험으로 검증: commitlint 없이 6개월 개발 → commit history 가 지저분해져서 cherry-pick 가 어려워짐 → 파생 레포 전파가 작동 안 함 → 앱 공장 전략 자체가 흔들림.
+<a id="업계-표준-거절의-정당성은-기록-으로만-유지돼요"></a>
 
-그래서 원칙 적용에 **"현재 부담 vs 미래 부담 감소"** 를 명시적으로 계산. 초기 비용이 크더라도 그 이후의 운영 부담이 크게 줄면 채택.
+### 업계 표준 거절의 정당성은 기록으로 유지해요
 
-**교훈**: 원칙은 절대적 규칙이 아니라 **판단 기준** 이에요. "현재 비용" 만 보지 말고 "미래 부담 감소" 까지 묶어 계산해야 해요. 원칙은 예외를 관리하는 방식까지 포함할 때 완성돼요.
-
-### 업계 표준 거절의 정당성은 **기록** 으로만 유지돼요
-
-K8s · 마이크로서비스 · 분산 추적을 거절할 때, "지금 이 순간의 판단" 은 확신이 있어요. 근데 6개월 지나면 **그 판단 근거** 를 까먹어요. 외부 누군가가 "왜 K8s 안 써?" 라고 물으면 "음... 필요 없어서" 라는 모호한 답만 남아요.
-
-이게 누적되면 "어쩌면 내가 틀렸던 걸까" 로 기울어짐. 업계 표준은 기본값의 관성이 강하니까.
-
-그래서 각 비목표에 **"왜 아닌가"** 를 한 줄이라도 명시 (표 참조). 6개월 후의 자신이 같은 질문을 받았을 때 **즉답 가능** 하도록.
-
-**교훈**: 업계 표준을 거절하는 결정은 시간이 지나면서 자기 의심으로 침식돼요. 이를 막으려면 **거절 근거를 문서에 박아두는 것** 외에는 방법이 없어요. "나중에 기억할 것" 은 작동하지 않아요.
+도구를 채택하거나 보류할 때 현재 요구, 기대 효과, 추가 책임, 다시 검토할 조건을 남겨요. 운영자가 바뀌거나 규모가 달라져도 당시 판단을 이해할 수 있도록 하기 위해서예요. 기술의 유행 여부만으로 채택하거나 거절하지 않아요.
 
 ## 관련 사례 (Prior Art)
 
-- **[DHH · "The One Person Framework"](https://world.hey.com/dhh/the-one-person-framework-711e6318)** — Rails 창시자 DHH 의 "한 사람 프레임워크" 선언. 본 ADR 의 철학적 전신. "대기업 툴이 인디에게 맞지 않는다" 는 논리 동일.
-- **[Indie Hackers Community](https://www.indiehackers.com/)** — 솔로 개발자들의 운영 결정 사례집. 본 ADR 의 "솔로 감당 가능" 기준은 이 커뮤니티의 공통 문법.
-- **[Basecamp HEY Stack](https://world.hey.com/jorge/our-cloud-exit-has-already-yielded-$1m-2c7f9f29)** — Basecamp 의 "클라우드 탈출" 결정. "필요 이상의 복잡도를 거부" 라는 동일한 철학.
-- **[Gitea vs GitLab](https://gitea.io/)** — GitLab 의 마이크로서비스 K8s 배포 vs Gitea 의 단일 바이너리. 본 ADR 의 "단일 배포 단위" 와 일치.
-- **[JetBrains Fleet](https://www.jetbrains.com/fleet/)** — "당신이 쓰지 않는 기능은 메모리도 먹지 않아야 한다" 철학. 본 ADR 의 "비목표 명시" 와 일치.
-- **[Chesterton's Fence 원리](https://fs.blog/chestertons-fence/)** — "왜 이 울타리가 있는지 모르면 부수지 마라" — 역으로 "왜 이 울타리가 필요한지 모르면 세우지 마라". 본 ADR 의 "우리에겐 필요 없다" 거절 논리.
+- [DHH, The One Person Framework](https://world.hey.com/dhh/the-one-person-framework-711e6318) — 한 사람이 앱을 만들 수 있도록 도구의 복잡도를 줄이는 관점을 참고할 수 있어요.
+- [DHH, The Majestic Monolith](https://signalvnoise.com/svn3/the-majestic-monolith/) — 조직 규모와 운영 구조를 함께 판단하는 사례예요.
 
 ## Code References
 
-**단일 배포 단위**:
-- [`bootstrap/build.gradle`](https://github.com/storkspear/template-spring/blob/main/bootstrap/build.gradle) — 모든 core-*-impl 포함 · bootJar 구성
-- [`Dockerfile`](https://github.com/storkspear/template-spring/blob/main/Dockerfile) L33, 41 — 단일 이미지 빌드
-- [`docker-entrypoint.sh`](https://github.com/storkspear/template-spring/blob/main/docker-entrypoint.sh) — migration vs 앱 기동 단일 entrypoint
+| 영역 | 현재 구현 |
+|---|---|
+| 애플리케이션 조립 | [bootstrap/build.gradle](https://github.com/storkspear/template-spring/blob/main/bootstrap/build.gradle), [Dockerfile.runtime](https://github.com/storkspear/template-spring/blob/main/Dockerfile.runtime) |
+| 로컬 실행 | [docker-compose.local.yml](https://github.com/storkspear/template-spring/blob/main/infra/docker-compose.local.yml), [application-local.yml](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-local.yml) |
+| 운영 관측 스택 | [docker-compose.observability.yml](https://github.com/storkspear/template-spring/blob/main/infra/docker-compose.observability.yml) |
+| 공유 자격과 초기화 | [tools/lib/common.sh](https://github.com/storkspear/template-spring/blob/main/tools/lib/common.sh), [init-infra.sh](https://github.com/storkspear/template-spring/blob/main/tools/init/init-infra.sh), [init-dev.sh](https://github.com/storkspear/template-spring/blob/main/tools/init/init-dev.sh), [init-prod.sh](https://github.com/storkspear/template-spring/blob/main/tools/init/init-prod.sh) |
+| 앱 생성 | [new-app.sh](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) |
+| 검증과 배포 | [ci.yml](https://github.com/storkspear/template-spring/blob/main/.github/workflows/ci.yml), [deploy-dev.yml](https://github.com/storkspear/template-spring/blob/main/.github/workflows/deploy-dev.yml), [deploy.yml](https://github.com/storkspear/template-spring/blob/main/.github/workflows/deploy.yml) |
+| 배포·관측 운영 절차 | [운영 런북](../production/deploy/runbook.md), [모니터링 설정](../production/setup/monitoring-setup.md) |
 
-**관리형 서비스 연동**:
-- [`application-prod.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-prod.yml) — JWT · Resend 환경변수 기반 주입 (FCM · 스토리지 자격은 `APP_CREDENTIALS_*` · `APP_STORAGE_*` 환경변수로 별도 주입)
-- [`core-email-impl/ResendEmailAdapter.java`](https://github.com/storkspear/template-spring/blob/main/core/core-email-impl/src/main/java/com/factory/core/email/impl/ResendEmailAdapter.java) — Resend API 클라이언트
-- [`core-storage-impl/build.gradle`](https://github.com/storkspear/template-spring/blob/main/core/core-storage-impl/build.gradle) — MinIO/S3 SDK
-
-**로컬 개발 분리**:
-- [`infra/docker-compose.local.yml`](https://github.com/storkspear/template-spring/blob/main/infra/docker-compose.local.yml) — 로컬 Postgres + MinIO
-- [`application-local.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-local.yml) — local profile 전용 설정 (개발자 맥북 docker)
-- [`application-dev.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-dev.yml) — dev profile (Mac mini dev 서버, production-like)
-- [`application-prod.yml`](https://github.com/storkspear/template-spring/blob/main/bootstrap/src/main/resources/application-prod.yml) — prod profile 엄격 설정
-
-**자동화 스크립트**:
-- [`tools/app/new-app.sh`](https://github.com/storkspear/template-spring/blob/main/tools/app/new-app.sh) — 앱 스캐폴딩 한 줄
-- [`tools/dogfooding/setup.sh`](https://github.com/storkspear/template-spring/blob/main/tools/dogfooding/setup.sh) — 도그푸딩 환경 9단계 자동화
-- [`tools/init/init-local.sh`](https://github.com/storkspear/template-spring/blob/main/tools/init/init-local.sh) — 파생 레포 로컬 셋업 (rename · .env · docker)
-- [`tools/init/init-infra.sh`](https://github.com/storkspear/template-spring/blob/main/tools/init/init-infra.sh) — 공유 인프라 셋업 (.env.infra · Cloudflare ID · 접미사 없는 Secrets · 관측 스택)
-- [`tools/init/init-prod.sh`](https://github.com/storkspear/template-spring/blob/main/tools/init/init-prod.sh) — 파생 레포 운영 셋업 (.env.prod · DNS · Secrets)
-
-**CI 정책**:
-- [`.github/workflows/ci.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/ci.yml) — 전체 빌드/테스트/ArchUnit
-- [`.github/workflows/deploy.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/deploy.yml) — main only + workflow_run 게이트
-- [`.github/workflows/security-scan.yml`](https://github.com/storkspear/template-spring/blob/main/.github/workflows/security-scan.yml) — gitleaks + Dependabot
-
-**부재 확인 (비목표 증거)**:
-- `infra/kubernetes/` 또는 `infra/helm/` — 없음
-- `zipkin`, `jaeger`, `opentelemetry-exporter` 의존성 — 없음 (로깅은 단일 파일)
-- 멀티 리전 deployment workflow — 없음
-
-**관련 ADR**:
-- [`ADR-001 · 모듈러 모놀리스`](./adr-001-modular-monolith.md) — 운영 단위 1 의 결정
-- [`ADR-005 · 단일 Postgres + 앱당 schema`](./adr-005-db-schema-isolation.md) — Supabase 관리형 의존
-- [`ADR-006 · HS256 JWT`](./adr-006-hs256-jwt.md) — 관리 대상 최소화 (비밀 키 1개)
-- [`ADR-008 · API 버전 관리 미도입`](./adr-008-no-api-versioning.md) — "지금 필요 없다" 의 다른 적용
-- [`ADR-015 · Conventional Commits + SemVer`](./adr-015-conventional-commits-semver.md) — "초기 투자 vs 미래 부담 감소" 트레이드오프
+관련 결정은 [ADR-001](./adr-001-modular-monolith.md), [ADR-005](./adr-005-db-schema-isolation.md), [ADR-006](./adr-006-hs256-jwt.md), [ADR-008](./adr-008-no-api-versioning.md), [ADR-015](./adr-015-conventional-commits-semver.md)를 함께 읽어요.

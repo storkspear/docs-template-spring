@@ -1,3 +1,5 @@
+<a id="adr-009--baseentity-공통-슈퍼클래스"></a>
+
 # ADR-009 · BaseEntity 공통 슈퍼클래스
 
 **Status**: Accepted. `common-persistence/entity/BaseEntity.java` 에 구현돼 있고, `@Entity` 는 BaseEntity 상속이 기본입니다. 전체 19 개 엔티티 중 11 개가 상속하고, 예외는 8 개예요 — ① 만료시각 기반 인증 토큰·코드류 5 개 (`AuthRefreshToken` · `AuthPasswordResetToken` · `AuthEmailVerificationToken` · `AuthEmailVerificationCode` · `AuthPhoneVerificationCode`), ② `AuthSocialIdentity` · `AnalyticsEvent`, ③ `PaymentRefund` — 는 append-only 불변 원장이라 테이블에 `updated_at` 컬럼 자체가 없어 `@PreUpdate` 를 상속받을 이유가 없습니다.
@@ -6,7 +8,7 @@
 
 ## 결론부터
 
-JPA 엔티티는 어느 도메인이든 *id*, *생성과 수정 시각*, *equals 와 hashCode* 같은 공통 요소를 똑같이 갖습니다. 인증 도메인만 해도 `User`, `RefreshToken`, `EmailVerificationToken`, `Device`, `SocialIdentity` 등 일곱 개의 엔티티가 있고, 앱 모듈이 추가될 때마다 도메인 엔티티가 다시 두 배로 불어나요. 이 공통 요소를 매 엔티티에 직접 박으면 *복사 실수의 누적* 과 *감사 로직 변경의 다중 수정* 부담이 곧바로 따라옵니다.
+여러 엔티티에서 반복되는 식별자와 생성·수정 시각, 동등성 처리를 `BaseEntity`에 모았어요. 같은 저장 규칙을 쓰는 엔티티가 이를 상속해 중복을 줄여요. 복합 키나 별도 수명 주기가 필요한 엔티티까지 모두 이 클래스를 상속하는 것은 아니에요.
 
 `BaseEntity` 는 그 공통 요소를 한 곳에 모아둔 `@MappedSuperclass` 추상 클래스입니다. 새 엔티티는 `extends BaseEntity` 한 줄로 세 개 필드 (`id`, `createdAt`, `updatedAt`) 와 두 개 콜백 (`@PrePersist`, `@PreUpdate`), 그리고 `equals` / `hashCode` 를 자동 상속해요. Rails 의 `ActiveRecord::Base`, Django 의 `Model`, Spring Data 의 `AbstractPersistable` 도 같은 정신으로 *모든 엔티티가 자동으로 갖는 것* 을 한 클래스에 봉인한 패턴이에요.
 
@@ -31,6 +33,8 @@ JPA 엔티티는 어느 도메인이든 *id*, *생성과 수정 시각*, *equals
 > **여러 엔티티가 공통으로 가진 구조를 어떻게 한 곳에서 관리할 것인가?**
 
 ## 고민했던 대안들
+
+<a id="option-1--각-엔티티에-개별-선언"></a>
 
 ### Option 1 — 각 엔티티에 개별 선언
 
@@ -63,6 +67,8 @@ public class RefreshToken {
 
 탈락 이유는 한 줄로 *스케일에 안 맞음* 입니다.
 
+<a id="option-2--spring-data-jpa-auditing-entitylistenersauditingentitylistenerclass"></a>
+
 ### Option 2 — Spring Data JPA Auditing (`@EntityListeners(AuditingEntityListener.class)`)
 
 Spring Data JPA 가 제공하는 표준 감사 기능이에요. `@CreatedDate`, `@LastModifiedDate`, `@CreatedBy`, `@LastModifiedBy` 같은 어노테이션을 필드에 붙이면 Spring 이 자동으로 값을 채워 줍니다. *누가 / 언제 만들었는지* 까지 추적해야 하는 운영 환경에서는 강력한 도구예요.
@@ -83,6 +89,8 @@ public class User {
 다만 우리 현재 단계에서는 과잉 엔지니어링이 돼요. 필요한 건 단순히 *시각 자동 설정* 뿐인데, Spring Data Auditing 을 쓰면 `@EnableJpaAuditing` 부트스트랩 설정이 추가되고 각 엔티티마다 `@EntityListeners` 어노테이션이 반복됩니다. 커스터마이즈가 필요해지면 (예: *시각을 UTC+9 로 강제*) Spring 의 `DateTimeProvider` Bean 을 뒤져야 해요. 우리가 얻는 가치보다 도입 비용이 커서, *정말 필요해진 시점에 점진적으로 도입* 하는 편이 낫습니다.
 
 탈락 이유는 *현재 단계에 비해 무거움* 이에요. 미래에 `@CreatedBy` 가 필요해지면 `BaseEntity` 를 확장하는 형태로 흡수할 수 있는 경로가 열려 있어, *지금 도입* 의 압박이 없어요.
+
+<a id="option-3--mappedsuperclass-baseentity-추상-클래스--채택"></a>
 
 ### Option 3 — `@MappedSuperclass BaseEntity` 추상 클래스 ★ 채택
 
@@ -179,6 +187,8 @@ public abstract class BaseEntity {
 
 ### 설계 선택 포인트
 
+<a id="포인트-1--generationtypeidentity-고정"></a>
+
 #### 포인트 1 — `GenerationType.IDENTITY` 고정
 
 `@GeneratedValue(strategy = GenerationType.IDENTITY)` 는 데이터베이스의 auto-increment 컬럼을 직접 활용하는 방식이에요. JPA 가 제공하는 다른 전략 (`SEQUENCE`, `TABLE`, `UUID`) 도 후보로 검토했지만, 각각 다른 트레이드오프를 가져요.
@@ -186,6 +196,8 @@ public abstract class BaseEntity {
 `SEQUENCE` 는 배치 insert 시 *id 를 미리 받아두고 한 번에 INSERT* 하는 최적화가 가능해 대규모 적재 환경에서 유리해요. 다만 우리 규모 — 초당 수십 건 저장 — 에서는 `IDENTITY` 와의 차이가 측정 불가능한 수준입니다. `UUID` 는 분산 시스템에서 *DB 호출 없이 클라이언트가 id 생성* 하는 이점이 있지만, 현재 단일 Postgres 모놀리스 환경에서는 그 이점이 발휘될 자리가 없고, 오히려 `BIGINT` 대비 인덱스 성능과 저장 공간 면에서 불리해요. `TABLE` 은 *별도 테이블에서 id 를 발급* 하는 가장 ORM-중립적인 방식이지만 성능 페널티가 커서 거의 쓰이지 않습니다.
 
 채택은 `IDENTITY` — Postgres 의 `BIGSERIAL` / `GENERATED AS IDENTITY` 컬럼을 그대로 활용해 가장 단순하고 빠르게 동작합니다. 미래에 분산 환경으로 확장할 일이 생기면 그때 `UUID` 로 이행하는 경로가 열려 있어요.
+
+<a id="포인트-2--prepersist--preupdate-직접-사용"></a>
 
 #### 포인트 2 — `@PrePersist` / `@PreUpdate` 직접 사용
 
@@ -201,6 +213,8 @@ protected void onPrePersist() {
 ```
 
 JPA 스펙 정의에 따라 `EntityManager.persist()` 직전에 이 콜백이 자동 호출돼요. Hibernate 든 EclipseLink 든 어느 JPA 구현체에서든 동일하게 동작하므로 *벤더 종속* 도 없어요. 미래에 `@CreatedBy` 같은 추가 감사가 필요해지면 그 시점에 Spring Data Auditing 을 도입하는 형태로 점진 확장이 가능합니다.
+
+<a id="포인트-3--equals--hashcode-의-jpa-패턴"></a>
 
 #### 포인트 3 — `equals` / `hashCode` 의 JPA 패턴
 
@@ -233,11 +247,15 @@ public int hashCode() {
 
 > **트릭의 핵심** — 저장 전 엔티티끼리 `equals` 비교하면 항상 `false` 가 반환됩니다 (마지막 조건의 `id != null` 에서 fail). 이게 의도된 동작이에요. *아직 DB 에 없는 것은 서로 다르다* 라고 취급해 *Set 에 두 개를 넣으면 둘 다 들어가는* 패턴을 보장합니다. 저장 후에는 id 가 부여되어 정상적으로 비교돼요.
 
+<a id="포인트-4--위치-common-persistenceentity"></a>
+
 #### 포인트 4 — 위치: `common-persistence/entity/`
 
 `BaseEntity` 는 JPA 어노테이션에 의존합니다 (`@MappedSuperclass`, `@Id`, `@Column`, `@PrePersist`, `@PreUpdate`). 따라서 *JPA 의존을 가진 모듈* 안에 위치해야 해요. `common-web` 에는 JPA 의존이 없으니 (HTTP 영역에 ORM 을 끌어들이지 않기 위함) 거기엔 둘 수 없고, `common-security` 도 같은 이유로 부적합합니다.
 
 남은 자리는 `common-persistence` — 이 모듈이 *공통 영속 인프라* 의 역할로 JPA 를 자연스럽게 끌어옵니다. [`ADR-004`](./adr-004-gradle-archunit.md) 의 convention plugin (`factory.common-module`) 정의 하에서 이 모듈이 JPA 의존을 갖도록 명시되어 있어요.
+
+<a id="포인트-5--lombok-을-안-쓴-이유"></a>
 
 #### 포인트 5 — Lombok 을 안 쓴 이유
 
@@ -257,7 +275,7 @@ Lombok 의 동작 원리는 *annotation processor 가 컴파일 시점에 바이
 
 **감사 로직이 단일 위치에 모입니다** — *createdAt 을 DB 서버 시각으로 강제* 같은 정책 변경이 들어와도 `BaseEntity` 한 곳만 수정하면 모든 엔티티가 자동 반영돼요. *N 곳 수정 중 한 곳 누락* 의 전형적 사고가 구조적으로 차단됩니다.
 
-**`equals` / `hashCode` 의 일관성이 보장됩니다** — 모든 엔티티가 같은 비교 로직을 따르므로 *User 의 equals 는 id 비교, RefreshToken 의 equals 는 token 문자열 비교* 같은 비대칭이 발생할 여지가 없어요. JPA 의 detached / managed 상태 처리에 대한 *4 가지 규칙* (포인트 3) 도 한 번 잡아 두면 모든 엔티티에 자동 적용됩니다.
+**상속하는 엔티티가 같은 동등성 규칙을 사용해요.** `BaseEntity`를 쓰는 타입은 개별 구현 대신 공통 비교 로직을 재사용해요. 이 로직은 현재 `getClass()`와 ID를 비교하므로 프록시와 미저장 객체, 서로 다른 테넌트에서 같은 ID를 가진 객체를 비교할 때 적용 범위를 확인해야 해요. 모든 엔티티가 같은 상속 구조인 것은 아니에요.
 
 **JPA 공식 패턴과 정렬됩니다** — `@MappedSuperclass` 는 JPA 스펙에 명시된 표준 기능이에요. 미래에 Hibernate 에서 EclipseLink 로 ORM 을 교체하거나 Spring 에서 다른 프레임워크로 옮기더라도 이 패턴은 그대로 유효합니다. *벤더 종속* 으로 인한 마이그레이션 부담이 없어요.
 
@@ -265,7 +283,7 @@ Lombok 의 동작 원리는 *annotation processor 가 컴파일 시점에 바이
 
 **상속 트리가 한 단계 추가됩니다** — 모든 엔티티가 `extends BaseEntity` 로 시작하므로 Java 의 단일 상속 제약 안에서 *다른 부모를 더 갖는* 옵션이 막혀요. 다만 JPA 엔티티가 다중 상속을 필요로 하는 시나리오는 거의 없고, 정말 필요해지면 *공통 동작은 interface default method 로 추출* 하는 우회 경로가 열려 있습니다.
 
-**`id` 접근자가 강제됩니다** — `BaseEntity` 가 `getId()` 를 public 으로 노출하므로 모든 엔티티가 *id 를 외부에 보여주는* 형태가 돼요. 가끔 *id 를 도메인 외부에서 보지 못하게 캡슐화* 하고 싶은 욕구가 생기지만, JPA 엔티티에서 id 는 *식별자 역할 그 자체* 이므로 노출이 의미적으로 자연스러워요. 진짜 캡슐화가 필요하다면 그 도메인이 *DDD Aggregate* 패턴으로 갈 단계라는 신호입니다.
+**식별자 접근 방식도 상속돼요.** `BaseEntity`는 public `getId()`를 제공해요. 엔티티를 외부에 직접 반환하지 않는 모듈 경계와는 별개의 선택이에요. 식별자 노출 방식이 맞지 않는 타입은 그 타입의 역할과 저장 규칙을 먼저 검토해요.
 
 **transient 엔티티 비교가 직관적이지 않아요** — id 가 null 인 두 인스턴스를 `Set` 에 넣으면 *서로 다른* 것으로 취급되어 둘 다 들어갑니다. 이게 *논리적으로 같은 행이 아직 DB 에 없다* 는 사실의 정직한 반영이지만, 처음 보는 사람에게는 혼란을 일으킬 수 있어요. JavaDoc 에 명시하고 다음 *교훈* 섹션에서 케이스를 풀어 적습니다.
 

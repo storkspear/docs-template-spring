@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~12분
 
-이 문서는 `template-spring` 의 3층 테스트 구조와 계약 테스트 작성·강제 규약을 정의합니다.
+이 문서는 DTO JSON 계약과 Port 행위 계약을 작성하는 방법을 설명해요. 아래 세 범주는 이 문서가 집중하는 테스트이며, 통합 테스트까지 포함한 전체 네 층과 실행 기준은 [`Testing Strategy`](./testing-strategy.md)에서 확인해요.
 
 ---
 
@@ -27,6 +27,8 @@
 | **Layer 3 — 내부 알고리즘 단위** | Port 로 환원 불가능한 내부 로직 | `core-*-impl/src/test/` | `RefreshTokenServiceTest`, `TokenGeneratorTest` |
 
 ---
+
+<a id="layer-1--json-계약-테스트"></a>
 
 ## Layer 1 — JSON 계약 테스트
 
@@ -93,6 +95,8 @@ void serialize_passwordHashFieldPresent_valueNotAsserted() throws Exception {
 
 ---
 
+<a id="layer-2--port-행위-계약-테스트"></a>
+
 ## Layer 2 — Port 행위 계약 테스트
 
 ### 파일 배치
@@ -113,6 +117,8 @@ core-<x>-impl/
     ├── InMemory<Port>Adapter.java        (외부 port fake)
     └── <X>ServiceImplContractTest.java   (concrete, @ContractTest + @Import)
 ```
+
+<a id="abstract-계약-구조--method-별-nested"></a>
 
 ### Abstract 계약 구조 — method 별 `@Nested`
 
@@ -141,6 +147,8 @@ public abstract class AbstractUserPortContractTest extends AbstractContractBase 
 ```
 
 이 패턴을 쓰는 abstract 계약은 `AbstractUserPortContractTest`, `AbstractAuthPortContractTest`, `AbstractDevicePortContractTest`, `AbstractBillingPortContractTest` 등 도메인마다 하나씩 있어요. 모두 `core-<x>-api/src/testFixtures/` 의 `contract` 패키지에 삽니다.
+
+<a id="concrete-구현--contracttest-메타-어노테이션"></a>
 
 ### Concrete 구현 — `@ContractTest` 메타 어노테이션
 
@@ -262,6 +270,8 @@ void sendsVerificationEmail() {
 
 ---
 
+<a id="layer-3--내부-알고리즘-단위-테스트"></a>
+
 ## Layer 3 — 내부 알고리즘 단위 테스트
 
 Port 계약으로 환원되지 않는 고유 내부 로직은 단위 테스트로 유지합니다.
@@ -289,7 +299,7 @@ Port 계약으로 환원되지 않는 고유 내부 로직은 단위 테스트�
 
 ## TRUNCATE Cleanup 안전장치
 
-`contract-cleanup.sql` 은 `@Sql(BEFORE_TEST_METHOD)` 로 매 테스트 전에 실행됩니다. 운영 DB 에 잘못 연결된 상태에서 실행되는 것을 막는 가드 블록을 먼저 두고, 존재하는 테이블만 골라 TRUNCATE 해요. 모듈마다 classpath 에 올라온 Flyway 마이그레이션이 다르기 때문에, 테이블 존재 여부를 확인한 뒤에만 비웁니다.
+`contract-cleanup.sql`은 `@Sql(BEFORE_TEST_METHOD)`로 각 테스트 전에 실행돼요. DB 이름에 `test`가 포함됐는지 검사하고, 현재 존재하는 대상 테이블만 `TRUNCATE`해요. 모듈마다 포함된 Flyway 마이그레이션이 다르기 때문이에요. 이 이름 검사는 보조 조건이므로 테스트 프로필과 실제 연결 대상도 격리된 DB인지 확인해야 해요.
 
 ```sql
 -- 가드: 운영 DB 에 실수로 연결된 상태에서 실행되는 것 방지
@@ -335,7 +345,7 @@ core-*-impl 의 test 가 다른 impl 을 `testImplementation` 으로 가져오�
 
 예를 들어 `core-device-impl` 의 `devices.user_id` 는 `users(id)` 를 FK 로 참조해요. 그래서 `users` 테이블을 만드는 Flyway V001 마이그레이션이 필요하고, 이를 위해 `testImplementation project(':core:core-user-impl')` 을 가져옵니다.
 
-이는 [`architecture-rules.md`](../../structure/architecture-rules.md) 의 ArchUnit **r3** (core-impl ↔ core-impl 직접 의존 금지) 에 대한 test 전용 예외예요. main sourceSet 은 여전히 독립이고, test 인프라 조립에만 느슨한 규칙을 적용합니다.
+[ArchUnit r3](../../structure/architecture-rules.md)는 main 코드에서 core-impl끼리 직접 의존하지 않도록 검사해요. 계약 테스트를 조립하는 test sourceSet에는 필요한 구현을 함께 넣을 수 있어요. 이 예외를 main 의존성까지 확대하지 않아요.
 
 ---
 
@@ -354,6 +364,8 @@ core-*-impl 의 test 가 다른 impl 을 `testImplementation` 으로 가져오�
 - [ ] 필요하면 `<X>Fixtures` 인터페이스에 fixture helper 추가
 - [ ] `Jpa<X>Fixtures` 에 fixture helper 구현
 - [ ] `./gradlew :core:core-<x>-impl:test` 통과 확인
+
+<a id="새-port-전체-추가-새-core--api-모듈"></a>
 
 ### 새 Port 전체 추가 (새 core-<x>-api 모듈)
 

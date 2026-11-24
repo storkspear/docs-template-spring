@@ -4,7 +4,7 @@
 
 이 문서는 다중 조건 동적 검색의 표준 패턴을 정의해요. 관리자 감사 로그 조회, 사용자 검색, 청구 내역 필터링처럼 조건이 여럿 들어오는 목록 조회가 대상이에요.
 
-핵심 흐름은 다섯 단계로 이어집니다. RequestDTO 가 조건을 받고, Assembler 가 그것을 조건 Map 으로 옮기고, `QueryDslPredicateBuilder` 가 Map 을 WHERE 절로 조립하고, 리포지토리가 실제 쿼리를 실행해요.
+요청 DTO가 검색 조건을 받고, Assembler가 허용된 조건을 Map으로 정리해요. `QueryDslPredicateBuilder`는 이를 WHERE 조건으로 바꾸고, 저장소가 조회와 정렬·페이징을 수행해요. 각 API가 받아들일 필드와 연산자는 요청 계약에서 제한해요.
 
 ```
 RequestDTO  →  Assembler  →  조건 Map  →  QueryDslPredicateBuilder  →  JPAQuery
@@ -20,7 +20,7 @@ RequestDTO  →  Assembler  →  조건 Map  →  QueryDslPredicateBuilder  → 
 
 이 패턴은 그 반복을 `QueryDslPredicateBuilder` 한 곳으로 흡수해요. 그 결과 세 가지가 정리됩니다.
 
-- 새 조건 추가가 Assembler 의 `Map.put()` 한 줄로 끝나요.
+- 반복되는 조건 조립을 Assembler에 모아요. 새 조건의 요청 필드·타입·허용 범위·정렬 정책은 함께 확인해요.
 - 연산자의 SQL 정합성은 `QueryDslPredicateBuilder` 의 단위 테스트가 담보합니다.
 - 도메인은 "어떤 필드를 어떤 연산자에 매핑하는가" 만 결정하면 돼요. 그 책임은 Assembler 가 가집니다.
 
@@ -103,7 +103,7 @@ Controller 가 null 이나 음수를 보내도 record 가 스스로 안전한 �
 
 Assembler 는 `core/core-{domain}-impl` 의 repository 패키지에 두고, package-private 로 닫습니다. final 클래스에 private 생성자를 두고 static 메서드만 노출해요.
 
-클래스 이름이 `Mapper` 로 끝나면 ArchUnit r22 (`NO_MAPPER_CLASSES`) 가 빌드를 실패시킵니다 (`Converter` 는 규칙 매칭 대상은 아니지만 컨벤션상 같이 피해요). 그래서 `*Assembler` 처럼 다른 이름을 씁니다. 이건 회피책이 아니라 [ADR-016](../philosophy/adr-016-dto-mapper-forbidden.md) 이 의도한 패턴이에요. 변환 로직을 한 클래스에 모으되, 그 클래스를 Mapper 로 부르지 않을 뿐입니다.
+Assembler는 요청 DTO에서 허용된 검색 조건을 골라 쿼리용 Map으로 조립해요. Entity를 DTO로 변환하는 Mapper와 책임이 달라요. 이름만 바꿔 Mapper 금지 규칙을 우회하는 패턴은 아니에요. Entity→DTO 변환 규칙은 [ADR-016](../philosophy/adr-016-dto-mapper-forbidden.md)을 따르고, 현재 r22의 자동 검사 범위는 public인 비인터페이스 Mapper 클래스예요.
 
 ### 본문 패턴
 
@@ -374,7 +374,7 @@ public class Stats {
 }
 ```
 
-빌더는 키의 마지막 밑줄 뒤를 연산자로 봅니다. `count_in_eq` 를 주면 의도는 `count_in` 필드의 `eq` 지만, 파서가 잘못 끊을 수 있어요. JPA 의 camelCase 컨벤션을 따르면 단어 경계가 대소문자로 구분돼 충돌이 사실상 없어요. 다만 연산자 토큰 (`eq`, `ne`, `like`, `in`, `between`, `isNull` 등) 으로 끝나는 필드명은 의도적으로 피합니다.
+파서는 마지막 밑줄 뒤의 알려진 토큰을 연산자로 읽어요. 따라서 `count_in_eq`는 `count_in` 필드의 `eq` 조건으로 해석해요. `count_in`처럼 연산자를 생략한 키는 `count` 필드의 `in` 조건으로 해석될 수 있으므로 구분이 필요해요. 실제 필드명은 JPA 속성명과 요청 계약에 맞춰 사용해요.
 
 ---
 
@@ -382,7 +382,7 @@ public class Stats {
 
 - [`ADR-010 · SearchCondition 공통 조회 인프라`](../philosophy/adr-010-search-condition.md) — 이 패턴을 채택한 설계 근거와 대안 비교
 - [`common-persistence README`](../../common/common-persistence/README.md#querydsl-동적-쿼리) — 연산자 전체 표와 사용 예
-- [`AuditLog 레퍼런스 구현`](../../core/core-audit-impl/) — RequestDTO·Assembler·QueryRepositoryImpl 의 첫 도메인 적용 사례
+- [`AuditLog 레퍼런스 구현`](https://github.com/storkspear/template-spring/tree/main/core/core-audit-impl) — RequestDTO·Assembler·QueryRepositoryImpl 의 첫 도메인 적용 사례
 - [`ADR-016 · DTO Mapper 금지`](../philosophy/adr-016-dto-mapper-forbidden.md) — Mapper 클래스를 피하는 근거
 - [`Naming Conventions`](./naming.md) — DTO suffix 규약
 - [`DTO 팩토리 컨벤션`](./dto-factory.md) — Entity → DTO 변환 규약

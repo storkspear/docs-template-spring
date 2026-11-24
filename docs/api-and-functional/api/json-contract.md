@@ -104,9 +104,11 @@ DTO 의 JsonTest 가 `AbstractJsonContractTest<T>` 를 상속하면 아래 세 �
 | `deserialize_parsesCanonicalJson` | canonical JSON → DTO 매핑 정확성 |
 | `deserialize_ignoresUnknownField` | 알 수 없는 필드가 있어도 무시하고 파싱 (forward compat) |
 
-특수한 검증이 더 필요하면 그 DTO 의 JsonTest 에 개별 `@Test` 메서드를 추가해요. 보안 민감 필드의 존재 확인, null 변형의 round-trip, enum·timestamp 포맷 단언이 대표적인 추가 케이스예요.
+기본 세 테스트는 왕복과 역직렬화를 확인하며, 직렬화 결과를 canonical JSON과 직접 비교하지는 않아요. 필드 집합·null 생략·enum·timestamp 형식·공개 응답의 민감 필드 제외는 각 JsonTest에서 별도 단언으로 확인해요.
 
 ---
+
+<a id="샘플--기본-형태"></a>
 
 ## 샘플 — 기본 형태
 
@@ -132,9 +134,11 @@ class SignUpRequestJsonTest extends AbstractJsonContractTest<SignUpRequest> {
 
 ---
 
+<a id="샘플--보안-민감-필드"></a>
+
 ## 샘플 — 보안 민감 필드
 
-`passwordHash` 같은 필드는 JSON 에 존재하지만 값을 단언하면 안 돼요. 실제 운영에선 해시 값이 매번 다르니까요. 그래서 **존재만 확인** 합니다.
+`UserAccount`는 모듈 사이에서 쓰는 내부 Port DTO예요. 아래 테스트는 이 내부 DTO의 직렬화 계약을 확인하며, `passwordHash`를 공개 HTTP 응답에 포함해도 된다는 뜻은 아니에요. 공개 응답에서는 `UserSummary`·`UserProfile`처럼 필요한 필드만 가진 DTO를 사용하고 민감 필드가 빠지는지 별도로 검증해요.
 
 ```java
 class UserAccountJsonTest extends AbstractJsonContractTest<UserAccount> {
@@ -149,6 +153,8 @@ class UserAccountJsonTest extends AbstractJsonContractTest<UserAccount> {
 ```
 
 ---
+
+<a id="샘플--중첩-record"></a>
 
 ## 샘플 — 중첩 record
 
@@ -176,6 +182,8 @@ class AuthResponseJsonTest extends AbstractJsonContractTest<AuthResponse> {
 
 ---
 
+<a id="샘플--instant-필드"></a>
+
 ## 샘플 — Instant 필드
 
 날짜·시간은 ISO-8601 문자열로 직렬화돼요. Jackson 3 는 java.time 지원이 코어에 내장돼 있고 `spring.jackson.datatype.datetime.write-dates-as-timestamps: false` 가 걸려 있어서 `@JsonFormat` 이 필요 없어요.
@@ -200,6 +208,8 @@ class AuthResponseJsonTest extends AbstractJsonContractTest<AuthResponse> {
 
 ---
 
+<a id="샘플--map-필드"></a>
+
 ## 샘플 — Map 필드
 
 ```java
@@ -219,7 +229,7 @@ class AuthResponseJsonTest extends AbstractJsonContractTest<AuthResponse> {
 }
 ```
 
-Jackson 의 Map 직렬화는 insertion order 를 따릅니다. canonicalJson 과 순서를 맞추려면 `HashMap` 대신 `LinkedHashMap` 을 쓰세요.
+JSON 객체의 키 순서는 계약의 의미를 바꾸지 않아요. 예제를 일정한 순서로 출력하려면 `LinkedHashMap`을 쓸 수 있지만, 기본 계약 테스트는 canonical JSON을 역직렬화해 객체를 비교하므로 Map의 출력 순서까지 강제하지 않아요.
 
 ---
 
@@ -234,7 +244,7 @@ Jackson 의 Map 직렬화는 insertion order 를 따릅니다. canonicalJson 과
 
 ### 필드 타입 변경 (breaking)
 
-타입 변경은 버저닝의 breaking change 에 해당해요. 기존 필드를 `@Deprecated` 로 유지하고 새 필드를 따로 추가합니다. 한 번에 교체하지는 마세요. 절차는 [`versioning.md`](./versioning.md#deprecation-프로세스) 의 Deprecation 프로세스를 따릅니다.
+공개 계약의 필드 타입을 바꾸면 기존 소비자가 깨질 수 있어요. 기존 필드를 유지한 채 새 필드를 추가하고, 소비자를 옮긴 뒤 정해진 major 버전에서 제거해요. Java record 생성자처럼 필드 추가 자체가 영향을 주는 호출부도 함께 확인해요. 표시·제거 시점·CHANGELOG 기록은 [Deprecation 프로세스](./versioning.md#deprecation-프로세스)를 따라요.
 
 ### 필드 제거
 

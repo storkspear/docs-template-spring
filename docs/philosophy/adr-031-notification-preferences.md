@@ -1,3 +1,5 @@
+<a id="adr-031--사용자-알림-설정-toggle"></a>
+
 # ADR-031 — 사용자 알림 설정 (toggle)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
@@ -14,9 +16,9 @@
 
 본 ADR 은 사용자가 *알림 종류별로 on/off 를 선택* 할 수 있는 preference 시스템을 정의합니다. `NotificationKind` enum (`RENEWAL_SUCCEEDED`, `RENEWAL_FAILED`, `RENEWAL_ABANDONED`, `IAP_REFUND`, `IAP_REVOKE`) 이 알림 분류 단위가 되고, `user_notification_preferences` 테이블이 *(user_id, kind, push_enabled, email_enabled)* 의 행 단위로 사용자별 설정을 저장해요. 발송 시점에 listener 가 *해당 사용자의 해당 kind preference* 를 조회해 OFF 면 *silent skip* 으로 처리합니다.
 
-default 정책은 *미등록 = ON* 이에요. 사용자가 명시적으로 OFF 를 선택하지 않은 경우 *모든 알림을 받는* 상태로 가정합니다. 이 default 의 가치는 *새 가입자가 별도 설정 없이 핵심 알림 (결제 실패, 환불 등) 을 즉시 받는* 형태가 된다는 점이에요. 운영자가 *opt-in* (default=OFF) 으로 바꾸고 싶으면 환경변수로 토글할 수 있도록 설계해, 한국 마케팅법처럼 *명시 동의* 가 필요한 환경에서도 적용 가능합니다.
+설정이 없는 사용자·알림 종류 조합은 push와 email을 모두 허용해요. `NotificationSettingService`의 기본 반환값이 `true`이며, 현재 이를 OFF로 바꾸는 환경변수는 없어요. 실제 발송은 채널 등록·수신자 정보·사용자 설정에 달려 있어요. 이 설정 자체가 별도 마케팅 동의 수집이나 동의 이력을 구현한 것은 아니에요.
 
-skip 처리는 *메트릭 차원에서도 의미* 가 있어요. listener 가 preference 토글 때문에 발송을 스킵하면 [`ADR-026`](./adr-026-billing-notification-metrics.md) 의 `result=skipped` counter 가 증가합니다. 운영자가 *어떤 알림 종류가 자주 OFF 되는지* 를 메트릭으로 추적할 수 있어, *알림 정책의 적정성* 을 비즈니스 시그널로 분석할 수 있어요. *RENEWAL_SUCCEEDED 의 OFF 비율이 높으면 → 갱신 성공 알림이 무의미하다는 신호* 같은 분석이 가능합니다.
+사용자 설정으로 발송을 생략하면 `result=skipped`를 기록해요. 같은 결과에는 채널이나 수신자 정보가 없어 보내지 못한 경우도 포함되므로, 이 지표만으로 사용자의 OFF 비율을 계산하지는 못해요. 채널별 생략 추세를 찾는 용도로 사용해요.
 
 이 ADR 의 범위는 `NotificationKind` enum 정의, `user_notification_preferences` 테이블 설계 (슬러그별 schema 위치 + 컬럼 의미), default 정책의 근거, listener 의 preference 체크 통합 흐름, 메트릭 연결 패턴, 그리고 *별도 테이블 vs Boolean 컬럼 vs JSON 컬럼* 같은 모델 선택 트레이드오프, 마지막으로 사용자 측 GET/PATCH endpoint (`NotificationPreferenceController`) 까지입니다.
 
@@ -67,6 +69,8 @@ skip 처리는 *메트릭 차원에서도 의미* 가 있어요. listener 가 pr
 
 ---
 
+<a id="default--on-정책"></a>
+
 ## Default = ON 정책
 
 ```java
@@ -81,7 +85,7 @@ public boolean isPushEnabled(long userId, NotificationKind kind) {
 
 → 새 가입자는 자동으로 모든 알림이 ON 이에요. 사용자가 명시적으로 OFF 한 시점부터 차단됩니다.
 
-이는 운영자 결정에 따라 변경 가능해요 — **default OFF** (opt-in) 로 바꾸면 가입 후 사용자가 직접 ON 으로 켜야 받게 돼요. 한국 마케팅법 강제는 아니므로 default ON 으로 시작하는 게 운영의 일반적 형태예요.
+기본 OFF가 필요하다면 설정이 없는 조합을 처리하는 서비스 정책부터 별도로 변경해야 해요. 현재 환경변수만 바꿔 적용할 수 있는 기능은 아니에요. 이 ADR의 기본 ON 결정은 유지해요.
 
 ---
 
@@ -103,9 +107,11 @@ private void sendPush(long userId, NotificationKind notificationKind, ...) {
 }
 ```
 
-같은 패턴으로 email 도. 메트릭 result 라벨은 toggle off·미등록·실패를 모두 `skipped` 로 통합해요 — 세분화 필요 시 별도 라벨 추가 가능.
+같은 패턴으로 email 도. 설정 OFF와 채널 부재 같은 생략은 `skipped`, 발송 중 처리한 예외는 `failure`로 기록해요. 여러 생략 사유를 구분하려면 현재 지표 외의 정보가 필요해요.
 
 ---
+
+<a id="검증-단위-테스트-3건-추가--subscriptionnotificationlistenertest-현재-총-23건"></a>
 
 ## 검증 (단위 테스트 3건 추가 — `SubscriptionNotificationListenerTest` 현재 총 23건)
 
@@ -133,17 +139,23 @@ PATCH  /api/apps/<slug>/me/notification-preferences/{kind}     (변경)
 
 ## 대안 비교
 
+<a id="옵션-a--boolean-column-5개-notify_renewal_succeeded-등"></a>
+
 ### 옵션 A — Boolean column 5개 (`notify_renewal_succeeded` 등)
 
 - 단순해요. JOIN 이 0이에요.
 - ❌ NotificationKind 추가 시 ALTER TABLE — schema 변경이 필요해요
 - ❌ "어떤 알림 받는지" 일관 조회가 어려워요
 
+<a id="옵션-b--user_notification_preferences-별도-테이블--채택"></a>
+
 ### 옵션 B — `user_notification_preferences` 별도 테이블 ★ 채택
 
-- (user_id, kind) PK 예요. 새 kind 추가 = enum + INSERT (schema 변경 X)
+- id가 PK이고 (user_id, kind)는 고유 제약이에요. 새 kind를 추가할 때는 enum과 발송·설정 계약도 함께 확인해요.
 - 사용자별 모든 설정을 1번 SELECT 로 가져와요
 - 미등록 = default ON 으로 명시적 의미가 있어요
+
+<a id="옵션-c--json-column-usersnotification_preferences-jsonb"></a>
 
 ### 옵션 C — JSON column (`users.notification_preferences JSONB`)
 

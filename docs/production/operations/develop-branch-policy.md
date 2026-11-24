@@ -8,6 +8,8 @@
 
 ---
 
+<a id="1-의도--왜-develop-을-따로-두나"></a>
+
 ## 1. 의도 — 왜 develop 을 따로 두나
 
 GHA 는 사용량 기반으로 과금됩니다. public 레포는 무제한이지만 private 레포는 Free tier 가 월 2,000분이에요. 그래서 feature 를 push 할 때마다 CI 가 돌면 세 가지 비용이 쌓여요. private 레포에서는 분이 누적되고, 팀이 동시에 push 하면 큐가 밀리며, 아직 진행 중인 작업까지 검증되어 노이즈가 늘어납니다.
@@ -95,6 +97,8 @@ git pull
 git checkout -b feature/<topic>
 ```
 
+<a id="4-2-develop-으로-merge--dev-server-자동-배포"></a>
+
 ### 4-2. develop 으로 merge → dev-server 자동 배포
 
 PR 을 develop 으로 열면 정식 CI 가 돌고, 통과하면 merge 합니다.
@@ -108,12 +112,14 @@ gh pr merge --squash --delete-branch
 
 merge 직후 develop push 트리거로 `ci.yml` 이 한 번 더 돌고, 성공하면 `deploy-dev.yml` 이 `workflow_run` 으로 이어받아 dev-server 에 배포해요. 이 배포는 `DEPLOY_ENABLED_DEV=true` 인 파생 레포에서만 실제로 일어나고, 템플릿에서는 건너뜁니다.
 
+<a id="4-3-main-으로-promote-릴리스--prod-자동-배포"></a>
+
 ### 4-3. main 으로 promote (릴리스) → prod 자동 배포
 
 dev 에서 충분히 검증했으면 develop 을 main 으로 올려요.
 
 ```bash
-gh pr create --base main --head develop --title "release: <date>"
+gh pr create --base main --head develop --title "chore(release): promote develop"
 # CI pass 시 merge
 gh pr merge --merge  # squash 안 함 — 릴리스 흔적 보존
 ```
@@ -137,11 +143,13 @@ git checkout develop && git merge main   # hotfix 를 develop 에도 동기
 
 ---
 
+<a id="5-dev-server-vs-prod--격리-모델"></a>
+
 ## 5. dev-server vs prod — 격리 모델
 
-dev-server 와 prod 는 같은 Mac mini 한 대 위에서 돕니다. Kamal 의 service 단위로 컨테이너와 네트워크를 나눠 서로 간섭하지 않게 격리해요.
+dev-server와 prod는 같은 Mac mini와 `kamal` Docker 네트워크를 사용해요. 서비스 이름·외부 호스트·DB 자격·JWT·스토리지 접두사를 나누지만 네트워크 자체가 분리된 구성은 아니에요.
 
-격리의 핵심은 환경값이 어느 계층에서 갈라지느냐예요. 운영값의 키 이름 자체는 `.env.prod` 와 `.env.dev` 가 똑같습니다(suffix 없는 일반 이름). 분리는 GitHub 계층에서 일어나요. `init-dev.sh` 가 dev 값을 GitHub 에 올릴 때 `_DEV` suffix 를 붙여 Variables·Secrets 로 저장하고, `deploy-dev.yml` 이 컨테이너 안으로 넘길 때 다시 suffix 를 떼어 일반 이름으로 export 합니다. 그래서 `config/deploy-dev.yml` 이 참조하는 이름은 `KAMAL_SERVICE_NAME`·`PUBLIC_HOSTNAME` 처럼 suffix 가 없어요. 표의 "GitHub 변수명" 열이 곧 `_DEV` 가 붙는 자리입니다.
+`.env.prod`와 `.env.dev`에서는 같은 환경 변수 이름을 사용해요. GitHub에 저장할 때 `init-dev.sh`가 dev 값에 `_DEV`를 붙이고, `deploy-dev.yml`이 컨테이너에 전달할 때 원래 이름으로 바꿔요. 따라서 `config/deploy-dev.yml`은 `KAMAL_SERVICE_NAME`·`PUBLIC_HOSTNAME`처럼 접미사 없는 이름을 참조해요. 아래 표의 GitHub 변수명 열은 GitHub에 저장되는 이름이에요.
 
 | 항목 | prod | dev | GitHub 변수·시크릿명 (dev) |
 |---|---|---|---|
@@ -150,14 +158,14 @@ dev-server 와 prod 는 같은 Mac mini 한 대 위에서 돕니다. Kamal 의 s
 | GHCR 이미지 태그 | `:<sha>` | `:dev-<sha>` (cleanup 시 prod 와 격리) | — |
 | Spring profile | `prod` | `dev` | — |
 | DB | Supabase prod 계정 | 별도 Supabase dev 계정 | `DB_URL_DEV` · `DB_USER_DEV` · `DB_PASSWORD_DEV` |
-| MinIO bucket | `<slug>-uploads` | `dev-<slug>-uploads` (`init-dev.sh` 가 `dev-` prefix 강제) | `APP_STORAGE_MINIO_BUCKETS_0_DEV` |
+| MinIO bucket | `<normalizedSlug>-uploads` | `dev-<normalizedSlug>-uploads` | 앱 DataSource에서 자동 파생. `_DEV` 공유 버킷 슬롯과 별개 |
 | MinIO 버킷 접두사 | 빈 값(기본) | `dev-` | `APP_STORAGE_BUCKET_PREFIX_DEV` |
 | MinIO endpoint·key | 운영값 | 별도 dev 값 (보통 prod 와 **같은 MinIO 인스턴스**) | `APP_STORAGE_MINIO_ENDPOINT_DEV` 등 |
 | 관측성 (Loki·Grafana) | 공유 인스턴스, label `env=prod` | 공유 인스턴스, label `env=dev` | `LOKI_URL_DEV` |
 
-`app.storage.bucket-prefix`(env `APP_STORAGE_BUCKET_PREFIX`)는 `BucketNaming`(core-storage-api)이 런타임에 업로드 버킷명을 계산할 때 읽는 값이에요 — `<prefix><slug>-uploads`. dev/prod 가 MinIO 인스턴스를 공유하는 배포에서 이 접두사가 `APP_STORAGE_MINIO_BUCKETS_0`(`BucketProvisioner` 가 프로비저닝하는 이름)과 어긋나면, provisioning 은 `dev-<slug>-uploads` 를 만드는데 런타임은 `<slug>-uploads`(prod 버킷)에 업로드하는 사고가 나요 — `init-dev.sh` 가 두 값을 같은 접두사로 맞춰 채웁니다.
+`app.storage.bucket-prefix`(env `APP_STORAGE_BUCKET_PREFIX`)는 `BucketNaming`이 앱 업로드 버킷을 계산할 때 사용해요. 프로비저닝과 런타임 소비가 같은 계산을 쓰므로 앱별 BUCKETS 슬롯을 맞출 필요는 없어요. 이름은 `<prefix><하이픈을 제거한 slug>-uploads`예요. dev/prod가 MinIO를 공유하는 기본 구성에서 dev에는 `dev-`를 설정해요. 실제 MinIO를 쓰는 dev 프로필은 빈 prefix로 부팅할 수 없고, 별도 공유 버킷 목록이 있다면 그 이름도 같은 prefix로 시작해야 해요.
 
-표에서 한 가지만 짚고 넘어갈게요. 운영 자격은 거의 전부 dev 전용 값으로 분리됩니다. DB 와 bucket 뿐 아니라 MinIO endpoint·key, JWT, Resend, PortOne, Discord 까지 모두 `_DEV` 시크릿으로 따로 올라가요. prod 와 진짜로 공유되는 건 `.env.infra` 가 소유하고 `infra init` 이 접미사 없이 올리는 인프라 자격 — `GHCR_TOKEN` · `SSH_PRIVATE_KEY` · `TS_OAUTH_*` · `DEPLOY_HOST` · `DEPLOY_SSH_USER` — 뿐입니다. 이것들은 Mac mini 한 대, Cloudflare 계정 하나를 두 환경이 함께 쓰기 때문에 나눌 대상이 아니에요. 관측성은 조금 결이 달라요. Loki·Grafana 인스턴스 자체는 한 대를 공유하되 `env` 라벨로 대시보드를 구분하고, 접속 URL 시크릿(`LOKI_URL`)은 `LOKI_URL_DEV` 로 분리해 둡니다.
+DB·MinIO·JWT·Resend·PortOne·Discord 등 환경별 설정은 dev 전용 `_DEV` 이름으로 저장해요. `.env.infra`의 `GHCR_TOKEN`·`SSH_PRIVATE_KEY`·`TS_OAUTH_*`·`DEPLOY_HOST`·`DEPLOY_SSH_USER`는 같은 배포 호스트에 접근하는 공용 설정이라 접미사를 붙이지 않아요. Loki·Grafana도 인스턴스는 공유하지만 `env` 라벨로 데이터를 구분하고, Loki 접속 설정은 `LOKI_URL_DEV`로 따로 전달해요.
 
 dev 환경 셋업 절차는 [`deployment.md`](../deploy/deployment.md#dev-환경-자동-배포-opt-in) 의 opt-in 섹션에 단계별로 정리돼 있어요.
 

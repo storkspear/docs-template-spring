@@ -2,7 +2,7 @@
 
 > **유형**: How-to · **독자**: Level 0~1 · **읽는 시간**: ~7분
 
-로컬에서 `./gradlew bootRun` 을 처음 돌리면 콘솔에 로그가 빠르게 한 화면 지나가요. 그 로그 한 줄 한 줄이 무슨 뜻인지, 옆에서 짚어 주듯 처음부터 끝까지 따라가 볼게요. 지금 당장 직접 돌리지 않아도 읽으면서 그림이 잡히도록 구성했어요. 기동 중 막히는 줄이 있으면 이 문서로 돌아와 그 단락을 찾아보세요.
+첫 기동 로그에서 확인할 항목은 활성 프로파일, DB 연결, Flyway 실행 결과, 서버 준비 완료예요. `./gradlew bootRun`을 실행한 뒤 아래 예시와 비교해 보세요. 기동이 멈추면 마지막으로 성공한 단계와 그 뒤의 오류를 확인해요.
 
 > **전제**: [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 의 환경 셋업을 마쳤어요. 셋업은 `<repo> init` 한 번이면 끝나고, 이후 기동은 `<repo> start` 또는 `./gradlew :bootstrap:bootRun` 으로 해요.
 
@@ -21,7 +21,9 @@ BUILD SUCCESSFUL in 8s
 
 Gradle 이 멀티모듈을 순서대로 컴파일하는 단계예요. 공통 인프라 모듈, core 도메인 모듈, 그리고 이들을 하나로 조립하는 `bootstrap` 모듈이 각각 독립적으로 빌드돼요. 첫 빌드는 의존성을 모두 내려받느라 2~5분쯤 걸리고, 그다음부터는 바뀐 부분만 다시 빌드하는 증분 빌드라 몇 초면 끝나요.
 
-여기서 실패한다면 원인은 보통 둘 중 하나예요. Java 21 이 깔려 있지 않거나, Gradle 캐시가 꼬인 경우죠. `java --version` 으로 버전을 먼저 확인하고, 그래도 안 되면 `./gradlew clean` 으로 캐시를 비운 뒤 다시 시도하세요.
+기동 실패 원인은 로그의 첫 오류부터 확인해요. `java --version`으로 실행 JDK를 확인하고, 컴파일·의존성 해석·DB 연결 중 어느 단계가 실패했는지 구분해요. `./gradlew clean`은 프로젝트 빌드 산출물을 지우는 명령이며 의존성 캐시를 비우지는 않아요.
+
+<a id="2-spring-기동--배너와-프로필"></a>
 
 ## 2. Spring 기동 — 배너와 프로필
 
@@ -42,6 +44,9 @@ Spring Boot 의 시작을 알리는 배너예요. 바로 아래 `Active Spring p
 
 이 자리에 프로필 이름 대신 `No active Spring profile set — default profile in use ...` 경고가 보인다면, `bootRun` 을 거치지 않고 띄운 경우예요 (예: IDE 실행 설정, `java -jar` 직접 실행). `bootRun` 은 프로필을 자동으로 local 로 잡아 주니, 다른 경로로 띄울 때는 `SPRING_PROFILES_ACTIVE=local` 을 직접 지정하세요. 막혔다면 [`Onboarding §6 흔한 에러`](../start/onboarding.md#6-흔한-에러) 의 프로필 항목을 보세요.
 
+<a id="3-db-연결--hikaricpreferenceglossarymd데이터베이스-풀-기동"></a>
+<a id="3-db-연결--hikaricp-풀-기동"></a>
+
 ## 3. DB 연결 — [HikariCP](../reference/glossary.md#데이터베이스) 풀 기동
 
 ```
@@ -56,6 +61,8 @@ Postgres 에 연결이 성공했다는 신호예요. 매 요청마다 DB 연결�
 
 - `Connection refused` — Postgres 컨테이너가 아직 안 떴어요. `docker compose -f infra/docker-compose.local.yml up -d postgres` 로 띄우세요.
 - `password authentication failed` — `.env` 의 DB 접속값이 컨테이너 설정과 어긋났어요. `application-local.yml` 의 기본값(`localhost:5433`, 사용자 `postgres`)과 맞는지 보세요.
+
+<a id="4-flyway-마이그레이션"></a>
 
 ## 4. [Flyway](../reference/glossary.md#데이터베이스) 마이그레이션
 
@@ -84,7 +91,7 @@ Successfully applied 26 migrations to schema "sumtally"
 | **V007** | admin 유저 1명 시드 | `--seed-admin` 을 붙였을 때만 생성되는 옵트인 자리. 랜덤 비밀번호가 만들어져 완료 안내에 1회만 출력돼요 |
 | **V008 ~ V012** | 결제와 구독. subscription_plans · subscriptions · payment_webhook_events · subscription_renewals · audit_logs | |
 | **V013 ~ V014** | 2FA([TOTP](../reference/glossary.md#인증--보안)) 컬럼 · 사용자 알림 채널 toggle | |
-| **V015 ~ V016** | auth_phone_verification_codes(휴대폰 점유인증) · auth_email_verification_codes | 점유인증을 안 쓰면 V015 는 삭제 가능 |
+| **V015 ~ V016** | auth_phone_verification_codes(휴대폰 점유인증) · auth_email_verification_codes | V015는 기본 생성돼요. 미사용 기능은 토글로 끄고 적용된 마이그레이션은 삭제하지 않아요 |
 | **V017 ~ V021** | 운영·콘솔. user_activity_days · attachment_file · user_read_history · message_send_history · audit_logs_archive | |
 | **V022 ~ V023** | 환불. payment 환불 컬럼 · payment_refunds | |
 | **V024 ~ V025** | posts · analytics | |
@@ -93,6 +100,8 @@ Successfully applied 26 migrations to schema "sumtally"
 
 본인 도메인 테이블은 그다음 비어 있는 번호(현재 V028)부터 직접 작성하면 돼요.
 
+<a id="5-hibernate-orm"></a>
+
 ## 5. [Hibernate ORM](../reference/glossary.md#데이터베이스)
 
 ```
@@ -100,7 +109,7 @@ HHH000412: Hibernate ORM core version 6.x.x
 HHH000204: Processing PersistenceUnitInfo ...
 ```
 
-[JPA](../reference/glossary.md#데이터베이스) 엔티티를 스캔해서 DB 테이블과의 매핑을 검증하는 단계예요. 엔티티 클래스와 실제 테이블 구조가 어긋나 있으면 바로 이 자리에서 에러가 나요. 그래서 컬럼을 추가했는데 마이그레이션을 빠뜨렸다면 여기서 걸려요.
+Hibernate가 JPA 엔티티 매핑과 EntityManager를 준비하는 단계예요. 현재 설정은 `hbm2ddl.auto=none`이므로 실제 테이블 컬럼과 엔티티의 일치를 부팅 때 검사하지 않아요. 컬럼 변경은 마이그레이션과 해당 앱의 조회·저장 검증을 함께 확인해야 해요.
 
 ## 6. Tomcat 서버 시작
 
@@ -116,7 +125,7 @@ Tomcat started on port(s): 8081 (http) with context path ''
 
 > **왜 8081 일까요?** Spring Boot 기본 포트는 8080 인데, 로컬에서 다른 서비스와 자주 부딪혀서 `application.yml` 에서 8081 로 고정했어요. 운영 컨테이너 안에서는 Dockerfile 의 `EXPOSE 8080` 과 맞추려고 `config/deploy.yml` 의 `SERVER_PORT=8080` 환경변수로 다시 8080 으로 바꿔요. 로컬은 8081, 운영 컨테이너 안은 8080 인 셈이죠.
 
-포트가 이미 점유돼 있어 기동이 막힌다면, `application-local.yml` 에서 `server.port` 를 비우거나 그 포트를 쓰는 다른 프로세스를 종료하세요.
+포트가 이미 사용 중이면 해당 프로세스를 종료하거나 `SERVER_PORT`를 사용하지 않는 포트로 지정해요. 현재 기본 로컬 포트는 8081이며 `application-local.yml`의 `server.port`를 비우는 절차는 아니에요.
 
 ## 7. 최종 준비 완료
 
@@ -125,6 +134,8 @@ Started FactoryApplication in 3.842 seconds (process running for 4.521)
 ```
 
 부팅이 끝났어요. 이제 HTTP 요청을 받을 수 있는 상태예요. 이 줄이 보이면 다음 단계로 넘어가서 직접 요청을 한 번 보내 봐요.
+
+<a id="8-첫-http-호출--헬스-체크"></a>
 
 ## 8. 첫 HTTP 호출 — 헬스 체크
 
@@ -183,6 +194,8 @@ HikariPool-1 - Shutdown completed.
 
 [graceful shutdown](../reference/glossary.md#운영--인프라)이에요. 처리 중이던 요청을 끝까지 마친 뒤에 DB 연결을 정리하고 종료하죠. 그래서 진행 중인 요청이 있으면 종료가 몇 초쯤 늦어질 수 있는데, 정상 동작이에요. 급하게 끄고 싶으면 `Ctrl+C` 를 한 번 더 누르세요.
 
+<a id="체크리스트--여기까지-봤나요"></a>
+
 ## 체크리스트 — 여기까지 봤나요?
 
 - [ ] `BUILD SUCCESSFUL` 이 떴어요
@@ -204,6 +217,8 @@ HikariPool-1 - Shutdown completed.
 | 에러로 막혔을 때 | [`Onboarding §6 흔한 에러`](../start/onboarding.md#6-흔한-에러) |
 
 ---
+
+<a id="-책-목차--journey-입문-단계"></a>
 
 ## 📖 책 목차 — Journey 입문 단계
 

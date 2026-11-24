@@ -1,3 +1,5 @@
+<a id="flutter--backend-integration"></a>
+
 # Flutter ↔ Backend Integration
 
 > **유형**: How-to · **독자**: Level 2 · **읽는 시간**: ~10분
@@ -26,6 +28,8 @@
 
 ## 기본 URL 규칙
 
+<a id="앱별-스코프--대부분의-엔드포인트"></a>
+
 ### 앱별 스코프 — 대부분의 엔드포인트
 
 ```text
@@ -36,11 +40,13 @@
 
 모든 인증·디바이스·도메인 엔드포인트가 이 규칙을 따릅니다. 한 백엔드가 여러 앱을 서비스하니까, path 에 슬러그가 박혀 있어야 앱별로 데이터가 분리돼요. 이 경로 상수는 `common-web` 모듈의 `ApiEndpoints.APP_BASE` 에 정의되어 있습니다.
 
-### 전역 스코프 — 인프라와 유저 프로필
+<a id="전역-스코프-인프라와-유저-프로필"></a>
 
-슬러그가 붙지 않는 경로도 있어요.
+<a id="전역-스코프--인프라와-유저-프로필"></a>
 
-| 경로 | 인증 | 용도 |
+### 인프라 경로와 유저 프로필
+
+아래 표는 인프라 경로와 유저 프로필 경로를 함께 정리해요. 인프라 경로에는 slug가 없지만 `/api/apps/{appSlug}/users/me`는 앱별 경로예요.| 경로 | 인증 | 용도 |
 |---|---|---|
 | `/health` | 불필요 | 헬스 체크 |
 | `/version` | 불필요 | 버전 정보 |
@@ -136,7 +142,7 @@ public record SignInRequest(
 
 ### AuthResponse
 
-로그인·가입 성공 시 반환되는 복합 응답이에요. record 는 네 개의 필드를 갖지만, 평소엔 `user` 와 `tokens` 만 채워집니다. 나머지 두 필드는 특정 상황에서만 등장해요.
+`AuthResponse`는 `user`·`tokens`·`twoFactorToken` 세 필드를 가져요. 정상 로그인·가입은 `user`와 `tokens`를 반환하고, 2FA가 필요한 로그인은 두 필드 대신 `twoFactorToken`을 반환해요.
 
 ```java
 public record AuthResponse(
@@ -174,14 +180,13 @@ public record AuthTokens(
       "id": 123,
       "email": "user@example.com",
       "displayName": "홍길동",
-      "emailVerified": false
+      "emailVerified": true
     },
     "tokens": {
       "accessToken": "<jwt-access-token-placeholder>",
       "refreshToken": "<refresh-token-placeholder>"
     }
-  },
-  "error": null
+  }
 }
 ```
 
@@ -189,16 +194,16 @@ public record AuthTokens(
 
 ### AppleSignInRequest
 
-첫 로그인과 이후 로그인의 payload 가 달라요. Apple 은 첫 로그인에서만 일부 필드를 제공하므로, Flutter 는 첫 응답을 로컬에 저장해 뒀다가 서버에 그대로 전달해야 합니다.
+서버 DTO에서 필수인 값은 `identityToken`이에요. 이름·이메일 필드는 신규 사용자 생성에 활용될 수 있지만, 현재 `AppleSignInService`는 `authorizationCode`·`nonce`를 읽지 않아요. 이 필드가 요청에 있다는 이유로 서버의 nonce 대조나 Apple 토큰 회수까지 구현됐다고 가정하지 않아요. 입력값의 공급자 측 의미와 클라이언트 수집 방식은 해당 SDK 계약을 함께 확인해요.
 
 ```java
 public record AppleSignInRequest(
     @NotBlank String identityToken,
-    String authorizationCode,   // 첫 로그인에만 (Revoke Tokens 용 — Phase 1)
-    String firstName,           // 첫 로그인에만
-    String lastName,            // 첫 로그인에만
-    String email,               // 첫 로그인에만
-    String nonce                // 첫 로그인에만
+    String authorizationCode,
+    String firstName,
+    String lastName,
+    String email,
+    String nonce
 ) {}
 ```
 
@@ -227,8 +232,7 @@ public record RefreshRequest(
   "data": {
     "accessToken": "<jwt-access-token-placeholder>",
     "refreshToken": "<refresh-token-placeholder>"
-  },
-  "error": null
+  }
 }
 ```
 
@@ -319,6 +323,8 @@ JWT access token 의 claim 구조는 다음과 같아요. 발급은 `JwtService.
 
 ---
 
+<a id="401-응답-처리--flutter-쪽-분기-규약"></a>
+
 ## 401 응답 처리 — Flutter 쪽 분기 규약
 
 401 Unauthorized 는 하나의 상태 코드 아래 여러 의미를 담아요. Flutter 는 HTTP 상태가 아니라 `error.code` 값으로 분기해야 합니다.
@@ -333,7 +339,7 @@ JWT access token 의 claim 구조는 다음과 같아요. 발급은 `JwtService.
 | `ATH_003` | Refresh·verify·reset 토큰 무효 | `/auth/refresh` 에서 오면 재로그인 유도. 코드 화면에서 오면 "코드가 올바르지 않아요" 입력 오류 안내 — 같은 코드로 5회 틀리면 그 코드가 무효화되므로 그 뒤에는 코드 재요청 안내 |
 | `ATH_004` | 소셜 로그인 검증 실패 | 소셜 로그인 재시도 |
 | `ATH_005` | 이메일 미인증 | 인증 안내 화면 |
-| `ATH_010` | 2FA 필요 | `twoFactorToken` 으로 2단계 코드 화면 이동 |
+| `ATH_010` | enum에 정의된 2FA 필요 오류 | 현재 정상적인 2FA 로그인 분기는 401이 아니라 200의 `data.twoFactorToken`으로 처리해요 |
 
 ### 추천 흐름
 
@@ -366,7 +372,6 @@ JWT access token 의 claim 구조는 다음과 같아요. 발급은 `JwtService.
 
 ```json
 {
-  "data": null,
   "error": {
     "code": "CMN_005",
     "message": "app mismatch: JWT issued for 'sumtally' but accessing 'gymlog'"
@@ -381,6 +386,8 @@ JWT access token 의 claim 구조는 다음과 같아요. 발급은 `JwtService.
 `CMN_005` 를 받았을 때 재시도는 무의미해요. 현재 활성 토큰을 파기하고 해당 앱으로 재로그인하는 흐름을 권장합니다.
 
 ---
+
+<a id="http-상태-코드--에러-코드-매핑"></a>
 
 ## HTTP 상태 코드 + 에러 코드 매핑
 
@@ -403,7 +410,7 @@ Flutter 가 자주 받게 될 조합만 추렸어요.
 | Refresh token 무효 | 401 | `ATH_003` |
 | 소셜 로그인 검증 실패 | 401 | `ATH_004` |
 | 이메일 인증 필요 | 401 | `ATH_005` |
-| 2FA 필요 | 401 | `ATH_010` |
+| 정상 로그인 1단계 후 2FA 필요 | 200 | `data.twoFactorToken` (오류 응답 아님) |
 | 이메일 발송 실패 | 502 | `EMAIL_001` |
 | Rate limit 초과 | 429 | `CMN_429` (Retry-After 헤더 포함) |
 | 로그인 실패 계정 잠금 | 429 | `ATH_014` (Retry-After 헤더 + `details.retryAfterSeconds`) |
@@ -411,9 +418,11 @@ Flutter 가 자주 받게 될 조합만 추렸어요.
 
 전체 매핑과 근거는 [`API Response Format`](./api-response.md) 과 [`Exception Handling Convention`](../../convention/exception-handling.md) 에서 관리합니다.
 
+<a id="ath_014-계정-잠금-처리"></a>
+
 ### `ATH_014` (계정 잠금) 처리
 
-`/auth/email/signin`(1단계) 과 `/auth/2fa/login`(2단계) 은 실패가 누적되면(기본 5회/15분) 계정을 일시 잠급니다. 잠금 중 요청은 요청 비밀번호·코드의 정오답과 무관하게 **429 + `ATH_014`** 를 반환하고, 응답 body 의 `error.details.retryAfterSeconds` (또는 `Retry-After` 헤더) 로 남은 시간을 알려줍니다. Flutter 는 이 값으로 카운트다운을 표시하고 재시도 버튼을 그동안 비활성화하는 걸 권장해요. 성공 시 카운터는 초기화되고, 비밀번호 재설정을 완료하면 잠금이 즉시 해제됩니다.
+로그인 실패 누적과 잠금은 공유 `LockoutProperties`를 따라요. 기본 실패 누적 윈도우는 6시간이고, 5회 실패하면 최초 15분 잠금이 걸려요. 같은 윈도우에서 실패가 더 누적되면 잠금 시간이 늘어나며 상한은 24시간이에요. 잠금 중에는 429 `ATH_014`와 남은 초를 반환하므로 클라이언트는 `details.retryAfterSeconds` 또는 `Retry-After`를 기준으로 안내해요. 성공하거나 비밀번호 재설정을 완료하면 잠금이 해제돼요.
 
 미처리 시에도 기존 429 공통 처리로 안전하게 degrade 하므로(요청/응답 스키마는 불변), 클라이언트 코드 변경은 선택 사항이에요.
 
@@ -469,17 +478,23 @@ Content-Type: application/json
 }
 ```
 
-같은 유저와 같은 appSlug, 같은 platform 조합으로 다시 등록하면 새 row 를 만들지 않고 pushToken 을 갱신해요. 이 upsert 는 `DeviceServiceImpl.register` 가 처리합니다. 먼저 `(userId, appSlug, platform)` 으로 기존 디바이스를 찾고, 있으면 토큰만 업데이트하고 없으면 새로 만드는 방식이에요.
+같은 `(userId, appSlug, platform)`으로 다시 등록하면 기존 행의 `pushToken`과 최근 접속 시각을 갱신해요. 없으면 새 행을 만들고, 동시 등록으로 유니크 충돌이 나면 다시 조회해 한 번 더 처리해요. 같은 사용자·앱·플랫폼에는 한 행만 유지하므로 같은 플랫폼의 여러 기기를 각각 등록하는 모델은 아니에요.
 
 로그아웃이나 탈퇴 시에는 해당 디바이스를 `DELETE` 로 정리하기를 권장해요. 그렇지 않으면 이 디바이스로 계속 푸시가 전달됩니다.
 
 ---
 
+<a id="최소-앱-버전-게이트-2단계--강제경고"></a>
+
 ## 최소 앱 버전 게이트 (2단계 — 강제/경고)
 
-서버가 breaking change 를 배포해도 구버전 앱이 조용히 파손되지 않도록, 관리자가 최소 버전을 2단계로 설정할 수 있어요 — **강제(`forceMinVersion`)**: 클라이언트가 보낸 버전이 그 값 **이하(≤)** 면 서버가 426 으로 막고 스토어 업데이트를 유도해요. **경고(`warnMinVersion`)**: 서버는 절대 막지 않아요 — 값만 클라에 전달하고, 미달 판정과 경고 배너 표시는 전적으로 클라이언트(Flutter)의 몫이에요. 둘 다 nullable 이고 독립적으로 설정 가능해요(강제만, 경고만, 둘 다, 둘 다 없음 모두 유효).
+관리자는 앱 최소 버전을 강제와 경고 두 단계로 설정할 수 있어요. `forceMinVersion`은 클라이언트 버전이 해당 값 이하(≤)일 때 서버가 426으로 차단하는 기준이에요. `warnMinVersion`은 서버가 차단하지 않고 클라이언트에 전달하는 경고 기준이에요. 클라이언트가 버전을 비교해 배너나 업데이트 화면을 표시해요. 두 값은 독립적인 선택 항목이라 하나만 설정하거나 둘 다 비워 둘 수 있어요.
+
+이 설정은 구버전 앱의 접근을 제어하는 수단이에요. 호환성이 깨지는 서버 변경을 자동으로 안전하게 만들지는 않으므로 API 변경 검토와 함께 사용해요.
 
 안전망(서버가 모든 요청을 막는 경로)과 스플래시의 능동 조회(로그인 전에 스스로 확인하는 경로) 두 가지를 함께 둡니다. 규칙을 편집하는 관리자 콘솔 API 는 [`admin-console.md` §4-18](../admin-console.md) 이 정본이에요.
+
+<a id="요청-헤더--x-app-platform"></a>
 
 ### 요청 헤더 — `X-App-Platform`
 
@@ -492,9 +507,11 @@ Content-Type: application/json
 
 두 헤더 모두 `api_client` 기본 헤더로 전 요청에 자동 첨부하는 걸 권장해요(엔드포인트별 추가 작업 없이 한 번만 배선).
 
+<a id="공개-조회-엔드포인트--get-apiappsappslugapp-version"></a>
+
 ### 공개 조회 엔드포인트 — `GET /api/apps/{appSlug}/app-version`
 
-앱 스플래시가 로그인 전에 능동으로 호출해 "내가 구버전인지"를 스스로 판단하는 엔드포인트예요. `permitAll` + `MinAppVersionFilter` 미적용(구버전 앱도 이 경로엔 항상 도달해야 하는 달걀-닭 문제 방지)이라, 클라이언트 버전과 무관하게 항상 200 이에요.
+앱은 로그인 전에 이 경로를 조회해 버전 규칙을 확인할 수 있어요. `permitAll`이며 `MinAppVersionFilter` 대상에서 제외돼 구버전이라는 이유로 426을 받지 않아요. 다만 rate limit이나 다른 요청 오류까지 면제되는 것은 아니므로 클라이언트는 조회 실패도 처리해야 해요.
 
 ```http
 GET /api/apps/sumtally/app-version
@@ -509,8 +526,7 @@ X-App-Platform: ios
     "warnMinVersion": "2.1.0",
     "storeUrl": "https://apps.apple.com/app/id0000000000",
     "message": "새 버전으로 업데이트해주세요"
-  },
-  "error": null
+  }
 }
 ```
 
@@ -520,13 +536,14 @@ X-App-Platform: ios
 - `forceMinVersion` 이 채워져 있고 자기 앱 버전이 그 값 **이하(≤)** 면 → 닫을 수 없는 강제 업데이트 다이얼로그. 서버 필터와 같은 경계라 여기서 어긋나면 안내 없이 전 API 가 426 이 돼요.
 - (강제 조건에 안 걸렸을 때) `warnMinVersion` 이 채워져 있고 자기 앱 버전이 그 값 **이하(≤)** 면 → 닫을 수 있는 경고 배너("업데이트 권장"). 이 판정은 **서버가 전혀 하지 않으므로** 전적으로 클라이언트 로직이에요.
 
+<a id="426-강제-업데이트-응답--cmn_010"></a>
+
 ### 426 강제 업데이트 응답 — `CMN_010`
 
 `app-version` 조회 경로 자체는 예외지만, 그 외 `/api/apps/**` 의 모든 요청은(인증 전·후 모두) 이 게이트에 걸릴 수 있어요. **오직 `forceMinVersion` 이하(≤)일 때만** `details` 가 실린 426 을 받습니다 — `warnMinVersion` 미달은 서버가 절대 막지 않아요(경고 판정은 앱 스플래시가 위 조회 엔드포인트 값으로 직접 수행).
 
 ```json
 {
-  "data": null,
   "error": {
     "code": "CMN_010",
     "message": "새 버전으로 업데이트해주세요",
@@ -559,8 +576,7 @@ Flutter 권장 동작: 이 코드를 받으면 `details.forceMinVersion`/`storeU
 
 ### 이메일 가입은 됐는데 로그인이 안 돼요
 
-- **원인** — `emailVerified` 가 `false` 인 상태예요. verify-before-signup 가입 유저는 항상 `true` 로 생성되므로, 주로 소셜 가입 등 다른 경로 유저예요. `resend-verification` 으로 인증 메일을 다시 보내 링크 인증을 완료해야 합니다.
-- **확인** — DB 의 `users.email_verified` 값이나 signup 응답의 `user.emailVerified` 를 확인하세요.
+- **확인할 상태** — verify-before-signup으로 가입한 사용자는 `emailVerified=true`로 생성돼요. 소셜 가입 등 다른 경로에서 미인증 상태가 됐다면 `resend-verification`으로 6자리 코드를 받고 `verify-email`에 email과 token을 보내요. 현재 계약은 링크 클릭 방식이 아니에요. 실제 로그인 오류의 `error.code`와 `users.email_verified` 상태도 함께 확인해요.
 
 ### 소셜 로그인 identity token 이 거부돼요
 

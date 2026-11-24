@@ -1,3 +1,5 @@
+<a id="adr-017--oauth-20-통합-google--apple--kakao--naver"></a>
+
 # ADR-017 · OAuth 2.0 통합 (Google / Apple / Kakao / Naver)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~8분
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-소셜 로그인은 사용자 마찰을 줄이는 가장 효과적인 수단이에요. *Google 로 시작하기* / *Apple 로 시작하기* / *카카오로 시작하기* 버튼 한 번이 *이메일 입력 + 비밀번호 설정 + 인증 메일 클릭* 의 세 단계를 한 번에 건너뛰어 줍니다. 한국 시장 앱이라면 카카오·네이버, 글로벌 앱이라면 Google·Apple — 어느 조합이든 *provider 가 점점 늘어나는* 흐름은 자연스러워요.
+Google·Apple·Kakao·Naver 로그인은 제공자별 `SignInService`로 구현해요. 각 서비스가 토큰 검증 방식과 프로필 응답의 차이를 처리한 뒤 앱별 사용자 조회·생성과 자체 토큰 발급으로 연결해요. 제공자마다 다른 검증 조건을 하나의 상위 클래스로 묶기보다 각 구현에서 드러내는 방식을 선택했어요.
 
 이 ADR 은 *Google / Apple / Kakao / Naver 네 provider* 를 통합한 패턴을 기록합니다. 각 provider 마다 검증 방식이 다르고 (Google 은 `id_token` 한 번 호출, Apple 은 JWKS 로 RS256 직접 검증, Kakao 는 access token 두 endpoint 호출, Naver 는 `/v1/nid/me` 단일 호출), 토큰 형태와 audience 필드명도 제각각이에요. 그래서 *공통 추상화* 를 강요하는 대신 *Provider 별 SignInService 클래스를 복제* 하는 패턴을 채택했습니다. 각 클래스는 같은 4 단계 흐름 — 토큰 검증 → `social_identities` 조회 → 신규/기존 분기 → 우리 JWT 발급 — 을 따르되, provider 의 미세 차이는 그 클래스 안에 캡슐화돼요.
 
@@ -32,6 +34,8 @@ DB 변경은 0 입니다. `social_identities (provider, provider_id)` PK 가 [`A
 
 ## 고민했던 대안들
 
+<a id="option-1--spring-security-oauth2-client"></a>
+
 ### Option 1 — Spring Security OAuth2 Client
 
 가장 *Spring 스러운* 답이에요. `spring-boot-starter-oauth2-client` 를 도입하고 provider 별 설정을 `application.yml` 에 선언하면, 표준 OAuth2 / OIDC 흐름 (PKCE, refresh token rotation, OIDC discovery 등) 이 한 번에 따라옵니다. *프레임워크가 알아서 해 주는* 가치가 분명한 영역이에요.
@@ -39,6 +43,8 @@ DB 변경은 0 입니다. `social_identities (provider, provider_id)` PK 가 [`A
 다만 우리 흐름과 *세 가지 결정적 미스매치* 가 있어요. 첫째, 표준 OAuth2 는 *redirect URI 기반 흐름* 을 전제하는데 모바일 앱은 *SDK 가 클라이언트 측에서 토큰을 받아 백엔드에 전달* 하는 훨씬 단순한 모델이에요. redirect 흐름의 부가 기능 (PKCE, state 파라미터 등) 이 모바일에서는 의미가 약합니다. 둘째, provider 별 추가 설정 (issuer URI, JWK Set URI, scope 등) 이 `application.yml` 에 분산되는데, 우리는 *앱별 credential 매핑* 을 `AppCredentialProperties` 한 곳에 집중시키고 싶어요. 셋째, Kakao 처럼 *비표준 provider* (JWT 가 아닌 opaque access token + 두 endpoint 호출) 는 spring-security-oauth2 의 가정과 맞지 않아 *우회 코드* 가 필요해집니다.
 
 탈락 이유는 *모바일 토큰 전달 방식에 비해 라이브러리가 무거움* 이에요. 의존성 비용과 학습 곡선이 *우리가 얻는 가치 (표준 흐름)* 보다 크고, 비표준 provider 의 처리도 어색해서 트레이드오프가 우리 환경과 맞지 않습니다.
+
+<a id="option-2--단일-추상-oauthprovider-인터페이스"></a>
 
 ### Option 2 — 단일 추상 `OAuthProvider` 인터페이스
 
@@ -49,6 +55,8 @@ DB 변경은 0 입니다. `social_identities (provider, provider_id)` PK 가 [`A
 또 다른 문제는 *클라이언트 입장의 명확성* 이에요. `AuthPort.signInWithGoogle(GoogleSignInRequest)` 처럼 provider 별 메서드를 노출하면 클라이언트가 *어떤 DTO 를 보내야 하는지* 가 시그니처에서 즉시 드러납니다. 추상 `signIn(provider, token, ...)` 형태로 묶으면 *Google 에 access token 을 보내거나 Kakao 에 id_token 을 보내는* 잘못된 조합이 컴파일 타임에 막히지 않아요.
 
 탈락 이유는 *추상화 비용이 복제 비용보다 큼* 이에요. ADR-007 의 *단순함 우선* 원칙에 정합하지 않습니다.
+
+<a id="option-3--provider-별-signinservice-클래스-복제--채택"></a>
 
 ### Option 3 — Provider 별 SignInService 클래스 복제 ★ 채택
 
@@ -97,6 +105,8 @@ Naver 가 단일 호출인 이유이자 **audience 검증이 비어 있는 이�
 
 남는 잔여 위험은 *다른 Naver 앱에 발급된 유효한 access token 을 우리 endpoint 로 재생(replay)하는* 케이스예요. 이때 우리 코드가 걸러낼 수단은 없고, Naver 서버가 그 토큰을 거절해 주기를 기대하는 상태입니다. 영향 범위는 "그 사람이 자기 Naver 계정으로 우리 앱에 가입된다" 이지 다른 유저 계정 탈취나 앱 간 데이터 접근은 아니에요 — 앱 경계 자체는 `AppSlugVerificationFilter` 와 schema 라우팅 ([`ADR-012`](./adr-012-per-app-user-model.md), [`ADR-018`](./adr-018-schema-routing-datasource.md)) 이 별도로 지킵니다. Naver 가 client 대조용 필드를 노출하면 Kakao 와 같은 형태로 검증을 추가할 자리예요.
 
+<a id="social_identities-테이블-db-변경-0"></a>
+
 ### `social_identities` 테이블 (DB 변경 0)
 
 ```
@@ -129,25 +139,33 @@ app:
 
 ### 설계 선택 포인트
 
+<a id="포인트-1--토큰은-항상-서버에서-재검증"></a>
+
 #### 포인트 1 — 토큰은 항상 서버에서 재검증
 
 모바일 SDK 가 클라이언트 측에서 OAuth 토큰을 받아오면, 그 토큰을 *그대로 신뢰하지 않고* 백엔드 endpoint 로 raw 형태 전달합니다. 서버는 그 토큰을 받아 provider 공식 endpoint (Google `tokeninfo`, Apple JWKS, Kakao `access_token_info`, Naver `/v1/nid/me`) 로 재검증한 뒤에야 신뢰해요.
 
 이 단계가 사라지면 *클라이언트가 토큰을 위조해 보내는* 공격에 무방비가 됩니다. 모바일 SDK 가 받아온 토큰은 *클라이언트 환경* 에서 가공될 수 있다는 가정이 있어야 안전해요. 서버 재검증은 응답 시간 ~100~500ms 를 추가하지만, 이 비용은 *보안 핵심* 이라 양보 대상이 아닙니다.
 
+<a id="포인트-2--social_identities-pk-는-provider-provider_id"></a>
+
 #### 포인트 2 — `social_identities` PK 는 `(provider, provider_id)`
 
 소셜 유저를 *어떤 키로 식별할지* 는 미묘한 결정이에요. *이메일* 을 키로 쓰면 자연스러워 보이지만, 사용자가 provider 측에서 이메일을 변경할 수 있고 (Apple 의 *Hide My Email* 이 대표적), 그러면 *우리 DB 에서 동일 유저가 다른 사람으로 인식* 되는 사고가 생깁니다.
 
-대신 provider 가 부여한 *영속 식별자* — Google 의 `sub`, Apple 의 `sub`, Kakao 의 `id`, Naver 의 `id` — 를 사용해요. 이 값은 *provider 가 그 사용자를 식별하는 영구 키* 라 이메일이 바뀌어도 변하지 않습니다. PK 를 `(provider, provider_id)` 복합 키로 잡으면 *Google 의 12345* 와 *Kakao 의 12345* 가 충돌하지 않게 자연스럽게 격리돼요.
+소셜 계정은 제공자와 제공자가 반환한 사용자 식별자를 함께 사용해 구분해요. Google의 `sub`와 Kakao의 `id` 값이 같더라도 제공자가 다르면 다른 소셜 계정이에요. 현재 저장소는 별도의 ID 기본 키와 `(provider, provider_id)` 고유 제약을 사용해요. 이메일이 바뀌었을 때 계정 연결을 이메일만으로 추론하지 않는 것이 이 결정의 요점이에요.
 
 이메일 기반 *계정 통합* (예: *같은 이메일로 다른 provider 로그인 시 동일 유저로 묶기*) 은 별도 ADR 에서 다룰 주제예요. 본 ADR 은 *각 provider 식별자가 별개 유저* 라는 가장 보수적인 모델을 따릅니다.
+
+<a id="포인트-3--email_verifiedtrue-자동-부여"></a>
 
 #### 포인트 3 — `email_verified=true` 자동 부여
 
 Google / Apple / Kakao / Naver 모두 *자체적으로 이메일 검증* 을 거친 뒤에 사용자에게 OAuth 권한을 부여해요. 그 사실을 우리 시스템이 신뢰하면 *소셜 가입자에게 별도 인증 메일을 발송할 필요* 가 없어집니다.
 
 따라서 신규 소셜 유저는 `email_verified=true` 로 즉시 생성되고, 인증 메일도 발송되지 않아요. 사용자 입장에서는 *Google 로 시작* 버튼 한 번에 *이메일 인증까지 끝난 가입* 이 되는 셈입니다. 이메일 가입과 비교해 마찰이 한 단계 더 줄어드는 효과예요.
+
+<a id="포인트-4--apple-hide-my-email--kakao-이메일-미동의"></a>
 
 #### 포인트 4 — Apple Hide My Email / Kakao 이메일 미동의
 
@@ -156,6 +174,8 @@ Google / Apple / Kakao / Naver 모두 *자체적으로 이메일 검증* 을 거
 **Apple 의 *Hide My Email*** — 사용자가 *이메일 숨기기* 옵션을 선택하면 Apple 이 `abc@privaterelay.appleid.com` 같은 *relay address* 를 발급합니다. 이 주소도 정상적인 이메일이라 *우리 시스템에서 그대로 사용* 해요 (Apple 이 그 주소로 온 메일을 사용자의 실제 이메일로 forward). 다만 *첫 가입 시점에만* token 에 email 이 포함되고 *이후 로그인에는 email 이 빠져* 있어, 클라이언트가 첫 응답을 로컬에 저장해뒀다가 백엔드에 전달하는 패턴이 필요해요. `AppleSignInRequest.email` 필드가 그 fallback 입니다.
 
 **Kakao 이메일 동의 거부** — Kakao 는 *이메일 정보 제공 동의* 를 사용자가 선택할 수 있게 해서, 거부하면 `kakao_account.email` 이 비어 옵니다. 본 시스템은 email 을 필수로 요구하므로 이 경우 401 (`reason=email_required`) 로 거부해요. *이메일 없이 가입 허용* 은 *유저 식별 정책* 이 통째로 바뀌는 큰 결정이라 별도 ADR 에서 다룰 주제로 남겨뒀습니다.
+
+<a id="포인트-5--authportsigninwith-provider-별-메서드"></a>
 
 #### 포인트 5 — `AuthPort.signInWith*` provider 별 메서드
 
@@ -213,7 +233,7 @@ OAuth 통합을 처음 설계할 때 *공통 인터페이스 + 구현체 N 개* 
 
 OAuth 토큰 검증을 *클라이언트 측에서 검증된 것을 신뢰* 하는 형태로 단순화하고 싶은 유혹이 있어요. *Google SDK 가 이미 검증한 토큰을 다시 검증할 필요가 있나?* 같은 질문이 자연스럽게 떠오릅니다.
 
-이 단순화는 보안 사고의 시작이에요. 클라이언트 환경은 *우리가 통제하지 않는* 영역이라 *SDK 가 검증한 척 하는 위조 토큰* 이나 *다른 앱에서 받은 토큰의 replay* 가 가능합니다. 매 요청마다 provider 공식 endpoint 로 재검증해야 *모든 토큰이 우리 앱에 발급된 진짜* 임이 보장돼요.
+클라이언트가 전달한 토큰을 그대로 신뢰하지 않고 로그인 처리 시 서버에서 검증해요. 제공자에 따라 공개 키로 서명을 검증하거나 공식 API를 호출해요. 다만 현재 Naver 경로는 사용자 조회 결과를 확인할 뿐 설정된 client ID와 토큰의 발급 앱을 대조하지 않으므로, 모든 제공자에서 같은 앱 바인딩을 보장한다고 설명하지 않아요.
 
 비용은 응답 시간 ~100~500ms 추가입니다. 이 비용은 *보안 핵심* 의 직접적 트레이드오프라 양보 대상이 아니에요.
 

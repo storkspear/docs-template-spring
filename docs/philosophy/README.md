@@ -1,66 +1,77 @@
+<a id="repository-philosophy--책-안내"></a>
+
 # Repository Philosophy — 책 안내
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~30분 (프롤로그 + 테마 1) / 2~3시간 (전체)
 
-이 문서는 `template-spring` 이 **왜 현재의 구조를 가지게 되었는지** 설명하는 **ADR(Architecture Decision Record) 카드** 모음입니다.
+이 문서는 `template-spring`의 설계 결정을 찾아보는 안내예요. 각 ADR은 당시의 문제와 선택, 이유와 제약을 기록해요. 현재 구현은 구조·API·운영 문서와 소스를 함께 확인해요.
 
-각 결정은 추상적인 이론이 아니라 **솔로 인디 개발자가 여러 앱을 빠른 주기로 출시할 때 마주치는 구체적인 고통** 에 대한 답변으로 만들어졌어요. 이 문서를 읽고 나면 "왜 굳이 이렇게 복잡하게 만들었지?" 하는 의문이 풀리기를 바랍니다.
+여러 앱을 혼자 개발하고 운영할 때 반복되는 작업을 줄이는 것이 공통 배경이에요. 아래 제약과 주제별 목록에서 필요한 결정으로 이동할 수 있어요.
 
 ---
+
+<a id="프롤로그--배경-및-철학"></a>
 
 ## 프롤로그 — 배경 및 철학
 
 ### 맥락: 앱 공장 전략
 
-이 레포지토리는 **"한 사람이 여러 앱을 고 cadence 로 찍어내는"** 작업 방식을 전제로 합니다. 이 한 문장이 단순해 보이지만, 실제로 펼쳐 보면 다음 세 가지 제약이 자동으로 따라붙어요.
+이 저장소는 한 사람이 여러 앱을 반복해서 출시하는 작업을 지원해요. 운영 단위를 줄이고 공통 기능을 재사용하면서 앱별 데이터와 도메인 경계를 유지해요.
+
+<a id="제약-1--운영-가능성이-최우선"></a>
 
 #### 제약 1 — 운영 가능성이 최우선
 
-한 사람이 10개 앱을 동시에 운영한다고 상상해봅시다. 앱 1개당 **운영 부담이 조금만 커져도** 전체가 무너집니다. 예를 들어 앱마다:
+앱마다 서버·배포·관측·DB를 따로 운영하면 앱 수만큼 관리 대상이 늘어요. 앱 10개를 각각 운영하는 경우를 예로 들면 다음과 같아요.
 
 - 독립된 Spring Boot 서버 1개 = 10개 프로세스
 - 독립된 배포 파이프라인 1개 = 10개 CI/CD
 - 독립된 모니터링 대시보드 1개 = 10개 Grafana
 - 독립된 Postgres 인스턴스 1개 = 10개 DB 관리
 
-여기에 각 앱의 **장애 대응** 까지 더하면 솔로로는 감당 불가능한 수준이 됩니다. 그래서 이 프로젝트는 "기술적으로 멋있는가" 보다 **"솔로가 감당 가능한가"** 가 설계 기준입니다. 멋있지만 복잡한 구조는 기각, 단순하지만 안정적인 구조는 채택.
+장애 대응까지 혼자 맡아야 하므로, 구조를 선택할 때 운영자가 감당할 수 있는 복잡도를 함께 판단해요.
+
+<a id="제약-2--시간이-가장-희소한-자원"></a>
 
 #### 제약 2 — 시간이 가장 희소한 자원
 
-돈은 **0에 가깝게 만들 수 있습니다** — Supabase Free tier, 맥미니 홈서버, Cloudflare Tunnel, NAS MinIO 조합이면 월 고정 비용이 한 자릿수 달러. 하지만 개발자 1명의 시간은 **복제 불가능한 자원** 이에요.
+Supabase, 홈서버, Cloudflare Tunnel, MinIO 같은 기존 자원을 활용해 인프라 비용을 줄여요. 실제 비용은 구성과 사용량에 따라 달라지며, 공통 기능을 다시 구현하고 운영하는 시간도 비용으로 봐요.
 
-이 비대칭성이 설계에 직접 반영됩니다:
+이 기준을 다음 작업에 적용해요.
 
 - 매번 재구현되는 공통 작업 (인증, 유저 관리, 푸시, 결제) 은 **반드시 한 번만 잘 만들고 재사용**
 - 새 앱 추가는 **스크립트 한 줄** (`./tools/app/new-app.sh <slug>`) — 수동 셋업 금지
 - 문서 작성에 들어가는 시간도 비용이므로, 코드 자체가 읽기 쉽게 (**"코드가 문서"** 원칙)
 
-시간을 아끼는 모든 설계 결정이 여기서 출발합니다.
+이렇게 반복 작업을 줄여 앱별 도메인 구현과 검증에 시간을 쓸 수 있도록 해요.
 
-#### 제약 3 — 복권 사기 모델
+<a id="제약-3-복권-사기-모델"></a>
 
-인디 앱 하나가 **성공할 확률은 낮습니다**. 경험적으로 80%는 시장 반응이 없고, 15%는 그럭저럭 굴러가며, 5%만 의미 있는 트래픽을 얻어요. 하지만 **새 앱 출시 비용이 0에 가까우면** 많이 시도할 수 있습니다.
+<a id="제약-3--복권-사기-모델"></a>
+#### 제약 3 — 새 앱을 반복해서 시도할 수 있어야 해요
 
-복권 사기로 비유하면: 당첨 확률은 낮아도 **한 장의 가격이 100원** 이면 1만 장을 살 수 있습니다. 반대로 한 장이 10만원이면 3장도 못 삽니다. 이 프로젝트의 존재 이유는 **새 앱 출시 비용을 극단적으로 낮추는 것** — 앱 하나 만드는 데 며칠이 아니라 몇 시간 수준으로 압축하는 게 목표입니다.
+새 앱의 수요는 출시 전부터 확정하기 어려워요. 공통 인증·결제·배포를 매번 다시 만들지 않으면 새 아이디어를 구현하고 검증하는 부담을 줄일 수 있어요.
+
+이 템플릿은 앱의 성공률이나 개발 시간을 보장하는 도구가 아니에요. 새 앱에 필요한 공통 기반을 재사용하고, 앱 고유의 기능에 집중할 수 있도록 준비해 두는 것이 목적이에요.
 
 ### 이 세 제약이 모든 ADR 의 공통 전제
 
-이 세 제약을 내재화하고 나면, 뒤따르는 ADR 들의 **"왜 이 선택이 되었는가"** 가 자연스럽게 이해됩니다. 거꾸로 이 제약을 모른 채 ADR 만 읽으면 "왜 굳이 이렇게 복잡하게?" 하는 의문이 끝없이 생겨요.
+아래 ADR들은 이 제약을 서로 다른 설계 문제에 적용한 기록이에요. 각 결정의 구체적인 조건과 대안은 해당 ADR에서 확인해요.
 
 예를 들어:
 
 - [`ADR-001`](./adr-001-modular-monolith.md) 이 "모듈러 모놀리스" 를 선택한 이유는 제약 1 (운영 단위 1 유지) 때문
 - [`ADR-002`](./adr-002-use-this-template.md) 가 "Use this template + cherry-pick" 을 선택한 이유는 제약 2 (공통 코드 재사용) 때문
-- ADR-007 이 "관리형 서비스 선호" 를 선택한 이유는 제약 1 + 제약 2 의 결합
+- [ADR-007](./adr-007-solo-friendly-operations.md)은 운영 부담과 반복 작업을 함께 줄이기 위해 관리형 서비스와 직접 운영의 시간·비용을 비교해요.
 - ADR-008 이 "API 버전 관리 미도입" 을 결정한 이유는 제약 3 (작은 스케일이라 아직 불필요)
 
-**모든 결정이 이 세 제약의 세 가지 조합에서 나옵니다.** 프롤로그를 먼저 읽어두면 이후 ADR 독해가 훨씬 수월해질 거예요.
+프롤로그에서 공통 배경을 읽고, 작업 중인 영역의 ADR로 이어가면 돼요.
 
 ---
 
 ## 이 문서의 사용법
 
-이 문서는 **39개의 ADR 카드** 로 구성되어 있으며, 각 카드는 하나의 설계 결정을 다룹니다. 전체를 순서대로 읽는 것이 가장 좋지만, 독자의 상황과 목적에 따라 진입점이 달라질 수 있습니다.
+39개의 ADR을 주제별로 묶었어요. 처음 구조를 익힐 때는 테마 1부터 읽고, 특정 결정이 궁금할 때는 아래 질문표에서 찾아보세요.
 
 ### 독자별 추천 경로
 
@@ -142,6 +153,8 @@
 
 ## 전체 ADR 목록 (테마별)
 
+<a id="테마-1--레포지토리-구조의-기반--완료"></a>
+
 ### 테마 1 — 레포지토리 구조의 기반 ✅ 완료
 
 **이 테마가 답하는 물음**: "솔로 개발자가 여러 앱을 감당 가능한 레포지토리 구조는 어떤 모양인가?"
@@ -174,7 +187,9 @@ ADR-004 (Gradle + ArchUnit 강제) ───────────────
 - [ADR-003 · core 모듈을 `-api` / `-impl` 로 분리](./adr-003-api-impl-split.md)
 - [`ADR-004 · Gradle 모듈 경계 + ArchUnit 22규칙`](./adr-004-gradle-archunit.md)
 
-**테마 1 의 결론**: 하나의 JAR 안에 여러 앱이 공존하되, 모듈 경계는 기계가 강제하고, 도메인은 파생 레포에 두며, 미래의 추출 가능성을 위한 포트 인터페이스를 함께 유지합니다.
+**테마 1의 결론**: 여러 앱을 한 JAR에 담되 Gradle과 ArchUnit으로 모듈 경계를 검사해요. 앱 도메인은 파생 저장소에 두고, 공통 모듈은 Port 인터페이스를 통해 사용해요.
+
+<a id="테마-2--모듈-내부-설계--완료"></a>
 
 ### 테마 2 — 모듈 내부 설계 ✅ 완료
 
@@ -205,7 +220,9 @@ ADR-016 (DTO Mapper 금지)
 - [`ADR-010 · SearchCondition + QueryDslPredicateBuilder`](./adr-010-search-condition.md)
 - [`ADR-016 · DTO Mapper 금지, Entity 메서드 패턴`](./adr-016-dto-mapper-forbidden.md)
 
-**테마 2 의 결론**: 전통적 Spring Boot 레이어드를 따르되, `-api` 경계에 Port 를 두어 추출 가능성을 유지한다. 공통 슈퍼클래스와 공통 조회 인프라로 반복 코드를 제거하고, DTO 변환은 Entity 메서드로 담아 Mapper 레이어를 없앤다.
+**테마 2의 결론**: 모듈 내부는 Spring 레이어드 구조로 작성하고, 외부에는 `-api`의 Port를 노출해요. 공통 엔티티 기반과 조회 도구로 반복 코드를 줄이며, 엔티티의 DTO 변환은 `to<Dto>()` 메서드에 둬요.
+
+<a id="테마-3--데이터--멀티-테넌시--완료"></a>
 
 ### 테마 3 — 데이터 & 멀티 테넌시 ✅ 완료
 
@@ -218,14 +235,16 @@ ADR-005 (단일 Postgres + 앱당 schema)
    │ 유저 테이블은 어디에? 통합인가 앱별인가?
    ▼
 ADR-012 (앱별 독립 유저 모델)
-  "같은 이메일도 앱마다 별개 레코드. ThreadLocal 라우팅 폐기"
+  "같은 이메일도 앱마다 별개 계정. 현재 라우팅은 ADR-018 참고"
 ```
 
 - [`ADR-005 · 단일 Postgres + 앱당 schema`](./adr-005-db-schema-isolation.md)
 - [`ADR-012 · 앱별 독립 유저 모델 (통합 계정 폐기)`](./adr-012-per-app-user-model.md)
 - [`ADR-018 · SchemaRoutingDataSource (service-layer 까지 라우팅)`](./adr-018-schema-routing-datasource.md)
 
-**테마 3 의 결론**: 한 Postgres 인스턴스 · 한 database 안에서 앱마다 schema 를 분리하고, 유저 테이블도 그 schema 에 독립 소유. DB role · DataSource · Flyway · 포트 · ArchUnit 의 5중 방어선으로 경계를 강제. JWT 의 단일 `appSlug` claim 과 `AppSlugVerificationFilter` 로 런타임 오용을 차단. service-layer 까지 격리는 `SchemaRoutingDataSource` (ThreadLocal `SlugContext` + Spring `AbstractRoutingDataSource`) 로 — controller 만이 아니라 INSERT/SELECT 전부가 슬러그 schema 에 자동 라우팅 (ADR-018).
+**테마 3의 결론**: 앱마다 스키마와 사용자 테이블을 분리해요. DataSource·Flyway·Port·ArchUnit으로 앱 경계를 관리하며, 별도 DB role을 설정한 앱은 DB 권한도 분리돼요. JWT의 `appSlug`와 URL은 `AppSlugVerificationFilter`가 대조해요. 공유 core 서비스의 영속성은 `SlugContext`와 `SchemaRoutingDataSource`로 선택하고, 생성된 앱 자체의 Repository는 앱 전용 EntityManager와 트랜잭션 매니저를 사용해요.
+
+<a id="테마-4--인증--보안--완료"></a>
 
 ### 테마 4 — 인증 & 보안 ✅ 완료
 
@@ -238,7 +257,7 @@ ADR-006 (HS256 JWT 대칭키)
    │ 이 JWT 를 사용하는 엔드포인트는 어떻게 생겼는가?
    ▼
 ADR-013 (앱별 인증 엔드포인트)
-  "/api/apps/{slug}/auth/*. core-auth-impl 은 라이브러리"
+  "/api/apps/{slug}/auth/*. 현재는 공유 컨트롤러가 처리"
    │
    │ 이메일/비번 외에 OAuth 도 지원하려면?
    ▼
@@ -250,24 +269,26 @@ ADR-017 (OAuth 2.0 통합)
 - [`ADR-013 · 앱별 인증 엔드포인트 (core-auth 는 라이브러리 역할)`](./adr-013-per-app-auth-endpoints.md)
 - [`ADR-017 · OAuth 2.0 통합 (Google / Apple / Kakao / Naver)`](./adr-017-oauth-integration.md)
 
-**테마 4 의 결론**: 단일 JVM 모놀리스 전제에서 JWT 는 HS256 대칭키로 단순화 — 관리 대상은 `JWT_SECRET` 환경변수 하나. 엔드포인트는 `/api/apps/{slug}/auth/*` 경로로 appSlug 를 URL 에 명시하고, Controller 는 각 앱 모듈이 소유. 실제 인증 로직은 `core-auth-impl/AuthServiceImpl` 한 곳에 집중되며, core-auth-impl 은 앱이 가져다 쓰는 **라이브러리** 로 작동. `AppSlugVerificationFilter` ([`ADR-012`](./adr-012-per-app-user-model.md)) 가 JWT-URL 경계를 런타임에 강제.
+**테마 4의 결론**: 같은 프로세스가 발급·검증하는 access token에 HS256과 `JWT_SECRET`을 사용해요. 인증 URL은 `/api/apps/{slug}/auth/*`로 앱을 구분하며 현재 컨트롤러는 `core-auth-impl`의 공유 빈이에요. 인증·소셜 로그인·2FA 등은 각 서비스가 맡고, JWT와 URL의 앱 경계는 `AppSlugVerificationFilter`가 검사해요. ADR-013의 당시 구조와 현재 구현을 함께 구분해서 읽어요.
+
+<a id="테마-5--운영--개발-방법론--완료"></a>
 
 ### 테마 5 — 운영 & 개발 방법론 ✅ 완료
 
-**이 테마가 답하는 물음**: "개발/운영의 일상 작업을 어떤 원칙으로 굴리는가?"
+**이 테마가 답하는 물음**: 개발과 운영의 일상 작업을 어떤 기준으로 결정하나요?
 
-```
+```text
 ADR-007 (솔로 친화적 운영)
-  "모든 운영 결정의 상위 기준. 비목표도 명시"
+  한 사람이 감당할 시간·비용·복구 책임을 기준으로 판단해요.
    │
    ├──> ADR-008 (API 버전 관리 미도입)
-   │     "'지금 필요 없다' 의 구체 적용. YAGNI 준수"
+   │     현재 계약과 요구를 기준으로 도입 시점을 판단해요.
    │
    ├──> ADR-014 (Delegation mock 금지)
-   │     "리팩토링 안전망 유지. Port 계약만 검증"
+   │     관측 가능한 행위를 검증하고 내부 위임의 호출 검증은 금지해요.
    │
    └──> ADR-015 (Conventional Commits + SemVer)
-         "cherry-pick 모델의 운영 인프라. 초기 투자 vs 미래 부담"
+         파생 저장소에 필요한 변경을 찾아 전파할 수 있게 관리해요.
 ```
 
 - [`ADR-007 · 솔로 친화적 운영`](./adr-007-solo-friendly-operations.md)
@@ -275,7 +296,13 @@ ADR-007 (솔로 친화적 운영)
 - [`ADR-014 · Delegation mock 테스트 금지`](./adr-014-no-delegation-mock.md)
 - [`ADR-015 · Conventional Commits + 템플릿 전체 semver`](./adr-015-conventional-commits-semver.md)
 
-**테마 5 의 결론**: "솔로 한 사람이 감당 가능한가?" 를 모든 운영 결정의 상위 기준으로 두고, 비목표 (HA 99.99%, 멀티 리전, 무중단 배포, 분산 추적) 를 명시 선언. 이 원칙 아래 API 버전 관리는 YAGNI 로 미도입, 테스트는 delegation mock 금지로 리팩토링 안전망 유지, 커밋/버전 관리는 파생 레포 cherry-pick 을 위한 기계 쿼리 가능 형태 (Conventional Commits + template-v* 태그) 로 강제. 초기 셋업 비용은 1회성, 장기 운영 부담 감소의 복리 효과.
+**테마 5의 결론**: 솔로 한 사람이 감당할 수 있는지를 운영 결정의 상위 기준으로 삼아요. 관리형 서비스와 홈서버·MinIO·관측 스택의 직접 운영을 시간·비용·복구 책임으로 비교하고, 현재는 두 방식을 함께 사용해요. Kamal blue-green도 채택한 운영 방식이에요. 99.99% 가용성 SLA 보장, 멀티 리전, Kubernetes·서비스 메시, 마이크로서비스 분산 추적을 기본 목표로 두지는 않아요.
+
+로컬에서 먼저 개발하고 필요한 기능을 선택하며, 공유 자격과 환경별 자격의 소유자를 구분해요. Spring의 `develop`→dev와 `main`→prod 배포는 각각의 CI 결과와 배포 gate를 확인해 진행해요. blue-green 전환을 사용한다는 사실과 모든 상황에서 무중단을 보장한다는 약속은 구분해요.
+
+이 기준 아래 API 버전 관리의 도입을 유보하고, 테스트는 내부 위임 호출에 결합하지 않도록 해요. Conventional Commits와 `template-v*` 태그는 파생 저장소에서 변경을 선택해 전파하기 위한 기준이에요. 자동화와 검증에 드는 초기 비용뿐 아니라 이후의 유지 비용과 반복 작업 감소도 함께 판단해요.
+
+<a id="테마-6--결제--구독-도메인--완료"></a>
 
 ### 테마 6 — 결제 / 구독 도메인 ✅ 완료
 
@@ -301,7 +328,9 @@ ADR-020 (Subscription/Payment 도메인 모델 + Webhook 보안)
 - [`ADR-031 · 알림 사용자 선호도`](./adr-031-notification-preferences.md)
 - [`ADR-032 · Google webhook auth (Bearer JWT)`](./adr-032-google-webhook-auth.md)
 
-**테마 6 의 결론**: 결제 도메인은 "정책 (Billing — subscription/plan)" 위에 "채널 (IAP — Apple/Google, Payment — PG=포트원)" 두 갈래를 두는 layer 구조로 분리. Subscription/Plan/PaymentRecord/WebhookEvent 4 테이블은 [`ADR-005`](./adr-005-db-schema-isolation.md) 정합으로 슬러그별 schema 에 위치. Webhook 은 진위 확인(v1 impUid 재조회 / v2 Standard Webhooks 서명) + timestamp tolerance + (source, externalId, eventStatus) UNIQUE 의 3중 방어. 외부 HTTP 호출이 DB 트랜잭션 안에서 connection 점유하지 않도록 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 격리하고 `TransactionTemplate` 으로 phase 마다 자기 트랜잭션 시작. 갱신 실패 · 환불 · 알림 같은 후속 흐름은 ADR-021~026 + ADR-031~032 에서 listener · email channel · metrics · preference · Pub/Sub 인증 등으로 구체화.
+**테마 6의 결론**: 구독 정책은 Billing, 스토어 결제는 IAP, PG 연동은 Payment가 맡아요. 구독·요금제·결제·webhook 기록은 앱 스키마에 저장해요. webhook의 진위 확인은 공급자별로 다르며, 현재 PortOne v1은 `imp_uid`를 재조회하고 v2 자격은 설정 가드가 거부해요. 처리 중복은 `(source, externalId, eventStatus)` 고유 키로 관리해요. 외부 HTTP 호출과 DB 작업은 트랜잭션 단계를 나누며, 갱신·환불·알림의 상세 흐름은 ADR-021~026과 ADR-031~032에서 다뤄요.
+
+<a id="테마-7--보안--감사--알림-도메인--완료"></a>
 
 ### 테마 7 — 보안 / 감사 / 알림 도메인 ✅ 완료
 
@@ -333,7 +362,9 @@ ADR-029 (password policy) + ADR-030 (2FA TOTP)
 - [`ADR-029 · 비밀번호 정책 (Bean Validation)`](./adr-029-password-policy.md)
 - [`ADR-030 · 2FA TOTP (RFC 6238)`](./adr-030-2fa-totp.md)
 
-**테마 7 의 결론**: auth · billing 의 core 흐름과 별도로 *보안 · 감사 · 알림* 도메인을 독립 모듈로 추출. 메일 발송은 EmailPort 로 분리해서 어느 도메인이든 의존 가능하고 (ADR-024), 관리자 권한은 `@AdminOnly` 어노테이션 + JWT role claim 으로 강제 (ADR-027). 감사 로그는 `@Audited` AOP 로 자동 기록되어 *사용자 흐름을 차단하지 않는* 부산물 형태 (ADR-028). 비밀번호 정책 (ADR-029) 과 2FA (ADR-030) 는 표준 라이브러리 (Bean Validation · RFC 6238) 위에서 최소 구현으로 강도를 올림.
+**테마 7의 결론**: 이메일은 `EmailPort`로 제공하고, 앱 사용자용 관리자 API는 `@AdminOnly`와 JWT role로 제한해요. 별도 운영 콘솔의 RBAC는 ADR-039와 [운영 콘솔 API](../api-and-functional/admin-console.md)가 정본이에요. 감사 AOP는 대상 메서드의 실행 결과를 별도 트랜잭션에 기록하며, 인증 단계에서 거부된 모든 요청까지 기록하는 것은 아니에요. 비밀번호 정책과 TOTP는 각각 Bean Validation과 RFC 6238을 바탕으로 구현해요.
+
+<a id="테마-8--운영-정책--lite-모드--ssrf--완료"></a>
 
 ### 테마 8 — 운영 정책 / Lite 모드 / SSRF ✅ 완료
 
@@ -341,12 +372,12 @@ ADR-029 (password policy) + ADR-030 (2FA TOTP)
 
 ```
 ADR-033 (Flyway Hybrid Policy)
-  "dev/test = AUTO migrate, prod = VALIDATE_ONLY (운영자가 수동 적용)"
+  "유효한 app.flyway.mode에 따라 migrate 또는 validate"
    │
    │ 도메인을 부분만 켜고 끄려면?
    ▼
 ADR-034 (Feature Toggle Lite mode)
-  "@ConditionalOnProperty 기반 opt-out — 11 도메인 토글 가능"
+  "@ConditionalOnProperty 기반 기능별 opt-out"
    │
    │ 사용자 UI 에는 어떻게 노출?
    ▼
@@ -367,9 +398,11 @@ ADR-036 (SSRF URL whitelist 정책)
 - [`ADR-038 · SMS 발송 (core-sms) + 휴대폰 점유인증 (core-phone-auth)`](./adr-038-sms-phone-auth.md)
 - [`ADR-039 · admin 모듈 (cross-app 운영 콘솔 — superadmin + admin 스키마 + in-process fan-out)`](./adr-039-admin-module.md)
 
-**테마 8 의 결론**: 운영 안전성과 유연성을 동시에 확보하는 운영 정책 + 외부 호출 보안 baseline. Flyway 는 dev/test 에서는 자동 migrate, prod 는 validate 만 하고 운영자가 명시적으로 적용 (ADR-033 — `tools/deploy/migrate-prod.sh`). Lite 모드는 11 개 도메인 (payment / iap / email / sms / 2fa / audit / push / billing-notification / password-policy / phone-auth / analytics) 을 `.env.prod` 의 환경변수로 opt-out 가능 (ADR-034). 사용자 UI 차원의 노출은 ADR-035 에서 별도 정리. 외부 HTTP 호출 (Apple / Google / Kakao / Naver / Resend / MinIO / FCM) 은 모두 hardcode 또는 운영자 통제 환경변수로만 결정해 SSRF 가 설계상 불가능 (ADR-036). *솔로 인디 운영자가 자기 앱의 복잡도에 맞게 도메인을 골라 켜되, 외부 호출 보안 baseline 은 일관 유지하는* 흐름. ADR-037 이 지운 공유 core schema 위에, ADR-039 는 앱 데이터를 담지 않는 `admin` schema 하나만 예외로 얹어 솔로 운영자의 cross-app 가시성을 확보합니다.
+**테마 8의 결론**: 앱 Flyway는 실제 `app.flyway.mode` 값으로 동작해요. dev·prod 프로파일의 기본값은 `VALIDATE_ONLY`지만 환경 예시는 `AUTO`를 지정하므로 배포 전 유효 값을 확인해요. 관리자 스키마는 별도 초기화 경로를 사용해요. Lite 모드는 `app.features.*`로 기능별 빈 등록을 제어하며, CLI와 검증 범위는 ADR-034·035에서 구분해요. 외부 호출 URL은 고정값이나 운영자 설정으로 제한해 사용자 입력이 목적지를 정하지 못하게 해요. 이것만으로 모든 SSRF 위험이 사라지는 것은 아니에요. 공유 core 스키마는 폐기했고, 별도 `admin` 스키마는 운영 계정·권한·앱 최소 버전 설정 등을 관리해요.
 
 ---
+
+<a id="l2--l3-매핑--어떤-l2-문서가-어느-adr-의-결과인가"></a>
 
 ## L2 ↔ L3 매핑 — 어떤 L2 문서가 어느 ADR 의 결과인가
 
@@ -413,8 +446,8 @@ L2 (구조 · 규약 · API · 운영) 의 각 문서가 어느 ADR 결정의 *�
 - **특정 인프라 자격증명, 계정 식별자, 프로젝트 ID** 를 커밋하지 않습니다. Supabase project-ref, Google Client ID, Firebase 키 등은 파생 레포의 `.env` 에서만 존재해야 합니다.
 - **실제 비즈니스 로직** 을 이 레포에 쓰지 않습니다 — 그건 파생 레포의 역할이에요. 여기에는 뼈대, 포트 인터페이스, 공통 인프라만 둡니다.
 - **구체적인 스펙 문서** (특정 앱이 언급되는 요구사항/API 문서 등) 를 여기 두지 않습니다.
-- **운영 환경 변수 파일 (`.env.prod`, `.env.production` 등) 을 커밋하지 않습니다.** 운영용 값은 GHA Repository Secrets 만 사용.
-- **`docs/planned/` 는 template-spring 내부 계획 문서** — 파생 레포 (server-factory 등) 와 docs 뷰어 레포 (docs-template-spring) 에는 미반영. `tools/docs/sync-docs.sh` 가 자동 exclude 합니다.
+- 운영 환경 파일(`.env.prod`, `.env.production` 등)은 커밋하지 않아요. 로컬 파일에서 관리한 값을 초기화 도구로 GitHub Secrets·Variables에 등록하고 배포 경로에 전달해요.
+- `docs/planned/`는 템플릿 내부 계획 문서예요. `tools/docs/sync-docs.sh`는 공개 미러로 복사할 때 `planned/`와 `superpowers/`를 제외해요. 이 스크립트가 파생 저장소의 파일을 동기화하거나 삭제하는 것은 아니에요.
 
 이유의 배경은 [`ADR-002`](./adr-002-use-this-template.md) 참조.
 
@@ -427,6 +460,8 @@ L2 (구조 · 규약 · API · 운영) 의 각 문서가 어느 ADR 결정의 *�
 
 ---
 
+<a id="-책-목차--journey-1단계"></a>
+
 ## 📖 책 목차 — Journey 1단계
 
 [`📚 template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **1단계 — 이 레포가 뭐야?** 입니다.
@@ -436,5 +471,6 @@ L2 (구조 · 규약 · API · 운영) 의 각 문서가 어느 ADR 결정의 *�
 | ← 이전 | (없음, 첫 단계) | README 의 30분 QuickStart 가 선행 |
 | → 다음 | [`Architecture Reference`](../structure/architecture.md) | 같은 1단계, 모듈 구조 한눈 요약 |
 
-**막혔을 때**: [`도그푸딩 함정`](../start/dogfood-pitfalls.md) / [`FAQ`](../start/dogfood-faq.md)  
+**막혔을 때**: [도그푸딩 함정](../start/dogfood-pitfalls.md)과 [설정 가이드](../start/dogfood-setup.md)를 확인해요.
+
 **왜 이렇게?**: 이 문서가 "왜" 의 본진입니다. 더 깊은 인프라 결정은 [`인프라 결정 기록 (Decisions — Infrastructure)`](../production/deploy/decisions-infra.md).

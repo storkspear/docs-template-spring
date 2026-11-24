@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~6분
 
-이 문서는 예외 처리의 단일 정본입니다. 에러 코드 체계, HTTP 매핑, 새 예외 추가 절차, 테스트 검증 규칙을 한곳에 모았어요.
+새 예외를 추가하거나 오류 응답을 확인할 때는 이 문서를 기준으로 봐요. 에러 코드 형식, HTTP 상태 매핑, 추가 절차와 검증 방법을 한곳에 정리했어요.
 
 ---
 
@@ -135,6 +135,8 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | USR_001 | 404 | USER_NOT_FOUND | 유저 미발견 |
 | USR_002 | 409 | EMAIL_ALREADY_EXISTS | 이메일 중복 (이메일 가입·소셜 최초 가입 공통 — 소셜은 기존 계정에 자동 연결하지 않음) |
 
+<a id="billingerror-bil--adr-020"></a>
+
 ### BillingError (BIL) — ADR-020
 
 | 코드 | HTTP | enum 값 | 설명 |
@@ -149,6 +151,8 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | BIL_008 | 401 | WEBHOOK_INVALID_SIGNATURE | Webhook 서명 무효 |
 | BIL_009 | 401 | WEBHOOK_TIMESTAMP_EXPIRED | Webhook 타임스탬프 만료 (replay 방어) |
 | BIL_010 | 400 | WEBHOOK_PAYLOAD_INVALID | Webhook 페이로드 형식 불량 |
+
+<a id="emailerror-email--adr-024"></a>
 
 ### EmailError (EMAIL) — ADR-024
 
@@ -174,6 +178,8 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | PHA_005 | 429 | OTP_RATE_LIMITED | 인증번호 요청이 너무 잦음 |
 | PHA_006 | 503 | OTP_SMS_UNAVAILABLE | 문자 발송 불가 (발신 채널 장애) |
 
+<a id="iaperror-iap--adr-022"></a>
+
 ### IapError (IAP) — ADR-022
 
 | 코드 | HTTP | enum 값 | 설명 |
@@ -185,6 +191,8 @@ JWT access token 에러 (CMN_007·CMN_008) 가 `AuthError` 가 아니라 `Common
 | IAP_005 | 400 | PRODUCT_MISMATCH | 영수증 productId 가 요청과 불일치 |
 | IAP_006 | 503 | APPLE_CONFIG_MISSING | Apple key·issuer·bundle 미설정 |
 | IAP_007 | 503 | GOOGLE_CONFIG_MISSING | Google service account·package 미설정 |
+
+<a id="paymenterror-pay--portone-pg"></a>
 
 ### PaymentError (PAY) — PortOne PG
 
@@ -339,6 +347,8 @@ throw new RuntimeException("invalid state");                          // → 500
 
 세 단계면 끝나고, 마지막 단계의 핵심은 "핸들러를 안 건드려도 된다" 는 점이에요.
 
+<a id="step-1--error-enum-생성"></a>
+
 ### Step 1 — Error enum 생성
 
 `ErrorInfo` 를 구현하고, 도메인의 다음 빈 번호부터 코드를 부여해요.
@@ -361,6 +371,8 @@ public enum SettlementError implements ErrorInfo {
 }
 ```
 
+<a id="step-2--exception-클래스-생성"></a>
+
 ### Step 2 — Exception 클래스 생성
 
 `BaseException` 을 상속하고 생성자만 위임해요.
@@ -371,6 +383,8 @@ public class SettlementException extends BaseException {
     public SettlementException(SettlementError error, Map<String, Object> details) { super(error, details); }
 }
 ```
+
+<a id="step-3--던지기"></a>
 
 ### Step 3 — 던지기
 

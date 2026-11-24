@@ -1,3 +1,5 @@
+<a id="스토리지-셋업-가이드-minio--시놀로지-nas"></a>
+
 # 스토리지 셋업 가이드 (MinIO · 시놀로지 NAS)
 
 > **유형**: How-to · **독자**: Level 2 · **읽는 시간**: ~3분
@@ -32,7 +34,7 @@ docker compose -f infra/docker-compose.local.yml up -d minio
 - 웹 콘솔: `http://localhost:9001` (minioadmin / minioadmin)
 - 기본 bucket: `basic-bucket` (Spring 기동 시 자동 생성 — 공유 버킷이라 90일 retention 적용. 앱 업로드 버킷 `<slug>-uploads` 는 만료 규칙 없이 생성)
 
-**백엔드 연결** (`.env`) — `.env.example` 의 출하값이라 비워 둬도 그대로 동작해요.
+**백엔드 연결**은 `.env.example`의 로컬 예제를 `.env`에 복사해 준비해요. 변수를 빈 문자열로 덮어쓰는 것과 예제 값을 유지하는 것은 달라요.
 
 ```bash
 APP_STORAGE_MINIO_ENDPOINT=http://localhost:9000
@@ -41,7 +43,7 @@ APP_STORAGE_MINIO_SECRET_KEY=minioadmin
 APP_STORAGE_MINIO_BUCKETS_0=basic-bucket
 ```
 
-`APP_STORAGE_MINIO_ENDPOINT` 를 비우면 `InMemoryStorageAdapter` 로 fallback 해요. 업로드가 메모리에만 남고 재시작하면 사라지는 동작이라, MinIO 없이 빠르게 실험할 때 충분합니다. dev·prod 프로파일에서는 `APP_STORAGE_IN_MEMORY_FALLBACK=true` 를 함께 넣어야만 폴백하고, 없으면 부팅이 막혀요(운영에서 endpoint 가 실수로 비어 업로드가 조용히 사라지는 사고 방지).
+endpoint가 없는 local 환경에서는 `InMemoryStorageAdapter`를 사용할 수 있어요. 데이터는 프로세스 메모리에만 남고 재시작하면 사라지며, 실제 presigned 업로드를 검증하지 못해요. dev·prod는 `APP_STORAGE_IN_MEMORY_FALLBACK=true`를 함께 설정해야 메모리 구현으로 시작하고, 없으면 부팅이 실패해요. 운영에서 endpoint 누락을 알아차리지 못한 채 메모리에 업로드를 보관하는 일을 막기 위한 조건이에요.
 
 ## 시놀로지 NAS (운영)
 
@@ -99,7 +101,7 @@ APP_STORAGE_MINIO_BUCKETS_0=voicechat-voices
 APP_STORAGE_MINIO_BUCKETS_1=sumtally-receipts
 ```
 
-운영 bucket 이름은 앱별·용도별로 나누는 `<slug>-<category>` 컨벤션을 따라요. `new app` 명령은 새 슬러그를 추가할 때 `APP_STORAGE_MINIO_BUCKETS_<N>=<slug>-uploads` 한 줄을 자동으로 주입합니다(category 기본값은 `uploads`). 다른 용도가 필요하면 그 줄을 늘리거나 바꿔요. 자세한 규약은 [`오브젝트 스토리지 규약`](../../api-and-functional/functional/storage.md) 을 참조하세요.
+내장 파일 API의 앱 버킷은 `<prefix><하이픈을 제거한 slug>-uploads`로 자동 파생해요. `new app`은 앱 버킷을 `APP_STORAGE_MINIO_BUCKETS_<N>`에 추가하지 않아요. 위 `voicechat-voices`·`sumtally-receipts`는 별도 소비 코드를 가진 커스텀·공유 버킷의 예시예요. 기본 공유 retention이 적절한지도 확인해요. dev prefix를 설정했다면 공유 목록의 이름도 같은 prefix로 시작해야 해요. 정본 규약은 [오브젝트 스토리지 규약](../../api-and-functional/functional/storage.md)을 참고해요.
 
 `mc` 로 직접 만들고 싶을 때만 아래처럼 수동 생성도 가능해요. 평소엔 위 자동 경로면 충분합니다.
 

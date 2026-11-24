@@ -1,3 +1,5 @@
+<a id="adr-035--lite-모드-사용자-인터페이스-cli--env-gui결제는-future"></a>
+
 # ADR-035 — Lite 모드 사용자 인터페이스 (CLI + .env, GUI/결제는 future)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-[`ADR-034`](./adr-034-feature-toggle-lite-mode.md) 가 *backend toggle 메커니즘* (`@ConditionalOnProperty` + `app.features.*` 환경변수) 을 정의했다면, 본 ADR 은 *운영자가 그 토글을 어떻게 조작하는가* 를 결정합니다. 같은 토글이라도 *환경변수를 직접 편집*, *CLI 명령으로 자동화*, *admin GUI 로 클릭*, *결제 게이트로 unlock* 같은 다양한 인터페이스가 가능해요.
+Lite 모드 설정은 CLI로 조회·변경하고, 필요한 경우 환경 파일을 직접 편집해요. CLI는 환경변수 이름을 기억하지 않아도 같은 설정을 여러 환경에 반영하도록 돕는 도구예요. 변경은 프로세스를 다시 시작하거나 배포해야 적용되며, CLI가 자동으로 검증하거나 환경 파일을 Git에 커밋하지는 않아요.
 
 본 ADR 은 *CLI 명령* 을 1급 인터페이스로, *.env 직접 편집* 을 2급 보조 인터페이스로 정합니다. CLI 는 `<repo> feature list / enable / disable` 형태로 *토글 상태 조회와 변경* 을 명령 한 줄로 처리해요. 파생 시점에 *불필요 도메인을 즉시 끄거나*, 운영 중에 *새 도메인을 활성화* 하는 흐름이 명령 → git commit → deploy 의 단순 체인으로 끝납니다. CLI 가 동작하지 않는 환경 (Windows·제한된 shell) 의 운영자는 `.env` 를 직접 편집해 같은 결과를 얻을 수 있어요.
 
@@ -26,7 +28,7 @@ backend 의 toggle 메커니즘 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.
 
 토글 인터페이스의 후보 4 가지를 우리 사용자 환경 — *솔로 인디 운영자가 파생 레포로 자기 SaaS 를 만드는 출발점* — 의 맥락에서 검토하면 각각 다른 트레이드오프를 가집니다.
 
-**CLI 명령 (1급 후보)** 의 강점은 *파생 시점의 자동화* 와 *운영 중 빠른 변경* 이에요. 새 사용자가 파생 직후 *내 비즈니스에 결제만 필요해* 라고 결정하면 `<repo> feature disable iap`, `<repo> feature disable 2fa` 같은 명령 두세 줄이면 lite 변형이 끝납니다. 운영 중에도 *새 기능을 활성화* 할 때 같은 명령으로 처리되어 *환경변수 이름을 직접 외울 필요가 없어요*. 솔로 인디 운영자가 *터미널에서 작업하는 흐름* 과 자연스럽게 연결됩니다.
+**CLI는 반복 작업을 자동화하기 쉬워요.** 파생 저장소를 만들 때와 운영 설정을 바꿀 때 같은 명령을 사용할 수 있고, 환경변수 이름을 직접 입력하는 일을 줄여요. 기능을 바꾸는 명령은 `<repo> local feature enable/disable <name>`이며, 변경 뒤 검증과 환경별 적용을 진행해요.
 
 **.env 직접 편집 (2급 후보)** 은 *CLI 가 동작하지 않는 환경* 의 fallback 이에요. Windows 환경에서 bash 의존 명령이 동작하지 않거나, *원격 서버에 SSH 만 가능한 운영자* 가 텍스트 편집기로 토글을 변경할 수 있어야 합니다. CLI 는 *환경변수 이름과 값을 추상화* 하는 편의 도구이고, 그 아래에 있는 *진짜 데이터는 .env 의 텍스트* 라는 사실을 명시적으로 두는 형태예요.
 
@@ -34,7 +36,7 @@ backend 의 toggle 메커니즘 ([`ADR-034`](./adr-034-feature-toggle-lite-mode.
 
 **결제 게이트 (검토 후 거부)** 는 *template 자체가 SaaS 형태로 판매되는* 비즈니스 모델에서 의미가 있어요. 사용자가 *Free plan* 으로 시작했다가 *Pro plan 으로 업그레이드 시 push·2FA 모듈을 unlock* 하는 형태입니다. 그러나 본 template 은 *파생 레포로 자기 SaaS 의 source 를 소유* 하는 모델이라 *source 가 이미 사용자 손에 있는* 상태예요. 사용자가 *결제 lock 을 우회* 하려면 그냥 *코드의 conditional 조건을 직접 수정* 하면 되어, 결제 게이트 자체가 형식적 장치일 뿐 진짜 lock 을 만들지 못합니다. 만약 SaaS 형태로 hosted backend 를 판매한다면 그건 본 template 가 아니라 *별도 product 의 영역* 이라 본 ADR scope 밖이에요.
 
-이 분석에서 자연스럽게 *CLI 1 급 + .env 2 급* 의 형태가 나옵니다. 두 인터페이스가 *같은 데이터를 두 가지 방법으로 조작* 하는 형태라 *어느 한쪽이 동작하지 않는 환경에서도 다른 한쪽으로 fallback* 가능하고, *파생 시점의 자동화·운영 중 빠른 변경* 의 두 시점을 모두 커버합니다. admin GUI 와 결제 게이트는 *현재 단계에서 도입 비용 vs 가치* 가 맞지 않아 future scope 로 명시 미룹니다.
+CLI를 기본으로 제공하되 같은 값을 환경 파일에서 직접 편집할 수 있게 두어요. 두 방법 모두 파일을 바꾸는 작업이고 적용에는 재시작·배포가 필요해요. 기능 토글용 GUI와 결제 게이트는 이 결정의 범위에 포함하지 않았어요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
@@ -66,6 +68,8 @@ GUI 는 미사용 시점의 사용자가 만지는 영역이 아닙니다. admin
 
 ## 사용자 인터페이스 (현재 적용)
 
+<a id="1-cli-1급--권장"></a>
+
 ### 1. CLI (1급 — 권장)
 
 ```bash
@@ -93,7 +97,7 @@ APP_FEATURES_AUDIT=false
 <repo> local server-test          # docker compose restart spring
 ```
 
-CLI 가 `.env` + `.env.prod` 를 동시 변경하는 것에 비해 한쪽만 변경합니다. 직접 편집 시 사용자가 양쪽 동기화 책임을 져야 해요.
+CLI는 존재하는 `.env`·`.env.dev`·`.env.prod`를 함께 변경해요. 파일을 직접 편집하면 해당 환경만 달라질 수 있으므로, 각 환경의 값과 적용 시점을 확인해요. 이 파일들은 Git에 커밋하는 대상이 아니에요.
 
 ---
 
@@ -130,7 +134,7 @@ CLI 가 `.env` + `.env.prod` 를 동시 변경하는 것에 비해 한쪽만 변
 <repo> local api-test               # step 11 PASS 복귀 확인
 ```
 
-위 시나리오는 `bootstrap/FeatureToggleTest` 가 자동화합니다 (Testcontainers + `@SpringBootTest`).
+`FeatureToggleTest`는 9개 기능을 함께 끈 SpringContext가 시작되고 대상 Bean이 없는지 검사해요. CLI로 환경 파일을 변경하거나 다시 활성화하는 위 절차까지 자동 실행하는 테스트는 아니에요.
 
 ---
 
@@ -142,7 +146,7 @@ Spring 의 `@ConditionalOnProperty` 동작은 다음과 같습니다:
 - 의존하는 controller endpoint 의 ApplicationContext mapping 도 등록되지 않아요
 - runtime 에 호출 시 → **404 Not Found** (Spring DispatcherServlet 가 매핑이 없어 응답해요)
 
-즉 **물리적으로 endpoint 가 사라집니다** — 우회 불가능. 사용자가 disabled feature 의 URL 을 호출하면 404 가 반환되고, 이는 우리 backend 의 의도된 응답이에요.
+공유 컨트롤러 자체가 조건부 등록되는 기능은 매핑도 사라져요. 반면 AuthController에 남는 2FA 경로처럼 내부 서비스 부재를 `CMN_009`로 알리는 경로도 있어요. 요청이 MVC에 도달하기 전에 보안 필터가 거부할 수 있으므로 비활성 기능의 응답을 모두 404라고 단정하지 않아요.
 
 코드는 jar 안에 그대로 남습니다 (Spring conditional 의 trade-off — ADR-034 § Alternatives 참조). jar 크기 ~5-10MB 차이는 운영에 영향이 없어요.
 

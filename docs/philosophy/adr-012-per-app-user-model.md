@@ -1,3 +1,5 @@
+<a id="adr-012--앱별-독립-유저-모델-통합-계정-폐기"></a>
+
 # ADR-012 · 앱별 독립 유저 모델 (통합 계정 폐기)
 
 **Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — *core.users* 가 *legacy 잔재* 였다는 부분 정확화 (core schema 자체 폐기 후 각 app schema 의 users 만 남음). 각 앱이 자기 schema 에 독립 users 테이블을 가지는 모델로 운영합니다. `AppSlugVerificationFilter` 가 JWT 의 `appSlug` claim 과 URL 의 `{slug}` 일치를 검증해 런타임 경계를 강제해요. *(갱신: 아래 비교 표·구현 ④ 의 「앱별 `<Slug>AuthController`」 부분은 [ADR-013](./adr-013-per-app-auth-endpoints.md) B 로 **공유 컨트롤러**로 대체됐어요 — per-app USER 모델 자체는 그대로, 컨트롤러 위치만 바뀐 거예요.)*
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-같은 사람이 두 앱을 써도 **계정은 완전히 별개**예요. `sumtally` 의 `users` 테이블과 `rny` 의 `users` 테이블은 같은 이메일을 가져도 서로 모르는 레코드입니다. JWT 는 `appSlug` 단일 claim 만 가지고, 다른 앱 엔드포인트를 치면 **필터 하나** 가 403 으로 차단해요. *통합 계정 + ThreadLocal 라우팅* 모델은 채택하지 않습니다 — UX · 프라이버시 · 구현 복잡도 3 전선에서 모두 한계 (아래 분석).
+같은 이메일로 두 앱을 사용해도 계정 데이터는 각 앱 스키마에 따로 저장해요. 요청의 앱 경로와 JWT의 `appSlug`를 대조해 다른 앱의 토큰을 거부하고, `SlugContext`의 값을 이용해 현재 요청의 DataSource를 선택해요. 앱별 독립 계정과 ThreadLocal 라우팅은 서로 다른 책임이며, 현재 구현은 둘을 함께 사용해요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -27,13 +29,19 @@ core.user_app_access
 
 그런데 이 구조로 실제 API 를 설계해보니 세 가지 문제가 동시에 떠올랐어요.
 
+<a id="문제-1--ux-가-어색함"></a>
+
 ### 문제 1 — UX 가 어색함
 
 "sumtally 에서 쓰던 계정으로 rny 에 로그인하시겠습니까?" — 유저 입장에서 **설명이 필요한 UX**. 유저는 각 앱을 독립 서비스로 인식하는데, 갑자기 "다른 앱의 계정이 있다" 고 알려지는 건 혼란. 설명이 필요한 UX 는 나쁜 UX.
 
+<a id="문제-2--gdpr--프라이버시-복잡도"></a>
+
 ### 문제 2 — GDPR / 프라이버시 복잡도
 
 "sumtally 에서 탈퇴하면 rny 데이터는?" "두 앱 모두 삭제하려면?" "한 앱의 데이터만 삭제하려면 user_id 연결은 어떻게?" — **교차 앱 데이터 연결 추적** 이 법적 · 운영적 부담으로 떠올랐어요. [`제약 1`](./README.md#제약-1--운영-가능성이-최우선) (운영 부담 최소) 와 정면 충돌.
+
+<a id="문제-3--threadlocal-라우팅의-구현-지옥"></a>
 
 ### 문제 3 — ThreadLocal 라우팅의 구현 지옥
 
@@ -56,6 +64,8 @@ core.user_app_access
 
 ## 고민했던 대안들
 
+<a id="option-1--통합-계정--threadlocal-라우팅-기존-설계"></a>
+
 ### Option 1 — 통합 계정 + ThreadLocal 라우팅 (기존 설계)
 
 위에 설명한 구조. `core.users` + `user_app_access` + ThreadLocal DataSource.
@@ -71,6 +81,8 @@ core.user_app_access
   - [`ADR-005`](./adr-005-db-schema-isolation.md) 의 "schema = 앱" 모델과 충돌해요 — 유저 테이블만 core schema 로 빠져나가야 해서 경계의 일관성이 훼손돼요
   - 5중 방어선 중 **방어선 2 (DataSource 분리)** 와 정합되지 않아요 — 동적 라우팅이면 DataSource 는 하나여야 해요
 - **탈락 이유**: 세 전선 (UX · GDPR · 구현) 에서 동시에 패배해요. "이론적 장점" 이 실제로 구현되면 전부 복잡도로 돌아와요.
+
+<a id="option-2--앱별-독립--사후-연동-레이어-linked_accounts"></a>
 
 ### Option 2 — 앱별 독립 + 사후 연동 레이어 (linked_accounts)
 
@@ -94,6 +106,8 @@ core.linked_accounts (별도 테이블, 명시적 매핑)
   - **현재 시점에서 쓸 데가 없음** — [`제약 3`](./README.md#제약-3--복권-사기-모델) 에서 앱들은 서로 독립이 기본. 연동이 가치가 있는 건 앱 2~3개가 같은 유저군을 공유하게 된 이후.
   - `linked_account_id` 컬럼을 미리 깔아두는 건 YAGNI
 - **탈락 이유**: 지금 당장은 Option 3 과 동일한 동작이에요. 추가 컬럼은 필요해진 시점에 추가해도 늦지 않아요 ([`제약 2`](./README.md#제약-2--시간이-가장-희소한-자원) — 미래 복잡성 선제 도입 금지).
+
+<a id="option-3--앱별-독립-유저--단일-appslug-claim--채택"></a>
 
 ### Option 3 — 앱별 독립 유저 + 단일 appSlug claim ★ (채택)
 
@@ -127,6 +141,8 @@ core.linked_accounts (별도 테이블, 명시적 매핑)
 | DataSource 라우팅 | ThreadLocal + AbstractRoutingDataSource | 앱 모듈이 자기 DataSource 정적 주입 |
 | Auth 런타임 | `core-auth-impl/AuthController` 활성 | `apps/app-<slug>/<Slug>AuthController` 활성 |
 
+<a id="구현---users-테이블을-앱-schema-에-생성"></a>
+
 ### 구현 ① — users 테이블을 앱 schema 에 생성
 
 `new-app.sh <slug>` 가 마이그레이션 템플릿 기본 26개 (V001~V027 — `V007` 시드는 `--seed-admin` opt-in) 를 해당 앱 schema 에 생성. 유저·인증 관련 앞부분 발췌:
@@ -144,6 +160,8 @@ apps/app-<slug>/src/main/resources/db/migration/<slug>/
 
 `core-user-impl` 이 갖고 있던 `core/V001__init_users.sql` 템플릿 기준선은 [`ADR-037`](./adr-037-core-schema-deprecation.md) 의 core schema 폐기와 함께 제거됐어요 — 유저 도메인 마이그레이션은 이제 각 앱 schema 경로에만 존재합니다.
 
+<a id="구현---jwt-의-appslug-claim-단일-문자열"></a>
+
 ### 구현 ② — JWT 의 appSlug claim (단일 문자열)
 
 ```java
@@ -160,6 +178,10 @@ public String issueAccessToken(Long userId, String appSlug, String email, String
 ```
 
 과거의 `apps: [...]` 배열 claim 은 완전히 제거. `AuthenticatedUser` record 도 `appSlug: String` 단일 필드만 가집니다.
+
+<a id="app-slug-verification"></a>
+
+<a id="구현---appslugverificationfilter-로-경계-강제"></a>
 
 ### 구현 ③ — `AppSlugVerificationFilter` 로 경계 강제
 
@@ -188,6 +210,8 @@ protected void doFilterInternal(HttpServletRequest request, ...) {
 필터 체인 순서: `JwtAuthFilter → AppSlugMdcFilter → AppSlugVerificationFilter → (실제 Controller)`. 등록은 `common-security/SecurityConfig.java` 의 `securityFilterChain(HttpSecurity)` 안에서 `addFilterBefore(jwtAuthFilter, ...)` → `addFilterAfter(appSlugMdcFilter, JwtAuthFilter.class)` → `addFilterAfter(appSlugVerificationFilter, AppSlugMdcFilter.class)` 순으로 이뤄져요.
 
 예: sumtally 에서 발급된 JWT 로 `/api/apps/rny/users/me` 를 호출 → `pathSlug = "rny"`, `user.appSlug() = "sumtally"` → 즉시 403.
+
+<a id="구현---앱별-slugauthcontroller--core-auth-impl-은-dead-code"></a>
 
 ### 구현 ④ — 앱별 `<Slug>AuthController` + core-auth-impl 은 dead code
 
@@ -276,7 +300,7 @@ DB 마이그레이션과 달리 JWT 스키마 변경은 **rollout 경로가 없�
 - **AWS Cognito · User Pools** — "유저 풀 per 앱" 모델. 본 ADR 의 `<slug>.users` 와 동일한 철학. Cognito 도 "하나의 Identity Pool + 여러 User Pool" 로 앱별 독립 유저를 권장.
 - **Auth0 · Tenants and Applications** — Auth0 의 "Tenant per App" vs "One Tenant Many Apps" 선택. 본 ADR 은 전자 (Tenant per App) 에 해당.
 - **Firebase Authentication — Multiple Projects Pattern** — Firebase 공식에서 "앱마다 별도 Project" 를 권장하는 근거와 동일한 논리.
-- **OWASP · JWT Cheat Sheet** — [`aud` claim 검증의 중요성](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html). 본 ADR 의 `AppSlugVerificationFilter` 는 `aud` 검증의 도메인 특화 형태.
+- **OWASP · JWT Cheat Sheet** — [`aud` claim 검증의 중요성](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html). 본 ADR 의 `AppSlugVerificationFilter` 는 `aud` 검증의 도메인 특화 형태.
 - **[AbstractRoutingDataSource Anti-pattern — Vlad Mihalcea](https://web.archive.org/web/2024*/https://vladmihalcea.com/multitenancy-hibernate-multitenantconnectionprovider/)** — ThreadLocal 기반 멀티테넌시의 구현 함정. 본 ADR 이 이 경로를 회피한 이유의 출처. (원본 글 삭제, archive.org snapshot)
 
 ## Code References

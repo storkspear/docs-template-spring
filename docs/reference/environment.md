@@ -1,3 +1,5 @@
+<a id="environment--프레임워크--라이브러리--리소스-인벤토리"></a>
+
 # Environment — 프레임워크 · 라이브러리 · 리소스 인벤토리
 
 > **유형**: Reference · **독자**: Level 0~2 · **읽는 시간**: ~5분
@@ -7,6 +9,35 @@
 버전은 `gradle/libs.versions.toml` · `build.gradle` · `build-logic/` · `infra/docker-compose.*.yml` · `config/deploy.yml` · `.github/workflows/*.yml` 의 실제 값 기준이에요.
 
 ---
+
+## 기술 스택 한눈에 보기
+
+요청 처리, 데이터 저장, 외부 연동의 관계를 보여주는 그림이에요. 라이브러리 버전은 아래 표와 `gradle/libs.versions.toml`에서 확인해요.
+
+```mermaid
+flowchart TB
+  mobile[Flutter 앱] -->|앱 API| spring[Spring Boot]
+  admin[React 운영 콘솔] -->|관리자 API| spring
+  spring --> security[Spring Security · JWT · TOTP · 권한 검사]
+  spring --> domain[앱 모듈과 공통 도메인]
+  domain --> query[JPA · QueryDSL · JDBC]
+  query --> db[PostgreSQL · 앱별 스키마와 admin 스키마]
+  flyway[Flyway] --> db
+  domain --> storage[MinIO · S3 호환 스토리지]
+  domain -. 선택 연동 .-> external[PortOne · App Store · Google Play]
+  domain -. 선택 연동 .-> delivery[Resend · SMS · FCM]
+  spring -. 메트릭 .-> prometheus[Prometheus]
+  spring -. 로그 .-> loki[Loki]
+  prometheus --> grafana[Grafana]
+  loki --> grafana
+  prometheus -. 경보 .-> alert[Alertmanager · Discord]
+```
+
+점선은 선택한 연동이나 관측 경로예요. 기능 토글은 실행 중인 JVM에 적용하며 앱마다 독립적으로 바꾸는 설정은 아니에요. 토글, 자격증명, 실제 전달 경로는 [기능 선택 실행](../production/operations/feature-toggle.md)에서 구분해요.
+
+운영 DB는 Supabase의 PostgreSQL을 사용하고, 배포는 GitHub Actions·GHCR·Docker·Kamal을 연결해요. Cloudflare는 외부 요청을, Tailscale은 배포 접근 경로를 담당해요. 각 호스트의 관계는 [운영 구성](../production/deploy/infrastructure.md)에 있어요. ArchUnit·Testcontainers·WireMock·Spotless·commitlint의 검사 범위는 아래 품질 도구 표에서 확인해요.
+
+<a id="언어--런타임"></a>
 
 ## 언어 · 런타임
 
@@ -42,6 +73,8 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 | **spring-security-crypto** | BCrypt 등 |
 | **spring-security-test** | `@WithMockUser` 등 |
 
+<a id="데이터베이스--orm"></a>
+
 ## 데이터베이스 · ORM
 
 | 이름 | 버전 | 용도 |
@@ -52,6 +85,8 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 | **HikariCP** | Spring Boot BOM | 커넥션 풀 (앱당 독립) |
 | **Flyway** | Spring Boot BOM | DB 마이그레이션 |
 | **QueryDsl (openfeign 포크)** | 7.5 | 타입 세이프 동적 쿼리 — `io.github.openfeign.querydsl:querydsl-jpa`. 원본 `com.querydsl` 은 5.1.0 에서 멈췄고 포크가 Hibernate 7 대응을 이어받았어요. 패키지명은 `com.querydsl.*` 그대로예요 |
+
+<a id="인증--보안"></a>
 
 ## 인증 · 보안
 
@@ -107,12 +142,16 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 | **springdoc-openapi-starter-webmvc-ui** | 3.0.3 | Swagger UI (`/swagger-ui.html`) — 3.x 가 Spring Boot 4 대응 라인이에요 |
 | **springdoc-openapi-starter-webmvc-api** | 3.0.3 | OpenAPI 문서 (`/v3/api-docs`) |
 
+<a id="rate-limiting--유틸"></a>
+
 ## Rate Limiting · 유틸
 
 | 이름 | 버전 | 용도 |
 |---|---|---|
 | **Bucket4j Core** | 8.10.1 | 인메모리 Token Bucket rate limiter |
 | **Caffeine** | 3.2.3 | Bucket TTL eviction |
+
+<a id="푸시--이메일--문자"></a>
 
 ## 푸시 · 이메일 · 문자
 
@@ -129,6 +168,8 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 | **MinIO Java Client** | 9.0.3 | S3 호환 오브젝트 스토리지 — 9.x 에서 `Http.Method` · `SourceObject` · `LifecycleConfiguration` 중첩 타입으로 패키지가 재편됐어요 |
 | **MinIO** (docker) | `cgr.dev/chainguard/minio@sha256:ad134b2dd572ae0d989d6807c3e45516cc75a34883a8021db2ff04be5d1d496a` (Chainguard 빌드) | 로컬/운영 스토리지 |
 
+<a id="인프라--배포"></a>
+
 ## 인프라 · 배포
 
 | 이름 | 버전 | 용도 |
@@ -142,6 +183,8 @@ Spring Boot 4.1.0 BOM 으로 버전을 일괄 관리해요.
 | **Cloudflare Tunnel (cloudflared)** | — | 홈서버를 인터넷에 노출 |
 | **Tailscale** | — | GHA 에서 Mac mini 연결 (운영 배포 전용) |
 | **launchd** | macOS 내장 | cloudflared 자동 기동 |
+
+<a id="ci--cd"></a>
 
 ## CI · CD
 
@@ -191,7 +234,7 @@ Cloudflare · Tailscale · GHCR 세 줄은 소유 파일이 달라요. 계정/�
 | **Cloudflare** | Tunnel · DNS · Access | `CLOUDFLARE_API_TOKEN` (`.env.infra` — `infra init` 이 ZONE/ACCOUNT/TUNNEL ID 자동 추출) |
 | **Cloudflare R2** | S3 호환 오브젝트 스토리지 (선택) | `APP_STORAGE_MINIO_*` 재사용 |
 | **FCM (Firebase)** | Android/iOS 푸시 | `APP_CREDENTIALS_<SLUG>_FCM_SERVICE_ACCOUNT_JSON` (앱별) |
-| **APNs (Apple)** | iOS 인증 토큰 RS256 검증 (소셜 로그인) | `APP_CREDENTIALS_<SLUG>_APPLE_BUNDLE_ID` |
+| **Sign in with Apple** | Apple 로그인 ID 토큰 검증 | `APP_CREDENTIALS_<SLUG>_APPLE_BUNDLE_ID` |
 | **Google OAuth** | 소셜 로그인 ID 토큰 검증 | `APP_CREDENTIALS_<SLUG>_GOOGLE_CLIENT_IDS_<N>` |
 | **Resend** | 트랜잭셔널 이메일 | `RESEND_API_KEY`, `RESEND_FROM_ADDRESS`, `RESEND_FROM_NAME` |
 | **SOLAPI (CoolSMS)** | 휴대폰 점유인증 OTP 문자 발송. 키가 비면 LoggingSmsAdapter fallback (콘솔 로그) | `COOLSMS_API_KEY`, `COOLSMS_API_SECRET`, `COOLSMS_FROM` |

@@ -8,7 +8,7 @@
 
 ## 개요
 
-새 Java 타입을 정의할 때 `record` 와 `class` 중 무엇을 고를지 정리한 문서입니다. 일반 데이터 객체부터 JPA 엔티티, 유틸, 다형 타입까지 케이스별 기준을 표와 결정 트리로 담았어요.
+새 타입의 역할에 따라 `record`·`class`·`interface`를 선택해요. 값을 전달하는 DTO, 영속 상태를 관리하는 엔티티, 동작을 제공하는 서비스는 필요한 제약이 달라요. 아래 표와 예시에서 각 역할에 맞는 기준을 확인해요.
 
 한 줄 원칙은 이거예요. 모르겠으면 record 를 씁니다. class 는 아래 허용 목록에 든 경우에만 골라요.
 
@@ -67,6 +67,8 @@ public final class QueryUtil {
 
 ---
 
+<a id="sealed-interface--record-다형-타입"></a>
+
 ## sealed interface + record (다형 타입)
 
 여러 구현을 하나의 계약으로 묶되, 허용된 하위 타입만 두고 싶을 때 sealed interface 를 씁니다. 각 구현은 record 로 두는 게 자연스러워요.
@@ -92,7 +94,7 @@ ArchUnit [`r18`](../structure/architecture-rules.md) 은 record 와 sealed inter
 
 record 를 기본으로 두는 이유는 다섯 가지예요.
 
-- 불변이라 여러 스레드에서 안전하고, 만든 뒤 값이 바뀌는 부작용이 없습니다.
+- 컴포넌트의 참조는 바꿀 수 없어요. List·Map처럼 내부가 바뀔 수 있는 값을 담으면 필요한 범위에서 방어적 복사를 해요.
 - `equals`·`hashCode`·`toString` 이 자동 생성돼요. JSON 계약 테스트가 직렬화·역직렬화 왕복을 비교할 때 이게 필수입니다.
 - 생성자 파라미터로 필드를 선언하니 순서와 타입이 한눈에 드러나요.
 - Java 21 이상의 패턴 매칭에서 구조 분해가 됩니다.
@@ -118,7 +120,7 @@ public record UserProfile(long id, String email, String displayName /* ... */) {
 
 ### JPA Entity 에는 못 써요
 
-`@Entity` 는 인자 없는 생성자와 setter 를 기대합니다. record 는 생성자가 고정이라 이 요구를 맞출 수 없어요. 그래서 Entity 는 반드시 class 로 작성하고, JPA 용 기본 생성자를 `protected` 로 둡니다. `User`·`AuthRefreshToken` 엔티티가 그 형태예요.
+JPA 엔티티는 class로 작성하고 인자 없는 생성자를 `protected`로 제공해요. 현재처럼 필드 접근을 사용하면 setter가 반드시 필요한 것은 아니에요. `User`와 `AuthRefreshToken`도 이 방식으로 상태를 관리해요.
 
 ### `@JsonProperty` 는 최후의 수단
 

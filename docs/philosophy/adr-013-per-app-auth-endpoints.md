@@ -1,8 +1,12 @@
+<a id="adr-013--앱별-인증-엔드포인트-core-auth-는-라이브러리-역할"></a>
+
 # ADR-013 · 앱별 인증 엔드포인트 (core-auth 는 라이브러리 역할)
 
 **Status**: **Superseded (2026-06)** — 원래 결정(앱별 `<Slug>AuthController` 생성)이 **core 공유 Controller** 로 뒤집혔어요. `AuthController` 는 이제 `AuthAutoConfiguration` 이 `@ConditionalOnMissingBean` 으로 등록하는 단일 공유 런타임 빈이고, `/api/apps/{appSlug}/auth/*` (path 변수) 로 모든 앱을 처리해요 (user/device/notification 과 동일 모델). `new-app.sh` 는 더 이상 앱별 AuthController 를 생성하지 않아요. 경위·이유는 바로 아래 `## 갱신` 참조. (실제 인증 로직은 그대로 `AuthPort`/`AuthServiceImpl` — core-auth 는 여전히 라이브러리.) *이전 Status*: Accepted, updated by [ADR-037](./adr-037-core-schema-deprecation.md).
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
+
+<a id="갱신-앱별-controller--core-공유-controller"></a>
 
 ## 갱신 (앱별 Controller → core 공유 Controller)
 
@@ -29,11 +33,13 @@
 
 ## 결론부터
 
-인증은 앱마다 자기 Controller 가 있습니다. sumtally 는 `SumtallyAuthController` 가 `/api/apps/sumtally/auth/*` 를 처리하고, rny 는 `RnyAuthController` 가 `/api/apps/rny/auth/*` 를 처리합니다. 그런데 실제 로직은 한 곳에 있어요 — `core-auth-impl` 의 `AuthServiceImpl` (`AuthPort` 구현) 이 17개 메서드로 인증 도메인 전체를 담당. 각 앱 Controller 는 얇은 HTTP 어댑터로 `AuthPort` 를 주입받아 호출만 합니다. 즉 **core-auth-impl 은 "앱이 가져다 쓰는 라이브러리"** 역할이고, Controller 런타임 등록은 앱 모듈이 담당해요.
+현재 인증 HTTP 경로는 `core-auth-impl`의 공유 `AuthController`가 `/api/apps/{appSlug}/auth/*` 형태로 제공해요. 앱마다 컨트롤러를 복제하지 않고 요청 경로의 슬러그로 앱을 구분해요. 이 ADR의 아래 앱별 컨트롤러 설명은 도입 당시 결정이고, 상단 갱신 이력의 공유화 결정으로 대체됐어요.
 
 ## 왜 이런 고민이 시작됐나?
 
 [`ADR-012`](./adr-012-per-app-user-model.md) 에서 "통합 계정 → 앱별 독립 유저" 로 전환했습니다. 이제 인증 엔드포인트를 어떻게 설계할지 차례예요. 세 가지 설계 축이 서로 엮여요.
+
+<a id="축-1--url-경로-앱을-어디에-표현할-것인가"></a>
 
 ### 축 1 — URL 경로: 앱을 어디에 표현할 것인가?
 
@@ -41,11 +47,15 @@
 - `/api/auth/{slug}/email/signup` — flat slug, `core / apps` 구분이 없어요
 - `/api/apps/{slug}/auth/email/signup` — appSlug 가 URL path 의 명시적 세그먼트
 
+<a id="축-2--controller-위치-bean-은-어디에"></a>
+
 ### 축 2 — Controller 위치: bean 은 어디에?
 
 - `core-auth-impl` 의 Controller 가 런타임 bean — "하나의 Controller 로 모든 앱 처리"
 - 각 앱 모듈의 Controller 가 런타임 bean — "앱마다 자기 Controller"
 - 둘 다? — bean 중복 등록 위험
+
+<a id="축-3--로직-중복-실제-인증-흐름을-어디에"></a>
 
 ### 축 3 — 로직 중복: 실제 인증 흐름을 어디에?
 
@@ -61,6 +71,8 @@
 
 ## 고민했던 대안들
 
+<a id="option-1--통합-엔드포인트--threadlocal-라우팅-기존-설계--폐기"></a>
+
 ### Option 1 — 통합 엔드포인트 + ThreadLocal 라우팅 (기존 설계 · 폐기)
 
 `/api/core/auth/email/signup` 하나만 두고, 요청 시 body 또는 header 의 appSlug 로 DataSource 를 동적 라우팅.
@@ -71,6 +83,8 @@
   - URL 에서 "어느 앱 요청인지" 가 안 보임 → API 로그 · CloudFlare 분석 · Swagger 문서가 전부 모호
   - Spring Security 필터가 appSlug 를 알려면 body 를 미리 읽어야 함 (request body 는 보통 Filter 이후 읽힘)
 - **탈락 이유**: [`ADR-012`](./adr-012-per-app-user-model.md) 의 전면 재설계 일부. 유저 모델과 엔드포인트 구조는 같은 결정의 양면.
+
+<a id="option-2--경로에-slug--통합-controller-런타임-활성"></a>
 
 ### Option 2 — 경로에 `{slug}` + 통합 Controller (런타임 활성)
 
@@ -96,6 +110,8 @@ public class AuthController {
   - [`ADR-005`](./adr-005-db-schema-isolation.md) 의 "앱 모듈 = 자기 schema 독점" 원칙과 충돌해요 — 다시 ThreadLocal/라우팅이 필요해져요
   - `AuthPort.signUpWithEmail(slug, req)` 로 slug 를 계속 인자로 전달해야 하는 보일러플레이트가 생겨요
 - **탈락 이유**: URL 은 고쳤지만 "라우팅은 어디서?" 문제가 제자리예요. 결국 ThreadLocal 이 부활해요.
+
+<a id="option-3--앱별-controller-런타임-등록--공통-authport-위임--채택"></a>
 
 ### Option 3 — 앱별 Controller 런타임 등록 + 공통 AuthPort 위임 ★ (채택)
 
@@ -153,6 +169,8 @@ HTTP 요청
             TwoFactorService (10개 서비스)
 ```
 
+<a id="엔드포인트-경로-상수화--apiendpoints"></a>
+
 ### 엔드포인트 경로 상수화 — `ApiEndpoints`
 
 ```java
@@ -175,6 +193,8 @@ public static final class Auth {
 
 - URL 패턴을 상수로 관리 — 오타 방지 + IDE "Find Usages" 추적 가능
 - `PUBLIC_PATTERNS` 는 `SecurityConfig` 가 permitAll 화이트리스트로 사용
+
+<a id="authport--17개-메서드-core-auth-api"></a>
 
 ### `AuthPort` — 17개 메서드 (core-auth-api)
 
@@ -200,6 +220,8 @@ public interface AuthPort {
 - 모든 파라미터·반환이 DTO — [`ADR-011 (레이어드 포트)`](./adr-011-layered-port-adapter.md) · [`ADR-016 (Mapper 금지)`](./adr-016-dto-mapper-forbidden.md) 의 규칙에 따름
 - 메서드 수가 인증 도메인 전체 — 이메일·소셜 (4 provider) 가입·로그인, 토큰 갱신, 탈퇴, 비밀번호 리셋·변경, 이메일 인증, 2FA TOTP
 - ArchUnit r11 (Port 가 Entity 노출 금지) 으로 기계 강제
+
+<a id="authserviceimpl--위임-조합-core-auth-impl"></a>
 
 ### `AuthServiceImpl` — 위임 조합 (core-auth-impl)
 
@@ -228,6 +250,8 @@ public class AuthServiceImpl implements AuthPort {
 - 한 클래스에 인증 로직 전체 — 17개 메서드가 10개 서비스에 분기
 - `@Transactional` — 인증 흐름 (가입, 로그인, 비밀번호 변경 등) 의 일관성 보장
 - bean 자체는 `AuthAutoConfiguration` 이 등록 — `@ConditionalOnMissingBean` 으로 커스터마이즈 가능
+
+<a id="core-auth-implauthcontrollerjava--레퍼런스-소스-런타임-미등록"></a>
 
 ### `core-auth-impl/AuthController.java` — 레퍼런스 소스, 런타임 미등록
 
@@ -276,6 +300,8 @@ EOF
 
 생성 결과: `apps/app-<slug>/src/main/java/com/factory/apps/<slug>/auth/<Slug>AuthController.java` 가 만들어지고, 런타임 bean 으로 자동 등록돼요.
 
+<a id="archunit-r13--controller-위치-강제"></a>
+
 ### ArchUnit r13 — Controller 위치 강제
 
 ```java
@@ -316,6 +342,8 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 **"런타임 미등록 Controller" 의 혼란성** — 처음 레포를 보는 사람이 `core-auth-impl/AuthController.java` 의 `@RestController` + `@RequestMapping` 을 보고 "이게 실제 엔드포인트" 라고 오해. 완화: 파일 상단 JavaDoc 에 명시 ("런타임에 등록되지 않습니다") + 본 ADR 에 근거 기록 + [`ADR-012 의 교훈`](./adr-012-per-app-user-model.md#교훈) 에서도 동일 이슈 언급.
 
 **`AuthPort` 변경의 파급** — Port 메서드 시그니처 변경 시 모든 앱 Controller 가 영향을 받아요. 완화: `AuthPort` 는 인증 도메인 인터페이스라 변경 빈도가 낮아요. 추가 메서드는 가능하고 (기존 Controller 에 영향 없음), 기존 메서드 변경은 [`ADR-015 의 Deprecation 프로세스`](./adr-015-conventional-commits-semver.md) 로 관리합니다.
+
+<a id="core-auth-impl-의-이중-역할--라이브러리-로-이해하기"></a>
 
 ### core-auth-impl 의 이중 역할 — "라이브러리" 로 이해하기
 
@@ -365,7 +393,7 @@ public static final ArchRule SPRING_BEANS_MUST_RESIDE_IN_IMPL_OR_APPS =
 
 "앱별 Controller + URL 에 slug" 만으로는 실제 경계가 강제되지 않아요. 예를 들어 sumtally 에서 발급된 JWT 를 가지고 `/api/apps/rny/users/me` 를 치면, rny Controller 가 받긴 받습니다. 만약 인증된 사용자 정보를 JWT 에서만 가져오면 rny 앱에 sumtally 유저가 접근하는 사고가 발생해요.
 
-그래서 [`ADR-012`](./adr-012-per-app-user-model.md#구현--appslugverificationfilter-로-경계-강제) 의 `AppSlugVerificationFilter` 가 필수:
+그래서 [`ADR-012`](./adr-012-per-app-user-model.md#app-slug-verification) 의 `AppSlugVerificationFilter` 가 필수:
 
 - URL path 의 `{slug}` 와 JWT 의 `appSlug` claim 이 다르면 403
 - 필터 체인: `JwtAuthFilter → AppSlugMdcFilter → AppSlugVerificationFilter → Controller`

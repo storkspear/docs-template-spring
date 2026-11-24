@@ -18,6 +18,8 @@
 
 ## 1. 왜 per-app schema 인가
 
+<a id="개념--한-장으로-보는-격리-흐름"></a>
+
 ### 개념 — 한 장으로 보는 격리 흐름
 
 요청 하나가 어떻게 자기 앱 schema 에만 닿는지를 먼저 그림으로 잡아요. 인증 단계에서 추출한 slug 가 connection 선택까지 한 줄로 이어지는 게 핵심이에요.
@@ -112,7 +114,7 @@ public static LocalContainerEntityManagerFactoryBean buildEntityManagerFactory(
 
 > **왜 default_schema 를 안 쓰나요?** slug 는 요청마다 ThreadLocal 로 들어와 EMF 가 부팅 시점에 특정 schema 에 고정될 수 없으므로, schema 결정은 connection 의 몫이에요. 근거는 [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 *교훈* 절과 [`ADR-018`](../philosophy/adr-018-schema-routing-datasource.md) 에 정리돼 있어요.
 
-`hbm2ddl.auto` 는 `none` 이에요. schema 정합은 Flyway 의 `flyway_schema_history` 가 이미 보장하므로 Hibernate 가 부팅 시 다시 validate 하지 않아요. 운영 schema 와 엔티티의 sync 검증은 통합 테스트 (Testcontainers + slug 별 schema) 가 맡습니다. `hibernate.dialect` 를 명시하고 `allow_jdbc_metadata_access=false` 로 둔 이유는, 라우팅 EMF 가 부팅 시점에 어떤 slug 의 connection 도 못 잡는 상태에서도 dialect 를 결정할 수 있게 하기 위해서예요.
+`hbm2ddl.auto=none`이므로 Hibernate는 부팅 때 엔티티와 DB 컬럼의 일치를 검사하지 않아요. Flyway validate는 마이그레이션 이력과 체크섬을 확인하며 실제 스키마 전체가 엔티티와 맞는지 보장하지 않아요. 통합 테스트와 해당 앱의 실제 조회·저장 검증을 함께 해요. `hibernate.dialect`를 명시하고 JDBC 메타데이터 접근을 끈 이유는 부팅 중 슬러그 연결 없이 라우팅 EMF를 구성하기 위해서예요.
 
 같은 논리로 Flyway 의 `.schemas(slug)` 는 해당 schema 에 `flyway_schema_history` 테이블을 만들고 마이그레이션 이력을 관리합니다. 각 앱의 Flyway 디렉토리는 독립적으로 관리돼요.
 
@@ -328,7 +330,7 @@ slug 에 하이픈이 있으면 (예: `my-app`) 빈 이름에서는 하이픈을
 
 ### 신규 앱 최초 부트스트랩
 
-스캐폴드가 만드는 `<slug>Flyway` 는 `app.flyway.mode` 를 존중해요. 그래서 dev/prod 기본값인 `VALIDATE_ONLY` 그대로 새 앱을 처음 배포하면 부팅 시 validate 만 도는데, 빈 스키마에는 `flyway_schema_history` 가 없어서 검증이 실패하고 부팅이 멈춥니다. `tools/deploy/migrate-prod.sh` 도 그 테이블이 없으면 "먼저 부팅/배포로 초기 migrate 하세요" 로 거부해요. 즉 **첫 마이그레이션만은 별도의 진입 경로가 필요**합니다.
+생성된 `<slug>Flyway`는 `app.flyway.mode`를 따라요. dev/prod 프로파일의 fallback은 `VALIDATE_ONLY`지만 `.env.dev.example`과 `.env.prod.example`의 `AUTO`가 이를 덮어써요. 빈 스키마에서 validate만 실행하면 이력 테이블이 없어 시작할 수 있으므로 실제 설정을 확인하고 최초 마이그레이션 경로를 준비해야 해요. 수동 적용 도구도 기존 이력 테이블을 전제로 해요.
 
 절차는 **`AUTO` 로 1회 부팅 → 원복** 이에요.
 

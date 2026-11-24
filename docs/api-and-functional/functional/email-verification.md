@@ -1,3 +1,5 @@
+<a id="email-verification--delivery"></a>
+
 # Email Verification & Delivery
 
 > **유형**: Explanation · **독자**: Level 2 · **읽는 시간**: ~12분
@@ -16,6 +18,8 @@
 
 ---
 
+<a id="개념--발송-경로-한눈에"></a>
+
 ## 개념 — 발송 경로 한눈에
 
 인증 메일이 만들어져서 사용자에게 닿기까지의 경로는 다음과 같아요. 도메인 서비스는 화살표 왼쪽까지만 알고, 오른쪽은 환경이 결정합니다.
@@ -32,6 +36,8 @@ PasswordResetService      ──► EmailPort.send(to, subject, htmlBody)
 어느 어댑터가 등록되는지는 환경과 `RESEND_API_KEY` 유무가 정합니다. 핵심은 도메인 코드가 이 분기를 전혀 신경 쓰지 않는다는 점이에요. 같은 `send(...)` 호출이 운영에서는 실제 메일이 되고, 로컬에서는 콘솔 로그가 됩니다.
 
 ---
+
+<a id="구조--모듈과-책임"></a>
 
 ## 구조 — 모듈과 책임
 
@@ -171,7 +177,7 @@ public class EmailAutoConfiguration {
 | prod | 있음 | `ResendEmailAdapter` | OK — 실제 발송 |
 | prod | 없음 | 없음 | 부팅 실패 — 의도된 운영 안전망 |
 
-여기서 흔히 오해하는 지점은 dev 예요. `LoggingEmailAdapter` 가 붙는 건 `local` 프로파일뿐이라, 배포된 dev 서버는 운영과 똑같이 키를 요구합니다. `application-dev.yml` 과 `application-prod.yml` 둘 다 기본값 없는 `${RESEND_API_KEY}` 를 쓰므로, 키가 없으면 dev 도 부팅 단계에서 멈춰요. 콘솔 fallback 은 내 노트북에서만 일어나는 일입니다.
+`LoggingEmailAdapter`는 `local` 프로필에서만 사용하는 대체 구현이에요. 배포된 dev 서버에는 이 구현이 자동 등록되지 않아요. dev·prod 설정은 `RESEND_API_KEY`를 기본값 없는 placeholder로 참조하므로 미정의 값과 빈 문자열을 구분해서 확인해야 해요. 키가 실제로 채워졌는지, EmailPort가 등록됐는지, 기능 토글이 켜졌는지는 각각 별도 조건이에요.
 
 테스트에서 `EmailPort` 를 mock 으로 주입하면 `@ConditionalOnMissingBean` 이 두 어댑터 등록을 모두 생략해요.
 
@@ -192,7 +198,7 @@ public class EmailAutoConfiguration {
 
 ### dev 응답에 raw 코드를 노출하는 방식
 
-로컬과 dev 자동화 테스트는 메일을 받지 않고도 인증 단계를 통과해야 해요. 그래서 서버가 만든 raw 6자리 코드를 응답으로 직접 돌려주는 길을 둡니다. 이 노출을 켜는 스위치는 두 가지이고, 둘 중 하나만 켜져도 노출돼요.
+가입 전 인증과 가입 후 재인증에는 개발용 raw 코드를 응답하는 경로가 있어요. 이 두 흐름은 아래 두 조건 중 하나가 켜지면 코드를 노출해요. 비밀번호 재설정은 별도예요. `PasswordResetService`는 `isDevCapture()`만 확인하므로 `dev-fallback-raw=true`여도 Resend 어댑터를 쓰는 dev 서버에는 재설정 코드가 응답에 실리지 않아요.
 
 - `app.email.dev-fallback-raw` 설정값. `application-local.yml` 과 `application-dev.yml` 이 둘 다 true 로 두고, 운영 yml 에는 없어 기본 false 입니다. prod profile 에서는 `.env.prod` 에 true 를 넣어도 `ProdSafetyEnvironmentPostProcessor` 가 false 로 덮어쓰고 WARN 을 남겨요.
 - 활성 어댑터의 `isDevCapture()`. `LoggingEmailAdapter` 가 true 를 반환할 때만 켜져요.
@@ -228,6 +234,8 @@ public class SendGridEmailAdapter implements EmailPort {
 
 ---
 
+<a id="이메일-인증-플로우--verify-before-signup"></a>
+
 ## 이메일 인증 플로우 — verify-BEFORE-signup
 
 가입은 **인증을 먼저 끝낸 뒤** 이루어지는 3단계예요. 계정이 없는 상태에서 이메일로 6자리 코드를 보내고(`send-code`), 코드를 검증해 30분짜리 proof JWT 를 받고(`verify-code`), 그 `proofToken` 을 담아 가입(`signup`)합니다. 가입 시점에 유저는 곧바로 `email_verified = true` 로 생성돼요 — 가입 후 인증 메일을 따로 보내지 않습니다.
@@ -239,6 +247,8 @@ public class SendGridEmailAdapter implements EmailPort {
 ```
 
 이 흐름을 담당하는 서비스가 `EmailPreVerificationService` 예요. 에러는 세 코드로 분리돼 있어요 — 코드 불일치/만료/재사용/시도초과는 `ATH_011`, proof 무효는 `ATH_012`, 발송 한도 초과는 `ATH_013`(429).
+
+<a id="1-send-code--코드-생성발송-계정-미생성"></a>
 
 ### 1. send-code — 코드 생성·발송 (계정 미생성)
 
@@ -263,9 +273,13 @@ public Optional<String> sendCode(String email) {
 
 DB 에는 raw 코드의 SHA-256 해시만 저장하고, TTL 윈도우(기본 5분) 내 최대 5회 발송으로 이메일 enumeration·메일 폭탄을 막아요.
 
+<a id="2-verify-code--코드-검증--prooftoken"></a>
+
 ### 2. verify-code — 코드 검증 → proofToken
 
 `verifyCode(email, rawCode, appSlug)` 는 해당 이메일의 최신 코드를 찾아 미사용·미만료·시도횟수(5회 미만)를 확인하고, timing-safe 비교로 해시를 대조해요. 실패하면 시도 횟수를 올리고 `ATH_011` — 마지막 허용 시도까지 실패하면 코드를 폐기합니다. 성공하면 코드를 1회용으로 무효화하고 `JwtService.issueEmailVerificationProof(email, appSlug)` 가 서명한 **30분 TTL proof JWT** 를 돌려줘요 (`purpose=email_verification_proof` 로 access token 과 분리).
+
+<a id="3-signup--prooftoken-검증-후-유저-생성"></a>
 
 ### 3. signup — proofToken 검증 후 유저 생성
 
@@ -293,6 +307,8 @@ public AuthResponse signUp(SignUpRequest request, String appSlug) {
 ```
 
 `appSlug` 는 클라이언트 body 가 아니라 URL path 에서 derive 되고, proof JWT 의 email·appSlug·purpose claim 이 모두 일치해야 가입이 진행돼요.
+
+<a id="가입-후-재인증-경로--verify-email--resend-verification"></a>
 
 ### 가입 후 재인증 경로 — verify-email · resend-verification
 
@@ -334,7 +350,7 @@ public Optional<String> sendVerificationEmail(long userId, String email) {
 - dev·local 처럼 `dev-fallback-raw` 가 true 면, 발송이 실패해도 raw 코드를 반환하고 플로우를 그대로 진행합니다. 외부 메일 장애가 로컬 개발을 막지 않게 하려는 거예요.
 - 운영처럼 false 면 예외를 그대로 다시 던져요. 호출자가 이 예외를 삼키지 않으므로 요청이 명시적으로 실패합니다 — 여기서 삼키면 rollback-only 마크와 충돌하므로 의도적인 전파예요.
 
-저장 규칙도 한 줄로 못 박을 수 있어요. raw 6자리는 이메일 본문에만 들어가고, DB 에는 SHA-256 해시만 저장합니다. DB 가 유출돼도 해시에서 raw 코드를 되돌릴 수 없어요.
+DB에는 raw 코드 대신 SHA-256 해시를 저장해요. 다만 6자리는 후보가 100만 개뿐이므로 해시가 유출되면 오프라인 대입으로 코드를 찾을 수 있어요. 평문 저장을 피하는 조치와 오프라인 추측 방어를 혼동하지 않아요. 짧은 TTL과 발송·검증 시도 제한은 온라인 검증 경로를 보호해요.
 
 `TokenGenerator` 는 두 가지 방식을 제공합니다.
 
@@ -379,6 +395,8 @@ public class AuthEmailVerificationToken {
 ```
 
 `usedAt` 이 null 이 아니면 이미 쓴 토큰이라 재사용할 수 없고, `expiresAt` 이 현재보다 과거면 만료된 토큰입니다. `attempts` 는 오답 횟수를 그 토큰에만 계상해요 — 5회 도달 시 토큰이 무효화(used 처리)됩니다.
+
+<a id="사용자가-6자리를-입력하면-검증--verify-email"></a>
 
 ### 사용자가 6자리를 입력하면 검증 — verify-email
 
@@ -425,7 +443,9 @@ public long verify(String email, String rawToken) {
 }
 ```
 
-검증은 요청의 `email` 로 사용자를 해석한 뒤 **그 사용자의 최신 활성 토큰만** 대조해요. 오답이면 그 토큰의 `attempts` 만 원자적 UPDATE(`incrementAttemptsIfBelow` — 휴대폰 OTP 와 동일 패턴)로 +1 하고, 5회 도달 시 토큰을 폐기합니다. 다른 사용자의 토큰은 어떤 경우에도 건드리지 않아요. 존재하지 않는 email 은 동일한 `INVALID_TOKEN` 으로 거부하고, 타이밍 채널도 가능한 균일하게 유지하려고 동일한 모양의 토큰 조회를 수행합니다 (계정 열거 방지). `noRollbackFor=AuthException` 은 오답 거부 시에도 attempts 증가가 rollback 되지 않게 하는 장치예요 — 진입점 `AuthServiceImpl.verifyEmail` 도 동일하게 선언합니다.
+요청의 `email`로 사용자를 찾고 그 사용자의 최신 활성 토큰을 대조해요. 오답이면 해당 토큰의 `attempts`를 조건부 UPDATE로 하나 늘리고, 한도에 도달하면 폐기해요. 존재하지 않는 email도 `INVALID_TOKEN`으로 거절하며, 조회 흐름 차이로 계정 존재가 드러나지 않도록 같은 형태의 토큰 조회를 수행해요.
+
+`noRollbackFor=AuthException`은 오답을 예외로 반환해도 시도 횟수 증가를 커밋하기 위한 설정이에요. 진입점인 `AuthServiceImpl.verifyEmail`에도 적용돼 있어요. 타이밍 차이를 줄이려는 처리이며 모든 계정 열거 경로를 차단한다는 보장은 아니에요.
 
 검증에 성공하면 `markUsed()` 로 재사용을 막고 `userId` 를 반환합니다. 호출자인 `AuthServiceImpl.verifyEmail` 은 그 `userId` 로 `userPort.verifyEmail(userId)` 를 불러 실제 플래그를 세워요. 검증 로직과 유저 상태 변경이 모듈 경계를 따라 나뉘어 있는 거예요.
 
@@ -498,52 +518,11 @@ public Optional<String> requestReset(String email) {
 
 `POST /auth/password-reset/confirm` 으로 `{"email", "token", "newPassword"}` 가 오면 검증·변경·세션 무효화를 한 번에 처리해요. `email` 은 필수예요 — 코드를 **그 계정의 최신 활성 코드 1개**와만 대조하고, 오답 시도도 그 계정 단위로 세기 위한 스코프 키입니다. 6자리 코드를 앱 전체의 활성 코드와 대조하면 무작위 대입 표면이 "재설정을 요청해 둔 사용자 수"만큼 넓어지기 때문이에요. 이메일 인증의 `verify-email` 과 같은 계약입니다.
 
-```java
-// core/core-auth-impl/.../service/PasswordResetService.java 발췌
-@Transactional(noRollbackFor = AuthException.class)
-public void confirmReset(String email, String rawToken, String newPassword) {
-    Optional<UserAccount> account = userPort.findAccountByEmail(email);
-    if (account.isEmpty()) {
-        // 계정 열거 방지 — 실제 경로와 같은 모양의 토큰 조회 후 동일 응답
-        tokenRepository.findFirstByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(ENUMERATION_GUARD_USER_ID);
-        throw new AuthException(AuthError.INVALID_TOKEN);
-    }
-    long userId = account.get().id();
-    AuthPasswordResetToken token = tokenRepository
-            .findFirstByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(userId)
-            .orElseThrow(() -> new AuthException(AuthError.INVALID_TOKEN));
-
-    if (token.isExpired()) {
-        throw new AuthException(AuthError.TOKEN_EXPIRED);
-    }
-    if (token.getAttempts() >= MAX_CONFIRM_ATTEMPTS) {
-        tokenRepository.markUsedById(token.getId(), Instant.now());
-        throw new AuthException(AuthError.INVALID_TOKEN);
-    }
-    if (!TokenGenerator.constantTimeEquals(TokenGenerator.sha256Hex(rawToken), token.getTokenHash())) {
-        // 그 사용자의 활성 토큰만 원자적 +1, 5회 도달 시 폐기
-        int priorAttempts = token.getAttempts();
-        int updated = tokenRepository.incrementAttemptsIfBelow(token.getId(), MAX_CONFIRM_ATTEMPTS);
-        if (updated == 0 || priorAttempts + 1 >= MAX_CONFIRM_ATTEMPTS) {
-            tokenRepository.markUsedById(token.getId(), Instant.now());
-        }
-        throw new AuthException(AuthError.INVALID_TOKEN);
-    }
-
-    token.markUsed();
-    userPort.updatePassword(userId, passwordHasher.hash(newPassword));
-
-    // 계정 잠금 즉시 해제 — 재설정 = 이메일 소유 증명 = 본인 확인 완료
-    userPort.resetLockout(userId);
-
-    // 모든 세션 무효화 — 보안 조치
-    refreshTokenService.revokeAllForUser(userId);
-}
-```
+현재 `PasswordResetService.confirmReset`은 해시를 대조하기 **전에** `incrementAttemptsIfBelow`로 시도 한 번을 원자적으로 소비해요. 소비하지 못하면 거부하고, 정답이어도 `markUsedById`가 한 행을 갱신한 경우에만 비밀번호 변경을 진행해요. 동시 정답 요청이나 이미 폐기된 코드가 두 번 통과하지 않도록 하는 조건이에요. 오답 시도 기록은 `noRollbackFor=AuthException`으로 유지해요.
 
 오답은 그 계정의 토큰에만 쌓이고, 5회 도달 시 그 코드만 무효화돼요 (다른 사용자의 코드는 영향 없음). 피해자의 이메일을 아는 공격자가 오답으로 코드를 소진시키는 표적 DoS 는 남지만, 피해자가 재요청하면 새 코드로 복구되므로 이메일 인증과 같은 수용된 트레이드오프예요. 오답 거부도 attempts 증가가 commit 되어야 하므로 `noRollbackFor = AuthException.class` 를 서비스와 진입점(`AuthServiceImpl.confirmPasswordReset`) 양쪽에 선언합니다.
 
-비밀번호가 바뀌면 그 유저의 refresh token 을 전부 무효화합니다. 계정이 탈취돼 공격자가 비밀번호를 바꿨더라도, 정상 유저가 재설정을 수행하는 순간 공격자의 모든 세션이 끊기게 하려는 조치예요.
+재설정이 완료되면 해당 사용자의 refresh token을 모두 폐기하고 계정 잠금을 해제해요. 기존 access JWT를 즉시 모두 폐기하는 동작은 아니므로, 모든 요청 세션이 그 순간 끊긴다고 표현하지 않아요. 이후 refresh는 실패해 재로그인이 필요해요.
 
 ### 3. 만료 토큰 정리
 

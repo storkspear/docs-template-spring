@@ -4,13 +4,13 @@
 
 **설계 근거**: [`ADR-002 · Use this template`](../philosophy/adr-002-use-this-template.md)
 
-이 문서는 템플릿(또는 파생 레포)을 직접 Mac mini 에 배포해서 한 사이클을 검증하는 [도그푸딩](../reference/glossary.md#이-레포-고유-용어) 가이드예요. 자체 운영 배포를 처음 돌려 보며, 무엇을 발급하고 어떻게 셋업하는지를 시간 순으로 안내해요. 여기서는 정상 흐름만 다뤄요. 에러를 만나면 시간 순 narrative 인 [`도그푸딩 walkthrough`](./dogfood-walkthrough.md) 나 에러별 검색이 빠른 [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) 으로 가세요.
+별도 파생 저장소를 시험 환경에 배포해 설정·기동·검증·정리를 확인하는 가이드예요. 원본 `template-spring`은 공통 코드 유지보수용이며 원격 배포 명령의 가드 대상이에요. 최초 배포 전에 외부 자격과 연결을 검증해요. 오류를 찾을 때는 [함정 모음](./dogfood-pitfalls.md)을, 당시 작업 흐름을 확인할 때는 [시간순 기록](./dogfood-walkthrough.md)을 참고하세요.
 
 함께 읽으면 좋은 문서예요.
 
 - 결정 근거: [`인프라 결정 기록 — I-09 ~ I-14`](../production/deploy/decisions-infra.md)
 - 전체 플로우: [`CI/CD 전체 플로우`](../production/deploy/ci-cd-flow.md) — commit 부터 운영 반영까지
-- 자주 묻는 질문: [`도그푸딩 FAQ`](./dogfood-faq.md)
+- 자주 묻는 질문: [`도그푸딩 FAQ`](dogfood-setup.md)
 
 ---
 
@@ -18,7 +18,7 @@
 
 ### 무엇을 하나요
 
-세 가지를 순서대로 해요.
+파생 저장소에는 자동화 코드가 복사되지만 GitHub Secrets·Variables, SSH 접근, 이미지 저장소 권한 같은 외부 설정은 따라오지 않아요. 아래 준비와 검증을 별도로 진행해요.
 
 - 외부 리소스 발급 — GitHub PAT, Tailscale OAuth, Mac mini SSH 키, Supabase 연결 정보를 준비해요 (§3).
 - `infra init` — 계정/호스트에 속하는 공유 자격을 `.env.infra` 에 모아 한 벌만 올려요 (§3.7).
@@ -36,34 +36,26 @@
 
 ### 시간 비용
 
-| 단계 | 예상 시간 |
-|---|---|
-| 외부 리소스 발급 (한 번) | ~20분 |
-| `.env.infra` 채우기 + `infra init` (한 번) | ~5분 |
-| `.env.prod` 채우기 | ~5분 |
-| `init-prod.sh` 1·2회차 + `verify-server.sh` | ~10분 |
-| **합계** | **~40분** (외부 리소스가 이미 있으면 ~15분) |
+설정에 걸리는 시간은 외부 자격 보유 여부, 호스트 접근, 승인과 배포 결과에 따라 달라요. 외부 자격 발급과 공유 인프라 설정을 먼저 마치고 환경 설정·검증으로 진행해요.
 
 ### 1.5 공동 작업자 모드 (fresh clone)
 
-이미 첫 작업자가 `.env.prod` 와 Secrets·Variables 까지 등록한 파생 레포를 새 팀원이 fresh clone 받았다면, §3 ~ §6 의 발급·채우기·push 를 모두 건너뛰어요.
+이미 초기 설정을 마친 파생 저장소를 새로 복제했다면 운영 자격을 다시 등록할 필요가 없어요.
 
 ```bash
-git clone <derived-repo>.git && cd <derived-repo>
-./factory install        # symlink 등록 (머신마다 1회)
-<repo> init              # = init-local.sh — 로컬 docker 만 셋업
+git clone <derived-repo>.git
+cd <derived-repo>
+./factory install
+<repo> init
 ```
 
-`init-prod.sh` 는 두 조건이 모두 맞으면 공동 작업자 모드로 자동 전환해요.
+`<repo> init`은 로컬 설정만 실행하고, `<repo> all init`은 로컬과 운영 설정을 순서대로 실행해요. `init-local.sh`는 `settings.gradle`의 템플릿 이름이 바뀌었고 `PROJECT_README_TEMPLATE.md`가 없으면 이름 변경과 README 교체를 건너뛰어요. `init-prod.sh`는 여기에 `.env.prod`가 없는 조건까지 맞아야 공동 작업자로 판단해 운영 설정·Secrets 등록·운영 검증을 건너뛰어요. 이 경우 `.env.infra`와 `infra init`도 필요하지 않아요.
 
-- settings.gradle rename 이 끝나 있고 `PROJECT_README_TEMPLATE.md` 가 없음 (= 이미 셋업된 레포)
-- `.env.prod` 가 없음 (= 이 머신엔 운영 자격이 없음)
+로컬 환경만 간단히 준비하려면 `.env`가 없을 때 `.env.example`을 복사하고 `<repo> local start` 뒤 `./gradlew :bootstrap:bootRun`을 실행할 수 있어요.
 
-이 모드는 `.env.infra` 선행 확인도 면제받아요. 공유 자격은 첫 작업자가 이미 GitHub 에 올린 상태라, 두 번째 작업자의 머신에 `.env.infra` 가 있을 이유가 없어요.
+최초 설정 절차를 의도적으로 다시 수행하려면 해당 명령에 `--reinit`을 붙여요. 다시 등록할 환경과 자격을 먼저 확인하세요. 로컬 설정 명령에 이 옵션을 붙였다고 운영 설정까지 실행되는 것은 아니에요.
 
-이 모드에서는 운영 셋업 단계(Step 5/6/9.5/10)를 자동으로 건너뛰어요. 운영 Secrets 는 첫 작업자가 이미 GitHub 에 올린 상태라, 자격 없는 머신에서 다시 push 해 덮어쓰는 사고를 막아요. 분기 로직은 [`FAQ Q12`](./dogfood-faq.md#q12) 와 [`FAQ Q14`](./dogfood-faq.md#q14) 에 정리돼 있어요.
-
-운영 secrets 를 의도적으로 다시 갈아엎어야 한다면 `--reinit` 플래그를 써요. 운영 자격이 덮여 쓰이므로 팀과 충분히 협의한 뒤 진행하세요.
+원본 템플릿을 시험용 저장소처럼 이름만 바꿔 배포하지 않아요. 파생 저장소에서 시험하고, 원본의 공통 코드 변경은 원본 유지보수 절차로 검증해요. 기존 작업 전체를 `git restore .`로 되돌리는 방식도 이 절차에 포함하지 않아요.
 
 ---
 
@@ -75,11 +67,18 @@ git clone <derived-repo>.git && cd <derived-repo>
 | Mac mini SSH 접근 | macOS 운영 호스트 | §3.3 |
 | Tailscale 계정 + ACL admin | login.tailscale.com | §3.2 |
 | Supabase 프로젝트 (Seoul region 권장) | supabase.com | §3.5 |
-| 도메인 + Cloudflare 계정 (선택) | — | 외부 도메인 접근이 필요할 때만 (§3.6) |
+| 도메인 + Cloudflare 계정 | 기본 `infra init` 자동화에서 필수 | 요청만 사설망으로 시험하는 방법은 §3.6·§8 참고 |
 
 위 다섯 중 GitHub PAT · SSH · Tailscale · 도메인/Cloudflare 네 가지는 **환경이 아니라 계정/호스트에 속하는 자산**이라 `.env.infra` 가 소유해요 (§3.7). Supabase 연결 정보만 환경별로 달라 `.env.prod` · `.env.dev` 가 각자 가져요.
 
 도구(JDK 21~25 · Docker · Node · `gh` CLI 등)가 다 깔려 있는지는 [`onboarding §1`](./onboarding.md#1-도구-설치) 의 `./factory doctor` 로 한 번에 확인할 수 있어요.
+
+---
+
+<a id="other-hosts"></a>
+### 다른 배포 호스트를 사용할 때
+
+현재 자동화는 Mac mini·ARM64 이미지·Tailscale 접근을 기준으로 구성돼 있어요. 다른 호스트를 사용하려면 `DEPLOY_HOST`·`DEPLOY_SSH_USER`, Docker와 배포 프록시 실행 조건을 확인해요. x86 호스트는 이미지 빌드 플랫폼도 맞춰야 해요. Tailscale을 사용하지 않으면 GitHub Actions runner가 호스트에 도달하는 별도 경로와 해당 워크플로 변경이 필요해요. 기존 인프라 결정과 다른 구성이므로 관련 ADR과 배포 검증을 함께 검토해요.
 
 ---
 
@@ -91,18 +90,14 @@ git clone <derived-repo>.git && cd <derived-repo>
 
 ### 3.1 GitHub PAT (Personal Access Token Classic)
 
-GHCR 에 docker 이미지를 push 할 권한이 필요해요. 워크플로우 기본 토큰인 `GITHUB_TOKEN` 으로는 첫 패키지를 만들 때 권한이 부족한 알려진 이슈가 있어서([`pitfalls #7`](./dogfood-pitfalls.md)), [PAT](../reference/glossary.md#ci--배포-파이프라인) 를 따로 발급해요.
+현재 배포 워크플로는 `GHCR_TOKEN`으로 이미지 저장소에 인증해요. 도그푸딩에서 발생했던 403과 PAT 우회는 [GHCR 사례](./dogfood-pitfalls.md#ghcr-auth)에 기록돼 있어요. 당시 실패를 모든 GitHub 저장소에서 `GITHUB_TOKEN`을 사용할 수 없다는 일반 제한으로 해석하지 않아요.
 
 발급 절차예요.
 
 1. [github.com/settings/tokens](https://github.com/settings/tokens) → "Generate new token" → "Generate new token (classic)"
 2. Note 에 `dogfood-template-spring` 처럼 알아볼 이름을 적어요.
 3. Expiration 은 90일(또는 본인 정책)으로 둬요.
-4. Scopes 에서 다음 네 가지를 체크해요.
-   - `write:packages`
-   - `read:packages`
-   - `delete:packages` — 정리용
-   - `repo` — `write:packages` 가 의존
+4. 이미지 업로드에는 `write:packages`를 선택해요. 다운로드 권한은 `read:packages`, 패키지 삭제까지 할 때는 `delete:packages`도 확인해요. 발급 화면에서 `repo`가 함께 선택될 수 있지만, 패키지 업로드 자체의 필수 의존 권한은 아니에요. 같은 토큰으로 비공개 저장소 작업도 수행할 때 해당 저장소 권한을 별도로 판단해요.
 5. "Generate token" → 즉시 복사해요 (한 번만 보여요). 이 값을 `.env.infra` 의 `GHCR_TOKEN` 에 넣어요.
 
 ### 3.2 Tailscale OAuth client
@@ -160,9 +155,12 @@ ssh -i ~/.ssh/macmini storkspear@100.X.X.X 'echo connected'
 
 > 공개키는 한 줄로 복사하세요. 키 중간에 줄바꿈이 끼면 인식되지 않아요.
 
-### 3.4 레포 workflow 권한 = write
+<a id="34-레포-workflow-권한-write"></a>
 
-GHCR push 권한을 확보해요. CLI 또는 화면에서 처리할 수 있어요.
+<a id="34-레포-workflow-권한--write"></a>
+### 3.4 워크플로 토큰 권한 확인
+
+현재 이미지 push는 `GHCR_TOKEN`을 사용하므로 PAT의 scope와 대상 패키지 권한을 확인해요. 아래 명령은 trial `setup.sh`가 설정하는 `GITHUB_TOKEN`의 기본 권한을 보여줘요. PAT 권한을 바꾸는 명령은 아니에요.
 
 ```bash
 gh api -X PUT "repos/<owner>/<repo>/actions/permissions/workflow" \
@@ -172,22 +170,22 @@ gh api -X PUT "repos/<owner>/<repo>/actions/permissions/workflow" \
 
 또는 GitHub 레포 → Settings → Actions → General → "Workflow permissions" → "Read and write permissions" 선택 → Save.
 
-이 단계가 빠지면 GHCR push 가 403 으로 실패해요 ([`pitfalls #5`](./dogfood-pitfalls.md)).
+`GITHUB_TOKEN`으로 GHCR에 업로드하는 워크플로라면 해당 job의 `permissions: packages: write`와 패키지 접근 권한을 확인해요. 저장소 전체의 기본 권한을 write로 바꾸는 것은 필수 조건이 아니에요. 당시 권한 문제는 [GHCR 사례](./dogfood-pitfalls.md#ghcr-auth)에 따로 기록했어요.
 
 ### 3.5 Supabase 연결 정보
 
-Supabase Dashboard → Settings → Database → Connection string 에서 연결 문자열을 복사해요. Transaction pooler(`:6543`)를 권장해요. blue/green 배포가 겹치는 구간의 연결 폭증을 흡수하고, 앱 수가 늘어도 multiplex 로 확장돼요. Session pooler(`:5432`)도 동작은 하지만 연결 한도에 빨리 도달해요 (이 차이는 [`onboarding §4.3`](./onboarding.md#43-운영-db-provider-는-배포-시점에만-고르면-돼요) 참고).
+지속 실행하는 Spring 서버는 직접 연결이나 session pooler의 5432 연결을 기준으로 설정해요. 직접 연결의 네트워크 조건이 맞지 않으면 session pooler를 검토해요. transaction pooler 6543은 별도 호환성 판단이 필요한 옵션이며, Flyway는 runtime 연결과 분리된 session/direct 연결을 사용해요. 접속 정보는 Supabase의 현재 프로젝트 연결 화면에서 확인해요.
 
 복사한 문자열은 이런 모양이에요.
 
 ```
-postgresql://postgres.sebqrqi...:[YOUR-PASSWORD]@aws-1-<region>.pooler.supabase.com:6543/postgres
+postgresql://postgres.sebqrqi...:[YOUR-PASSWORD]@aws-1-<region>.pooler.supabase.com:5432/postgres
 ```
 
 이 문자열을 그대로 쓰면 안 돼요. JDBC 형식이 아니거든요 ([`pitfalls #11`](./dogfood-pitfalls.md)). 다음처럼 세 변수로 분리해서 `.env.prod` 에 넣어요.
 
 ```bash
-DB_URL=jdbc:postgresql://aws-1-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true
+DB_URL=jdbc:postgresql://aws-1-<region>.pooler.supabase.com:5432/postgres
 DB_USER=postgres.sebqrqi...
 DB_PASSWORD=<your-actual-password>
 ```
@@ -200,9 +198,11 @@ DB_PASSWORD=<your-actual-password>
 
 > `DB_PASSWORD` 는 `init-prod.sh` 가 자동 발급하지 않아요. 외부 DB 가 발급한 비밀번호를 그대로 쓰는 설계라, Supabase 의 실제 비밀번호로 채우는 걸 잊지 마세요.
 
+<a id="슬러그별-datasource--slug_db_url-은-비워두세요"></a>
+
 #### 슬러그별 DataSource — `<SLUG>_DB_URL` 은 비워두세요
 
-`<repo> new <slug>` 가 새 앱을 추가하면 슬러그별 DataSource 가 자동 등록돼요. 슬러그별 자격은 따로 채울 필요가 없어요. `AbstractAppDataSourceConfig` 의 derive 로직이 core 의 `DB_URL` 에서 `currentSchema=<slug>` 부분만 슬러그로 바꿔 끼우고, USER 와 PASSWORD 는 core 값을 그대로 재사용하기 때문이에요.
+`<repo> new <slug>`로 앱을 추가하면 슬러그별 DataSource가 등록돼요. 앱별 접속값이 비어 있으면 공통 접속 기본값인 `DB_URL`·`DB_USER`·`DB_PASSWORD`를 사용해요. `AbstractAppDataSourceConfig`는 URL의 `currentSchema`를 앱의 스키마 이름으로 바꿔요. 여기서 공통 접속값은 `core` 스키마를 뜻하지 않아요.
 
 ```bash
 # .env.prod 의 슬러그별 자격은 비워둬요 — 자동 derive 됩니다
@@ -211,17 +211,21 @@ GYMLOG_DB_USER=
 GYMLOG_DB_PASSWORD=
 ```
 
-슬러그마다 별도의 DB role 로 분리하고 싶다면 명시적으로 채우면 그 값이 우선해요. 도그푸딩 단계에서는 core 자격을 재사용하는 흐름으로 시작하고, 운영이 안정된 뒤에 분리하는 순서를 권장해요.
+앱별 DB role을 사용하려면 해당 슬러그의 접속값을 채워요. 명시한 값이 공통 기본값보다 우선하며, DB role에 부여한 스키마 권한도 함께 적용돼요.
 
 코드는 `common/common-persistence/src/main/java/com/factory/common/persistence/AbstractAppDataSourceConfig.java` 의 `deriveSlugUrl` 이에요. 설계 근거는 [`ADR-018 · SchemaRoutingDataSource`](../philosophy/adr-018-schema-routing-datasource.md) 에 있어요.
 
+<a id="36-cloudflare-tunnel--외부-도메인-접근-선택"></a>
+
 ### 3.6 Cloudflare Tunnel — 외부 도메인 접근 (선택)
 
-내부 Tailscale IP 만으로 검증할 거면 건너뛰어도 돼요. 외부에서 `https://server.<도메인>` 으로 접근하려면 [`운영 배포 가이드 §2.3 ~ §2.6`](../production/deploy/deployment.md) 을 참고하세요.
+HTTP 요청만 시험할 때는 Tailscale IP와 Host 헤더로 배포 프록시에 접근할 수 있어요. 다만 이 문서의 기본 `infra init` 절차는 `BASE_DOMAIN`과 `CLOUDFLARE_API_TOKEN`을 필수로 검사해요. Cloudflare 없이 요청을 보내는 방법과 기본 자동화를 그대로 실행할 수 있는 조건은 구분해요.
 
 도메인은 두 파일로 나뉘어요. 계정 전체가 공유하는 `BASE_DOMAIN` 은 `.env.infra` 가, 환경별로 다른 `SUBDOMAIN` 은 `.env.prod`(`server`) 와 `.env.dev`(`dev-server`) 가 각자 가져요. 둘이 합쳐져 `APP_DOMAIN` 과 `PUBLIC_HOSTNAME` 이 자동 합성돼요. cloudflared 를 깔지 않더라도 `PUBLIC_HOSTNAME` 은 kamal-proxy 의 host-based routing 에 쓰이니 placeholder 라도 채워져 있어야 해요.
 
 `.env.infra` 의 `CLOUDFLARE_API_TOKEN` 까지 채우면 `infra init` 이 Zone·Account·Tunnel ID 를 자동 추출하고, 이후 `prod init`·`dev init` 이 각자의 DNS CNAME 과 Tunnel ingress 를 등록해줘요. 토큰 발급은 [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) 에서 하고, 권한은 Zone DNS Edit + Account Cloudflare Tunnel Edit 이 필요해요.
+
+<a id="37-infra-init--공유-자격-한-벌-등록"></a>
 
 ### 3.7 `infra init` — 공유 자격 한 벌 등록
 
@@ -241,7 +245,7 @@ $EDITOR .env.infra         # [REQUIRED] 채우기
 | `DEPLOY_SSH_USER` | Mac mini 계정 (예: `storkspear`). `root` 는 macOS SSH 비활성이라 실패해요 ([`pitfalls #8`](./dogfood-pitfalls.md)) | REQUIRED |
 | `SSH_PRIVATE_KEY` | §3.3 의 Mac mini private key 전체 내용 | REQUIRED |
 | `GHCR_TOKEN` | §3.1 의 GitHub PAT | REQUIRED |
-| `TS_OAUTH_CLIENT_ID` · `TS_OAUTH_SECRET` | §3.2 의 Tailscale OAuth. 비우면 GHA 자동 배포만 꺼지고, 로컬 `dev deploy`·`prod deploy` 는 그대로 동작해요 | OPTIONAL |
+| `TS_OAUTH_CLIENT_ID` · `TS_OAUTH_SECRET` | §3.2 의 Tailscale OAuth. 비워도 `DEPLOY_ENABLED`가 자동으로 꺼지지는 않아요. 자동 배포를 켜면 Tailscale 인증 단계가 실패할 수 있으므로 runner 접근 경로를 먼저 준비해요. 로컬 배포도 실행 머신에서 호스트로 연결할 수 있어야 해요 | OPTIONAL |
 | `CLOUDFLARE_ZONE_ID` · `ACCOUNT_ID` · `TUNNEL_ID` | 2회차가 TOKEN 으로 자동 추출 | AUTO |
 
 2회차가 하는 일이에요.
@@ -251,31 +255,33 @@ $EDITOR .env.infra         # [REQUIRED] 채우기
 3. GitHub Variables 접미사 없이 push — `DEPLOY_HOST` · `DEPLOY_SSH_USER`
 4. 관측 스택(Loki · Grafana · Prometheus, Discord 있으면 Alertmanager) 배포 — dev·prod 가 `env` 라벨로 구분해 공유해요
 
-멱등이라 몇 번을 다시 돌려도 결과가 같아요. 키를 교체했을 때도 같은 명령으로 다시 push 해요.
+다시 실행하면 현재 설정으로 자격과 관련 자원을 갱신해요. 변경할 계정·호스트·대상 저장소를 확인한 뒤 실행하고, 외부 서비스 상태에 따른 실패도 확인해요.
 
 > **기존 레포 마이그레이션** — 이미 `.env.prod` 나 `.env.dev` 에 이 값들을 채워둔 레포라면, 1회차가 그 값을 `.env.infra` 로 자동으로 옮겨 담고 **어떤 키를 옮겼는지 이름만** 출력해요(값은 찍지 않아요). 원본은 지우지 않아요 — 읽기 순서상 환경 파일이 뒤에 얹히므로 중복이 있어도 동작이 같아요.
 
 ---
 
+<a id="4-init-prodsh-1회차--envprod-자동-생성"></a>
+
 ## 4. `init-prod.sh` 1회차 — `.env.prod` 자동 생성
 
 ```bash
 bash tools/init/init-prod.sh <owner>/<repo>
-# 예: bash tools/init/init-prod.sh storkspear/server-factory
-# 또는: <repo> prod init storkspear/server-factory
-# 또는: <repo> all init storkspear/server-factory   (= local → prod 순차; init 만 쓰면 local 셋업만)
+# 또는: <repo> prod init <owner>/<repo>
 ```
 
-1회차에서 `init-prod.sh` 가 하는 일이에요.
+처음 설정하는 파생 저장소는 `.env.infra`를 먼저 준비해요. 공동 작업자 모드는 이 확인을 건너뛰어요. 로컬 설정이 아직 없으면 [로컬 온보딩](./onboarding.md)을 먼저 진행해요.
 
-1. **Step 1** — prereqs 검증 (JDK 21~25 · Docker · Node 18+ · `gh` CLI) + `.env.infra` 선행 확인. 없으면 `<repo> infra init` 을 먼저 돌리라고 안내하고 중단해요 (공동 작업자 모드는 면제).
-2. **Step 5** — `.env.prod.example` → `.env.prod` 복사 + 자동 채움. `JWT_SECRET`(openssl 랜덤), `KAMAL_SERVICE_NAME`(레포명), `DEPLOY_ENABLED=false`, PortOne webhook secret, `GHCR_USERNAME`/`KAMAL_IMAGE`(git remote 에서 derive)가 빈 자리에 들어가요.
-3. **Step 5.5** — `BASE_DOMAIN` + `SUBDOMAIN` 이 채워져 있으면 `APP_DOMAIN`·`PUBLIC_HOSTNAME` 을 자동 합성해요.
-4. **Step 6 진입** — `.env.prod` 의 REQUIRED 키가 아직 비어 있으니, 채우라고 안내한 뒤 정상 종료(`exit 0`)해요.
+`init-prod.sh`는 `.env.prod`가 없을 때 예시를 복사하고 비어 있는 자동 항목을 채워요. `JWT_SECRET`, 서비스·이미지 이름 같은 값은 생성하거나 저장소에서 유도하고, `BASE_DOMAIN`과 `SUBDOMAIN`으로 도메인 값을 만들어요. PortOne webhook 값은 v1 API key가 설정돼 있을 때만 생성해요. DB 비밀번호는 자동 생성하지 않아요.
 
-> 1회차에서는 Cloudflare 등록(Step 5.7/5.8)·Secrets push(Step 6)·검증(Step 10)까지 가지 않아요. `.env.prod` 의 빈 REQUIRED 를 채운 뒤 같은 명령을 다시 돌리는 것이 2회차예요.
+| 현재 상태 | 다음 동작 |
+|---|---|
+| 초기화된 파생 저장소이고 `.env.prod`가 없음 | 공동 작업자 조건을 만족하면 운영 설정을 건너뛰어요 |
+| 최초 설정이며 `.env.prod`가 없음 | 파일을 생성하고 자동 값을 채워요 |
+| 필수 값이 비어 있음 | 입력할 키를 안내하고 `exit 0`으로 종료해요 |
+| 필수 값을 채웠음 | 같은 명령을 다시 실행해 등록과 검증을 진행해요 |
 
-로컬 docker 환경(`.env` · Postgres · MinIO)이 아직 없다면, 먼저 `bash tools/init/init-local.sh`(또는 `<repo> local init`)로 rename · `.env` · docker compose · 로컬 검증을 끝내고 오세요. 그건 별도 스크립트이고, `init-prod.sh` 는 운영만 다뤄요.
+1회차·2회차는 별도 플래그가 아니라 파일과 값의 상태에 따른 설명이에요. 기존 값은 빈 값 채우기 규칙에 따라 유지되지만, Secrets 등록 단계는 현재 파일의 값을 다시 보낼 수 있어요. 재실행 전에 변경한 값과 대상 환경을 확인해요.
 
 ---
 
@@ -298,9 +304,11 @@ $EDITOR .env.prod
 
 `JWT_SECRET`·`KAMAL_SERVICE_NAME`·`APP_DOMAIN`·`PUBLIC_HOSTNAME`·`APP_FLYWAY_MODE` 등은 [AUTO] 그룹이라 1회차가 채워둬요. 직접 값을 넣으면 그 값이 우선해요.
 
+<a id="optional-기능--켜고-싶으면-채워요"></a>
+
 ### OPTIONAL 기능 — 켜고 싶으면 채워요
 
-비워두면 운영에서 해당 기능이 자동으로 꺼져요(결제 Stub 등). 채우면 켜져요. 스토리지는 예외로, 비워 두려면 `APP_STORAGE_IN_MEMORY_FALLBACK=true` 를 명시해야 해요 — 없으면 dev·prod 부팅이 막혀요(NAS 를 끈 상태 검증처럼 일부러 비울 때만 켜요). 단 이메일은 예외예요 — `LoggingEmailAdapter` fallback 은 local 프로파일 전용이라, dev·prod 배포에서 메일 기능을 쓰려면 `RESEND_API_KEY` 를 채워야 해요.
+자격을 비웠을 때의 동작은 기능마다 달라요. 결제는 자격이 모두 비어 있으면 Stub을 등록하고 결제 요청에 503을 반환해요. 스토리지 자격 없이 dev·prod를 기동하려면 `APP_STORAGE_IN_MEMORY_FALLBACK=true`가 필요해요. 이메일 기능이 켜진 dev·prod에는 Resend 자격이 필요하며, 로그만 남기는 이메일 어댑터는 local 전용이에요. 기능 자체를 끄는 설정은 `APP_FEATURES_*`이므로, 자격 누락과 기능 비활성화를 구분해요.
 
 | 기능 | 키 |
 |---|---|
@@ -310,13 +318,15 @@ $EDITOR .env.prod
 | 로깅 | `LOKI_URL` |
 | 알림 | `DISCORD_WEBHOOK_URL` |
 
-> `APP_STORAGE_MINIO_BUCKETS_0` 을 비우면 `BucketProvisioner` 가 자동 버킷 생성을 건너뛰어요(graceful skip). MinIO 콘솔에서 버킷을 직접 만들어 두고 ENDPOINT·ACCESS·SECRET 만 주입하는 운영 정책을 권장해요.
+> 앱 업로드 버킷은 등록된 앱 DataSource에서 이름을 계산해 `BucketProvisioner`가 준비해요. `APP_STORAGE_MINIO_BUCKETS_*`는 그 밖의 공유 버킷 목록이에요. 이 목록이 비어 있다고 앱 버킷 생성까지 건너뛰지는 않아요.
 
-> 소셜 로그인 자격(`APP_CREDENTIALS_<SLUG>_*`)은 `init-prod.sh` 가 `.env.prod` 에서 자동 발견해 GitHub Secrets 로 push 해요. 다만 `config/deploy.yml` 과 `.kamal/secrets` 의 env.secret 목록 추가는 현재 수동이에요. 자세한 흐름은 [`FAQ Q17`](./dogfood-faq.md#q17) 를 보세요.
+> 소셜 로그인 자격은 아래 [컨테이너까지 자격 전달](#app-credentials-chain) 절을 따라 GitHub 등록과 컨테이너 주입을 함께 연결해요.
+
+<a id="결제--v1-키는-둘-다-아니면-둘-다-비우기"></a>
 
 #### 결제 — v1 키는 둘 다, 아니면 둘 다 비우기
 
-`<repo> new <slug>` 로 앱을 올리면 core 공유 결제 컨트롤러가 `PaymentPort` 를 통해 결제를 처리해요. prod profile 의 `PortOneProdConfigGuard` 는 v1 key·secret 이 *하나만* 채워진 상태와, webhook secret 만 있고 결제 키가 없는 상태, v2 key 는 있는데 webhook secret 이 없는 상태를 부팅 시점에 막아요. 전부 결제 불가나 webhook 위조로 이어지는 조합이라 `IllegalStateException` 으로 fail-fast 해요. v1 에 webhook secret 은 필요 없어요 — 포트원 v1 webhook 은 서명 헤더가 없고, 서버가 `imp_uid` 로 결제를 재조회해 진위를 확인합니다.
+공유 결제 컨트롤러는 `PaymentPort`로 결제를 처리해요. dev/prod의 설정 가드는 v1 key·secret 중 하나만 있는 상태, 결제 키 없이 webhook secret만 있는 상태, v2 key가 설정된 상태를 거부해요. 현재 v2는 webhook secret의 유무와 관계없이 지원하지 않아요. v1 webhook은 서버가 `imp_uid`로 결제를 재조회하므로 webhook 서명을 사용하지 않아요.
 
 ```bash
 # 결제 미사용 — 도그푸딩 단계에서는 전부 비워 StubPaymentAdapter 로 fallback 하는 게 정석
@@ -325,11 +335,29 @@ APP_PAYMENT_PORTONE_API_V1_SECRET=
 APP_PAYMENT_PORTONE_WEBHOOK_SECRET=
 ```
 
-정리하면, 막히는 건 "반쪽만 채운" 상태뿐이에요. 전부 비워 두면 `StubPaymentAdapter` 로 fallback 해 부팅은 통과하고(결제 호출만 graceful 503 `PAY_008` 으로 응답), v1 key·secret 을 채우면 실제 `PortOneAdapter` 가 켜져요. 더미값을 채워도 결제 호출이 없으면 stub 처럼 보이지만, 실제 PortOne 호출을 시도하는 어댑터가 떠 있는 상태라 비우는 쪽이 안전해요. 결제 모듈 자체를 빼고 싶으면 `APP_FEATURES_PAYMENT=false`(Lite 모드, ADR-034)를 쓰면 돼요. 정식 발급 절차는 [`운영 키 발급 통합 가이드 §4.7`](../production/setup/key-issuance.md#47-portone-pg-결제-featurepayment) 에 있어요.
+결제 자격을 전부 비우면 `StubPaymentAdapter`가 등록돼 부팅할 수 있고, 결제 호출은 `PAY_008`로 실패해요. v1 key·secret을 채우면 실제 어댑터가 등록돼요. 임의의 더미 키도 실제 외부 호출을 시도하므로 미사용 상태는 빈 값으로 표현해요. 기능 전체를 끄려면 `APP_FEATURES_PAYMENT=false`를 사용해요. 자격 발급 절차는 [운영 키 가이드](../production/setup/key-issuance.md#47-portone-pg-결제-featurepayment)를 참고하세요.
 
 코드는 `core/core-payment-impl/src/main/java/com/factory/core/payment/impl/PaymentAutoConfiguration.java` 의 `portOneProdConfigGuard` 예요.
 
 ---
+
+<a id="app-credentials-chain"></a>
+### 컨테이너까지 자격 전달
+
+`.env.prod`의 `APP_CREDENTIALS_*` 값은 `init-prod.sh`가 이름 패턴으로 찾아 GitHub Secrets에 등록해요. 여기서 끝내면 서버 컨테이너에 전달되지 않아요. 앱별 자격을 추가할 때는 다음 경로를 모두 연결해요.
+
+| 위치 | 추가할 내용 |
+|---|---|
+| `.env.prod` | 사용할 앱 자격의 실제 값 |
+| `.github/workflows/deploy.yml` | 해당 Secret을 작업의 환경변수로 내보내는 매핑 |
+| `.kamal/secrets.example`과 실행 시 사용하는 `.kamal/secrets` | 환경변수에서 Kamal secret으로 전달하는 매핑 |
+| `config/deploy.yml`의 `env.secret` | 컨테이너에 넣을 키 이름 |
+
+예를 들어 `APP_CREDENTIALS_GYMLOG_GOOGLE_CLIENT_IDS_0`를 네 경로에 연결해요. Apple·Kakao·Naver도 사용할 키를 같은 방식으로 연결하고 `init-prod.sh`를 실행한 뒤 다시 배포해요. 슬러그의 실제 Map 바인딩 키도 확인해야 해요. 자세한 체크리스트는 [자격 전달 경로](../production/setup/secret-chain-4stage.md)가 정본이에요.
+
+---
+
+<a id="6-init-prodsh-2회차--secretsvariables-push--검증"></a>
 
 ## 6. `init-prod.sh` 2회차 — Secrets·Variables push + 검증
 
@@ -345,19 +373,26 @@ bash tools/init/init-prod.sh <owner>/<repo>
 1. **Step 5.7/5.8** — `.env.infra` 의 Cloudflare 자격으로 운영 DNS·Tunnel ingress 등록 (멱등).
 2. **Step 6** — `.env.prod` 검증 후 GitHub 에 push.
    - REQUIRED Secrets 6개: `APP_DOMAIN`, `DB_PASSWORD`, `DB_URL`, `DB_USER`, `JWT_SECRET`, `APP_FLYWAY_MODE`
-   - 활성 OPTIONAL 기능의 키들(스토리지·이메일·결제·관리자 콘솔·로깅·알림) — 그룹별로 모두 채워졌을 때만 push, 하나라도 비면 그 기능은 비활성으로 안내
+   - OPTIONAL 키(스토리지·이메일·결제·관리자 콘솔·로깅·알림) — 그룹별 필수 값이 모두 있을 때 등록해요. 값이 부족해 등록을 건너뛰었다고 서버의 기능 토글까지 바뀌지는 않아요
    - 소셜 로그인 자격(`APP_CREDENTIALS_*`) — `.env.prod` 에 있는 만큼 자동 발견·push
    - Variables 3개: `DEPLOY_ENABLED`, `KAMAL_SERVICE_NAME`, `PUBLIC_HOSTNAME`
    - 공유 자격(`GHCR_TOKEN`·`SSH_PRIVATE_KEY`·`TS_OAUTH_*`·`DEPLOY_HOST`·`DEPLOY_SSH_USER`)은 여기서 다루지 않아요 — `infra init` 이 접미사 없이 이미 올렸어요.
-3. **Step 10** — `verify-server.sh --init-mode` 자동 호출. 아직 배포 전이라 backend health 는 SKIP 하고, DB·SSH·Cloudflare·Email·Loki 등 인프라를 검증해요 (다음 §7). MinIO 도 이 시점엔 SKIP 이에요 — 버킷은 첫 배포 때 `BucketProvisioner` 가 만들거든요.
+3. **Step 10** — `verify-server.sh --init-mode`를 호출해요. backend health는 건너뛰고 DB 연결과 설정된 선택 항목을 확인해요(§7). MinIO는 앱이나 버킷이 아직 없으면 검사를 건너뛰며, 준비돼 있으면 업로드를 검사해요.
 
 > 부분 실패를 놓치지 마세요. 일부 secret push 가 실패해도 후속 step 이 조용히 건너뛰어질 수 있어요. init 종료 후 `gh secret list -R <repo>` 로 등록된 개수를 직접 확인하는 걸 권장해요. 자세한 함정은 [`도그푸딩 walkthrough §4.7`](./dogfood-walkthrough.md) 에 있어요.
 
 > 이 단계는 인프라 셋업과 검증까지만 해요. 실제 운영 배포는 다음 명령이에요.
 > ```bash
 > <repo> prod deploy       # blue/green 배포 (build + push + cutover)
-> <repo> prod test         # 배포 후 e2e 검증 (backend health 포함)
+> <repo> prod test         # 배포 후 인프라 점검 (backend health 포함)
 > ```
+
+---
+
+<a id="ci-deploy-gates"></a>
+### CI와 배포를 켜는 조건
+
+`DEPLOY_ENABLED`는 배포 게이트이며 CI 실행 전체를 끄는 값은 아니에요. `ci.yml`은 push 이벤트에 한해 `CI_ON_PUSH=false`이면 작업을 건너뛰고, PR과 수동 실행은 별도로 처리해요. 운영 배포는 CI 결과와 `DEPLOY_ENABLED=true` 같은 워크플로 조건을 확인해요. 실행 시간과 비용은 계정·runner·워크플로 실행 결과에 따라 달라 고정 시간이나 금액으로 안내하지 않아요.
 
 ---
 
@@ -369,21 +404,30 @@ bash tools/init/init-prod.sh <owner>/<repo>
 |---|---|---|---|
 | 1 | REQUIRED | backend health (kamal-proxy → `/actuator/health`) | 운영 Spring 컨테이너가 응답. `--init-mode` 에선 배포 전이라 SKIP |
 | 2 | REQUIRED | DB 연결 (psql 직접 ping) | backend 와 무관하게 psql `SELECT 1` 성공 |
-| 3 | OPTIONAL: deploy | SSH + Tailscale (`kamal app version`) | GitHub Actions → Mac mini Tailscale 도달 OK |
-| 4 | OPTIONAL: storage | MinIO 업로드 (PUT/STAT/DEL) | 스토리지 기능 활성 시. `--init-mode` 에선 버킷이 아직 없어 SKIP — 첫 배포 부팅 때 `BucketProvisioner` 가 만들고, 그 뒤 `prod test` 에서 PASS 로 바뀌어요 |
+| 3 | OPTIONAL: deploy | SSH + Tailscale (`kamal app version`) | 이 스크립트를 실행한 머신에서 배포 호스트까지의 SSH 접근 확인. GitHub Actions runner 경로는 실제 워크플로에서 별도 확인 |
+| 4 | OPTIONAL: storage | MinIO 업로드 (PUT/STAT/DEL) | 접속값과 도구가 준비됐을 때 앱별 기대 버킷을 확인하고 파일을 업로드·조회·삭제해요. `--init-mode`에서 앱이나 버킷이 아직 없으면 SKIP해요 |
 | 5 | OPTIONAL: email | Resend API 발송 | 이메일 기능 활성 시 (`RESEND_TEST_ADMIN_USER_EMAIL` 도 채워야 PASS) |
-| 6 | OPTIONAL: logging | Loki readiness | 로깅 기능 활성 시 |
-| 7 | OPTIONAL: alertmanager | Alertmanager 컨테이너 Up | 알림 기능 활성 시 (Discord 도착은 기술적으로 검증 불가) |
+| 6 | OPTIONAL: logging | Loki 상태 | `LOKI_URL`이 설정됐을 때 컨테이너와 `/metrics` 응답을 확인해요 |
+| 7 | OPTIONAL: alertmanager | Alertmanager 컨테이너 Up | 알림 기능 활성 시 (실제 알림 도착 여부는 이 검사에 포함되지 않음) |
 
 판정 규칙이에요.
 
-- REQUIRED fail = 즉시 중단 — 운영 backend 가 자체 응답을 못 하는 상태예요.
-- OPTIONAL fail = 경고 후 계속 진행.
-- OPTIONAL 기능이 `.env.prod` 에서 비어 있으면 SKIP — 그 기능을 비활성으로 간주해요 (예: `RESEND_API_KEY=` 면 Step 5 SKIP).
+- REQUIRED 실패는 종료 코드 1로 처리해요.
+- REQUIRED 검사를 도구·설정 부재로 수행하지 못하면 종료 코드 2로 판정을 보류해요. `--init-mode`에서 backend health를 건너뛰는 것은 의도된 예외예요.
+- OPTIONAL 실패는 경고를 남기고 다음 항목으로 진행해요. 자격이나 도구가 없으면 SKIP할 수 있으며, 서버의 기능 설정을 바꾸지는 않아요.
 
-기대 결과는 `DEPLOY_ENABLED=true` 이고 모든 OPTIONAL 이 활성일 때 **7/7 PASS** (`✅ 운영 가용 상태 — 활성 기능 모두 작동`)예요. `--init-mode` 에선 Step 1 이 SKIP 이라, 인프라 검증 통과 메시지가 대신 떠요.
+요약표의 각 PASS·FAIL·SKIP과 사유를 확인해요. 종료 코드 0이어도 OPTIONAL 실패·미검증 항목이 남을 수 있어요. `--init-mode`에서는 backend를, 앱이나 버킷이 아직 없다면 MinIO도 건너뛰어요. 이 검사는 인프라 점검이며 로그인·결제 같은 API 시나리오는 별도로 검증해요.
 
 > 첫 배포 전이라 운영 backend 가 아직 안 떠 있으면 (init-mode 가 아닌 일반 실행에서) Step 1 이 fail 해요. 그땐 `<repo> prod deploy` 로 배포한 뒤 `<repo> prod test` 를 다시 돌려보세요.
+
+---
+
+<a id="email-verification-recipient"></a>
+### 테스트 메일의 수신자
+
+`RESEND_TEST_ADMIN_USER_EMAIL`은 `verify-server.sh`가 테스트 메일을 보낼 주소예요. 실행하는 머신의 환경 파일에서 읽으며 운영 서버의 메일 발송 설정이나 GitHub Secrets 등록 항목은 아니에요. 비어 있으면 해당 검증을 건너뛸 수 있어요. `RESEND_API_KEY`·`RESEND_FROM_ADDRESS`·`RESEND_FROM_NAME`은 실제 발송 설정이므로 별도로 전달해요.
+
+`SKIP`은 그 기능을 검증했다는 뜻이 아니에요. 실제 이메일 수신과 Alertmanager의 채널 도착까지 확인하려면 각 기능의 테스트 절차를 추가로 실행해요. [알림 도착 확인](../production/setup/monitoring-setup.md#알림-도착-확인)을 참고하세요.
 
 ---
 
@@ -396,11 +440,26 @@ bash tools/init/init-prod.sh <owner>/<repo>
 # → http://localhost:8081/actuator/health 가 UP
 ```
 
-여기까지 UP 이면 도그푸딩 e2e 한 사이클을 통과한 거예요. 로컬 프로파일은 `application-local.yml` 의 default 값으로 동작하고 (DB `localhost:5433/postgres`, `JWT_SECRET` 자동 default 등), `.env` 에 값이 있으면 override 돼요.
+로컬 서버가 UP인 것은 로컬 기동 확인이에요. 운영 인프라 검사와 실배포 후 API 검증까지 통과했다는 뜻은 아니에요. `bootRun`은 루트 `.env`를 읽고 기본 local 프로파일로 실행하며, 이미 내보낸 환경변수는 우선 적용돼요.
 
 자동 검증을 쓰려면 `<repo> local server-test` 를 돌려요. postgres ready(REQUIRED) · MinIO health(REQUIRED) · WireMock(OPTIONAL, OAuth dev-mock) · Spring Boot bootRun(OPTIONAL) 네 단계를 운영용 `verify-server.sh` 와 같은 패턴으로 검증해요.
 
 ---
+
+<a id="private-network-check"></a>
+### 외부 도메인 없이 요청 확인
+
+노트북에서 서버 자체를 확인하려면 위 로컬 실행을 사용해요. 이미 원격 호스트에 배포했다면 Tailscale로 도달 가능한 머신에서 프록시의 Host 라우팅을 시험할 수 있어요.
+
+```bash
+curl -H "Host: server.<도메인>" http://100.X.X.X/actuator/health/liveness
+```
+
+Host 헤더는 프록시에 등록된 이름과 같아야 해요. 이 요청이 성공해도 외부 DNS·Cloudflare 터널 경로를 검증한 것은 아니에요. 기본 init 자동화의 Cloudflare 요구 조건은 §3.6을 확인해요.
+
+---
+
+<a id="9-trial-환경-자동화--toolsdogfoodingsetupsh--cleanupsh-선택"></a>
 
 ## 9. Trial 환경 자동화 — `tools/dogfooding/setup.sh` + `cleanup.sh` (선택)
 
@@ -408,15 +467,15 @@ bash tools/init/init-prod.sh <owner>/<repo>
 
 `setup.sh` 가 하는 일이에요.
 
-- 필수 변수 13개 검증 (`GH_REPO`·SSH 키 경로·DB·도메인·Tailscale 등) + `DB_URL` 형식 확인
+- 필수 변수 검증 (`GH_REPO`·SSH 키 경로·DB·도메인·Tailscale 등) + `DB_URL` 형식 확인
 - GitHub Actions workflow 권한 = write
 - `gha_deploy` SSH 키 발급(없으면) + Mac mini authorized_keys 등록
-- GitHub 에 Variables 2개(`KAMAL_SERVICE_NAME`, `DEPLOY_ENABLED`)와 Secrets 20개 등록
+- GitHub 에 Variables 2개(`KAMAL_SERVICE_NAME`, `DEPLOY_ENABLED`)와 지정된 Secrets 등록
 - `DEPLOY_ENABLED=true` 토글 후 (옵션) trigger commit push
 
-`cleanup.sh` 는 그 역방향으로 자원을 정리해요 (default).
+`cleanup.sh`는 아래 자원을 정리해요. 외부 자격 폐기나 모든 생성 작업을 되돌리는 정확한 역연산은 아니며, 같은 호스트의 공유 프록시·네트워크에도 영향을 줄 수 있어요.
 
-- GitHub Variables(최대 5개 시도) + Secrets 20개 삭제
+- GitHub 지정된 Variables와 Secrets 삭제
 - Mac mini 의 spring 컨테이너 + kamal-proxy 컨테이너 + kamal network 삭제
 - Mac mini `authorized_keys` 에서 `gha-deploy@<service>` 줄 제거
 - GHCR 패키지(모든 tag) 삭제
@@ -431,26 +490,53 @@ bash tools/init/init-prod.sh <owner>/<repo>
 | `--restore-perms` | workflow 권한을 read 로 복원 |
 | `--yes` / `-y` | confirm prompt 생략 |
 
-`cleanup.sh` 는 멱등이라 두 번 실행해도 안전해요. 없는 자원은 `[WARN] ... 없음 (skip)` 으로 표시돼요.
+없는 자원은 건너뛰도록 처리하지만 정리 대상이 맞는지 매번 확인해요. 프록시까지 제거하면 다음 배포에서 다시 준비해야 해요. 같은 호스트에서 프록시를 유지하려면 `--keep-proxy`를 사용해요. 프록시를 다시 준비하는 시간은 호스트 상태에 따라 달라요.
 
 > 외부 키 폐기는 사람이 직접 해야 해요. GitHub PAT 삭제 · Tailscale OAuth client 삭제 · (선택) Supabase 비밀번호 재설정이에요.
 
 ---
 
+<a id="trial-retry"></a>
+### 중간 실패 뒤 재실행
+
+실패 원인과 현재 자원 상태를 확인한 뒤 `setup.sh`를 다시 실행해요. 이 도구는 일부 단계를 건너뛰거나 덮어쓰도록 작성돼 있어요.
+
+| 단계 | 재실행 시 처리 |
+|---|---|
+| 사전 요구사항 | 다시 검사해요 |
+| workflow 권한 | 설정한 write 권한을 적용해요 |
+| 배포 SSH 키 | 기존 키가 있으면 재사용해요 |
+| authorized_keys | 같은 키를 중복 추가하지 않도록 검사해요 |
+| Variables·Secrets | 현재 입력값으로 덮어써요 |
+
+대상 저장소·호스트·서비스 이름을 바꿨다면 이전 자원과 새 자원이 섞이지 않았는지 확인해요.
+
+<a id="trial-traffic"></a>
+### 시험 환경과 실제 트래픽
+
+trial 컨테이너도 프록시의 Host 라우팅과 외부 터널이 연결돼 있으면 실제 요청을 받을 수 있어요. 시험용 서비스 이름·도메인·DB·자격을 운영과 구분하고, 정리 명령이 공유 프록시나 실제 서비스에 미칠 범위를 확인해요. 임시 검증을 통과했다는 이유만으로 더미 설정을 운영 설정으로 간주하지 않아요.
+
+---
+
+<a id="10-보안--노출-시-즉시-폐기"></a>
+
 ## 10. 보안 — 노출 시 즉시 폐기
 
-이 가이드대로 발급한 키가 노출됐다면 (예: 채팅에 평문 전송, public commit 에 포함) 다음을 즉시 실행하세요.
+키를 commit하거나 외부에 평문으로 전달했다면 먼저 발급처에서 폐기해요. 파일 삭제나 컨테이너 정리만으로 이미 발급된 자격이 무효화되지는 않아요.
 
-1. 위 §9 의 `cleanup.sh` 또는 [`키 교체 절차`](../production/setup/key-rotation.md) 의 폐기 절차를 즉시 실행해요.
-2. 새 키를 재발급해요.
-3. `.env.prod` 를 갱신한 뒤 `init-prod.sh` 를 재실행해 새 키로 GitHub Secrets 를 자동 갱신해요.
+1. 노출된 GitHub PAT·Tailscale OAuth·DB 자격 등 해당 값을 발급처에서 폐기·교체해요.
+2. 저장소의 노출 파일을 제거하고 필요한 경우 협의한 절차로 Git 이력을 정리해요. 과거 이력에서 지우는 작업도 자격 폐기를 대신하지 못해요.
+3. 공유 자격은 `.env.infra`와 `infra init`, 환경별 자격은 해당 `.env.dev`·`.env.prod`와 init으로 다시 등록해요.
+4. 관련 서비스를 다시 배포하고 새 자격으로 동작하는지 확인해요.
+
+`.gitignore`와 trial 스크립트의 무시 여부 검사는 실수를 줄이는 장치예요. 이미 추적한 파일까지 자동으로 보호하지는 않으니 변경 목록을 확인해요. 상세 절차는 [키 교체 문서](../production/setup/key-rotation.md)를 참고하세요. `cleanup.sh`는 배포 자원을 정리하는 도구이며 외부 키를 폐기하지 않아요.
 
 ---
 
 ## 11. 트러블슈팅
 
 - 에러 메시지로 검색: [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) 의 표
-- 자주 묻는 질문: [`도그푸딩 FAQ`](./dogfood-faq.md)
+- 자주 묻는 질문: [`도그푸딩 FAQ`](dogfood-setup.md)
 - 시간 순 흐름 + 정착된 패턴: [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
 
 ---
@@ -461,7 +547,7 @@ bash tools/init/init-prod.sh <owner>/<repo>
 
 - 운영 장애 대응: [`운영 런북`](../production/deploy/runbook.md) — 평시·장애 운영 절차
 - 템플릿 개선을 파생 레포로 전파: [`크로스 레포 Cherry-pick 가이드`](./cross-repo-cherry-pick.md)
-- 공동 작업자 합류: [`FAQ Q12`](./dogfood-faq.md#q12) — 두 번째 이상 작업자의 fresh clone 흐름
+- 공동 작업자 합류: [공동 작업자 모드](#15-공동-작업자-모드-fresh-clone) — 두 번째 이상 작업자의 로컬 설정
 
 ---
 
@@ -469,8 +555,8 @@ bash tools/init/init-prod.sh <owner>/<repo>
 
 - [`도그푸딩 walkthrough`](./dogfood-walkthrough.md) — 시간 순 narrative + 정착된 패턴
 - [`CI/CD 전체 플로우`](../production/deploy/ci-cd-flow.md) — commit → 배포 전체 다이어그램
-- [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) — 15 함정 (11회 시도 + JDK 26 + 운영 함정 3건)
-- [`도그푸딩 FAQ`](./dogfood-faq.md) — 자주 묻는 질문
+- [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) — 증상별 원인과 현재 대응
+- [`도그푸딩 FAQ`](dogfood-setup.md) — 자주 묻는 질문
 - [`secret chain 4-stage 통합 가이드`](../production/setup/secret-chain-4stage.md) — 네 곳 매핑 + 체크리스트
 - [`키 교체 절차`](../production/setup/key-rotation.md)
 - [`운영 배포 가이드`](../production/deploy/deployment.md) — cloudflared 셋업, observability 등
@@ -481,6 +567,8 @@ bash tools/init/init-prod.sh <owner>/<repo>
 
 ---
 
+<a id="책-목차--journey-46단계"></a>
+
 ## 책 목차 — Journey 4~6단계
 
 이 문서는 [`template-spring 책 목차 (Developer Journey)`](../onboarding/README.md) 의 4단계(외부 자격 증명) · 5단계(테스트) · 6단계(정리)를 한 문서로 통합해요.
@@ -490,5 +578,5 @@ bash tools/init/init-prod.sh <owner>/<repo>
 | ← 이전 | [`소셜 로그인 설정 가이드`](./social-auth-setup.md) | 4단계 첫 번째 — 소셜 로그인 자격 증명 |
 | → 다음 | [`운영 배포 가이드`](../production/deploy/deployment.md) | 7단계 — 파생 레포 첫 운영 배포 |
 
-**막혔을 때**: [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) · [`도그푸딩 FAQ`](./dogfood-faq.md) · [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
+**막혔을 때**: [`도그푸딩 함정 모음`](./dogfood-pitfalls.md) · [`도그푸딩 FAQ`](dogfood-setup.md) · [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
 **왜 이렇게?**: [`인프라 결정 기록`](../production/deploy/decisions-infra.md) — I-09 (Kamal 선택) · I-10 (GHCR PAT) · I-12 (workflow_run 게이트) · I-14 (Tailscale OAuth scope)

@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~30분
 
-이 문서는 `template-spring` 의 실제 구조 — 무엇이 어디에 있고, 무슨 역할을 하며, 어떻게 연결되는지 — 를 설명해요. 각 결정을 왜 이렇게 설계했는지는 [`philosophy/`](../philosophy/README.md) 디렉토리의 ADR 39 개에 기록되어 있습니다.
+기능을 수정할 때 어느 모듈을 봐야 하는지, 요청과 데이터가 어떤 경계를 거치는지 설명해요. 모듈의 역할과 빈 조립, 요청 처리 흐름을 먼저 살펴보고 세부 규칙은 연결된 문서에서 확인해요. 선택의 배경과 변경 이력은 [ADR](../philosophy/README.md)에 기록돼 있어요.
 
 > **독자 대상**: Spring 실무 중급 (Level 2). 이 문서는 하루 안에 전체 구조를 이해하고 특정 모듈을 수정할 수 있도록 안내해요. Level 0~1 은 [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) 를 먼저 참고하세요.
 
@@ -82,6 +82,8 @@
 3. 도메인 코드 작성 (controller / service / entity / repository / Flyway)
 4. core-* 는 건드리지 않음 — 새 기능이 core 에 필요하면 별도 ADR
 ```
+
+<a id="db-전략--동일-소스코드-독립-데이터"></a>
 
 ### DB 전략 — 동일 소스코드, 독립 데이터
 
@@ -609,6 +611,8 @@ Gradle 이 잡지 못하는 패턴은 ArchUnit 22 개 규칙 r1~r22 로 빌드 �
 
 ## 요청 플로우
 
+<a id="일반-인증-요청--get-apiappssumtallyusersme"></a>
+
 ### 일반 인증 요청 — `GET /api/apps/sumtally/users/me`
 
 ```text
@@ -884,25 +888,37 @@ apps/app-<slug>/config/<Slug>DataSourceConfig (slug="<slug>", @Profile("!test"))
 
 "특정 앱이 대박 나서 독립 서비스로 뽑아야 할 때" 를 대비해서 경계를 기계적으로 강제합니다. [`ADR-005`](../philosophy/adr-005-db-schema-isolation.md) 의 5중 데이터 격리 + [`ADR-003`](../philosophy/adr-003-api-impl-split.md) 의 Port 계약 보증 = 총 6 레이어예요.
 
+<a id="레이어-1--db-role-권한-분리"></a>
+
 ### 레이어 1 — DB Role 권한 분리
 
 각 schema 의 전용 role 을 만듭니다. 크로스 schema 접근은 런타임에 `permission denied` 로 즉시 발견됩니다. 구현은 `infra/scripts/init-app-schema.sql` 에 있습니다.
+
+<a id="레이어-2--spring-datasource-분리"></a>
 
 ### 레이어 2 — Spring DataSource 분리
 
 각 앱별 HikariCP 풀이 만들어져요. 코드로 다른 앱 DataSource 를 얻을 방법이 없습니다. 구현은 `common-persistence/AbstractAppDataSourceConfig` 에 있습니다.
 
+<a id="레이어-3--flyway-마이그레이션-분리"></a>
+
 ### 레이어 3 — Flyway 마이그레이션 분리
 
 각 앱의 `db/migration/<slug>/` 와 `flyway_schema_history` 가 독립적이에요. 앱 간 마이그레이션 간섭이 불가능해요.
+
+<a id="레이어-4--포트-인터페이스-의존-gradle"></a>
 
 ### 레이어 4 — 포트 인터페이스 의존 (Gradle)
 
 `apps/*` 는 `core-*-api` 만 의존해요. `core-*-impl` 에 접근하는 코드는 **Gradle configuration 단계에서 거절** 돼요 — 컴파일 시작 전에 잡혀요. 구현은 `build-logic/src/main/groovy/factory.app-module.gradle` 에 있습니다.
 
+<a id="레이어-5--archunit-ci"></a>
+
 ### 레이어 5 — ArchUnit CI
 
 위 4가지로 잡히지 않는 패턴 (패키지 이름 규칙, Entity 노출 금지, `*Mapper` 금지, `@Deprecated(since, forRemoval)` 강제 등) 을 22 개 규칙으로 CI 검증합니다. 구현은 `common-testing/architecture/ArchitectureRules.java` 에 있습니다.
+
+<a id="레이어-6--contract-test-추출-보증"></a>
 
 ### 레이어 6 — Contract Test (추출 보증)
 
@@ -951,11 +967,15 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 
 - [`Documentation Style Guide`](../reference/STYLE_GUIDE.md) — 문서 작성 규칙
 - [`Onboarding — 템플릿 첫 사용 가이드`](../start/onboarding.md) — 로컬 개발 환경 셋업
 
+<a id="모듈--아키텍처-세부"></a>
+
 ### 모듈 / 아키텍처 세부
 - [`모듈 의존 규칙 (Module Dependencies)`](./module-dependencies.md) — 의존 방향 규칙 상세
 - [`Architecture Rules (ArchUnit)`](./architecture-rules.md) — ArchUnit 22 규칙 전체 (r1~r22)
 - [`Multi-tenant Architecture`](./multitenant-architecture.md) — per-app schema + HikariCP 격리 + appSlug 검증
 - [`JWT Authentication`](./jwt-authentication.md) — JWT claims · access/refresh · `@CurrentUser` · BCrypt
+
+<a id="인프라--운영"></a>
 
 ### 인프라 / 운영
 - [`인프라 (Infrastructure)`](../production/deploy/infrastructure.md) — 맥미니 홈서버, Supabase, Cloudflare Tunnel, 블루그린 배포
@@ -966,6 +986,8 @@ Port 가 약속한 행위를 `AbstractXxxPortContractTest` 로 명문화해요. 
 ### API 계약
 - [`API Response Format`](../api-and-functional/api/api-response.md) — 응답 포맷 표준
 - [`Flutter ↔ Backend Integration`](../api-and-functional/api/flutter-backend-integration.md) — Flutter 앱 연동
+
+<a id="컨벤션--기능-가이드"></a>
 
 ### 컨벤션 / 기능 가이드
 - [`../convention/`](../convention/) — 네이밍, DTO factory, 예외 처리, git-workflow 등

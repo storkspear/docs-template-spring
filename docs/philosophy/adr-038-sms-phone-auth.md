@@ -1,3 +1,5 @@
+<a id="adr-038--sms-발송-core-sms--휴대폰-점유인증-core-phone-auth-도입"></a>
+
 # ADR-038 · SMS 발송 (core-sms) + 휴대폰 점유인증 (core-phone-auth) 도입
 
 **Status**: Accepted. `core-sms-api/SmsPort` + 멀티 어댑터 (`LoggingSmsAdapter` dev-capture / `CoolSmsAdapter` SOLAPI HMAC), `core-phone-auth-api/PhoneAuthPort` + `OtpService` + `AuthPhoneVerificationCode` (결정 당시 `PhoneOtpCode` — 아래 리네임 노트) 로 구현. OTP table 은 *app schema 안* (V015) 에 생성되고, `AuthPhoneVerificationCode` 는 `AbstractAppDataSourceConfig.CORE_ENTITY_PACKAGES` 에 등록되어 라우팅 EMF 로 slug schema 에 매핑됩니다. 컨트롤러는 **core 공유** `PhoneAuthController` (아래 갱신) 라, 앱은 `app.features.phone-auth=true` (default) 면 자동으로 재사용합니다.
@@ -36,7 +38,7 @@ SMS 발송과 휴대폰 점유인증을 *두 개의 독립 코어 도메인* 으
 - **발송 채널**: 실제 문자를 *어디로 보내는가* (SOLAPI? 다른 발신사? dev 에선 발송 안 함?) — 이건 *email 발송과 똑같은 모양* 의 문제입니다. 발송처 자격증명이 환경마다 다르고, dev 서버 도그푸딩 단계에선 실 발신사 발급 전이라 *콘솔에서 코드를 확인* 할 수 있어야 합니다.
 - **인증 프로토콜**: *6자리 코드를 만들고 · 해시로 저장하고 · TTL·시도 제한을 걸고 · 검증 후 유저를 발급* 하는 흐름 — 이건 발송 채널과 무관한 *상태 머신* 입니다.
 
-이 둘을 한 클래스에 합치면 "발신사를 바꾸려는데 OTP 로직까지 건드려야" 하거나 "OTP 정책을 고치려는데 HTTP 글루가 끼어드는" 결합이 생겨요. 결제 도메인을 *정책 (billing) vs 채널 (IAP/PG)* 로 가른 ADR-019 와 정확히 같은 모양의 분리 압력입니다.
+SMS 발신사를 바꿀 때 OTP 만료·시도 제한까지 수정하거나, OTP 정책을 바꿀 때 HTTP 통신을 함께 다루지 않도록 책임을 나눠요. 발송 채널은 `SmsPort`, 인증 상태 관리는 `PhoneAuthPort`와 `OtpService`가 맡아요. [ADR-019](./adr-019-billing-iap-payment-separation.md)의 정책과 채널 분리도 같은 판단 기준을 사용해요.
 
 추가로 ADR-037 이 *core schema 를 폐기* 한 직후라는 타이밍이 중요했어요. OTP 같은 신규 table 을 *어디에 둘 것인가* 의 답이 이미 정해져 있었습니다 — *코어 schema 는 없다, 모든 도메인 데이터는 app schema 로 라우팅된다*. OTP 도 이 규칙을 따라야 했고, 그게 `PhoneOtpCode` 를 `CORE_ENTITY_PACKAGES` 에 넣는 결정으로 이어졌어요.
 
@@ -45,6 +47,8 @@ SMS 발송과 휴대폰 점유인증을 *두 개의 독립 코어 도메인* 으
 > *SMS 발송 채널 (환경별 발신사) 과 점유인증 프로토콜 (OTP 상태 머신) 을 분리하고, OTP 데이터를 코어 schema 없이 per-app schema 로 라우팅하면서, 앱이 얇은 컨트롤러만으로 재사용하게 하려면 어떻게 구성하는가?*
 
 ## 결정
+
+<a id="1-core-sms--smsport--멀티-어댑터-토글"></a>
 
 ### 1. `core-sms` — `SmsPort` + 멀티 어댑터 토글
 
@@ -64,6 +68,8 @@ public interface SmsPort {
 
 `core-email` 의 `EmailPort` 멀티 어댑터 패턴 (ADR-024) 과 동일합니다. `CoolSmsAdapter` 는 `core-email` 의 `ResendEmailAdapter` 처럼 `apiUrl()` / `doPost()` seam 으로 HTTP 글루를 테스트 가능하게 분리하고, `HttpURLConnection` (동기 host resolve) 를 쓰는 이유도 같습니다 (일부 docker 환경에서 `java.net.http.HttpClient` 비동기 resolve 가 깨지는 문제 회피).
 
+<a id="2-core-phone-auth--phoneauthport--otpservice"></a>
+
 ### 2. `core-phone-auth` — `PhoneAuthPort` + `OtpService`
 
 점유인증을 별도 코어 도메인으로 분리합니다. 진입점은 `PhoneAuthPort`:
@@ -82,9 +88,11 @@ public interface PhoneAuthPort {
 - `requestOtp`: rate-limit (1시간 윈도우 최대 5회) → 6자리 코드 생성 → *SHA-256 해시로만 저장* (raw 미저장) → SMS 발송. `SmsPort` 는 `ObjectProvider` 로 lazy 의존 — 실 발신사 미설정이어도 부팅 OK, 발송 시점에 부재면 `OTP_SMS_UNAVAILABLE`.
 - `verify`: 최신 미사용 코드와 대조. 만료 (TTL 5분) / 시도 초과 (최대 5회) / 불일치 가드. 불일치 시 `incrementAttempts()` 후 예외를 던지는데, 기본 동작 (RuntimeException → 롤백) 은 attempts 증가를 사라지게 해 brute-force 가드를 무력화하므로 `@Transactional(noRollbackFor = PhoneAuthException.class)` 로 증가분을 커밋시킵니다.
 
+<a id="3-otp-데이터--per-app-schema-코어-schema-없음--adr-037"></a>
+
 ### 3. OTP 데이터 = per-app schema (코어 schema 없음 — ADR-037)
 
-ADR-037 이후 *core schema 자체가 PostgreSQL 에 없으므로*, OTP table 도 *각 app schema 안* 에 둡니다. `new-app.sh` 가 `V015__init_phone_otp_codes.sql` 를 app 의 migration 디렉토리에 생성해 `phone_otp_codes` table 을 *slug schema* 에 만들어요 (옵트인 — 점유인증 미사용 앱은 V015 삭제 가능).
+OTP 테이블은 각 앱 스키마에 두어요. `new-app.sh`는 `V015__init_auth_phone_verification_codes.sql`을 기본 생성해요. `app.features.phone-auth=false`는 기능의 Bean 등록을 끄는 설정이며, 마이그레이션을 제거하지 않아요. 이미 적용된 V스크립트를 삭제하면 Flyway 이력 검증과 충돌할 수 있어요.
 
 라우팅은 `PhoneOtpCode` 를 `CORE_ENTITY_PACKAGES` 에 등록해서 성립합니다. 라우팅 EMF (`RoutingDataSourceConfig`) 가 이 패키지 배열을 entity scan 대상으로 쓰므로, `PhoneOtpCode` 의 모든 INSERT/SELECT 가 `SchemaRoutingDataSource` 의 현재 `SlugContext` slug schema 로 자동 라우팅됩니다 (ADR-018).
 
@@ -100,9 +108,13 @@ public static final String[] CORE_ENTITY_PACKAGES = {
 
 `OtpService` 의 `@Transactional` 도 core 서비스 컨벤션대로 `@Primary @Bean("transactionManager")` 라우팅 매니저에 바인딩됩니다 (`core-auth` 의 `AuthServiceImpl` 과 동일 패턴).
 
+<a id="4-authportissueforverifiedphone--검증-번호--유저-find-or-create"></a>
+
 ### 4. `AuthPort.issueForVerifiedPhone` — 검증 번호 → 유저 find-or-create
 
 번호→유저 식별을 점유인증 도메인이 직접 하지 않고 `AuthPort` 에 위임합니다. `issueForVerifiedPhone(phoneE164, appSlug)` 는 `social_identities(provider="phone")` 로 유저를 조회 — 있으면 토큰 발급, 없으면 *합성 email* (`phone-<digits>@phone.invalid`, 실 email 과 절대 충돌 안 함, 발송 미사용) 로 social 유저를 생성합니다. OAuth (ADR-017) 와 *동일한 social 경로* 를 재사용해, 점유인증 유저가 일반 social 유저와 같은 모델로 흡수됩니다.
+
+<a id="5-앱-재사용--phoneauthport--얇은-컨트롤러"></a>
 
 ### 5. 앱 재사용 = `PhoneAuthPort` + 얇은 컨트롤러
 

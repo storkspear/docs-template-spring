@@ -1,148 +1,133 @@
+<a id="feature-toggle--lite-모드"></a>
+
 # Feature Toggle — Lite 모드
 
 > **유형**: How-to · **독자**: 운영자·템플릿 사용자 (Level 2.5) · **읽는 시간**: ~7분
 
-이 문서는 도메인별 feature toggle 인 Lite 모드의 운영자 가이드예요. 결제를 안 받는 인디 앱이라면 payment·iap 같은 모듈을 꺼서 가볍게 부팅할 수 있어요. 설계 근거는 [`ADR-034 · Lite 모드 설계`](../../philosophy/adr-034-feature-toggle-lite-mode.md) 에 정리돼 있어요.
+도메인 기능을 선택적으로 끄는 Lite 모드의 운영 가이드예요. 결제·푸시처럼 사용하지 않는 기능을 비활성화할 수 있어요. 설계 근거는 [ADR-034](../../philosophy/adr-034-feature-toggle-lite-mode.md)에 정리돼 있어요.
 
 ---
 
+<a id="1-핵심--opt-out-모델"></a>
+
 ## 1. 핵심 — opt-out 모델
 
-모든 feature 의 기본값은 활성이에요. `.env` 에 적지 않으면 활성이고, 명시적으로 `false` 라고 적은 것만 비활성됩니다. 코드에서는 각 모듈의 AutoConfiguration 이 `@ConditionalOnProperty(... matchIfMissing = true)` 로 이 동작을 강제해요.
+각 토글의 기본값은 활성이에요. 값을 생략하면 활성이고, 명시적으로 `false`를 설정하면 해당 자동 구성이나 빈을 등록하지 않아요.
 
 ```bash
-# 활성 — 기본값이라 적지 않아도 됨
+# 기본값은 true예요.
 # APP_FEATURES_PAYMENT=true
 
-# 비활성
 APP_FEATURES_PAYMENT=false
 ```
 
-비활성으로 부팅하면 해당 도메인의 AutoConfiguration 이 등록되지 않고, 그 도메인에 의존하던 endpoint 도 함께 사라져요.
+비활성화의 결과는 소비 경로에 따라 달라요. 컨트롤러도 등록되지 않는 기능은 정상적인 인증·요청 조건에서 404가 되고, 남은 서비스에서 빈 부재를 검사하는 경로는 503이 돼요. 감사·알림처럼 부수 효과만 생략하는 기능도 있어요. HTTP 필터가 먼저 요청을 거절하면 401·403·429 등 다른 응답을 받을 수 있어요.
 
 ---
 
 ## 2. 토글 가능 모듈
 
-`<repo> local feature` 명령이 관리하는 모듈은 다음 여덟 개예요. 모두 ObjectProvider 로 lazy 의존하도록 설계돼서 꺼도 부팅이 깨지지 않아요.
+`<repo> local feature`는 다음 여덟 개를 관리해요. 내장 소비 코드는 선택 기능을 끈 상태도 고려하지만, 파생 앱이 구현 빈을 직접 주입하면 별도 점검이 필요해요.
 
-| Feature | 환경 변수 | 모듈 | 끄면 생기는 일 |
+| Feature | 환경 변수 | 주요 모듈 | 비활성화 결과 |
 |---|---|---|---|
-| audit | `APP_FEATURES_AUDIT` | core-audit-impl | `@Audited`·`@AdminOnly` 자동 감사가 동작하지 않음 |
-| push | `APP_FEATURES_PUSH` | core-push-impl | FCM 푸시 발송이 동작하지 않음 |
-| email | `APP_FEATURES_EMAIL` | core-email-impl | 메일 발송만 조용히 건너뜀 (가입은 정상) |
-| payment | `APP_FEATURES_PAYMENT` | core-payment-impl | 결제 호출 시점에 `CMN_009 FEATURE_DISABLED` |
-| iap | `APP_FEATURES_IAP` | core-iap-impl | IAP 호출 시점에 `CMN_009 FEATURE_DISABLED` |
-| 2fa | `APP_FEATURES_2FA` | core-auth-impl 의 TwoFactorService bean | 2FA endpoint 호출 시점에 `CMN_009 FEATURE_DISABLED` |
-| billing-notification | `APP_FEATURES_BILLING_NOTIFICATION` | core-billing-impl listener | 갱신 알림 발송이 동작하지 않음 |
-| password-policy | `APP_FEATURES_PASSWORD_POLICY` | common-web SecurityValidationAutoConfiguration | `@ValidPassword` 정책 검증을 무시 |
+| audit | `APP_FEATURES_AUDIT` | core-audit-impl | 자동 감사 기록을 남기지 않아요 |
+| push | `APP_FEATURES_PUSH` | core-push-impl | 푸시 발송 구성을 등록하지 않아요 |
+| email | `APP_FEATURES_EMAIL` | core-email-impl | 메일 발송을 생략해요. 이메일 인증이 필요한 사용자 흐름은 영향을 받아요 |
+| payment | `APP_FEATURES_PAYMENT` | core-payment-impl·core-billing-impl | 공유 PaymentController가 빠지고, 남은 결제 Port 소비 경로는 `CMN_009`를 반환해요 |
+| iap | `APP_FEATURES_IAP` | core-iap-impl·core-billing-impl | 공유 IapController가 빠지고, 남은 IAP Port 소비 경로는 `CMN_009`를 반환해요 |
+| 2fa | `APP_FEATURES_2FA` | core-auth-impl | TwoFactorService가 빠져 이를 요구하는 인증 경로가 `CMN_009`를 반환해요 |
+| billing-notification | `APP_FEATURES_BILLING_NOTIFICATION` | core-billing-impl | 구독 갱신 알림 listener를 등록하지 않아요 |
+| password-policy | `APP_FEATURES_PASSWORD_POLICY` | common-web | `@ValidPassword`의 비밀번호 정책 검증을 생략해요. 다른 입력 검증은 유지해요 |
 
-환경 변수 `APP_FEATURES_PAYMENT` 는 Spring 설정 `app.features.payment` 로 바인딩돼요. `2fa` 와 `billing-notification` 은 속성 이름에 숫자·논리곱이 들어가 `@ConditionalOnExpression` 으로 같은 효과를 내요.
+`APP_FEATURES_PAYMENT`는 `app.features.payment`에 대응해요. 자동 구성은 `@ConditionalOnProperty` 또는 `@ConditionalOnExpression`으로 값을 확인해요.
 
-> phone-auth·sms 도 코드 수준에서는 같은 `app.features.*` 토글을 가지지만, `feature` 명령의 관리 목록에는 아직 들어 있지 않아요. 이 둘은 `.env` 를 직접 편집해 끄고, 점유인증을 안 쓰면 `V015` 마이그레이션 파일까지 지워요 ([`phone-auth-and-sms.md`](../../api-and-functional/functional/phone-auth-and-sms.md) 참고).
+phone-auth·sms도 코드에 토글이 있지만 `feature` 명령의 관리 목록에는 없어요. Spring 설정은 `app.features.phone-auth`·`app.features.sms`예요. 예를 들어 JVM 시작 옵션에 `-Dapp.features.phone-auth=false`를 지정할 수 있어요. 현재 환경 예시와 배포 목록에는 자동 연결되어 있지 않으므로 운영 컨테이너까지 전달할 경로를 따로 구성해요. 이미 적용된 `V015` 마이그레이션은 기능을 끄더라도 삭제하지 않아요. 자세한 범위는 [휴대폰 인증 문서](../../api-and-functional/functional/phone-auth-and-sms.md)를 참고해요.
 
 ### 비활성일 때의 응답
 
-끈 모듈은 두 부류로 갈려요. 하나는 endpoint 자체에는 영향이 없고 부수 효과만 빠지는 부류, 다른 하나는 호출 시점에 `503` 을 돌려주는 부류예요.
+| 경로 | 비활성화 결과 |
+|---|---|
+| audit·push·billing-notification의 선택 소비 경로 | 주 작업은 계속하고 해당 부수 효과를 생략해요 |
+| password-policy | 비밀번호 정책 검사만 생략해요 |
+| email의 인증 코드·재설정 메일 요청 | 발송을 생략할 수 있어요. 요청 성공이 메일 수신이나 전체 인증 절차의 성공을 뜻하지는 않아요 |
+| payment·iap 공유 컨트롤러 | 컨트롤러가 등록되지 않아요 |
+| BillingServiceImpl의 남은 payment·iap 소비 경로 | `503 CMN_009 FEATURE_DISABLED`와 feature 이름을 반환해요 |
+| AuthServiceImpl에서 TwoFactorService가 필요한 경로 | `503 CMN_009 FEATURE_DISABLED`를 반환해요 |
 
-| 모듈 | 호출 시점 응답 | 이유 |
-|---|---|---|
-| audit·push·billing-notification·password-policy | endpoint 영향 없음, 부수 효과만 빠짐 | listener·aspect·validator 가 등록되지 않음 |
-| email | endpoint 는 `200 OK`, 메일만 미수신 | 가입 흐름 보호 (ADR-024 정합) |
-| payment·iap·2fa | `503 CMN_009 FEATURE_DISABLED` (details 에 feature 이름) | 클라이언트가 비활성을 명시적으로 인지 |
-
-payment·iap·2fa 는 BillingServiceImpl·AuthServiceImpl 이 ObjectProvider 로 받은 bean 이 없을 때 `FEATURE_DISABLED` 를 던져요. email 은 auth 의 EmailVerificationService 가 EmailPort 를 lazy 로 의존해서, 발송만 건너뛰고 가입은 그대로 통과해요.
+현재 이메일 회원가입은 코드 검증으로 받은 `proofToken`이 필요해요. 운영에서 email을 끄면 신규 사용자가 코드를 받지 못해 가입 절차를 완료할 수 없어요. 로컬의 코드 반환 옵션이나 이미 발급된 proof로 동작하는 경우를 운영의 정상 가입으로 해석하지 않아요.
 
 ---
 
+<a id="3-사용법--feature-명령"></a>
+
 ## 3. 사용법 — `feature` 명령
 
-토글은 `<repo> local feature` 명령으로 다뤄요. 직접 `.env` 를 편집해도 효과는 같지만, 이 명령은 환경 파일을 한꺼번에 맞춰 줘요.
-
 ```bash
-# 토글 가능 모듈과 현재 상태 보기
 <repo> local feature list
-
-# 비활성
 <repo> local feature disable payment
-
-# 활성
 <repo> local feature enable payment
 ```
 
-`enable`·`disable` 은 레포에 존재하는 환경 파일을 모두 동시에 바꿔요. `.env` 와 `.env.prod` 가 둘 다 있으면 양쪽에 같은 값을 적고, `.env.dev` 가 있으면 그것도 함께 맞춰요. 한쪽만 바꾸면 로컬과 운영의 동작이 갈려 디버깅 노이즈가 생기기 때문에, 일관성을 강제하는 거예요 (ADR-034). 아직 init 하지 않아 파일이 없는 환경은 건너뛰고 그 사실을 출력으로 알려 줘요.
+`enable`·`disable`은 현재 존재하는 `.env`·`.env.prod`·`.env.dev`를 함께 수정해요. 아직 생성되지 않은 파일은 건너뛰고 알려 줘요. 환경 간 같은 토글 값을 유지하려는 운영 정책이며, 실행 중인 프로세스나 원격 GitHub Secrets를 즉시 바꾸는 명령은 아니에요.
 
-> 운영 전용 경로는 막혀 있어요. `<repo> prod feature` 를 부르면 거부하고 `local feature` 로 안내해요. 토글은 본래 모든 환경에 동시 적용되는 변경이라 운영만 따로 바꾸는 길을 닫아 둔 거예요.
+`<repo> prod feature`는 거부하고 `local feature`를 안내해요. 원격 적용은 [운영 적용](#7-운영-적용)의 주입 경로 확인과 재배포가 필요해요.
 
 ---
 
 ## 4. 시나리오
 
+<a id="결제-없는-앱--블로그커뮤니티sns"></a>
+
 ### 결제 없는 앱 — 블로그·커뮤니티·SNS
 
-결제·구독이 없는 서비스라면 payment·iap·billing-notification·audit 를 끄고 인증과 알림만 남겨요.
+결제·구독을 사용하지 않으면 관련 기능을 끌 수 있어요. 감사 기록을 남길지는 서비스 운영 요구에 맞춰 따로 판단해요.
 
 ```bash
 APP_FEATURES_PAYMENT=false
 APP_FEATURES_IAP=false
 APP_FEATURES_BILLING_NOTIFICATION=false
-APP_FEATURES_AUDIT=false
-# 활성으로 남는 것: auth · user · device · push · email · storage · 2fa · password-policy
+# 감사 기록도 사용하지 않을 때만 설정해요.
+# APP_FEATURES_AUDIT=false
 ```
 
-부팅 뒤 아래로 확인해요.
+부팅 후 공유 payment·iap 경로가 등록되지 않았는지 확인해요. 가입 검증은 이메일 코드 발급→검증→proofToken을 포함한 가입까지 진행하고, 성공 상태는 201로 확인해요. 남은 서비스의 Port 호출을 따로 검증할 때만 `CMN_009`를 기대해요.
 
-```bash
-<repo> local server-test                     # 부팅 성공
-curl -X POST .../payment/verify              # 503 CMN_009
-curl -X POST .../iap/verify                  # 503 CMN_009
-curl -X POST .../auth/email/signup ...       # 200 OK
-```
+<a id="결제--이메일만--단순-saas"></a>
 
 ### 결제 + 이메일만 — 단순 SaaS
 
-푸시·2FA·감사·알림이 필요 없는 단순 결제 서비스라면 결제와 이메일만 남겨요.
+푸시·2FA·갱신 알림을 쓰지 않는 구성을 예로 들면 다음과 같아요. 기존 2FA 사용자가 있다면 비활성화 전에 로그인 영향을 확인해요.
 
 ```bash
 APP_FEATURES_IAP=false
 APP_FEATURES_PUSH=false
 APP_FEATURES_2FA=false
-APP_FEATURES_AUDIT=false
 APP_FEATURES_BILLING_NOTIFICATION=false
-# 활성으로 남는 것: auth · user · device · email · payment · password-policy
+# 감사 기록도 사용하지 않을 때만 설정해요.
+# APP_FEATURES_AUDIT=false
 ```
+
+기능을 켰다는 사실만으로 실제 공급자 연동이 준비되지는 않아요. 결제·이메일 자격증명과 어댑터 등록 상태도 확인해요.
+
+<a id="전부-켜기--기본값"></a>
 
 ### 전부 켜기 — 기본값
 
-모든 도메인을 쓰는 경우엔 `.env` 에 `APP_FEATURES_*` 를 한 줄도 적지 않아도 돼요. 기본값이 전부 활성이거든요.
-
-```bash
-# .env 에 APP_FEATURES_* 가 한 줄도 없어도 모두 활성
-```
+`APP_FEATURES_*`를 생략하면 각 기능의 토글은 활성으로 평가해요. 기존에 적힌 `false` 값을 지우거나 `enable` 명령으로 바꾼 뒤 다시 부팅해요.
 
 ---
 
 ## 5. 변경 후 검증
 
-토글을 바꾼 뒤에는 부팅과 e2e 두 가지를 확인해요.
-
 ```bash
-# 1. 부팅 검증
 <repo> local server-test
-
-# 2. e2e — 끈 모듈의 step 이 자동으로 건너뛰는지 확인
 <repo> local api-test
 ```
 
-`api-test` 는 `.env` 의 `APP_FEATURES_<NAME>` 값을 직접 읽어, 끈 모듈에 묶인 step 을 건너뛰어요. billing-notification·audit 를 끈 상태라면 출력은 이런 모양이에요.
+`server-test`는 부팅·서버 연결을, `api-test`는 smoke 시나리오를 확인해요. 데이터 생성과 외부 연동이 포함될 수 있으므로 테스트 전용 환경을 사용해요.
 
-```text
-✓  1/11  회원가입       PASS
-⊘  6/11  알림 toggle    SKIP (feature APP_FEATURES_BILLING_NOTIFICATION=false)
-⊘ 11/11  Audit 로그     SKIP (feature APP_FEATURES_AUDIT=false)
-```
-
-지금 smoke-test 가 환경 변수를 보고 자동으로 건너뛰는 step 은 billing-notification(6번)과 audit(11번) 두 가지예요. payment·iap·email·2fa step 은 토글 연동이 후속 작업으로 남아 있어, 끈 상태로 돌리면 SKIP 이 아니라 실제 응답에 따라 결과가 갈려요. 이 모듈들은 위 §4 처럼 `curl` 로 `503` 을 직접 확인하는 게 확실해요.
+현재 smoke-test의 16개 단계 중 토글을 직접 보고 건너뛰는 단계는 billing-notification(6번)과 audit(11번)이에요. 모든 비활성 기능이 자동으로 SKIP되는 것은 아니에요. 결과를 읽을 때 PASS·FAIL·SKIP을 구분하고, 끈 기능의 계약은 해당 경로를 따로 확인해요.
 
 ---
 
@@ -150,38 +135,40 @@ APP_FEATURES_BILLING_NOTIFICATION=false
 
 ### A. 비활성했는데 endpoint 가 200 을 반환해요
 
-변경 뒤 아직 부팅을 다시 하지 않은 상태예요. `.env` 변경은 부팅 시점에만 반영돼요. `<repo> local server-test` 로 다시 띄우거나 docker compose 를 재시작하세요.
+부수 효과만 생략하는 기능이면 정상일 수 있어요. 컨트롤러가 빠져야 하는 기능이라면 실행 프로세스에 주입된 설정과 재시작 여부를 확인해요. 환경 파일을 고친 것만으로 실행 중인 프로세스가 바뀌지는 않아요.
 
 ### B. 활성인데 endpoint 가 404 예요
 
-다른 의존성이 빠졌을 가능성이 커요. 예를 들어 payment 는 활성이지만 `APP_PAYMENT_PORTONE_API_V1_KEY` 가 비어 있을 수 있어요. 부팅 로그를 확인해, `StubPaymentAdapter` 가 등록됐는지 아니면 PaymentAutoConfiguration 자체가 등록 안 됐는지를 구분하세요.
+요청 URL·앱 slug·실제 토글 값과 컨트롤러 등록 조건을 확인해요. payment 키가 비어 있다는 이유만으로 공유 PaymentController가 사라지는 것은 아니에요. 기능이 켜져 있지만 자격증명이 없으면 StubPaymentAdapter가 등록될 수 있고, 실제 결제 호출에서 설정 부재 오류를 반환해요.
+
+<a id="c-부팅이-실패해요--required-bean-of-type--not-available"></a>
 
 ### C. 부팅이 실패해요 — `Required bean of type ... not available`
 
-다른 도메인이 끈 모듈의 bean 을 직접 의존하고 있어요. 의존하는 쪽을 ObjectProvider 로 바꾸거나, 그 모듈도 함께 끄세요. 후속 작업 목록은 ADR-034 에 있어요.
+파생 코드가 선택 기능의 빈을 직접 의존하는지 확인해요. 그 기능이 선택 사항인지부터 판단한 뒤 lazy 주입·조건부 등록 또는 명시적인 필수 의존성으로 정리해요. 단순히 오류를 없애려고 필요한 기능을 함께 끄지는 않아요.
 
 ### D. `.env` 와 `.env.prod` 가 서로 달라요
 
-직접 편집하다 한쪽만 바꿨을 때 생기는 drift 예요. `<repo> local feature <action> <name>` 을 쓰면 존재하는 환경 파일을 한꺼번에 맞춰 줘서 이런 어긋남을 막아요.
+직접 편집한 환경 파일끼리 값이 달라졌는지 확인해요. `local feature`는 존재하는 파일을 함께 수정해 운영 정책을 맞춰 줘요. 이후 실제 배포 환경에도 같은 값이 전달됐는지 확인해요.
 
 ---
 
 ## 7. 운영 적용
 
-feature flag 변경은 코드 변경이 아니라 환경 변수 변경이라, git push 와는 별개예요. 운영에 적용하려면 세 단계를 거쳐요.
+기본 정책은 local·dev·prod의 토글 값을 함께 유지하는 거예요. 현재 명령이 관리하는 범위는 로컬 환경 파일까지이므로 다음 연결을 확인해야 해요.
 
-1. `.env.prod` 를 고쳐요. `<repo> local feature disable <name>` 이 이미 자동으로 처리해 줘요.
-2. GitHub Secrets 를 갱신해, 바뀐 `APP_FEATURES_*` 를 반영해요.
-3. `<repo> prod deploy` 로 새 환경 변수를 실어 다시 부팅해요.
+1. `<repo> local feature disable <name>` 또는 `enable`로 존재하는 환경 파일을 맞춰요.
+2. 해당 토글이 GitHub Secrets·Actions export·Kamal 환경 변수 목록을 통해 실제 컨테이너까지 전달되는지 확인해요. 현재 `APP_FEATURES_*`는 이 경로에 일괄 등록돼 있지 않아요.
+3. 필요한 주입 경로를 구성한 뒤 재배포하고, 실제 환경과 endpoint 동작을 확인해요.
 
-> `.env.prod` 만 고치고 GitHub Secrets push 를 잊으면, GHA 가 옛 값으로 부팅해요. setup 스크립트의 secrets sync 를 쓰면 이 누락을 막을 수 있어요.
+환경 파일 수정이나 일반 secrets sync만으로 미등록 토글까지 자동 전달된다고 가정하지 않아요. 주입 경로를 추가해야 한다면 관련 설정 파일 변경도 배포에 포함해요.
 
 ---
 
 ## 8. 관련 문서
 
-- [`ADR-034 · Lite 모드 설계`](../../philosophy/adr-034-feature-toggle-lite-mode.md) — 토글 메커니즘과 환경 파일 동시 변경 근거
-- [`ADR-019 · billing·iap·payment 분리`](../../philosophy/adr-019-billing-iap-payment-separation.md) — 결제 도메인 경계
-- [`ADR-031 · 사용자 알림 toggle`](../../philosophy/adr-031-notification-preferences.md) — 본 문서의 user-level 변형
-- `tools/app/feature.sh` — `feature` 명령 구현
-- `tools/verify/api-smoke-test.sh` — 끈 모듈의 step 자동 SKIP
+- [ADR-034 · Lite 모드 설계](../../philosophy/adr-034-feature-toggle-lite-mode.md) — 토글과 환경 파일 동시 변경 근거
+- [ADR-019 · billing·iap·payment 분리](../../philosophy/adr-019-billing-iap-payment-separation.md) — 결제 도메인 경계
+- [ADR-031 · 사용자 알림 toggle](../../philosophy/adr-031-notification-preferences.md) — 사용자 단위 알림 설정
+- `tools/app/feature.sh` — CLI 구현
+- `tools/verify/api-smoke-test.sh` — 검증 단계와 SKIP 조건

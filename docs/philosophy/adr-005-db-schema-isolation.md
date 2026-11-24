@@ -1,3 +1,5 @@
+<a id="adr-005--단일-postgres-database--앱당-schema"></a>
+
 # ADR-005 · 단일 Postgres database + 앱당 schema
 
 **Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — 공유 *core schema* 와 `coreDataSource` Bean 제거. 방어선 구성은 본문 그대로 **5중** (DB role · DataSource · Flyway · 포트 · ArchUnit) 입니다. `infra/scripts/init-app-schema.sql` + `common-persistence/AbstractAppDataSourceConfig.java` 로 구현되어 있어요. Supabase production 도 동일한 구조를 따릅니다.
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-앱이 늘어나도 database 는 하나 (`postgres`) 만 유지하고, 각 앱에게 자기 schema (`sumtally`, `rny`, `gymlog` 등) 를 분리해서 줍니다. schema 안에는 그 앱의 유저 테이블부터 도메인 테이블까지 전부 들어가요. 한 앱이 다른 앱의 schema 를 못 건드리게 하는 방어선은 **5개** — DB role · DataSource · Flyway · 포트 인터페이스 · ArchUnit. Postgres 의 `CREATE SCHEMA` 한 줄이 사실상 "앱 한 개" 의 경계예요.
+하나의 PostgreSQL 데이터베이스 안에 앱별 스키마를 두고, 각 앱의 사용자와 도메인 데이터를 함께 저장해요. 앱별 DataSource와 라우팅으로 접근 대상을 정하고, 개별 DB 계정을 설정했을 때는 DB 권한도 접근 범위를 제한해요. 앱별 자격을 생략해 공통 계정으로 연결하면 같은 수준의 DB 권한 격리가 생기는 것은 아니에요. 운영 콘솔의 고정 `admin` 스키마는 앱 라우팅에서 제외해요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -35,6 +37,8 @@
 
 ## 고민했던 대안들
 
+<a id="option-1--앱마다-별도-postgres-인스턴스"></a>
+
 ### Option 1 — 앱마다 별도 Postgres 인스턴스
 
 가장 안전한 격리예요. 앱 하나가 DB 를 다운시켜도 다른 앱에 영향이 가지 않아요.
@@ -47,6 +51,8 @@
   - **[`제약 1`](./README.md#제약-1--운영-가능성이-최우선) 위반** — 운영 단위가 N 배로 불어남
 - **탈락 이유**: 솔로가 감당 불가능한 운영 부담. 앱 3개만 되어도 피로 누적.
 
+<a id="option-2--단일-postgres-인스턴스--database-분리"></a>
+
 ### Option 2 — 단일 Postgres 인스턴스 + database 분리
 
 한 Supabase 프로젝트 안에 database 를 여러 개.
@@ -57,6 +63,8 @@
   - 결국 Supabase 의 관리형 이점을 반만 누리게 돼요 (custom database 는 self-managed 상태예요).
   - Role 분리는 가능하지만 database 레벨 권한 관리가 schema 레벨보다 딱히 쉽지도 않아요.
 - **탈락 이유**: Supabase 와 궁합이 나빠요. 그 이점을 포기하면 Option 1 에 가까워지는데 격리 강도는 더 약해요 — 이도저도 아닌 결과예요.
+
+<a id="option-3--단일-database--schema-분리--5중-방어선--채택"></a>
 
 ### Option 3 — 단일 database + schema 분리 + 5중 방어선 ★ (채택)
 
@@ -97,6 +105,8 @@ postgres (database)
 └── public schema                   ← 건드리지 않음 (Supabase 기본)
 ```
 
+<a id="방어선-1--db-role-분리"></a>
+
 ### 방어선 1 — DB role 분리
 
 각 schema 에 전용 role 이 매핑됩니다. 자기 schema 외 접근은 **DB 레벨에서 permission denied**.
@@ -120,6 +130,8 @@ REVOKE ALL ON SCHEMA public FROM ${APP_ROLE};
 role 명 패턴: `<slug>_app` (예: `sumtally_app`). Supabase 프로덕션도 동일 스크립트 실행.
 
 > ⚠ 마지막 `REVOKE` 는 public schema 접근을 실제로 막지 못해요. Postgres 가 role 에게 public schema 권한을 주는 경로는 `PUBLIC` 의사 role 에 대한 grant 이고, 특정 role 을 대상으로 한 `REVOKE` 는 그 항목을 건드리지 않기 때문이에요. 자세한 사정과 이 문장을 그대로 두는 이유는 아래 [`교훈 — public schema 접근 차단`](#public-schema-접근-차단은-명시적으로-할-것) 에 적어 두었어요. 격리의 실질은 앱 schema 별 role 과 GRANT 범위가 담당합니다.
+
+<a id="방어선-2--spring-datasource-분리"></a>
 
 ### 방어선 2 — Spring DataSource 분리
 
@@ -145,6 +157,8 @@ properties.put("hibernate.default_schema", slug);
 
 한 앱이 커넥션을 고갈시켜도 다른 앱의 풀은 영향을 받지 않아요.
 
+<a id="방어선-3--flyway-마이그레이션-분리"></a>
+
 ### 방어선 3 — Flyway 마이그레이션 분리
 
 각 앱의 Flyway 는 **자기 schema 에만** 마이그레이션 적용. 히스토리 테이블도 schema 별 분리.
@@ -160,9 +174,15 @@ Flyway.configure()
 
 마이그레이션 파일 경로: `apps/app-<slug>/src/main/resources/db/migration/<slug>/V001__*.sql`. 다른 앱의 마이그레이션 파일을 **경로상으로도** 분리.
 
+<a id="방어선-4--포트-인터페이스-의존-adr-003adr-003-api-impl-splitmd"></a>
+<a id="방어선-4--포트-인터페이스-의존-adr-003"></a>
+
 ### 방어선 4 — 포트 인터페이스 의존 ([`ADR-003`](./adr-003-api-impl-split.md))
 
 앱 모듈은 자기 schema 의 엔티티만 소유합니다. 다른 앱의 데이터가 필요하면 **포트 (api 모듈 인터페이스)** 를 통해 DTO 로만 받아요. Entity 의 직접 참조는 금지돼요.
+
+<a id="방어선-5--archunit-규칙-adr-004adr-004-gradle-archunitmd"></a>
+<a id="방어선-5--archunit-규칙-adr-004"></a>
 
 ### 방어선 5 — ArchUnit 규칙 ([`ADR-004`](./adr-004-gradle-archunit.md))
 
@@ -197,11 +217,13 @@ r2 · r3 · r11 이 schema 격리를 기계적으로 강제합니다.
 
 ### 부정적 결과
 
-**Postgres 인스턴스 장애가 전사 장애** — 한 Supabase 프로젝트가 다운되면 모든 앱이 함께 다운돼요. 완화: Supabase 의 관리형 SLA 에 의존합니다 ([`제약 1`](./README.md#제약-1--운영-가능성이-최우선) 비목표 — 99.99% 불필요). 실제 사용 기간 중 Supabase 다운 빈도는 월 1 회 이내 · 수 분 단위로 집계돼요.
+**DB 인스턴스 장애는 여러 앱에 영향을 줘요.** 한 프로젝트의 DB를 함께 사용하므로 DB 장애 때 앱별 스키마만으로 가용성을 분리할 수는 없어요. 관리형 서비스의 복구·백업 조건과 필요한 가용성을 별도로 확인해요. 이 ADR은 [운영 범위](./README.md#제약-1--운영-가능성이-최우선)를 줄이는 결정을 기록하며, 관측 자료가 없는 장애 빈도를 성과로 제시하지 않아요.
 
 **schema 간 트랜잭션 불가** — 한 앱이 다른 앱의 테이블을 같은 트랜잭션에서 조작하는 건 불가능해요. 완화: 애초에 ADR 의 의도 — 앱은 **독립** 이라야 해요. 크로스 앱 데이터는 포트 호출 (비동기 경계) 로만 다뤄요.
 
 **schema 격리는 database 격리보다 논리적으로 약해요** — role 설정 실수로 `GRANT ALL` 을 잘못 주면 경계가 무너져요. 완화: `init-app-schema.sql` 을 **스크립트로 표준화** 했어요. 사람이 직접 GRANT 를 쓰지 않아요.
+
+<a id="이전-경로-존재--감당-가능성-근거"></a>
 
 ### 이전 경로 존재 — "감당 가능성" 근거
 
@@ -231,6 +253,8 @@ REVOKE ALL ON SCHEMA public FROM PUBLIC;
 - **PostgreSQL 15 부터 위험의 핵심이 이미 사라졌어요.** 본 문단이 걱정하던 `CREATE` 권한은 15 부터 서버 기본값에서 `PUBLIC` 에게 부여되지 않아요. local (`postgres:16`) 과 Supabase 모두 15 이상이라 앱 role 이 public schema 에 테이블을 만들 수는 없습니다. 남는 것은 `USAGE` 뿐인데, 이것만으로는 테이블을 읽지 못해요 — 테이블 단위 권한이 따로 있어야 합니다.
 
 **교훈**: 권한을 회수할 때는 "누구에게 걸린 grant 인가" 를 먼저 확인해야 한다. Postgres 의 public schema 처럼 `PUBLIC` 의사 role 에 걸린 권한은 개별 role 을 회수 대상으로 삼으면 조용한 no-op 이 된다. 그리고 전역 권한 문장은 앱 단위 프로비저닝 스크립트에 넣지 않는다.
+
+<a id="hibernate-schema-결정-방식의-진화--default_schema-명시--connection-url-currentschema"></a>
 
 ### Hibernate schema 결정 방식의 진화 — `default_schema` 명시 → connection URL `currentSchema`
 

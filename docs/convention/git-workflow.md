@@ -2,7 +2,7 @@
 
 > **유형**: Reference · **독자**: Level 2 · **읽는 시간**: ~6분
 
-이 문서는 `template-spring` 의 Git 사용 규약을 정리해요. 브랜치 구조, 커밋 메시지 포맷, 그 포맷을 강제하는 훅과 CI, 릴리스 절차, 그리고 backlog·문서 검증 운영 규칙까지를 한곳에서 다룹니다. 규칙의 *근거* 가 궁금하면 본문에 링크한 ADR 로 넘어가세요.
+브랜치와 커밋을 만들고 PR·릴리스를 준비할 때 필요한 규약이에요. 훅과 CI가 검사하는 항목, 문서와 변경 기록을 갱신하는 절차도 함께 설명해요. 규칙을 선택한 이유는 각 절의 ADR에서 확인할 수 있어요.
 
 ---
 
@@ -23,6 +23,8 @@
 파생 레포는 자기 사정에 맞게 GitFlow 등을 채택해도 됩니다. 템플릿이 브랜치 전략을 강제하지 않아요.
 
 ---
+
+<a id="merge-전략--rebase-병합만"></a>
 
 ## Merge 전략 — rebase 병합만
 
@@ -65,6 +67,8 @@ GitHub 저장소 설정은 다음과 같이 맞춰요.
 <footer — 선택. BREAKING CHANGE / Refs>
 ```
 
+<a id="type--10종"></a>
+
 ### Type — 10종
 
 `commitlint.config.mjs` 의 `type-enum` 이 아래 10종만 허용합니다. 집합 밖 타입은 커밋이 거부돼요.
@@ -81,6 +85,8 @@ GitHub 저장소 설정은 다음과 같이 맞춰요.
 | `chore` | 빌드·의존 업데이트 | patch |
 | `build` | 빌드 시스템 | patch |
 | `ci` | CI 설정 | patch |
+
+<a id="scope--선택"></a>
 
 ### Scope — 선택
 
@@ -149,6 +155,8 @@ feat(user)!: rename UserSummary.name to displayName
 
 커밋 포맷은 세 겹으로 막아요. 로컬에서 한 번, CI 에서 두 번 검증합니다. 어느 한 겹을 우회해도 다음 겹이 잡아요.
 
+<a id="1차--로컬-commit-msg-훅"></a>
+
 ### 1차 — 로컬 commit-msg 훅
 
 `.husky/commit-msg` 가 커밋 순간에 두 가지를 검사합니다. `Co-Authored-By: Claude` 트레일러가 있으면 즉시 거부하고, 이어서 `npx commitlint --edit` 으로 `commitlint.config.mjs` 의 전체 룰을 돌려요. 실패하면 커밋 자체가 만들어지지 않습니다.
@@ -162,9 +170,13 @@ git config --local commit.template .gitmessage
 
 `package.json` 의 `prepare` 스크립트가 `npm install` 시점에 husky 를 활성화하고 `core.hooksPath` 를 husky 관리 디렉토리(`.husky/_`)로 잡아 줍니다. `<repo> init` 이 `npm install` 을 자동 수행하므로 대부분 별도 작업이 필요 없어요. Node 18+ 가 없으면 이 단계가 실패하니 먼저 설치하세요.
 
+<a id="2차--ci-commitlint"></a>
+
 ### 2차 — CI commitlint
 
 `.github/workflows/commit-lint.yml` 이 PR 의 모든 커밋 메시지를 `commitlint.config.mjs` 로 검사합니다. 로컬에서 `--no-verify` 로 훅을 우회한 커밋도 여기서 잡혀요.
+
+<a id="3차--pr-타이틀-검증"></a>
 
 ### 3차 — PR 타이틀 검증
 

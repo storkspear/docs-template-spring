@@ -1,14 +1,16 @@
+<a id="adr-033--flyway-hybrid-마이그레이션-정책-devauto-prodvalidate-only"></a>
+
 # ADR-033 — Flyway Hybrid 마이그레이션 정책 (dev=auto, prod=validate-only)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
 
-**Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — core schema 의 Flyway(coreFlyway Bean) 폐기, 각 app 의 `<slug>Flyway` 만 남음. local / test 환경에서는 `Flyway.migrate()` 가 자동으로 적용되고, dev / prod 환경에서는 `Flyway.validate()` 만 호출돼요(checksum 검증). prod 적용은 운영자가 `tools/deploy/migrate-prod.sh` 또는 SSH + psql 로 명시적으로 수행합니다.
+**Status**: Accepted. [ADR-037](./adr-037-core-schema-deprecation.md) 이후 앱별 Flyway로 관리해요. dev/prod 프로파일 fallback은 `VALIDATE_ONLY`지만 현재 환경 예시 파일의 `APP_FLYWAY_MODE=AUTO`가 이를 덮어써요. 실제 적용값을 확인하고 수동 적용이 필요하면 `tools/deploy/migrate-prod.sh`를 사용해요. 고정 admin 스키마의 Flyway는 항상 migrate하는 예외예요.
 
 ---
 
 ## 결론부터
 
-DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라 *언제 적용할지* 의 결정이 *코드 deploy 와 분리* 되어야 안전해요. 코드 deploy 시점에 자동으로 새 V스크립트가 적용되는 형태는 *부팅 실패가 곧 트래픽 단절* 로 이어지는 위험을 만들고, *부분 적용 (V14 까지 성공 / V15 실패)* 같은 사고는 *schema 가 inconsistent state 로 남는* 가장 까다로운 운영 부담이 됩니다.
+앱 스키마의 Flyway 실행 방식을 `AUTO`·`VALIDATE_ONLY`·`DISABLED`로 나눠요. 공통 프로파일의 fallback은 `AUTO`, dev/prod 프로파일은 `VALIDATE_ONLY`예요. 다만 현재 `.env.dev.example`과 `.env.prod.example`에는 `APP_FLYWAY_MODE=AUTO`가 들어 있어, 그대로 사용하면 프로파일 fallback을 덮어써요. 배포 전에 실제 적용값을 확인하고 마이그레이션 실행 시점을 결정해야 해요. 운영 콘솔의 `adminFlyway`는 이 설정과 별개로 항상 migrate하는 예외예요.
 
 본 ADR 은 환경별로 Flyway 동작을 분리하는 *Hybrid Policy* 를 정의합니다. local / test 환경에서는 *기존처럼 자동 migrate* — 개발 효율을 유지하기 위해 코드 변경과 함께 schema 도 자동으로 적용돼요. 반면 dev / prod 환경에서는 *validate-only 모드* 로 동작합니다 — 부팅 시 schema_history 의 checksum 정합만 검증하고 실제 V스크립트는 적용하지 않아요. 운영자가 deploy 전에 해당 DB 에 직접 SQL 을 적용하는 명시적 단계를 거쳐야 새 schema 가 반영됩니다.
 
@@ -28,9 +30,9 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 
 **첫째, 부팅 실패가 트래픽 단절로 이어집니다.** V15 마이그레이션이 *예상치 못한 데이터 (예: 중복 row)* 때문에 적용 실패하면 *Spring Boot 부팅 자체가 실패* 하고, *블루/그린 배포* 환경에서는 *새 인스턴스가 health check 를 통과하지 못해 트래픽이 라우팅되지 않는* 상태가 됩니다. 기존 인스턴스가 *이미 종료된 시점* 이라면 *전체 서비스 다운* 으로 이어질 수 있어요.
 
-**둘째, 부분 적용이 schema 를 inconsistent state 로 남깁니다.** V14 까지 성공하고 V15 가 실패한 시점에 *V14 의 변경은 이미 commit* 되어 있으므로, 단순 rollback 으로는 복구할 수 없어요. *V15 의 부분적 변경* 이 어떤 상태로 남아 있는지 분석 → *수동 정정* 의 까다로운 복구 절차가 필요합니다. 운영 압박 상황에서 이런 분석을 정확히 하기는 어려워요.
+**둘째, 여러 마이그레이션 중 일부만 반영될 수 있어요.** 앞선 마이그레이션이 커밋된 뒤 다음 마이그레이션이 실패하면 코드와 스키마의 호환성을 확인해야 해요. 실패한 한 마이그레이션 내부의 변경이 남는지는 트랜잭션 실행 여부와 SQL 종류에 따라 달라요. 항상 중간 DDL이 남는다고 가정하지 말고 실제 이력과 스키마를 확인해요.
 
-**셋째, advisory lock 손상 시 모든 인스턴스가 부팅 대기에 빠집니다.** Flyway 는 *동시성 보장을 위한 advisory lock* 을 사용하는데, 이 lock 이 *드물지만 손상* 되면 *모든 인스턴스의 부팅이 무한 대기* 하는 상태가 돼요. 수동 unlock SQL (`SELECT pg_advisory_unlock_all()`) 이 필요한 까다로운 복구 영역입니다.
+**셋째, 다른 마이그레이션 세션의 락을 기다릴 수 있어요.** 먼저 실행 중인 세션과 락 대기 원인을 확인해야 해요. `pg_advisory_unlock_all()`은 호출한 세션의 락을 해제하는 함수이므로 다른 세션의 대기를 해결하는 만능 명령으로 안내하지 않아요. 복구는 연결 방식과 실행 중인 작업을 확인한 뒤 런북에 따라 진행해요.
 
 **넷째, schema 변경이 코드 deploy 의 부산물로 발생해서 DBA / 운영자가 변경 사실을 모를 수 있습니다.** 운영 환경에서 *어느 시점에 어떤 schema 변경이 있었는지* 가 *코드 commit log 안에 묻혀* 있으면, 별도 추적 도구 없이는 *변경 history 를 파악* 하기 어려워요. 이는 *PCI-DSS 같은 audit 요구* 와도 충돌합니다.
 
@@ -42,12 +44,16 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 
 > **local / test 의 자동 migrate 편의를 유지하면서 dev / prod 의 부팅 실패·부분 적용·advisory lock 손상·변경 추적성 부재 위험을 동시에 차단하는 마이그레이션 정책은 무엇인가?**
 
+<a id="옵션-a--그대로-자동-migrate-현재"></a>
+
 ### 옵션 A — 그대로 자동 migrate (현재)
 | 장점 | 단점 |
 |---|---|
 | 단순 — 별도 운영 절차 X | prod 부팅 시 schema 변경 발생 가능성 |
 | advisory lock 으로 동시성 안전 | 부분 적용 시 복구 절차 복잡 |
 | Flyway baseline-on-migrate 가 신규 schema 자동 처리 | DBA / 운영자가 변경 사실을 모를 수 있음 |
+
+<a id="옵션-b--hybrid-devtest--auto-prod--validate-only"></a>
 
 ### 옵션 B — Hybrid (dev/test = auto, prod = validate-only)
 | 장점 | 단점 |
@@ -56,6 +62,8 @@ DB 마이그레이션은 *데이터의 영구 변경* 을 다루는 영역이라
 | DBA / 운영자가 schema 변경을 명시적으로 통제 | 자동화 도구 `tools/deploy/migrate-prod.sh` 필요 |
 | 부분 적용 위험 0 — 부팅 시 검증만 | local / test 에선 그대로 자동이라 개발 iteration 이 빠름 |
 | Flyway `validate` 만 호출 → checksum 정합 보장 | |
+
+<a id="옵션-c--orm-hbm2ddlauto"></a>
 
 ### 옵션 C — ORM `hbm2ddl.auto`
 | 장점 | 단점 |
@@ -106,6 +114,8 @@ protected Flyway buildFlyway(DataSource ds, FlywayMode mode) {
 ```
 
 `buildFlyway` 는 mode 와 무관하게 **항상 설정된 Flyway 객체를 반환**해요 — `DISABLED` 라고 `null` 을 돌려주지 않습니다(초안 스니펫과 다른 부분). mode 는 여기서 `baselineOnMigrate` 정책만 가르고, "실행하느냐 마느냐" 는 아래 `runFlywayWithMode` 가 `migrate()` / `validate()` 를 **호출하는지 여부**로 표현합니다.
+
+<a id="2-concrete-subclass--bean-안에서-mode-분기"></a>
 
 ### 2. concrete subclass — `@Bean` 안에서 mode 분기
 
@@ -163,7 +173,7 @@ app:
 1) apps/app-<slug>/db/migration/<slug>/V<N>__*.sql 변경 검토 (PR review)
    │
    ▼
-2) tools/deploy/migrate-prod.sh <slug> V<N>  실행
+2) tools/deploy/migrate-prod.sh <slug> <V스크립트경로> 실행
    │   ├── SSH prod-host → psql $DB_URL -f V<N>__*.sql
    │   ├── 성공 시 INSERT INTO <slug>.flyway_schema_history 자동
    │   └── 실패 시 ROLLBACK + 에러 보고
@@ -191,7 +201,11 @@ dev / prod 에서 validate-only 로 바뀌어도 **local / test 의 lock 보장�
 
 ---
 
+<a id="부분-적용--락-손상-시-복구"></a>
+
 ## 부분 적용 / 락 손상 시 복구
+
+<a id="a-dev--test-환경"></a>
 
 ### A. dev / test 환경
 local / test 는 자동 migrate 그대로 — `flyway-runbook.md` §3 의 복구 절차 적용(advisory lock 강제 해제, 실패 entry 제거 후 정정 V스크립트). dev 는 prod 와 동일하게 아래 B 의 흐름을 따릅니다.

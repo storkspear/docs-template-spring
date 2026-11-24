@@ -10,6 +10,8 @@ mermaid.initialize({
   }
 });
 
+let headingSlugs = new Set();
+
 marked.use({
   breaks: true,
   gfm: true,
@@ -27,14 +29,18 @@ marked.use({
       const langLabel = lang ? `<div class="code-lang">${lang}</div>` : '';
       return `<div style="position:relative">${langLabel}<pre class="hljs"><code>${highlighted}</code></pre></div>`;
     },
-    heading({ text, depth, raw }) {
+    heading({ text, depth, raw, tokens }) {
       const slug = raw
         .replace(/`[^`]*`/g, m => m.slice(1, -1))
         .toLowerCase()
         .replace(/[^\p{L}\p{N}\s-]/gu, '')
         .trim()
         .replace(/\s+/g, '-');
-      return `<h${depth} id="${slug}">${text}</h${depth}>\n`;
+      let uniqueSlug = slug;
+      let suffix = 1;
+      while (headingSlugs.has(uniqueSlug)) uniqueSlug = `${slug}-${suffix++}`;
+      headingSlugs.add(uniqueSlug);
+      return `<h${depth} id="${uniqueSlug}">${this.parser.parseInline(tokens)}</h${depth}>\n`;
     }
   }
 });
@@ -82,49 +88,66 @@ function transformEmoji(html) {
 }
 
 // .md 상대 경로 링크를 SPA 내부 라우팅으로 인터셉트
+const SOURCE_REPOSITORY = 'https://github.com/storkspear/template-spring/blob/main';
+
+// 기존 공개 주소 형식: #문서.md#절-앵커
+let defaultDoc = '';
+let activeRoute = null;
+let navigationId = 0;
+
+function decodeFragment(value) {
+  try { return decodeURIComponent(value); }
+  catch { return value; }
+}
+
+function parseDocRoute(hash) {
+  const [path, ...anchor] = hash.replace(/^#/, '').split('#');
+  return { docPath: decodeFragment(path) || defaultDoc, anchor: decodeFragment(anchor.join('#')) };
+}
+
+function routeHash(docPath, anchor = '') {
+  return '#' + docPath + (anchor ? '#' + anchor : '');
+}
+
+function isPlainClick(event, link) {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey &&
+    !event.shiftKey && !event.altKey && !link.hasAttribute('download') &&
+    (!link.target || link.target === '_self');
+}
+
 function interceptDocLinks(el, currentDocPath) {
-  const baseDir = currentDocPath.includes('/')
-    ? currentDocPath.slice(0, currentDocPath.lastIndexOf('/') + 1)
-    : '';
-
-  el.querySelectorAll('a[href]').forEach(a => {
-    const href = a.getAttribute('href');
-    if (!href || href.startsWith('#') || href.startsWith('http') || href.startsWith('mailto')) return;
-    // .md 뒤에 #anchor 가 붙어있어도 처리 (예: './adr-002.md#adr-002')
-    const mdIdx = href.indexOf('.md');
-    if (mdIdx === -1) return;
-
-    const mdPath = href.slice(0, mdIdx + 3);        // .md 까지
-    const anchor = href.slice(mdIdx + 3);            // '#adr-002' 또는 ''
-    const targetId = anchor ? anchor.slice(1) : null;
-
-    const raw = baseDir + mdPath;
-    const parts = raw.split('/');
-    const resolved = [];
-    for (const p of parts) {
-      if (p === '..') resolved.pop();
-      else if (p && p !== '.') resolved.push(p);
-    }
-    const docPath = resolved.join('/');
-
-    a.setAttribute('href', '#' + docPath + anchor);
-    a.addEventListener('click', e => {
-      e.preventDefault();
-      const p = loadDoc(docPath);
-      // 로드 완료 후 anchor 로 스크롤
-      if (targetId && p && typeof p.then === 'function') {
-        p.then(() => {
-          const target = document.getElementById(targetId);
-          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-      } else if (targetId) {
-        setTimeout(() => {
-          const target = document.getElementById(targetId);
-          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
+  el.querySelectorAll('a[href]').forEach(link => {
+    const href = link.getAttribute('href');
+    if (!href || /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href)) return;
+    let docPath, anchor;
+    if (href.startsWith('#')) {
+      docPath = currentDocPath;
+      anchor = decodeFragment(href.slice(1));
+    } else {
+      const url = new URL(href, 'https://docs.invalid/docs/' + currentDocPath);
+      if (!url.pathname.startsWith('/docs/')) {
+        link.href = SOURCE_REPOSITORY + url.pathname + url.search + url.hash;
+        return;
       }
+      if (!/\.md$/i.test(url.pathname) && !url.pathname.endsWith('/')) return;
+      docPath = decodeFragment(url.pathname.slice('/docs/'.length));
+      if (docPath.endsWith('/') || !docPath) docPath += 'README.md';
+      anchor = decodeFragment(url.hash.slice(1));
+    }
+    link.href = routeHash(docPath, anchor);
+    link.addEventListener('click', event => {
+      if (!isPlainClick(event, link)) return;
+      event.preventDefault();
+      loadDoc(docPath, { anchor });
     });
   });
+}
+
+function restoreLocation() {
+  if (!defaultDoc) return;
+  const route = parseDocRoute(location.hash);
+  if (activeRoute?.docPath === route.docPath && activeRoute?.anchor === route.anchor) return;
+  loadDoc(route.docPath, { anchor: route.anchor, historyMode: 'none' });
 }
 
 function isMobile() { return window.innerWidth <= 768; }
@@ -164,7 +187,14 @@ function scrollActiveNavIntoView() {
   });
 }
 
-async function loadDoc(docPath) {
+async function loadDoc(docPath, { anchor = '', historyMode = 'push' } = {}) {
+  const requestId = ++navigationId;
+  activeRoute = { docPath, anchor };
+  const hash = routeHash(docPath, anchor);
+  if (historyMode === 'replace') history.replaceState(activeRoute, '', hash);
+  else if (historyMode === 'push' && decodeFragment(location.hash) !== hash) {
+    history.pushState(activeRoute, '', hash);
+  }
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.doc === docPath);
   });
@@ -185,12 +215,13 @@ async function loadDoc(docPath) {
     const res = await fetch('docs/' + docPath);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     let md = await res.text();
+    if (requestId !== navigationId) return;
     md = md.replace(/```\n\[개발자 맥북\][\s\S]*?```/g, '\n%%LOCAL_DEV_DIAGRAM%%\n');
     md = md.replace(/```\n\[인터넷 사용자\][\s\S]*?```/g, '\n%%PROD_DIAGRAM%%\n');
+    headingSlugs = new Set();
     let html = transformEmoji(marked.parse(md));
     html = html.replace(/<p>%%LOCAL_DEV_DIAGRAM%%<\/p>/g, DIAGRAMS['LOCAL_DEV']);
     html = html.replace(/<p>%%PROD_DIAGRAM%%<\/p>/g, DIAGRAMS['PROD']);
-    html = html.replace(/<p>%%TECH_STACK_DIAGRAM%%<\/p>/g, DIAGRAMS['TECH_STACK']);
 
     const contentEl = document.getElementById('content');
     contentEl.innerHTML = html;
@@ -200,9 +231,10 @@ async function loadDoc(docPath) {
     let mermaidId = 0;
     for (const el of document.querySelectorAll('#content .mermaid')) {
       const code = el.textContent.trim();
-      const id = `mermaid-${mermaidId++}`;
+      const id = `mermaid-${requestId}-${mermaidId++}`;
       try {
         const { svg } = await mermaid.render(id, code);
+        if (requestId !== navigationId) return;
         el.innerHTML = svg;
         const svgEl = el.querySelector('svg');
         if (svgEl) {
@@ -212,12 +244,30 @@ async function loadDoc(docPath) {
           if (vb) {
             const [x, y, w, h] = vb.trim().split(/[\s,]+/).map(Number);
             svgEl.setAttribute('viewBox', `${x} ${y} ${w + 40} ${h + 10}`);
+            svgEl.style.width = `${w + 40}px`;
+            svgEl.style.height = 'auto';
+            const zoom = document.createElement('button');
+            zoom.className = 'diagram-zoom';
+            zoom.textContent = '그림 확대';
+            zoom.setAttribute('aria-expanded', 'false');
+            zoom.addEventListener('click', () => {
+              const expanded = zoom.getAttribute('aria-expanded') !== 'true';
+              zoom.setAttribute('aria-expanded', String(expanded));
+              zoom.textContent = expanded ? '그림 전체 보기' : '그림 확대';
+              svgEl.style.maxWidth = expanded ? 'none' : '100%';
+              el.scrollLeft = expanded ? (el.scrollWidth - el.clientWidth) / 2 : 0;
+            });
+            el.before(zoom);
+            el.tabIndex = 0;
+            el.setAttribute('aria-label', '다이어그램. 확대한 그림은 가로로 이동할 수 있어요.');
           }
         }
       } catch(e) {
         el.innerHTML = `<pre style="color:red">${e.message}</pre>`;
       }
     }
+
+    if (requestId !== navigationId) return;
 
     // footer 섹션 분리
     const footerHtml = extractDocFooter(contentEl);
@@ -240,9 +290,11 @@ async function loadDoc(docPath) {
 
     interceptDocLinks(contentEl, docPath);
 
-    window.scrollTo(0, 0);
-    history.pushState({ doc: docPath }, '', '#' + docPath);
+    const target = anchor ? document.getElementById(anchor) : null;
+    if (target) target.scrollIntoView({ block: 'start' });
+    else window.scrollTo(0, 0);
   } catch (e) {
+    if (requestId !== navigationId) return;
     document.getElementById('content').innerHTML =
       `<p style="color:#ef4444;padding:20px">오류: ${e.message}</p>`;
   }
@@ -433,6 +485,7 @@ function buildSidebar(manifest) {
         const a = document.createElement('a');
         a.className = 'nav-item';
         a.dataset.doc = file.path;
+        a.href = routeHash(file.path);
         const descHtml = file.desc ? `<span class="nav-item-desc">${file.desc}</span>` : '';
         a.innerHTML = `${iconHTML(file.path)}<span class="nav-item-inner"><span class="nav-item-title">${file.title}</span>${descHtml}</span>`;
         sidebar.appendChild(a);
@@ -451,6 +504,7 @@ function buildSidebar(manifest) {
           // 서브카테고리의 children 은 1-depth (최상위 동급), 파일의 children 은 2-depth (들여쓰기)
           ca.className = isSubcategory ? 'nav-item' : 'nav-item nav-item-child';
           ca.dataset.doc = child.path;
+          ca.href = routeHash(child.path);
           const childDescHtml = child.desc ? `<span class="nav-item-desc">${child.desc}</span>` : '';
           ca.innerHTML = `${iconHTML(child.path)}<span class="nav-item-inner"><span class="nav-item-title">${child.title}</span>${childDescHtml}</span>`;
           sidebar.appendChild(ca);
@@ -461,7 +515,10 @@ function buildSidebar(manifest) {
 
   sidebar.addEventListener('click', e => {
     const item = e.target.closest('.nav-item');
-    if (item && item.dataset.doc) loadDoc(item.dataset.doc);
+    if (item?.dataset.doc && isPlainClick(e, item)) {
+      e.preventDefault();
+      loadDoc(item.dataset.doc);
+    }
   });
 
   // Lucide 아이콘 렌더링 (data-lucide 속성을 실제 SVG 로 치환)
@@ -475,14 +532,13 @@ async function init() {
   const manifest = await res.json();
   buildSidebar(manifest);
 
-  const hash = location.hash.slice(1);
-  const firstDoc = manifest.groups[0].files[0].path;
-  loadDoc(hash || firstDoc);
+  defaultDoc = manifest.groups[0].files[0].path;
+  const route = parseDocRoute(location.hash);
+  loadDoc(route.docPath, { anchor: route.anchor, historyMode: 'replace' });
 }
 
-window.addEventListener('popstate', e => {
-  if (e.state && e.state.doc) loadDoc(e.state.doc);
-});
+window.addEventListener('popstate', restoreLocation);
+window.addEventListener('hashchange', restoreLocation);
 
 const backdrop = document.createElement('div');
 backdrop.id = 'sidebar-backdrop';

@@ -1,3 +1,5 @@
+<a id="adr-011--모듈-안-레이어드-아키텍처--포트어댑터-패턴"></a>
+
 # ADR-011 · 모듈 안 레이어드 아키텍처 + 포트/어댑터 패턴
 
 **Status**: Accepted. `core-*-impl` 16 개 모듈이 같은 **레이어 규약** 을 공유합니다 — `controller/` · `entity/` · `repository/` 라는 이름이 뜻하는 바가 모든 모듈에서 동일하고, ArchUnit 규칙 r13, r14, r15, r17, r21 이 클래스 위치를 강제해요. 다만 **하위 패키지 구성은 모듈마다 달라요**. 도메인이 작으면 패키지를 아예 안 파고 (`core-email-impl` · `core-payment-impl` · `core-push-impl` · `core-sms-impl` · `core-storage-impl` 은 impl 루트에 클래스만), 필요한 레이어만 파기도 합니다 (`core-iap-impl` 은 `google/` 하나). 규약은 "이 이름의 패키지가 있으면 이 뜻" 이지 "모든 패키지가 항상 있다" 가 아니에요. *(갱신: 본문 구조도·교훈의 「`AuthController` = 스캐폴딩 소스, 런타임 bean 아님」 서술은 [ADR-013](./adr-013-per-app-auth-endpoints.md) B 로 **공유 런타임 빈** 으로 대체됐어요 — 각 위치의 갱신 노트 참조.)*
@@ -6,7 +8,7 @@
 
 ## 결론부터
 
-한 `core-*-impl` 모듈 안은 **전통적 Spring Boot 레이어드 아키텍처** (controller → service → repository → entity) 를 따릅니다. 차이점은 모듈의 바깥 경계예요 — 외부 앱 모듈로 노출되는 것은 오직 `-api` 의 Port 인터페이스뿐, `-impl` 의 내부 클래스는 절대 노출 안 됩니다. 즉 **안쪽은 익숙한 레이어, 바깥은 엄격한 포트** 의 구조입니다. 우리에게 익숙한 Spring Boot 관용 (`@Service`, `@Repository`, `@Component`) 을 그대로 쓰면서 경계만 강하게 긋는 타협안이에요.
+`core-*-impl` 내부는 컨트롤러·서비스·저장소·엔티티로 역할을 나누고, 모듈 밖에는 `-api`의 Port와 DTO를 공개해요. HTTP 요청은 컨트롤러가 받고 서비스가 유스케이스를 처리해요. 다른 앱이나 도메인은 구현 클래스 대신 Port에 의존하며, Spring 설정이 실제 구현을 연결해요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -28,6 +30,8 @@ Spring Boot 생태계에는 **이미 널리 쓰이는 관용** 이 있어요 —
 
 ## 고민했던 대안들
 
+<a id="option-1--레이어별-모듈-분리-module-controller-module-service-module-repository"></a>
+
 ### Option 1 — 레이어별 모듈 분리 (module-controller, module-service, module-repository)
 
 각 레이어를 별도 Gradle 모듈로 분리. `auth-controller`, `auth-service`, `auth-repository` 같은 식.
@@ -39,6 +43,8 @@ Spring Boot 생태계에는 **이미 널리 쓰이는 관용** 이 있어요 —
   - Gradle 모듈 수가 폭발적으로 증가 (10 도메인 × 2 레이어 = 20 모듈 + 기존 common/bootstrap).
 - **탈락 이유**: 솔로 인디 스케일에서 과도한 구조화. 이점 (강제된 레이어 의존) 대비 비용 (모듈 폭증) 이 큼.
 
+<a id="option-2--ddd-aggregate-패턴-feature-단위-패키지"></a>
+
 ### Option 2 — DDD Aggregate 패턴 (feature 단위 패키지)
 
 도메인을 Aggregate 로 쪼개고 feature 단위로 패키지 분리. 예: `auth/email-signup/`, `auth/social-signin/`, `auth/password-reset/` 식.
@@ -48,6 +54,8 @@ Spring Boot 생태계에는 **이미 널리 쓰이는 관용** 이 있어요 —
   - **각 모듈이 5~10 클래스 수준** 에서는 feature 분리의 이득이 없어요. 오히려 패키지 수만 많아져서 탐색이 어려워져요.
   - DDD 는 복잡한 도메인 (은행, ERP) 에서 가치. 우리 스케일 (인증, 푸시, 결제 같은 표준 기능) 에서는 과투자.
 - **탈락 이유**: YAGNI (You Aren't Gonna Need It). 지금 스케일에서는 불필요. 한 모듈이 20+ 클래스로 커지는 시점이 오면 그때 재검토.
+
+<a id="option-3--전통적-spring-boot-레이어드-아키텍처--채택"></a>
 
 ### Option 3 — 전통적 Spring Boot 레이어드 아키텍처 ★ (채택)
 

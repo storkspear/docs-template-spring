@@ -8,7 +8,7 @@
 
 ## 1. 이 문서의 범위
 
-물리·운영 인프라의 구성과 현재 상태를 담아요. DB, 오브젝트 스토리지, 운영 호스트, 엣지, 관측성이 여기에 들어갑니다.
+이 문서는 저장소가 제공하는 DB·스토리지·운영 호스트·엣지·관측성 구성을 설명해요. 아래 프로비저닝 표는 2026-04-24 설치 기록이며 현재 호스트 상태를 확인한 결과는 아니에요. 실제 운영 변경 전에는 배포 설정과 해당 환경의 상태를 확인해요.
 
 아래 네 가지는 이 문서가 다루지 않아요. 각자 전용 문서가 있어요.
 
@@ -151,9 +151,11 @@ docker compose -f infra/docker-compose.local.yml up -d postgres minio
 | cloudflared | — | outbound only | — |
 | kamal-proxy | ← cloudflared 경유 | :80 (호스트) | 내부 전용 (CF Tunnel 만 접근) |
 
+<a id="42-배포-모델--modular-monolith--bluegreen"></a>
+
 ### 4.2 배포 모델 — Modular Monolith + Blue/Green
 
-하나의 JVM 이 N 개의 앱 모듈을 서브합니다. [`ADR-001 · 모듈러 모놀리스`](../../philosophy/adr-001-modular-monolith.md) 와 [`ADR-007 · 솔로 친화적 운영`](../../philosophy/adr-007-solo-friendly-operations.md) 을 직접 적용한 결과예요. 여러 Spring 프로세스를 띄우지 않습니다. 각 앱 모듈은 URL path 로 구분되고 JVM, DB 커넥션 풀, 배포, 모니터링을 공유합니다.
+하나의 JVM에서 여러 앱 모듈을 실행해요. [모듈러 모놀리스](../../philosophy/adr-001-modular-monolith.md)와 [솔로 운영](../../philosophy/adr-007-solo-friendly-operations.md) 원칙에 따라 앱마다 Spring 프로세스를 따로 운영하지 않아요. 앱은 URL path와 schema로 구분하고 JVM·배포·관측성을 공유해요. DB 연결 풀은 앱 DataSource마다 따로 구성해요.
 
 무중단 배포는 blue/green 컨테이너로 합니다. 현재 live 인 Blue 와 새 버전 Green 이 서로 다른 호스트 포트에 동시에 존재해요. kamal-proxy 가 health check 통과를 확인한 뒤 트래픽을 Green 으로 원자적으로 전환하고, Blue 는 graceful shutdown 됩니다.
 
@@ -209,14 +211,20 @@ ingress:
 
 서비스 성장에 따라 스택을 재검토할 시점을 정리해요.
 
+<a id="mau-0--1k-현재--phase-0"></a>
+
 ### MAU 0 ~ 1K (현재 / Phase 0)
 - 현재 스택 그대로 충분
 - Supabase Free, NAS MinIO, 맥미니 단일, 셀프 관측성
+
+<a id="mau-1k--10k-phase-1"></a>
 
 ### MAU 1K ~ 10K (Phase 1)
 - Supabase Free → Pro 전환 ($25/월). egress 2GB 초과 예상
 - NAS 디스크 80% 도달 시 Cloudflare R2 이관 검토
 - 맥미니 메모리 8GB 초과 사용 시 관측성 retention 조정
+
+<a id="mau-10k--100k-phase-2"></a>
 
 ### MAU 10K ~ 100K (Phase 2+)
 - 맥미니 → 클라우드 이관 검토 (AWS EC2 또는 Fly.io)
@@ -230,6 +238,8 @@ ingress:
 재검토 트리거의 구체 표는 [`인프라 결정 기록 말미`](./decisions-infra.md#재검토-트리거-요약-표) 에 있어요.
 
 ---
+
+<a id="8-보안--네트워크-경계-planned"></a>
 
 ## 8. 보안 / 네트워크 경계 (planned)
 
@@ -330,28 +340,34 @@ postgres (Supabase 또는 로컬 docker)
 
 ### 10.4 서비스별 DataSource
 
-앱별 schema 에 붙는 DataSource 는 각 앱 모듈의 `<Slug>DataSourceConfig` 에서 `@Value` 로 환경변수를 주입받아요. ADR-037 이후 bootstrap 은 `RoutingDataSourceConfig` 만 가지고, core schema DataSource 는 없습니다. 각 앱이 자기 schema 의 DataSource Bean 을 등록하고, `SchemaRoutingDataSource` 가 ThreadLocal `SlugContext` 의 slug 로 connection 을 분기합니다. 4 중 방어선 (DB role · DataSource · Flyway · ArchUnit) 의 구조적 근거는 [`ADR-005`](../../philosophy/adr-005-db-schema-isolation.md) 에 있어요 (5 중 → 4 중 정정은 `Updated by ADR-037`). 구조 상세는 [`Architecture Reference`](../../structure/architecture.md) 의 데이터베이스 구조 섹션을 참조하세요.
+각 앱의 `<Slug>DataSourceConfig`가 환경 설정을 받아 자기 DataSource를 등록해요. bootstrap의 `RoutingDataSourceConfig`는 이들을 모으고, `SchemaRoutingDataSource`는 `SlugContext`에 따라 연결을 선택해요. ADR-037 이후 공용 core schema용 DataSource는 두지 않아요. DB role·DataSource·Flyway·ArchUnit의 역할은 [ADR-005](../../philosophy/adr-005-db-schema-isolation.md), 현재 구성은 [Architecture Reference](../../structure/architecture.md)의 데이터베이스 절에서 확인해요. DB 권한 차단 범위는 실제 접속 role의 권한에 달려 있어요.
+
+<a id="105-keep-alivesh--supabase-free-7-일-비활성-방지"></a>
 
 ### 10.5 `keep-alive.sh` — Supabase Free 7 일 비활성 방지
 
-Supabase Free tier 는 7 일 비활성 시 자동으로 pause 됩니다. `infra/scripts/keep-alive.sh` 가 `curl /actuator/health` 를 주기적으로 호출해 DB 연결을 유지해요.
+이 스크립트는 기본적으로 `/actuator/health`를 840초 간격으로 반복 호출해요. HTTP 응답을 확인하는 도구이며, 해당 health 경로가 DB 쿼리를 실행하거나 공급자의 비활성 판정을 막는다고 보장하지는 않아요. 사용 중인 플랜의 중지 정책과 실제 DB health 구성을 별도로 확인해요.
 
-cron 예시는 매 14 분 호출입니다.
+cron에서는 `ONCE=1`로 한 번만 실행해야 해요. 생략하면 매 호출마다 계속 도는 프로세스가 추가돼요.
 
+```cron
+*/14 * * * * ONCE=1 BASE_URL=http://localhost:8080 /path/to/keep-alive.sh >> /var/log/keep-alive.log 2>&1
 ```
-*/14 * * * * /path/to/keep-alive.sh >> /var/log/keep-alive.log 2>&1
-```
 
-환경변수는 `BASE_URL`, `INTERVAL_SEC`, `ENDPOINTS` 예요. launchd 등록 또는 Supabase Pro 업그레이드는 운영 배포 단계에서 결정합니다.
+반복 프로세스를 launchd로 관리할 때는 `ONCE`를 생략하고 `INTERVAL_SEC`로 간격을 정해요. 대상 URL은 `BASE_URL`, 경로 목록은 공백으로 구분한 `ENDPOINTS`로 설정해요. cron과 상시 반복 모드를 동시에 등록하지 않아요.
 
 ---
 
 ## 11. 관련 문서
 
+<a id="코드-아키텍처--설계-결정"></a>
+
 ### 코드 아키텍처 / 설계 결정
 - [`Architecture Reference`](../../structure/architecture.md) — 코드 아키텍처 (포트·어댑터, 모듈 의존성)
 - [`Repository Philosophy — 책 안내`](../../philosophy/README.md) — 39 개 ADR 인덱스 (설계 결정의 근거)
 - 특히 [`ADR-001 · 모듈러 모놀리스`](../../philosophy/adr-001-modular-monolith.md), [`ADR-005 · Postgres schema 격리`](../../philosophy/adr-005-db-schema-isolation.md), [`ADR-007 · 솔로 친화적 운영`](../../philosophy/adr-007-solo-friendly-operations.md)
+
+<a id="인프라-결정--운영"></a>
 
 ### 인프라 결정 / 운영
 - [`인프라 결정 기록 (Decisions — Infrastructure)`](./decisions-infra.md) — 인프라 결정 카드 I-01 ~ I-14
@@ -366,6 +382,8 @@ cron 예시는 매 14 분 호출입니다.
 - [`Observability 규약`](../../api-and-functional/functional/observability.md) — 관측성 규약
 - [`스토리지 셋업 가이드 (MinIO / 시놀로지 NAS)`](../setup/storage-setup.md) — MinIO 로컬·NAS 셋업
 - [`운영 모니터링 셋업 가이드`](../setup/monitoring-setup.md) — 관측성 스택 기동
+
+<a id="여정--진입점"></a>
 
 ### 여정 / 진입점
 - [`Onboarding — 템플릿 첫 사용 가이드`](../../start/onboarding.md) — 템플릿 첫 사용 가이드

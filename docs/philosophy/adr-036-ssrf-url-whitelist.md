@@ -1,3 +1,5 @@
+<a id="adr-036--ssrf-방어-외부-url-whitelist-정책"></a>
+
 # ADR-036 — SSRF 방어: 외부 URL whitelist 정책
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL 로 요청을 보내게 만드는* 취약점이에요. 클라우드 환경에서는 *내부 메타데이터 endpoint* (예: AWS `169.254.169.254`) 접근으로 *credential 탈취* 가 가능하고, 내부 사설망에서는 *DB·관리 API* 우회 접근이 가능해요. *공개되면 안 될 IP·도메인* 으로의 요청을 막는 것이 방어의 핵심이에요.
+현재 외부 HTTP 호출의 초기 목적지는 소스 상수나 운영자 설정으로 정해요. 사용자에게 임의의 목적지 URL을 받아 호출하는 인터페이스는 제공하지 않아요. 다만 운영자 설정과 redirect, SDK 내부 동작은 별도 경계이므로 초기 host가 고정됐다는 이유만으로 모든 SSRF 위험이 사라지는 것은 아니에요. 아래 호출 목록에서 실제 설정과 남은 예외를 구분해요.
 
 본 프로젝트의 모든 외부 HTTP 호출은 *authority (scheme + host) 가 고정 상수 (hardcode) 또는 운영자가 통제하는 환경변수* 로만 결정돼요. path 일부엔 *검증된 식별자* (예: Apple/Google receiptData 의 transactionId·purchaseToken, PortOne 의 impUid) 가 들어가지만, *host 를 사용자 입력으로 결정하는* 지점이 *코드 어디에도 없어요*. authority 가 고정이라 *내부 IP·메타데이터 endpoint 로의 host pivot 이 불가능* 하고, SSRF 의 일반적 공격 벡터가 *설계상 차단* 됩니다. 부수 방어인 redirect 는 클라이언트 종류에 따라 상태가 갈려요 — `java.net.http.HttpClient` 를 쓰는 9 건은 default 인 `NEVER` 로 따라가지 않지만, `java.net.HttpURLConnection` 을 쓰는 3 건 (Resend·PortOne·CoolSMS) 은 default 가 follow 라 3xx 를 따라갑니다 (나머지 2 건은 SDK 내부 클라이언트라 우리 통제 밖이에요. 아래 인벤토리 참고).
 
@@ -22,11 +24,11 @@ SSRF (Server-Side Request Forgery) 는 *공격자가 서버를 통해 임의 URL
 
 전형적 SSRF 공격 사례를 보면 위험이 명확해요. *URL preview·image proxy* 같은 기능에서 사용자가 `http://169.254.169.254/latest/meta-data/iam/security-credentials/<role>` 같은 URL 을 입력하면, AWS EC2 의 IMDSv1 엔드포인트가 응답해서 *해당 인스턴스의 IAM credential* 이 공격자에게 노출됩니다. *RDS endpoint·Redis·Elasticsearch* 같은 내부 서비스도 같은 방식으로 우회 접근될 수 있어요.
 
-본 프로젝트는 *다행히* 이런 동적 URL 처리를 하지 않습니다. 외부 호출은 모두 *고정된 third-party endpoint* (Apple, Google, Kakao 등) 로 향하고, authority (scheme + host) 는 const/env 로 고정돼요. 사용자가 보내는 *token·id* 가 일부 호출에선 *URL path 세그먼트* 에 들어가긴 하지만 (예: `…/transactions/{transactionId}`, `…/payments/{impUid}`) — 이는 *검증된 식별자* 이고 *host 를 바꾸지 못해* host pivot 실익이 사실상 0 이에요. 나머지 token·id 는 query parameter 또는 body 에만 들어갑니다.
+현재 외부 호출의 초기 목적지는 상수나 운영자 설정으로 정해요. 사용자에게 받은 토큰·식별자를 path·query·body에 넣는 호출은 있지만, 이 값을 목적지 host로 사용하는 인터페이스는 없어요. 식별자의 형식·인코딩과 redirect 처리까지 검증한 것으로 확대하지 않고 각각 확인해요.
 
 그러나 *현재 안전하다는 것* 과 *앞으로도 안전하다는 것* 은 다른 이야기예요. 새 기능 추가 시 *예: 사용자가 자기 프로필에 외부 이미지 URL 을 등록하면 서버가 다운로드해서 캐싱* 같은 기능이 추가되면 SSRF 가 즉시 가능해져요. 이런 시나리오를 사전에 차단하려면 *"외부 URL 은 hardcode 또는 환경변수만"* 이라는 정책이 코드 baseline 으로 박혀있어야 해요.
 
-또 *복합 방어 (defense in depth)* 측면에서 개별 호출의 timeout, redirect 정책, private IP 차단 같은 *secondary defenses* 도 명시할 가치가 있어요. URL whitelist 만으로 100% 방어가 안 되는 경우 (예: 환경변수가 잘못 설정되어 internal IP 로 향하는 케이스) 에 *추가 안전망* 이 필요해요.
+목적지 설정을 제한하는 것과 별개로 timeout과 redirect 동작도 확인해요. 설정이 내부 주소를 가리키거나 외부 응답이 다른 host로 이동을 지시할 때의 경계가 다르기 때문이에요. 현재 private IP와 DNS rebinding 방어가 구현돼 있다고 설명하지 않아요.
 
 이 결정이 답해야 할 물음은 이거예요.
 

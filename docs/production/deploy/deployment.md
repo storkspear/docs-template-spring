@@ -49,10 +49,12 @@ export DB_PSQL_URL='postgresql://postgres:<pw>@<supabase-host>:5432/postgres'  #
 
 ### 1.2 `.env` 채우기 (로컬 빌드/검증용, gitignored)
 
-로컬 빌드와 검증에 쓰는 `.env` 예요. `.gitignore` 라 커밋되지 않아요.
+로컬 빌드와 검증에는 로컬 또는 테스트 전용 DB·스토리지·외부 서비스 설정을 사용해요. prod 프로파일을 로컬에서 확인하더라도 운영 데이터에 연결하지 않도록 대상 값을 구분해요. 운영 배포 값은 `.env.prod`에 보관하며, 두 파일 모두 커밋하지 않아요.
 
 ```bash
-DB_URL=postgresql://postgres.<ref>:<pw>@aws-1-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true
+DB_URL=jdbc:postgresql://<session-or-direct-host>:5432/postgres?sslmode=require
+DB_USER=<DB 계정>
+DB_PASSWORD=<DB 비밀번호>
 DB_USER=postgres.<ref>
 DB_PASSWORD=<supabase-pw>
 JWT_SECRET=<32+ chars 랜덤>
@@ -152,6 +154,8 @@ cloudflared tunnel route dns <파생레포>-home server.<도메인>
 cloudflared tunnel route dns <파생레포>-home log.<도메인>
 ```
 
+<a id="24-cloudflare-access-정책--log도메인-게이팅"></a>
+
 ### 2.4 Cloudflare Access 정책 — `log.<도메인>` 게이팅
 
 Grafana 대시보드는 본인만 보도록 Cloudflare Access 로 게이팅해요. 대시보드에서 Zero Trust → Access → Applications → Add application 으로 들어가 다음처럼 설정해요.
@@ -204,6 +208,8 @@ launchctl load ~/Library/LaunchAgents/site.<파생레포>.cloudflared.plist
 ```
 
 ---
+
+<a id="3-github-secrets--variables-등록-파생레포"></a>
 
 ## 3. GitHub Secrets / Variables 등록 (파생레포)
 
@@ -310,7 +316,7 @@ GHA billing 이슈나 hotfix 처럼 로컬에서 바로 배포해야 할 때 쓰
 <your-backend> prod deploy           # origin/main SHA 자동 감지 + kamal --version 명시
 ```
 
-내부적으로 [`tools/deploy/deploy.sh`](../../../tools/deploy/deploy.sh) 가 `git fetch origin main` 으로 최신 SHA 를 가져와 `kamal deploy --version=<origin-main-SHA>` 를 호출합니다. 배포의 source of truth 는 원격 브랜치예요. 로컬 working tree 나 HEAD 와 무관하게 **origin/main 코드 기준** 으로 빌드되므로, 로컬 미커밋·미푸시 변경이 배포에 새지 않아요. dev 배포는 `--target=dev` 로 origin/develop 기준이 돼요. 자세한 동작은 [`runbook §평시 배포`](./runbook.md) 를 참조하세요.
+[`tools/deploy/deploy.sh`](../../../tools/deploy/deploy.sh)는 원격 브랜치의 최신 SHA를 조회해 배포 버전으로 사용해요. prod는 `origin/main`, `--target=dev`는 `origin/develop`이 기준이에요. 로컬의 미커밋·미푸시 변경을 포함하려면 먼저 해당 브랜치에 반영해야 해요. 배포 흐름은 [운영 런북의 평시 배포](./runbook.md)를 참고해요.
 
 ### 수동 흐름 (legacy, kamal 직접 호출)
 
@@ -402,6 +408,8 @@ curl -I https://log.<도메인>                                   # 302 (CF Acce
 - [`스토리지 셋업 가이드 (MinIO / 시놀로지 NAS)`](../setup/storage-setup.md) — MinIO 로컬/NAS
 
 ---
+
+<a id="-책-목차--journey-7단계"></a>
 
 ## 📖 책 목차 — Journey 7단계
 

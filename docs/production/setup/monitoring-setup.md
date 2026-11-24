@@ -16,7 +16,7 @@ Mac mini 운영 호스트에서 관측성 스택을 기동하고 운영하는 �
 
 **목표**는 운영 Mac mini 에서 관측성 스택을 띄우고, 외부에서 안전하게 Grafana 에 접속하고, 알림을 받는 상태까지 도달하는 거예요. **대상 독자**는 이미 한 번 운영 배포를 해 본 운영자예요. **예상 시간**은 처음 셋업 기준 20~30분이고, `infra init` 자동화를 쓰면 더 짧아요.
 
-이 가이드는 운영 호스트에서만 필요해요. 로컬 개발 환경에서는 관측성 스택을 띄우지 않습니다. 메모리와 docker 리소스 부담에 비해 쓰는 빈도가 낮아서예요. 로컬 compose 인 `infra/docker-compose.local.yml` 은 Postgres 와 MinIO 만 제공합니다. 대시보드나 쿼리 동작을 검증해야 하면 운영 Mac mini 의 Grafana 에서 확인하세요.
+이 가이드는 운영 호스트의 관측성 구성을 설명해요. 기본 로컬 개발에서는 메모리와 Docker 자원 사용을 줄이기 위해 관측성 스택을 띄우지 않아요. 로컬 compose는 Postgres·MinIO와 Spring 서비스를 제공하고, 관측성 스택은 별도 compose로 관리해요. 대시보드나 쿼리를 검증할 때는 접근 권한이 있는 환경에서 운영 데이터에 미칠 영향을 확인해요.
 
 ## 전제조건
 
@@ -43,7 +43,7 @@ docker compose -f infra/docker-compose.observability.yml ps
 # Alertmanager:  http://localhost:9093
 ```
 
-성공하면 네 컨테이너가 모두 `Up` 상태로 나와요. 단 Alertmanager 는 `--profile alertmanager` 를 붙여야 기동돼요 (아래 [Discord webhook 발급](#discord-webhook-발급-알림-수신) 참고).
+기본 명령은 Prometheus·Loki·Grafana 세 컨테이너를 시작해요. Alertmanager는 유효한 webhook을 준비하고 `--profile alertmanager`를 붙일 때만 추가해요. 현재 compose는 9090·3100·3000 포트를 호스트 전체 주소에 바인딩하고, 9093만 loopback에 바인딩해요. localhost 주소는 호스트에서 확인할 때의 주소이며, 다른 네트워크에서 접근할 수 없는 구성이라는 뜻은 아니에요.
 
 관측성 compose 는 Kamal 이 만든 `kamal` 네트워크에 external 로 조인해요. 그래서 Spring 컨테이너 이름이 배포마다 바뀌어도 Prometheus 가 컨테이너를 찾아낼 수 있어요. Prometheus 는 `docker_sd_configs` 로 `role=web` 라벨이 붙은 컨테이너를 자동 발견해 `:8080/actuator/prometheus` 를 scrape 합니다. 이 actuator 메트릭은 별도 포트가 아니라 앱 포트와 공유해요. prod 컨테이너는 `config/deploy.yml` 의 `SERVER_PORT: 8080` override 로 8080 에서 동작하고, `application-prod.yml` 이 `management.endpoints.web.exposure.include` 를 `health, info, prometheus` 셋으로만 제한합니다.
 
@@ -69,6 +69,8 @@ curl -s -XPOST http://127.0.0.1:9093/api/v2/alerts \
 ```
 
 30초 (`group_wait`) 안에 채널에 뜨면 경로가 살아 있는 거예요. 안 뜨면 `docker logs observability-alertmanager` 에서 전송 실패 로그를 확인하세요. 이 알람은 발신 조건이 없어 스스로 해소되지 않으므로, 확인이 끝나면 Alertmanager UI 나 `amtool` 로 silence 를 걸거나 컨테이너를 재기동해 정리해요.
+
+<a id="외부-접근--cloudflare-tunnel--access"></a>
 
 ## 외부 접근 — Cloudflare Tunnel + Access
 
@@ -103,6 +105,8 @@ Cloudflare Access 정책은 대시보드에서 설정해요.
 1. Grafana UI 에서 편집한 뒤 Save as
 2. JSON 을 export 해 같은 경로에 commit. 파생 레포의 본인 운영용 커스텀이에요
 3. `provisioning/dashboards/dashboards.yml` 이 30초마다 reload 하므로 자동 반영돼요
+
+<a id="dev--prod-라벨-분리"></a>
 
 ## dev / prod 라벨 분리
 
@@ -198,6 +202,8 @@ vm_stat        # 또는 top -o mem 으로 메모리 확인
 
 그래도 빠듯하면 Prometheus retention 을 줄이거나 (`--storage.tsdb.retention.time=3d` 등), Loki retention 을 줄여요. Loki retention 은 보안 조사·compliance 우선으로 1년 (`infra/loki/loki-config.yml` 의 `retention_period: 8760h`, 2026-07-21 결정) 이라 메모리보다 디스크가 먼저 압박받아요. 디스크 사용 증가가 관측되면 I-06 재검토 트리거에 도달한 거라, retention 단축 또는 관측성 스택의 NAS 분리를 고려하세요.
 
+<a id="lifecycle--infra-init--prod-clear-자동화--multi-repo-안전"></a>
+
 ## Lifecycle — `infra init` / `prod clear` 자동화 + multi-repo 안전
 
 ### 자동 deploy (`infra init`)
@@ -217,9 +223,13 @@ DISCORD_WEBHOOK_URL 이 채워졌으면 --profile alertmanager 도 활성
 
 이미 떠 있으면 `docker compose up` 이 idempotent 하게 동작해 재기동하지 않아요.
 
+<a id="자동-destroy-와-multi-repo-안전----include-observability-flag-가-의도적인-이유"></a>
+
 ### 자동 destroy 와 multi-repo 안전 — `--include-observability` flag 가 의도적인 이유
 
-`<repo> prod clear` 의 default 는 관측성 스택을 유지해요. `--include-observability` flag 를 명시할 때만 컨테이너와 grafana-data volume 까지 함께 destroy 합니다. 이는 여러 backend 가 Mac mini 한 대를 공유하는 시나리오에서 안전을 지키기 위함이에요.
+`<repo> prod clear`는 기본적으로 관측성 스택을 남겨요. `--include-observability`를 지정하면 관측성 컨테이너와 데이터 volume도 삭제하므로, 같은 Mac mini에서 이를 공유하는 다른 백엔드의 이력까지 지울 수 있어요. 실행 전에 대상과 백업을 확인해요.
+
+<a id="시나리오--mac-mini-1-대에-backend-2-개-운영"></a>
 
 #### 시나리오 — Mac mini 1 대에 backend 2 개 운영
 
@@ -239,7 +249,7 @@ Mac mini (예: 100.76.10.127)
 | `gymlog-backend prod clear` (default) | gymlog kamal app + Cloudflare DNS / ingress 만 제거. 관측성 스택이 살아 있어 booklog 의 메트릭·로그를 계속 수집 ✅ |
 | `gymlog-backend prod clear --include-observability` | gymlog 정리 + 관측성 컨테이너 + grafana-data 까지 제거. booklog 의 dashboard·alert 가 끊김 ❌ |
 
-multi-repo 환경에서 `--include-observability` 는 다른 backend 의 관측성을 끊는 사고를 일으킬 수 있어 default 에서 제외했어요. `cleanup-server.sh` 가 이 flag 를 받으면 grafana·loki·prometheus 세 컨테이너와 grafana-data / loki-data / prometheus-data volume 을 제거합니다.
+여러 레포가 관측성을 공유하므로 `--include-observability`는 기본값에서 제외했어요. 현재 `cleanup-server.sh`는 이 옵션을 받으면 Grafana·Loki·Prometheus·Alertmanager 컨테이너와 각 data volume 이름에 맞는 volume을 삭제해요. Alertmanager를 사용하지 않았더라도 스크립트의 정리 대상에는 포함돼요.
 
 #### single-repo 사용자 (Mac mini 에 backend 1 개) 흐름
 

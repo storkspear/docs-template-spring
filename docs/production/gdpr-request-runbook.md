@@ -1,12 +1,16 @@
+<a id="gdpr--개인정보-열람삭제-요청-대응-runbook"></a>
+
 # GDPR / 개인정보 열람·삭제 요청 대응 runbook
 
 > **유형**: Runbook · **독자**: 1인 운영자 · **범위**: 앱 사용자(앱별 schema)의 개인정보 열람(export)·삭제(erasure) 요청 처리.
 >
 > ⚠️ **법적 근거 문구·보존기간은 초안입니다 — 시행 전 법무(또는 최소한 조문 원문) 확인 필요.** 아래 §5 참조.
 
-운영 콘솔 계정(admin schema)은 앱 사용자 GDPR 범위 밖이라 본 문서 대상이 아니에요(별도 절차). 엔드포인트 계약은 [`admin-console.md`](../api-and-functional/admin-console.md) §4-5-1/§4-5-2, 에러코드는 [`exception-handling.md`](../convention/exception-handling.md) 참조.
+이 문서는 앱 사용자 데이터의 처리 절차만 다뤄요. 운영 콘솔 계정(admin schema)은 별도 절차로 관리하며, 이 문서에서 제외했다고 법적 적용 대상이 아니라고 판단하는 것은 아니에요. 엔드포인트 계약은 [`admin-console.md`](../api-and-functional/admin-console.md)의 열람·삭제 절을 참고해요.
 
 ---
+
+<a id="1-표준-플로우-접수--회신"></a>
 
 ## 1. 표준 플로우 (접수 → 회신)
 
@@ -31,11 +35,15 @@
 
 ---
 
+<a id="3-삭제erasure-처리--soft-delete--30일-유예--익명화-배치"></a>
+
 ## 3. 삭제(erasure) 처리 — soft-delete → 30일 유예 → 익명화 배치
 
 1. 콘솔 삭제 버튼 → `DELETE /api/admin/apps/{slug}/users/{userId}`(권한 `PERM_USERS_WRITE`). soft-delete(`deleted_at`) + refresh token 전체 revoke.
-2. 요청자에게 **"30일 내 재로그인 시 복구 문의 가능, 이후 복구 불가"** 고지.
+2. 요청자에게 탈퇴 후 로그인 제한, 설정된 유예기간, 삭제·익명화 처리 범위를 안내해요. 현재 재로그인만으로 복구하는 경로는 없으므로 복구 가능하다고 약속하지 않아요.
 3. 30일 유예 경과 후 `UserErasureScheduler`(기본 05:00)가 도메인별로 완전삭제/익명화.
+
+<a id="31-배치-활성-조건--프로퍼티"></a>
 
 ### 3.1 배치 활성 조건 · 프로퍼티
 
@@ -54,16 +62,18 @@
 |---|---|
 | **hard delete** | auth 토큰류(refresh·email·password)·social identities·devices·notification settings·activity days·email/phone 인증코드 |
 | **익명화 (row 보존)** | `users`(email→마커 + password_hash/display_name/nickname/totp 소거) · `payment_history`(`raw_response`/`customer_uid` 만 제거) · `posts`(`author_nickname`) · `analytics_events`(`user_id`→NULL) |
-| **보존 (변경 없음)** | `subscriptions` · `payment_refunds` · `payment_webhook_events` · `audit_logs`/archive · `user_read_history` · `message_send_history` — 결제·감사 원장 무결성(식별성은 `users` 익명화로 절단) |
+| **보존 (변경 없음)** | `subscriptions` · `payment_refunds` · `payment_webhook_events` · `audit_logs`/archive · `user_read_history` · `message_send_history` — 현재 구현에서 유지하는 원장이에요. 원문·이메일·IP 등 별도 식별 정보가 남을 수 있어 `users` 익명화만으로 전체 식별성이 제거된다고 보장하지 않아요. 실제 보존 범위·기간은 §5의 검토와 함께 확정해요. |
 | **soft-delete → 기존 purge 낙수** | `attachment_file` — `AttachmentPort.softDelete`(purge_at=now+30일) 전환 후 **~30일 뒤(purge retention)** `AttachmentPurgeScheduler` 가 스토리지 오브젝트 + row 삭제 |
 
 ---
 
 ## 4. 셀프서비스 관련
 
-앱 내 계정 삭제는 기존 `POST /auth/withdraw`(flutter 탈퇴 UI)가 이미 접수 역할을 해요 — 본 erasure 배치가 붙는 순간 "탈퇴 = 30일 후 완전삭제/익명화"가 완성됩니다(별도 셀프서비스 API 불필요, 앱 내 고지 문구만 필요). Apple token revoke(App Store 5.1.1(v))는 미이행(backlog).
+앱 내 탈퇴는 기존 `POST /api/apps/{appSlug}/auth/withdraw`에서 접수해요. 지연 삭제를 운영하려면 `UserErasureScheduler` 활성화 여부와 유예기간을 확인하고, 앱에서 삭제·익명화 범위를 안내해야 해요. 스케줄러를 둔 것만으로 모든 개인정보가 사라지는 것은 아니에요. 보존 테이블과 자유 형식 데이터의 잔존 가능성은 앞 절의 범위에 따라 점검해요. Apple token revoke는 별도 미구현 항목이에요.
 
 ---
+
+<a id="5-법적-근거-초안--법무-확인-전"></a>
 
 ## 5. 법적 근거 (초안 — 법무 확인 전)
 

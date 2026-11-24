@@ -1,3 +1,5 @@
+<a id="결제-도메인--billing--iap--payment-통합-가이드"></a>
+
 # 결제 도메인 — billing · iap · payment 통합 가이드
 
 > **유형**: Explanation · **독자**: Level 2 · **읽는 시간**: ~10분
@@ -40,6 +42,8 @@
 
 ## 3. 결제 흐름
 
+<a id="31-iap--applegoogle-in-app-purchase"></a>
+
 ### 3.1 IAP — Apple·Google In-App Purchase
 
 사용자가 앱 안에서 결제 위젯을 띄우면 StoreKit(iOS) 또는 BillingClient(Android) 가 영수증을 발급합니다. 클라이언트는 이 영수증을 백엔드로 전달하고, 백엔드는 Apple 또는 Google 의 서버 검증 API 로 영수증을 확인한 뒤 구독을 활성화해요.
@@ -71,6 +75,8 @@ sequenceDiagram
 ```
 
 이 흐름은 두 단계로 나뉩니다. 첫째는 사용자가 결제한 직후의 *verify 호출* 이에요. 클라이언트가 영수증을 백엔드로 보내면 백엔드는 Apple·Google 서버 검증을 거친 뒤 구독을 활성화합니다. 둘째는 결제 이후의 *서버 알림(webhook)* 처리예요. 갱신·환불·취소가 발생하면 Apple 과 Google 이 백엔드로 직접 알림을 보내는데, 이때 같은 transactionId 가 중복으로 도착할 수 있으므로 *idempotent* 하게 처리합니다. 알림 디코딩과 처리 매핑의 자세한 규칙은 [`ADR-022`](../../philosophy/adr-022-iap-server-notifications.md) 를 참고하세요.
+
+<a id="32-pg--portone"></a>
 
 ### 3.2 PG — PortOne
 
@@ -106,6 +112,8 @@ sequenceDiagram
 
 여기서 *재검증* 이 중요한 이유는 클라이언트에서 받은 `impUid` 만 믿을 수 없기 때문입니다. 위변조된 요청이 들어올 가능성을 차단하려고 백엔드가 PortOne 서버에 직접 거래를 조회해요. webhook 도 같은 원리예요. 포트원 v1 webhook 은 서명 헤더가 없으므로 백엔드는 통지 내용을 믿지 않고 받은 `imp_uid` 로 결제를 다시 조회해 포트원 API 가 돌려준 상태만 원장에 반영합니다 (공식 v1 가이드가 요구하는 방식). 포트원 v2 webhook(Standard Webhooks 서명)용 `PortOneWebhookVerifier` 도 들어 있지만 v2 결제 어댑터가 아직 없어 v2 자격은 가드가 막아요. timestamp 의 허용 오차는 기본 300초이고, `APP_PAYMENT_PORTONE_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS` 로 조정할 수 있어요. 구독 모델의 트랜잭션 경계와 webhook 보안 전체는 [`ADR-020`](../../philosophy/adr-020-subscription-domain-model.md) 에서 다룹니다.
 
+<a id="4-운영-함정--portone-부팅-차단"></a>
+
 ## 4. 운영 함정 — PortOne 부팅 차단
 
 운영 환경에서 자주 부딪히는 함정 중 하나입니다. core 의 **공유 `PaymentController`**(`core-billing-impl`, `{appSlug}` path 로 모든 앱 처리 — `new <slug>` 가 슬러그별 결제 컨트롤러를 만들지 않아요)는 `PaymentPort` 를 *필수 의존* 으로 가집니다. 이 때문에 prod 와 dev 프로파일에서 `PortOneProdConfigGuard` 가 부팅 시점에 PortOne 설정을 검증해요.
@@ -136,6 +144,8 @@ sequenceDiagram
 
 실결제를 켤 때 이 키들은 [secret chain 4-stage](../../production/setup/secret-chain-4stage.md) 에 따라 네 곳에 모두 동기화해야 컨테이너에 정상 주입됩니다. PortOne 콘솔에서 자격을 발급받는 절차는 [`키 발급 가이드`](../../production/setup/key-issuance.md) 의 PortOne 섹션을 참고하세요.
 
+<a id="5-iap-credentials--자격증명은-글로벌-식별자만-슬러그별"></a>
+
 ## 5. IAP credentials — 자격증명은 글로벌, 식별자만 슬러그별
 
 Apple 과 Google 의 IAP 자격증명(.p8 private key, service account JSON 등) 은 한 Apple Developer 계정과 한 GCP project 의 키 하나로 모든 슬러그가 공유합니다. 슬러그별로 다른 것은 Bundle ID(Apple) 와 Package Name(Google) 두 식별자뿐이에요. 코드 분리는 두 ConfigurationProperties 로 표현됩니다. `IapProperties` 가 글로벌 자격증명을, `IapAppCredentialProperties` 가 슬러그별 식별자를 담아요.
@@ -160,16 +170,18 @@ APP_CREDENTIALS_MYNEWAPP_IAP_GOOGLE_PACKAGE_NAME=com.example.mynewapp
 
 IAP 도 결제처럼 자격이 없으면 stub 으로 fallback 합니다. Apple 과 Google 자격이 양쪽 다 비면 `StubIapAdapter` 가 활성화되고, 호출 시점에 플랫폼에 따라 graceful 503 으로 응답해요. iOS 요청이면 `IAP_006`(APPLE_CONFIG_MISSING), Android 요청이면 `IAP_007`(GOOGLE_CONFIG_MISSING) 입니다. 클라이언트는 이 503 을 받아 "운영자에게 IAP 키 발급 요청" 같은 안내를 띄울 수 있어요.
 
+<a id="55-portone-pg-결제-활성화--키만-채우면-동작"></a>
+
 ## 5.5 PortOne PG 결제 활성화 — "키만 채우면 동작"
 
 자주 받는 질문이 있어요. *출시 앱이 아직 없는데, 나중에 PortOne 키만 받으면 바로 결제가 되나, 아니면 추가 코드 작업이 필요한가?*
 
-답은 "코드는 이미 완성·테스트되어 있어 키만 채우면 동작" 입니다. `core-payment` 에는 검증·환불·재결제를 담당하는 `PortOneAdapter`(v1 REST), v2 webhook 의 Standard Webhooks 서명을 검증하는 `PortOneWebhookVerifier`, 부팅 가드(`PaymentAutoConfiguration`), WireMock stub, 단위 테스트가 모두 들어있고, 엔드포인트는 core 공유 `PaymentController` 가 모든 앱에 노출해요. 채널 추가 코드 작업은 없습니다.
+템플릿은 PortOne v1 어댑터와 공유 결제 컨트롤러를 제공해요. 실결제를 시작하려면 자격 전달뿐 아니라 클라이언트 결제 위젯, 상품·plan 매핑, 채널 설정과 실제 결제 검증도 준비해야 해요. v2 webhook 검증 코드가 있어도 v2 결제 어댑터는 아직 지원하지 않으므로 키만 바꿔 전환할 수 없어요.
 
 실결제를 켜는 절차는 1회성이에요.
 
 1. PortOne 콘솔에서 가맹점을 등록하고, 채널(나이스·토스·이니시스 중 택) 을 활성화한 뒤 v1 key·secret 과 가맹점 식별코드를 발급합니다.
-2. `.env.prod` 를 채웁니다 — `APP_PAYMENT_PORTONE_API_V1_KEY`, `_API_V1_SECRET`, `_CUSTOMER_CODE`. v1 webhook 은 서명이 없으므로 `_WEBHOOK_SECRET` 은 비워 둬도 됩니다 (v2 로 전환할 때 콘솔이 발급한 `whsec_` 값과 `_API_V2_KEY` 를 함께 채워요).
+2. `.env.prod`의 v1 key·secret과 가맹점 식별코드를 채우고 실제 컨테이너까지 전달되는지 확인해요. v1 webhook에는 secret이 필수가 아니지만 현재 init의 OPTIONAL 그룹은 webhook secret도 업로드 조건으로 검사해요. runtime의 허용 조건과 init의 전달 조건을 구분해요. v2 key는 비워 둬요.
 3. PortOne 콘솔의 webhook URL 에 `https://<운영도메인>/api/apps/<slug>/payment/webhook` 을 등록합니다.
 4. 재배포하면 끝이에요. v1 key·secret 둘이 차 있으면 `PortOneAdapter` 가 등록되고, 받은 webhook 은 `imp_uid` 재조회로 검증한 뒤 원장에 반영됩니다. 하나만 채우면 §4 의 가드가 부팅을 차단해요.
 
@@ -177,13 +189,15 @@ IAP 도 결제처럼 자격이 없으면 stub 으로 fallback 합니다. Apple �
 
 > 단일 `/payment/webhook` 엔드포인트가 슬러그별 schema 라우팅으로 모든 앱을 처리하므로, 앱마다 별도 webhook 코드나 엔드포인트를 만들 필요가 없어요.
 
+<a id="6-feature-toggle--appfeaturespaymentiap"></a>
+
 ## 6. Feature toggle — `app.features.{payment,iap}`
 
 [`ADR-034`](../../philosophy/adr-034-feature-toggle-lite-mode.md) 의 Lite 모드를 쓰면 `.env.prod` 의 `APP_FEATURES_PAYMENT=false` 또는 `APP_FEATURES_IAP=false` 로 결제 도메인 자체를 끌 수 있습니다. 다만 주의할 점이 있어요. 도메인을 *끄면* `PaymentAutoConfiguration` 과 `IapAutoConfiguration` 이 적용되지 않아 `PaymentPort` 와 `IapPort` 빈이 등록되지 않습니다.
 
 빈이 없어도 `BillingServiceImpl` 은 `ObjectProvider` 로 lazy 의존하므로 부팅 자체는 통과해요. 대신 결제 경로를 *실제로 호출* 하는 시점에 `CommonError.FEATURE_DISABLED`(CMN_009) 를 던집니다. 토글을 끄면 공유 `PaymentController`/`IapController` 빈 자체가 함께 등록되지 않아 부팅도 안전해요 — 앱별 컨트롤러 사본이 없으므로 삭제할 코드도 없습니다.
 
-따라서 결제 도메인을 완전히 쓰지 않으려면 두 가지 중 하나를 선택합니다. 첫째는 토글(`APP_FEATURES_PAYMENT=false`)로 끄는 방법이고, 둘째는 §4 의 fallback(자격 셋 다 비움) 으로 두는 방법이에요. 도그푸딩 단계에서는 후자가 단순하고 안전합니다. 토글의 운영 규칙 전체는 [`Feature Toggle`](../../production/operations/feature-toggle.md) 을 참고하세요.
+결제를 사용하지 않을 때도 두 구성은 동작이 달라요. `APP_FEATURES_PAYMENT=false`이면 결제 자동 구성과 공유 컨트롤러가 등록되지 않아요. 기능은 켜 두고 자격증명을 비우면 `StubPaymentAdapter`가 등록되고, 결제 호출에서 설정 부재 오류를 반환해요. endpoint를 남겨 둘 필요가 있는지에 따라 선택해요. 원격 토글 전달 조건은 [Feature Toggle](../../production/operations/feature-toggle.md)에서 확인해요.
 
 ## 관련 문서
 

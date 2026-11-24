@@ -1,3 +1,5 @@
+<a id="adr-014--delegation-mock-테스트-금지"></a>
+
 # ADR-014 · Delegation mock 테스트 금지
 
 **Status**: Accepted. 주력 검증 메커니즘은 Port 계약 테스트 + Integration 테스트예요. Mockito 는 외부 시스템 격리·비결정 의존성 고정·Port 경계 검증에 한정해 쓰고, `@ExtendWith(MockitoExtension.class)` 는 레포 전체에 0 건 (필요한 곳에서 `Mockito.mock()` 을 직접 호출하는 방식). 다만 "내부 위임 검증 0" 은 목표이지 현재 상태가 아니에요 — `core/` + `common/` 테스트에 Mockito `verify(...)` 가 133 건 남아 있고 그중 55 건이 모듈 내부 협력자 (Repository·내부 Service·내부 Adapter) 를 향합니다. 실측 기준은 「[현재 mock 사용 실측](#현재-mock-사용-실측)」 절에 있고, 정량 수치는 cycle 마다 변하니 최신 값은 그 절의 grep 으로 다시 세면 돼요.
@@ -6,7 +8,7 @@
 
 ## 결론부터
 
-테스트는 **외부에서 관측 가능한 행위** 만 검증합니다. "A 가 B.foo() 를 호출하는가?" 같은 **내부 위임 경로** 는 mock 으로 검증하지 않습니다. 예를 들어 `AuthController.signUp()` 이 내부적으로 `EmailAuthService.signUp()` 을 호출하는지 `verify(emailAuthService).signUp(...)` 로 체크하는 걸 금지해요. 대신 `AuthPort` 의 실제 행위 (유저가 DB 에 저장되고, 검증 이메일이 발송되고, JWT 가 반환되는지) 를 검증. Mock 은 외부 시스템 격리 (FCM, Resend), 비결정 의존성 고정 (Clock, TokenGenerator), 그리고 **모듈 경계인 `*Port` 인터페이스** 에 한해 허용합니다. 모듈 *안쪽* 의 Repository·하위 Service 를 `verify()` 로 확인하는 건 이 규칙이 금지하는 형태이고, 실제로 아직 55 건 남아 있어요 (「[현재 mock 사용 실측](#현재-mock-사용-실측)」).
+테스트는 외부에서 관측 가능한 행위를 검증해요. "A가 B.foo()를 호출하는가?" 같은 내부 위임 경로를 mock의 `verify()`로 확인하지 않아요. 모듈 내부 Repository·하위 Service의 호출 검증은 금지하고, mock은 외부 시스템 격리, Clock 같은 비결정 의존성 고정, 모듈 경계인 `*Port` 인터페이스에만 허용해요. 이메일 가입에서는 선행 인증 proof를 확인한 뒤 사용자 저장과 토큰 발급을 검증해요. 가입 시 인증 메일을 새로 보내는 흐름은 현재 구현과 달라요. 기존 mock 사용의 조사 시점과 범위는 [현재 mock 사용 실측](#현재-mock-사용-실측)에서 확인해요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -44,6 +46,8 @@ void signUp_delegatesToEmailAuthService() {
 
 ## 고민했던 대안들
 
+<a id="option-1--mockito-delegation-검증-허용-업계-관행"></a>
+
 ### Option 1 — Mockito delegation 검증 허용 (업계 관행)
 
 Controller·Service 단위 테스트에서 `verify()` 로 호출 여부 검증. Spring + Mockito 조합의 표준 패턴.
@@ -67,6 +71,8 @@ void signUp_callsEmailAuthService() {
   - 테스트 유지보수 비용이 높아 리팩토링을 **회피** 하게 됨 (테스트 고치기 귀찮아서 내부 구조 개선 포기)
 - **탈락 이유**: [`ADR-011`](./adr-011-layered-port-adapter.md) 의 "Port 는 계약" 과 정면 충돌. 테스트가 내부 구조 개선을 막는 안티패턴.
 
+<a id="option-2--모든-테스트를-integration-으로-mockito-전면-금지"></a>
+
 ### Option 2 — 모든 테스트를 Integration 으로 (Mockito 전면 금지)
 
 Controller → Service → Repository → DB 전체 흐름을 매번 검증. `@SpringBootTest` + Testcontainers.
@@ -79,6 +85,8 @@ Controller → Service → Repository → DB 전체 흐름을 매번 검증. `@S
   - **순수 알고리즘 단위 테스트 불가** — JWT 서명 · RefreshToken rotation · Apple JWKS 검증 같은 순수 함수까지 Integration 으로 하면 비효율
   - **외부 시스템 (FCM, Resend) 호출이 곤란** — 실제 API 호출하거나 stub 서버 운영 필요
 - **탈락 이유**: 테스트 실행 시간의 지수 증가. 개발 피드백 루프 붕괴.
+
+<a id="option-3--4층-테스트-전략--delegation-mock-금지--채택"></a>
 
 ### Option 3 — 4층 테스트 전략 + delegation mock 금지 ★ (채택)
 
@@ -122,23 +130,17 @@ void signUp_delegatesToEmailAuthService() {
 
 대신:
 
-```java
-// ✅ 허용 — Port 계약으로 행위 검증
-@ContractTest
-class AuthServiceImplContractTest extends AbstractAuthPortContractTest {
-    @Autowired AuthPort authPort;
+현재 계약 테스트는 가입 전 인증과 가입 결과를 나눠 검증해요. 다음은 `AbstractAuthPortContractTest`의 흐름을 요약한 의사 코드예요.
 
-    @Test
-    void signUp_createsUserAndSendsVerificationEmail() {
-        authPort.signUpWithEmail(new SignUpRequest("a@test.com", "pw"));
-
-        // 외부에서 관측 가능한 결과를 검증
-        assertThat(userRepository.findByEmail("a@test.com")).isPresent();
-        assertThat(emailPort.lastSentTo()).isEqualTo("a@test.com");
-        assertThat(emailPort.lastSentSubject()).contains("verify");
-    }
-}
+```text
+1. sendEmailVerificationCode로 코드를 요청해요.
+2. 테스트용 EmailRecorder에서 실제 발송 내용을 읽고 코드를 추출해요.
+3. verifyEmailCode로 proofToken을 받아요.
+4. email·password·displayName·proofToken을 SignUpRequest에 담아 가입해요.
+5. 응답 사용자와 토큰, 이메일 인증 상태, 이후 로그인 결과를 검증해요.
 ```
+
+발송 기록은 가입 전 코드 요청에서 확인해요. 내부 서비스 메서드가 호출됐는지를 계약으로 삼지 않아요.
 
 이 두 테스트의 차이:
 
@@ -178,21 +180,14 @@ static class Config {
 시간 (`Clock`), 난수 (`TokenGenerator`) 같은 비결정 의존성을 고정값으로:
 
 ```java
-// RefreshTokenServiceTest
-@BeforeEach
-void setUp() {
-    Clock fixedClock = Clock.fixed(Instant.parse("2026-04-24T00:00:00Z"), ZoneOffset.UTC);
-    TokenGenerator deterministicGen = () -> "test-token-001";
-    service = new RefreshTokenService(repository, fixedClock, deterministicGen);
-}
-
-@Test
-void rotate_expiredToken_returnsNewToken() {
-    // ... 고정 시간 + 고정 토큰으로 예측 가능한 assertion
-}
+// 비결정적인 시간을 고정하는 표준 예시예요.
+Clock fixedClock = Clock.fixed(
+        Instant.parse("2026-04-24T00:00:00Z"), ZoneOffset.UTC);
 ```
 
-여기서 `Clock` · `TokenGenerator` 는 **mock 이 아니라 real 구현체** (`Clock.fixed()`, 람다). 만약 외부 API 라서 진짜 mock 이 필요하면 해당 시점에만 `mock()` 사용 — 그래도 **`verify()` 로 호출 검증은 안 함**.
+해당 구현이 실제로 제공하는 주입 지점을 사용해요. 현재 `TokenGenerator`는 정적 유틸이므로 람다를 받는 인터페이스처럼 생성하지 않아요. Refresh token 만료 테스트는 새 토큰 발급이 아니라 만료 오류를 검증해요.
+
+`Clock.fixed()`는 시간을 고정하는 실제 구현이에요. 난수도 현재 코드가 제공하는 경계에서 제어하고, 없는 생성자나 인터페이스를 예제에서 만들지 않아요. Mock 허용 범위는 외부 시스템·비결정 의존성·Port 경계이며, 모듈 내부 위임을 `verify()`로 확인하는 금지는 유지해요.
 
 ### 4층 테스트 배치 원칙
 
@@ -331,7 +326,7 @@ delegation mock 허용 시의 trade-off — 작성 속도는 빨라 보입니다
 
 - **[Kent Beck · Test Desiderata](https://kentbeck.github.io/TestDesiderata/)** — 좋은 테스트의 12 가지 속성. "Structure-insensitive" 가 본 ADR 의 핵심 근거.
 - **[Martin Fowler · Mocks Aren't Stubs](https://martinfowler.com/articles/mocksArentStubs.html)** — "classical TDD" vs "mockist TDD" 구분. 본 ADR 은 classical 계보.
-- **[Growing Object-Oriented Software, Guided by Tests (GOOS)](https://www.growing-object-oriented-software.com/)** — "Role interface + end-to-end test" 접근. Port 계약 테스트의 이론적 근거.
+- **[Growing Object-Oriented Software, Guided by Tests (GOOS)](https://growing-object-oriented-software.com/)** — "Role interface + end-to-end test" 접근. Port 계약 테스트의 이론적 근거.
 - **[DHH · "Test-Induced Design Damage"](https://dhh.dk/2014/test-induced-design-damage.html)** — 테스트를 위한 불필요한 추상화 비판. delegation mock 금지의 철학적 배경.
 - **[Testcontainers](https://testcontainers.com/)** — Port 계약 테스트의 실제 DB 구현체. 본 ADR 의 Contract (Port) 층이 활용.
 - **[Contract Testing with Pact](https://docs.pact.io/)** — 서비스 간 계약 테스트. 본 ADR 의 내부 모듈 간 계약 테스트와 유사 철학 (내부 구조 ≠ 외부 계약).

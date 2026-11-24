@@ -1,3 +1,5 @@
+<a id="adr-016--dto-변환은-entity-메서드로-mapper-클래스-금지"></a>
+
 # ADR-016 · DTO 변환은 Entity 메서드로 (Mapper 클래스 금지)
 
 **Status**: Accepted. Entity 에 `to<Dto>()` 메서드 패턴을 적용해요. ArchUnit r22 (`NO_MAPPER_CLASSES`) 가 public `*Mapper` 클래스를 빌드 시간에 차단합니다.
@@ -6,7 +8,7 @@
 
 ## 결론부터
 
-`UserMapper`, `ExpenseMapper` 같은 **별도 매핑 클래스를 두지 않습니다**. 대신 엔티티가 자기 DTO 변환 방법을 직접 메서드로 제공해요 — `user.toSummary()`, `user.toProfile()`. "엔티티가 자기 표현을 가장 잘 안다" 는 OOP 원칙 그대로. 많은 Spring Boot 프로젝트가 당연하게 쓰는 MapStruct·ModelMapper·수동 Mapper 계층 — 이게 없는 게 우리 선택입니다.
+Entity를 DTO로 바꾸는 별도 Mapper 클래스를 만들지 않아요. 한 엔티티의 값으로 만들 수 있는 DTO는 `toSummary()` 같은 엔티티 메서드에서 변환하고, 여러 출처를 조합하는 응답은 서비스에서 조립해요. 변환 책임을 실제로 필요한 위치에 두고, 단순 전달만 하는 계층을 늘리지 않기 위한 선택이에요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -37,6 +39,8 @@ Spring Boot 생태계에서는 **(1) Mapper 클래스** 가 가장 흔합니다.
 또 하나의 물음: **"Mapper 금지" 를 사람 관행으로만 유지할 것인가, 기계 강제로 할 것인가?**
 
 ## 고민했던 대안들
+
+<a id="option-1--mapstruct-어노테이션-기반-코드-생성"></a>
 
 ### Option 1 — MapStruct (어노테이션 기반 코드 생성)
 
@@ -71,6 +75,8 @@ public AuthResponse signUp(...) {
   - **매핑 대부분이 1:1 필드 복사** — 우리 프로젝트에서 실제 매핑은 대부분 단순해요. MapStruct 의 "복잡 매핑 선언" 이점이 실현되지 않아요.
 - **탈락 이유**: 우리 스케일에서 **비용 > 가치**. 단순 매핑에 annotation processor 를 도입하는 건 과잉.
 
+<a id="option-2--modelmapper-리플렉션-기반"></a>
+
 ### Option 2 — ModelMapper (리플렉션 기반)
 
 런타임 리플렉션으로 필드명 매칭해서 자동 변환.
@@ -87,6 +93,8 @@ UserSummary summary = mapper.map(user, UserSummary.class);
   - **타입 불일치 시 어색한 동작** — 예: `Long id` vs `String id` 매핑 시 예상 외 결과.
   - **매핑 검증 부재** — "이 DTO 가 정확히 이 Entity 로부터 생성되는가" 를 컴파일 타임에 확인 불가.
 - **탈락 이유**: 런타임 리스크 + 디버깅 어려움. 우리 프로젝트의 "명시적 품질" 철학과 어긋남.
+
+<a id="option-3--수동-mapper-클래스"></a>
 
 ### Option 3 — 수동 Mapper 클래스
 
@@ -113,6 +121,8 @@ UserSummary summary = UserMapper.toSummary(user);
   - **Entity 와 Mapper 의 결합** — Mapper 가 `user.getId()`, `user.getEmail()` 를 호출 → Entity 내부를 다 앎. 그럴 거면 Entity 가 직접 하는 게 더 자연스러움 (OOP).
   - **파일 수 2배** — Entity 마다 Mapper 가 따라다님.
 - **탈락 이유**: Option 4 와 비교하면 명확한 이득이 없어요. 그냥 중간 단계일 뿐이에요.
+
+<a id="option-4--entity-의-todto-메서드--채택"></a>
 
 ### Option 4 — Entity 의 `to<Dto>()` 메서드 ★ (채택)
 
@@ -170,6 +180,8 @@ ArchUnit r22 는 public Mapper 도입을 **빌드 시간에 차단**해요. pack
 
 DTO 변환은 **Entity 의 `to<Dto>()` 메서드** 로 제공해요. 별도 Mapper 클래스를 두지 않는 원칙을 유지하고, ArchUnit r22 는 그중 public 클래스 도입을 차단해요.
 
+<a id="실제-구현-예시--user"></a>
+
 ### 실제 구현 예시 — User
 
 ```java
@@ -221,11 +233,13 @@ public class User extends BaseEntity {
 - 이름은 `to<DtoTypeName>()` — 예: `toSummary()`, `toProfile()`, `toAccount()`.
 - 순수 변환만 — side effect 없음 (DB 호출 X, 외부 API X).
 
+<a id="api-모듈의-dto-정적-팩토리--허용-조건"></a>
+
 ### `api` 모듈의 DTO 정적 팩토리 — 허용 조건
 
 가끔 DTO 자체에 `from(...)` 같은 정적 팩토리가 필요할 때가 있습니다. 이건 **조건부 허용**:
 
-**허용되는 케이스** — 정규화/검증이 포함된 경우:
+**허용되는 경우** — 정규화나 검증처럼 생성자 호출 이상의 의미가 있을 때예요. 아래 `AuthTokens`는 규칙을 설명하는 가상 예시이며, 실제 `AuthTokens`에 `of()`가 구현돼 있다는 뜻은 아니에요. 토큰의 공백을 바꿔도 된다는 정책을 현재 구현에 추가하는 예제도 아니에요.
 
 ```java
 public record AuthTokens(String accessToken, String refreshToken) {
@@ -256,6 +270,8 @@ public record UserSummary(Long id, String email, String name, boolean verified) 
 
 이 구분이 모호해서 팀 토론 여지가 있지만, 현재까지는 `toSummary()` 패턴만으로 95% 케이스 해결.
 
+<a id="archunit-r22--기계-강제"></a>
+
 ### ArchUnit r22 — 기계 강제
 
 ```java
@@ -285,6 +301,8 @@ Class <com.factory.core.user.impl.UserMapper> should be public
 ```
 
 **왜 interface 는 제외?** — Spring 의 `ServletContextMapper`, MapStruct 의 `@Mapper interface` 같은 **외부 라이브러리 네이밍** 과 충돌 피하려고. 우리가 만드는 게 아닌 것은 통과. 우리는 class 를 만들 이유가 없음 (Entity 메서드로 충분).
+
+<a id="usermapper--entity-메서드-전환-패턴"></a>
 
 ### UserMapper → Entity 메서드 전환 패턴
 
@@ -357,7 +375,7 @@ public AuthResponse signInWithEmail(SignInRequest req) {
 
 ### 감당 가능성 판단
 
-단점들은 **현재 스케일 (엔티티 당 3 개 내외 DTO) 에서는** 실질적 문제가 아니에요. Entity 당 5+ 로 늘면 재검토 시그널이지만, 실제 대부분 도메인에서는 3 개 이하로 유지돼요. 장점 (호출 사이트 간결 + ArchUnit 강제 + 의존 없음) 이 압도적이에요.
+현재 변환 방식이 이해하기 쉬운지, 서비스 조립과 엔티티 변환의 책임이 섞이지 않는지 보며 유지해요. DTO 개수가 늘었다는 이유만으로 Mapper를 추가하지 않아요. 공통 규칙을 바꿔야 할 필요가 생기면 실제 중복과 의존 문제를 근거로 별도 검토해요.
 
 ## 교훈
 
@@ -390,7 +408,7 @@ ArchUnit r22 초기 설계는 `*Mapper` 를 무조건 금지했어요. 문제: `
 
 - **[MapStruct](https://mapstruct.org/)** — 우리가 채택하지 않은 Java 생태계 표준. annotation processor 기반 Mapper 생성.
 - **[ModelMapper](http://modelmapper.org/)** — 리플렉션 기반 Mapper. 우리가 Option 2 로 검토 후 기각.
-- **[Effective Java — Item 1 "Consider static factory methods instead of constructors"](https://www.oreilly.com/library/view/effective-java/9780134686097/)** — Joshua Bloch. 정적 팩토리 메서드의 장점. 우리의 `to<Dto>()` 도 이 범주.
+- **[Effective Java — Item 1 "Consider static factory methods instead of constructors"](https://www.informit.com/store/effective-java-9780134685991)** — Joshua Bloch. 정적 팩토리 메서드의 장점. 우리의 `to<Dto>()` 도 이 범주.
 - **Ruby on Rails `ActiveRecord::Base` 의 `as_json`, `serializable_hash`** — 엔티티가 자기 표현을 가지는 패턴. 우리와 같은 철학.
 - **Kotlin 의 data class `copy()`** — 객체가 자기 변형 방법을 가진다는 원리. OOP 철학 연장선.
 
@@ -409,7 +427,7 @@ ArchUnit r22 초기 설계는 `*Mapper` 를 무조건 금지했어요. 문제: `
 - [`UserAccount.java`](https://github.com/storkspear/template-spring/blob/main/core/core-user-api/src/main/java/com/factory/core/user/api/dto/UserAccount.java)
 
 **DTO 에서 검증/정규화 포함 static 팩토리 허용 예** (조건부 허용):
-- [`core-auth-api/dto/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/dto) — `AuthTokens.of()` 같은 정규화 팩토리
+- [`core-auth-api/dto/`](https://github.com/storkspear/template-spring/tree/main/core/core-auth-api/src/main/java/com/factory/core/auth/api/dto) — 실제 인증 DTO와 생성 계약
 
 **관련 문서**:
 - [`convention/dto-factory.md`](https://github.com/storkspear/template-spring/blob/main/docs/convention/dto-factory.md) — 정적 팩토리 허용 규칙 상세

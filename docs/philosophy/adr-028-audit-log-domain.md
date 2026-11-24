@@ -1,3 +1,5 @@
+<a id="adr-028--audit-log-도메인--aop-자동-기록"></a>
+
 # ADR-028 — Audit log 도메인 + AOP 자동 기록
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~7분
@@ -12,7 +14,7 @@
 
 본 ADR 은 audit log 를 별도 도메인 (`core-audit-api` + `core-audit-impl`) 으로 두고, Spring AOP 로 자동 기록하는 구조를 정의합니다. 핵심 메커니즘은 `@Audited` meta annotation 이에요. 운영자 endpoint 메서드에 `@Audited("billing.refund")` 한 줄을 붙이면, `AuditAspect` 가 `@Around` 로 그 메서드를 가로채서 호출 직후 actor·action·timestamp·결과를 `audit_logs` 테이블에 자동 기록합니다. 컨트롤러 코드 안에 audit 호출 boilerplate 가 들어가지 않아 *비즈 로직과 audit 책임이 깔끔히 분리* 돼요.
 
-audit 기록은 `Propagation.REQUIRES_NEW` 로 별도 트랜잭션에서 일어납니다. 이 격리가 중요한 이유는 두 가지예요. 첫째, 비즈 로직이 실패해서 rollback 되어도 *audit 기록은 보존* 됩니다 — 환불 시도 자체가 실패한 사실도 기록으로 남아야 forensic 이 의미가 있어요. 둘째, audit 기록 자체가 *실패해도 비즈 로직을 막지 않습니다* — `AuditAspect` 가 throw 를 catch 하고 log 만 남기는 형태라, audit DB 가 일시 장애라도 운영 액션이 차단되지 않아요.
+감사 기록은 `REQUIRES_NEW` 트랜잭션으로 저장해 호출 측 롤백과 분리해요. `AuditAspect`가 대상 메서드에 진입한 뒤 성공·실패 결과를 기록하며, 기록 중 발생한 RuntimeException은 로그에 남기고 호출 흐름으로 다시 던지지 않아요. 인증·인가·요청 검증에서 먼저 거부된 요청까지 이 Aspect가 수집하지는 않으며, 감사 DB 장애 때 기록 보존을 보장하지도 않아요.
 
 이 ADR 의 범위는 모듈 분리의 사유, `audit_logs` 테이블 설계 (슬러그별 schema 위치 + 컬럼 정의), `@Audited` 어노테이션의 의미와 `@AdminOnly` 와의 관계, AuditAspect 의 트랜잭션·실패 격리 정책, 그리고 AuditPort 추상화로 향후 외부 SaaS·S3 구현을 교체할 가능성까지입니다.
 
@@ -20,7 +22,7 @@ audit 기록은 `Propagation.REQUIRES_NEW` 로 별도 트랜잭션에서 일어�
 
 ## 왜 이런 고민이 시작됐나?
 
-[`ADR-027`](./adr-027-admin-role-authorization.md) 이 `@AdminOnly` 로 권한 검증을 정립했지만, 권한 검증은 *액션의 차단* 만 보장할 뿐 액션의 추적은 별개의 영역이에요. 권한이 있는 운영자가 정당하게 환불을 처리한 경우와 부적절하게 환불을 처리한 경우는 모두 권한 검증을 통과하지만, 후자를 사후에 감지할 수단이 없으면 *내부자 위협* 에 대한 방어선이 비어 있는 상태가 됩니다.
+[ADR-027](./adr-027-admin-role-authorization.md)의 역할 검사는 누가 작업할 수 있는지 제한해요. 감사 기록은 허용된 작업이 언제 누구에 의해 실행됐는지 남겨 사후 확인을 돕는 별도 기능이에요. 권한 검사만으로는 같은 권한을 가진 사용자의 적절한 작업과 부적절한 작업을 구분할 수 없어요.
 
 audit 추적이 없을 때 운영에서 마주치는 시나리오를 보면 그 부담이 명확해요. 환불 처리가 이뤄진 사실 자체는 `payment_records.refunded_at IS NOT NULL` 같은 SQL 쿼리로 알 수 있지만 (테이블 `payment_records` 는 현재 `payment_history` 로 리네임됐어요), *누가 그 환불을 처리했는지* 는 DB 에 남아 있지 않습니다. CS 문의로 "제 환불을 누가 처리했는지 알려주세요" 같은 질문이 들어와도 application log 의 분 단위 timestamp 를 매칭해서 추정할 수 있을 뿐 정확한 actor 를 확정할 수단이 없어요.
 
@@ -30,7 +32,7 @@ audit 추적이 없을 때 운영에서 마주치는 시나리오를 보면 그 
 
 해결책의 핵심은 *audit 기록을 비즈 로직에서 분리* 하는 것이에요. 컨트롤러 메서드 안에 audit 호출 코드를 직접 작성하는 형태는 boilerplate 가 누적되고 한 곳에서 잊으면 그 액션은 영원히 추적 불가해집니다. AOP 로 가로채는 형태는 어노테이션 한 줄로 모든 메서드에 균등 적용되고, audit 책임이 단일 위치 (AuditAspect) 에 모여 유지보수도 쉬워요.
 
-또 하나의 결정 축은 *audit 기록의 트랜잭션 분리* 예요. 비즈 트랜잭션과 같은 트랜잭션에서 audit 를 기록하면 비즈 로직 rollback 시 audit 도 같이 사라져 가장 중요한 사고 (실패 시도) 를 놓치게 됩니다. 별도 트랜잭션으로 분리하면 모든 액션 시도가 결과와 무관하게 보존되어 forensic 의 정직성이 유지돼요.
+비즈니스 트랜잭션과 같은 트랜잭션에 기록하면 작업 실패로 감사 기록도 롤백될 수 있어요. 별도 트랜잭션은 이 결합을 끊어요. 다만 자동 수집 대상에 들어오지 않은 요청과 기록 자체의 저장 실패는 별도로 다뤄야 해요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
@@ -70,7 +72,7 @@ audit 은 **모든 도메인이 호출하는 횡단 기능** 입니다. core-sec
 ```
 [HTTP POST /api/apps/<slug>/payment/refund]
   ↓ JwtAuthFilter → SecurityContext.Authentication
-  ↓ AppSlugVerificationFilter → SlugContext.set(slug)
+  ↓ AppSlugMdcFilter → SlugContext.set(slug)
   ↓ controller 진입: @AdminOnly @Audited("billing.refund", resourceType="PaymentRecord")
   ↓ AuditAspect Around 가로채기:
     - resolveActor() — SecurityContext 의 AuthenticatedUser → userId, email
@@ -86,6 +88,8 @@ audit 은 **모든 도메인이 호출하는 횡단 기능** 입니다. core-sec
 ```
 
 ---
+
+<a id="requires_new-트랜잭션-사유"></a>
 
 ## REQUIRES_NEW 트랜잭션 사유
 
@@ -104,6 +108,8 @@ public void record(AuditEvent event) {
 만약 같은 transaction 이면 비즈니스 rollback 시 audit 도 사라져 forensic 이 불가능합니다.
 
 ---
+
+<a id="success--failure-분기"></a>
 
 ## SUCCESS / FAILURE 분기
 
@@ -150,6 +156,8 @@ public void record(AuditEvent event) {
 
 ---
 
+<a id="audit_logs-schema-설계"></a>
+
 ## audit_logs schema 설계
 
 ```sql
@@ -175,11 +183,13 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id)
     WHERE resource_id IS NOT NULL;
 ```
 
-**details JSONB**: schema-less. 각 액션별로 자유롭게 저장 — 운영자가 `WHERE details->>'amount' > '10000'` 같이 분석.
+**details JSONB**에는 작업별 부가 정보를 담을 수 있어요. 기본 Aspect는 실패 시 예외 메시지를 기록하며, 금액 같은 필드는 자동으로 수집하지 않아요. 사용자 정의 숫자를 분석할 때도 문자열 비교가 아닌 해당 JSON 값의 형식에 맞는 숫자 비교를 사용해야 해요.
 
 ---
 
 ## 대안 비교
+
+<a id="옵션-a--application-log-logback-에-기록"></a>
 
 ### 옵션 A — application log (logback) 에 기록
 
@@ -188,12 +198,16 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id)
 - ❌ actor 캡처 boilerplate 매번 반복
 - ❌ FAILURE 케이스 추적 어려움 (try-catch 필요)
 
+<a id="옵션-b--spring-events--listener"></a>
+
 ### 옵션 B — Spring Events + listener
 
 - 컨트롤러가 `eventPublisher.publishEvent(new AdminActionEvent(...))` 발행
 - ❌ 매 메소드마다 publishEvent 호출 boilerplate
 - ❌ throw 시 listener 호출 안 됨 → FAILURE 추적 불가
 - ❌ event class 별 정의 필요
+
+<a id="옵션-c--aop-audited-annotation--채택"></a>
 
 ### 옵션 C — AOP `@Audited` annotation ★ 채택
 

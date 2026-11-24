@@ -1,3 +1,5 @@
+<a id="adr-032--google-pubsub-webhook-bearer-token-검증"></a>
+
 # ADR-032 — Google Pub/Sub webhook bearer token 검증
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~6분
@@ -14,7 +16,7 @@
 
 본 ADR 은 그 검증을 *4 단계 체크* 로 구체화합니다. 첫째, *서명이 진짜 Google 의 것인지* (Google 이 공개한 검증 키로 확인). 둘째, *이 알림이 우리에게 보내진 게 맞는지* (토큰 안의 *받는 사람 주소* 가 우리 webhook URL 과 일치하는지). 셋째, *우리가 사전에 등록한 Google 계정에서 발송된 게 맞는지* (whitelist 한 service account 이메일과 일치하는지). 넷째, *오래된 토큰을 누가 가로채 다시 쓰지 않았는지* (토큰 만료 시각 확인). 이 네 가지를 모두 통과해야 *진짜 Google 발송* 으로 신뢰합니다.
 
-검증에 필요한 *Google 의 공개 검증 키* 는 1 시간 동안 캐시해서 사용해요. Google 이 키를 주기적으로 바꾸기 때문에 *영구 저장* 은 위험하고, 매 알림마다 Google 에 키를 다시 묻기에는 *비용과 응답 시간* 이 부담이라 *1 시간 정도가 균형* 이에요 (Google 공식 권장). 검증 자체는 *운영 환경에서만 활성화* 되도록 옵션을 둬서, *개발·테스트 환경* 에서는 검증을 끄고 부담 없이 webhook 을 시뮬레이션할 수 있어요.
+Google 공개 키는 1시간 동안 캐시해요. 유효한 캐시에 없는 `kid`를 받으면 1분 쿨다운을 두고 다시 조회하므로 시간당 한 번만 요청하는 구조는 아니에요. 검증 설정 자체의 기본은 false지만 prod에서는 `ProdSafetyEnvironmentPostProcessor`가 true로 강제해요. 배포 전에 audience와 허용 서비스 계정 이메일을 설정해야 해요.
 
 이 ADR 의 범위는 *왜 단순한 IP 주소 화이트리스트로는 안 되는지*, *Google 이 보낸 알림의 디지털 서명이 어떻게 작동하는지*, *4 단계 검증의 각 단계가 어떤 공격을 막는지*, *공개 키를 어떻게 캐시할지*, 그리고 *Apple 알림과의 차이 (Apple 은 알림 자체에 서명이 내장된 형태라 별도 bearer token 단계가 필요 없음 — 다만 그 서명은 발신자가 Apple 임까지만 증명하고 앱 바인딩은 확인하지 않아요)* 까지입니다.
 
@@ -127,7 +129,7 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub@my-project.iam.gser
 키 rotate → kid 미스매치 → 한 번 더 refresh
 ```
 
-→ 외부 호출 횟수 = 시간당 최대 1회. Pub/Sub push 100~1000건/시간이라도 부하 0.
+→ 캐시 만료 시 조회하고, 미지 kid에는 1분 쿨다운의 강제 갱신을 적용해요. 외부 호출을 시간당 최대 1회나 부하 0으로 보장하지 않아요.
 
 ---
 
@@ -137,7 +139,7 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub@my-project.iam.gser
 
 1. `validJwt_passesThrough` — 정상 JWT (RS256 + 올바른 audience + allowed email) → FilterChain.doFilter 통과
 2. `missingBearerHeader_rejects401` — Authorization 헤더가 없으면 401
-3. `wrongAudience_rejects401` — audience 미스매치 시 401 (replay 공격 차단)
+3. `wrongAudience_rejects401` — 설정된 audience와 다를 때 401 (동일 토큰 재사용 차단과는 별개)
 4. `unauthorizedEmail_rejects401` — service account email 미등록 시 401
 5. `wrongSignature_rejects401` — 다른 RSA keypair 로 서명 시 401 (위조 차단)
 6. `shouldNotFilter_nonWebhookPath` — webhook path 외에는 filter 가 적용되지 않아요
@@ -148,17 +150,23 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub@my-project.iam.gser
 
 ## 대안 비교
 
+<a id="옵션-a--ip-allowlist-google-pubsub-ip-범위"></a>
+
 ### 옵션 A — IP allowlist (Google Pub/Sub IP 범위)
 
 - 단순해요. 인증 X, 발신자 IP 만 검증해요
 - ❌ Google IP 범위가 광범위해요 (모든 GCP 사용자 공유) — 같은 GCP 계정의 다른 프로젝트도 공격 가능해요
 - ❌ Cloudflare Tunnel / Kamal 을 통하면 IP 가 가짜화돼요
 
+<a id="옵션-b--pubsub-bearer-jwt-검증--채택"></a>
+
 ### 옵션 B — Pub/Sub bearer JWT 검증 ★ 채택
 
 - Google 표준 인증 패턴 (Cloud Run, GAE 도 동일)
 - audience + email claim 으로 명확 식별
 - 외부 의존 (JWKS) 1번만 (cache 1시간)
+
+<a id="옵션-c--spring-security-oauth2-resource-server"></a>
 
 ### 옵션 C — Spring Security oauth2-resource-server
 
@@ -173,7 +181,7 @@ APP_IAP_GOOGLE_WEBHOOK_ALLOWED_SERVICE_ACCOUNT_EMAILS=pubsub@my-project.iam.gser
 
 - **Apple webhook** — 발신자 위조는 JWS 자체 검증으로 차단돼요 (`AppleJwsVerifier` 의 cert chain + ES256). bearer token 은 별도로 필요 없습니다. 단 JWS 가 보장하는 건 *발신자가 Apple 임* 뿐이고 앱 바인딩 (`bundleId`) 은 검증하지 않아요 — `AppleNotificationDecoder` 가 `data.bundleId` 를 읽지 않고 webhook 경로에 슬러그 credential 조회 자체가 없습니다. 여기서는 Google 의 audience·email 에 해당하는 축이 비어 있고, 슬러그 격리는 `BillingServiceImpl.resolveIapPaymentRecord` 의 `external_id` 정확 매칭 (Apple 은 폴백 없음) 에 의존해요 ([`ADR-022`](./adr-022-iap-server-notifications.md) 의 「webhook 경로의 슬러그 격리 범위」)
 - **Slack / 다른 webhook 검증** — 발신자별 다른 패턴. 별도 filter
-- **Replay 차단 (nonce)** — JWT 의 jti claim + DB nonce 저장. 현재는 audience + 5분 기본 exp 로 충분
+- **Replay 차단 (nonce)** — JWT 의 jti claim + DB nonce 저장. 현재 필터는 audience와 토큰에 포함된 만료를 검사하지만 5분 TTL이나 동일 유효 토큰 재사용 차단을 강제하지 않아요
 - **JWKS 키 prerotation** — Google 이 미리 새 키 publish. 현재 graceful refresh 로 cover
 
 ---

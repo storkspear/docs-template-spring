@@ -1,3 +1,5 @@
+<a id="adr-026--결제-알림-발송-메트릭"></a>
+
 # ADR-026 — 결제 알림 발송 메트릭
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-알림을 보내는 것과 *알림이 정말 도달했는지 추적하는 것* 은 별개의 운영 영역이에요. push + email 듀얼 채널 ([`ADR-025`](./adr-025-billing-notification-email-channel.md)) 을 갖춰도, *발송 시도가 어디서 막히는지*·*어떤 이벤트가 자주 실패하는지* 를 보지 못하면 사용자가 *알림을 못 받았다* 는 신고가 들어와도 *어디서 끊겼는지* 추적할 수단이 없습니다. 운영 모니터링은 *알림 인프라의 다른 절반* 이에요.
+결제 알림의 채널별 호출 결과를 메트릭으로 기록해요. `success`는 Port 호출이 예외 없이 반환됐다는 뜻이며, 제공자 접수나 사용자 수신까지 보장하지 않아요. `failure`와 `skipped`를 함께 보면 발송 경로의 변화를 찾을 수 있지만, 여러 생략 이유를 합친 현재 지표만으로 사용자 수신 거부 비율을 계산할 수는 없어요.
 
 본 ADR 은 결제 알림 발송에 Prometheus 메트릭을 추가합니다. 메트릭 이름은 `billing.notification.sent` (Counter, 단조증가) 이고, *3 가지 라벨* 로 발송 상황을 분류해요. `channel` (push / email) 은 *어느 채널이 막혔는지*, `kind` (renewal_succeeded / renewal_failed / renewal_abandoned / iap_refund / iap_revoke) 은 *어떤 이벤트가 자주 발송되는지*, `result` (success / failure / skipped) 는 *발송 시도의 결과* 를 구분합니다. 라벨 조합 (`channel × kind × result`) 으로 *FCM 만 실패하고 Resend 는 정상* 같은 채널별 추세나 *renewal_failed 가 평소보다 많아짐 → PG 또는 카드 한도 이슈* 같은 비즈니스 시그널까지 한 메트릭에서 추출할 수 있어요.
 
@@ -26,7 +28,7 @@ push + email 듀얼 채널을 갖춘 직후의 운영 환경에서 *알림 인�
 
 세 번째는 **skip 빈도의 비즈니스 시그널을 놓치는 상태** 입니다. *email 발송 skip* 은 *사용자가 emailVerified 를 안 거친 상태* 라는 사실을 의미하고, *push skip* 은 *사용자가 푸시 토큰을 등록하지 않은 상태* 를 의미해요. 이런 skip 비율이 *높아지는 추세* 라면 *가입 직후 이메일 인증 흐름이 끊기는 사용자가 늘어남* 같은 *제품 측 시그널* 일 수 있습니다. 메트릭 없이는 이 신호 자체가 보이지 않아요.
 
-이 세 가지 부담을 한 번에 해결하는 길은 *발송 시도의 결과를 라벨 단위 메트릭으로 발행* 하는 것이에요. 인프라 측면에서도 부담이 작아요 — Prometheus·Grafana·Alertmanager 가 이미 운영에 갖춰져 있어 *Counter 발행 코드* 만 추가하면 자동으로 scrape 와 시각화가 따라옵니다. 개별 알림마다 별도 모니터링 시스템을 구축하는 형태와 비교하면 *기존 인프라에 한 메트릭 추가* 가 압도적으로 가벼워요.
+발송 호출 결과를 채널·종류·결과 라벨로 기록하면 개별 로그보다 추세를 비교하기 쉬워요. 기존 Prometheus·Grafana를 활용할 수 있지만 수집 설정과 대시보드·경보 규칙은 함께 구성해야 해요. Counter를 추가했다는 이유만으로 시각화가 자동 생성되지는 않아요.
 
 이 결정이 답해야 할 물음은 이거예요.
 
@@ -50,17 +52,23 @@ push + email 듀얼 채널을 갖춘 직후의 운영 환경에서 *알림 인�
 
 세 라벨은 *운영 질문의 차원* 을 그대로 따릅니다. *어느 채널에서 막혔는가*, *어떤 종류의 알림이 자주 발송되는가*, *발송 시도가 어떤 결과로 끝났는가* — 이 세 차원이 직교 (orthogonal) 라 라벨 조합이 풍부해지고, 운영자가 *어느 차원에서 문제를 좁힐지* 자유롭게 선택할 수 있어요.
 
+<a id="channel--어느-외부-채널이-막혔는가"></a>
+
 ### channel — 어느 외부 채널이 막혔는가
 
 `push` 와 `email` 두 값으로 시작해요. 두 채널이 *서로 다른 외부 시스템* (FCM·Resend) 에 의존하므로, *한쪽이 정상이고 다른 쪽이 실패* 하는 패턴이 자주 발생합니다. 예를 들어 *FCM 은 정상 응답하는데 Resend 가 5xx 만 반환* 하는 상황이 *Resend 측 장애* 의 신호예요. channel 라벨이 분리되어 있어야 이런 *외부 시스템 단위 장애* 를 즉시 격리할 수 있습니다.
 
 향후 SMS·카카오톡·알림톡 같은 다른 채널이 추가되면 같은 라벨 차원에 자연스럽게 흡수돼요. *알림 채널이 늘어나도 메트릭 구조는 그대로* 라 운영 도구가 함께 진화합니다.
 
+<a id="kind--어떤-종류의-알림이-발송되는가"></a>
+
 ### kind — 어떤 종류의 알림이 발송되는가
 
 `renewal_succeeded`·`renewal_failed`·`renewal_abandoned`·`iap_refund`·`iap_revoke` 같은 비즈니스 이벤트 종류를 그대로 라벨로 두는 형태예요. 이 라벨은 *비즈니스 추세* 를 메트릭으로 직접 노출합니다.
 
 가장 명확한 활용은 *renewal_failed 의 발송 빈도* 추적이에요. 이 값이 *평소보다 갑자기 많아지면* 결제 실패 자체가 늘었다는 뜻이고, 그 원인이 *PG 측 장애*, *카드 한도 이슈*, *특정 카드사의 인증 정책 변경* 같은 외부 시그널일 가능성이 높습니다. 단순 *결제 실패 카운트* 만 추적해도 비즈니스 모니터링의 출발점이 돼요.
+
+<a id="result--발송-시도의-결말"></a>
 
 ### result — 발송 시도의 결말
 
@@ -118,6 +126,8 @@ billing_notification_sent_total{channel="push",kind="renewal_succeeded",result="
 
 ---
 
+<a id="검증-단위-테스트-6건-추가--subscriptionnotificationlistenertest-현재-총-23건"></a>
+
 ## 검증 (단위 테스트 6건 추가 — `SubscriptionNotificationListenerTest` 현재 총 23건)
 
 ```java
@@ -140,17 +150,23 @@ curl -s localhost:8081/actuator/prometheus | grep billing_notification_sent
 
 ## 대안 비교
 
+<a id="옵션-a--별도-notificationmetrics-클래스--spring-aop"></a>
+
 ### 옵션 A — 별도 NotificationMetrics 클래스 / Spring AOP
 
 - AOP 로 listener 메소드 자동 instrument
 - ❌ skip / success / failure 분기를 AOP 로 못 잡음 (메소드 인자/반환만 보임, 내부 분기 X)
 - ❌ over-engineering — 카운터 6개 라인이면 직접 호출이 더 명확
 
+<a id="옵션-b--직접-meterregistry-호출--채택"></a>
+
 ### 옵션 B — 직접 MeterRegistry 호출 ★ 채택
 
 - listener 가 MeterRegistry 를 받아 counter().increment() 를 직접 호출해요
 - ✅ 분기마다 명시적 — success / failure / skipped 모두 추적해요
 - ✅ 단순해요. 코드 ~10줄 추가로 끝나요
+
+<a id="옵션-c--outbox-테이블--분석-query"></a>
 
 ### 옵션 C — Outbox 테이블 + 분석 query
 

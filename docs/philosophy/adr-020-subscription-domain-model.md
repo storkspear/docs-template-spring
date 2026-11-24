@@ -1,3 +1,5 @@
+<a id="adr-020--subscription--plan--paymentrecord-도메인-모델--webhook-보안"></a>
+
 # ADR-020 · Subscription / Plan / PaymentRecord 도메인 모델 + Webhook 보안
 
 **Status**: Accepted. *Updated by [ADR-037](./adr-037-core-schema-deprecation.md)* — billing entity (Plan/Subscription/PaymentRecord 등) 가 *core schema 가 아닌 *각 app schema 에만* 존재 (per-app 격리). [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 도메인 분리 골격 위에 비즈 로직 + DB 모델 + 트랜잭션 정책 + webhook 보안을 채웠어요. PG (포트원) 결제 검증 → PaymentRecord 저장 → Subscription 활성화의 e2e 흐름이 동작합니다.
@@ -9,7 +11,7 @@
 
 ## 결론부터
 
-구독형 SaaS 의 결제 도메인을 코드로 표현하려면 *네 가지 핵심 개념* 이 필요해요. **Plan** 은 *어떤 가격에 어떤 기능을 제공하는가* 의 정의입니다 (`free`, `basic`, `pro` 같은 코드 + 가격 + 기간). **Subscription** 은 *이 사용자가 어떤 plan 을 언제까지 받고 있는가* 의 사용자별 상태예요 (ACTIVE / CANCELLED / EXPIRED). **PaymentRecord** 는 *언제 어떤 채널로 얼마를 결제했는가* 의 거래 이력입니다 (PG impUid 또는 IAP transactionId 로 식별). **WebhookEvent** 는 *외부 시스템 (PG / Apple / Google) 에서 들어온 비동기 알림* 의 멱등성 보장 기록이에요.
+구독은 요금제 정의인 Plan, 사용자별 이용 상태인 Subscription, 결제 이력인 PaymentRecord, 외부 알림 처리 이력인 WebhookEvent로 표현해요. WebhookEvent의 고유 키는 `source`·`external_id`·`event_status`예요. 같은 외부 식별자의 결제와 환불 같은 상태 변화는 구분하고, 같은 상태 이벤트의 재처리를 제한해요.
 
 이 네 개념이 [`ADR-019`](./adr-019-billing-iap-payment-separation.md) 의 정책 layer (`core-billing`) 안에서 *결제 → 활성화* 의 e2e 흐름을 만듭니다. 사용자가 PG (포트원) 결제 위젯을 띄우면 클라이언트가 `impUid` 를 받고, 그 `impUid` 를 백엔드가 *PaymentPort.verify* 로 포트원에 재검증한 뒤 *PaymentRecord 저장 → Subscription 활성화* 가 한 트랜잭션에서 완료돼요. 환불은 PG 가 보낸 webhook 이 *진위 확인(v1 은 impUid 재조회) + timestamp + idempotency* 3 중 방어를 통과한 뒤 *PaymentRecord.status 를 REFUNDED 로 변경 + Subscription 을 CANCELLED 로 전환* 하는 흐름입니다.
 
@@ -45,6 +47,8 @@
 
 > **결제 도메인 모델을 슬러그별 schema 에 어떻게 정착시키고, webhook 의 멱등성·트랜잭션 경계·보안을 어떻게 다층으로 방어할 것인가?**
 
+<a id="결정-1--subscription--plan--paymentrecord-를-슬러그별-schema-에"></a>
+
 ## 결정 1 — Subscription / Plan / PaymentRecord 를 슬러그별 schema 에
 
 결제 도메인의 4 테이블을 *어디에 두는가* 의 결정은 [`ADR-005`](./adr-005-db-schema-isolation.md) 의 *앱당 schema 격리* 와 [`ADR-012`](./adr-012-per-app-user-model.md) 의 *앱별 독립 유저 모델* 에 의해 사실상 결정돼요. `subscriptions.user_id` 가 `users(id)` 를 FK 로 참조해야 하는데, `users` 테이블이 슬러그별 schema 에 위치하므로 *subscriptions 도 같은 schema* 에 두지 않으면 *cross-schema FK 참조* 라는 PostgreSQL 에서도 까다로운 영역으로 들어가게 됩니다.
@@ -52,6 +56,8 @@
 도메인 의미 측면에서도 슬러그별 schema 가 자연스러워요. *앱마다 독립적인 비즈니스* 라 *어느 앱의 구독이 다른 앱의 구독과 연결될 일이 거의 없고*, *cross-app subscription* 같은 개념도 우리 환경에는 등장하지 않습니다. core schema 에 통합하는 대안은 *appSlug 컬럼을 모든 행에 추가하고 모든 쿼리에 WHERE 절을 강제* 하는 row-level 격리가 되는데, 이는 [`ADR-012`](./adr-012-per-app-user-model.md) 가 *유저 모델에서 이미 거부한 패턴* 이라 결제 도메인에서도 같은 거부 이유가 그대로 적용돼요.
 
 채택한 형태는 *plans / subscriptions / payment_records / webhook_events* 4 테이블을 모든 슬러그 schema 에 동일하게 두는 형태입니다. V008 / V009 / V010 마이그레이션이 *기존 인증 도메인의 V001~V006 패턴* 과 같은 방식으로 모든 슬러그 schema 에 자동 적용되고, `tools/app/new-app.sh` 가 신규 앱을 생성할 때마다 *4 개 테이블 + free plan seed 까지 자동으로 만들어* 줍니다. 운영자가 새 앱을 추가할 때 별도 SQL 작업이 필요 없어요.
+
+<a id="결정-2--db-모델"></a>
 
 ## 결정 2 — DB 모델
 
@@ -118,9 +124,11 @@ CREATE UNIQUE INDEX uk_webhook_events_external_id ON webhook_events(source, exte
 
 Hibernate 6 의 `@JdbcTypeCode(SqlTypes.JSON)` 으로 `String` 필드에 직접 JSONB 를 매핑합니다. JSON ↔ POJO 변환은 호출 측에서 ObjectMapper 로 처리해요 (Webhook payload 는 raw 로 유지하는 편이 디버깅에 유리해요).
 
+<a id="결정-3--트랜잭션-경계-handlewebhook-의-phase-분리"></a>
+
 ## 결정 3 — 트랜잭션 경계: handleWebhook 의 phase 분리
 
-webhook 처리 메서드의 트랜잭션 경계는 *결제 도메인에서 가장 까다로운 영역* 이에요. 한 메서드 안에서 *DB 작업 (멱등성 기록)* 과 *외부 HTTP 호출 (PG 검증)* 과 *DB 작업 (PaymentRecord / Subscription 동기화)* 이 순차로 일어나는데, 이들을 *한 트랜잭션* 으로 묶으면 *외부 응답 대기 동안 DB connection 을 점유* 하고, *완전히 분리* 하면 *부분 실패 시 어디까지 commit 됐는지 추적이 어려워* 져요.
+웹훅 처리에는 외부 결제 확인과 DB 기록이 함께 필요해요. 외부 응답을 기다리는 동안 DB 연결을 잡지 않도록 단계를 나누되, 실패 후 재요청할 때 어느 기록이 남아 있는지 확인해야 해요. 멱등성 기록과 결제·구독 변경의 커밋 경계를 같은 흐름에서 검토해요.
 
 채택한 패턴은 *3 단계 phase 분리* 입니다. Phase 1 은 *멱등성 기록* (`WebhookEvent` INSERT — 이미 있으면 skip) 을 자기 트랜잭션에서 처리하고, Phase 2 는 *외부 HTTP 호출* 을 트랜잭션 밖에서 수행하고, Phase 3 는 *결과 동기화* (`PaymentRecord` / `Subscription` 갱신 + `markProcessed`) 를 또 자기 트랜잭션에서 commit 합니다. class-level `@Transactional` 위에 `handleWebhook` 만 `Propagation.NOT_SUPPORTED` 로 override 해서 *기본 트랜잭션을 끄고*, 내부에서 `TransactionTemplate` 으로 phase 마다 명시적으로 트랜잭션을 시작하는 형태예요.
 
@@ -168,11 +176,15 @@ public void handleWebhook(String source, String externalId, String payloadJson) 
 - **Race 견고함**: Phase 1 의 INSERT 가 race 시 `DataIntegrityViolationException` 으로 떨어지면 fallback 으로 기존 row 를 재조회해요 → 같은 webhook 이 두 번 와도 결과가 동일해요
 - **실패 로깅 보존**: Phase 2 실패 시 markFailed 가 자기 TX 에서 commit → main throw 가 outer TX 롤백 시 영향을 받지 않아요 (`processed_at` 은 NULL 로 유지 → retry 가능)
 
+<a id="결정-4--webhook-보안-3중-방어"></a>
+
 ## 결정 4 — Webhook 보안 (3중 방어)
 
 webhook endpoint 는 *공개 인터넷에 노출* 된 상태라 *인증 없이는 누구든 가짜 페이로드로 결제 상태를 조작* 할 수 있어요. 결제 도메인의 webhook 은 *환불 / 취소* 같은 사용자 자산에 직접 영향을 주는 영역이라 *3 중 방어선* 으로 위조 / replay / 중복 처리를 동시에 차단해야 합니다.
 
-세 방어선은 *다른 공격 벡터* 를 막아요. *진위 확인* 은 가짜 페이로드를 차단하고(v1 은 impUid 재조회, v2 는 Standard Webhooks 서명), *timestamp 검증* 은 *과거에 캡처한 진짜 페이로드를 다시 보내는 replay 공격* 을 차단하며, *(source, externalId, eventStatus) UNIQUE idempotency* 는 *PG 측 재전송 / 우리 측 동시 처리* 시에도 *같은 통지가 두 번 처리되지 않게* 보장합니다. 어느 한 방어선이 우회되어도 다른 두 방어선이 작동하는 *defense in depth* 패턴이에요.
+웹훅 진위 확인과 재처리 방지는 다른 책임이에요. 현재 PortOne v1은 `impUid` 재조회로 결제를 확인하며 서명·timestamp 검증을 적용하는 경로가 아니에요. `source`·`externalId`·`eventStatus` 고유 제약은 같은 상태 이벤트의 중복 기록을 제한해요. Standard Webhooks 구현이 있어도 dev/prod의 v2 자격 가드 때문에 현재 지원되는 운영 경로와 동일하게 설명하지 않아요.
+
+<a id="1-진위-확인--v1-은-재조회-v2-는-서명"></a>
 
 ### 1. 진위 확인 — v1 은 재조회, v2 는 서명
 
@@ -262,6 +274,8 @@ PortOneWebhookVerifierTest: 14/14 PASS (Signature 6 + Timestamp 5 + Combined 3)
 | `core/core-payment-impl/PaymentAutoConfiguration.java` | PortOneAdapter / Verifier / ProdConfigGuard Bean |
 | `tools/app/new-app.sh` heredoc | V008~V010 SQL 생성 (PaymentController 는 core 공유 — ADR-013 B) |
 
+<a id="결정-5--subscription-만료-자동-sweep-b-사이클-추가"></a>
+
 ## 결정 5 — Subscription 만료 자동 sweep ([B 사이클 추가])
 
 운영 시간이 흐르면 expires_at 가 경과한 구독이 status=ACTIVE 또는 CANCELLED 로 남게 돼요. 외부 갱신 신호 (Apple/Google webhook) 없이도 자체 cron 으로 EXPIRED 를 마킹합니다.
@@ -287,6 +301,8 @@ public void expireOverdueSubscriptions() {
 
 `expireOverdueSubscriptions()` 의 query: `status IN (ACTIVE, CANCELLED) AND expires_at IS NOT NULL AND expires_at < now` 예요. 무제한 plan (expires_at NULL) 은 제외하고, 이미 EXPIRED 도 제외돼요 (idempotent).
 
+<a id="결정-6--갱신-임박-식별--applicationevent-f-mvp-사이클-추가"></a>
+
 ## 결정 6 — 갱신 임박 식별 + ApplicationEvent ([F-MVP 사이클 추가])
 
 만료 임박 (예: 24시간 이내) 인 ACTIVE 구독을 식별하여 Spring `ApplicationEvent` 로 발행해요. 호출 측 (이벤트 listener) 이 받아 PG 재청구 / 알림 발송 / 만료 통보 등을 처리합니다. 실제 PG 재청구 로직은 다음 사이클로 미뤄요 (PortOne `customer_uid` 기반 billing key 통합 시).
@@ -310,6 +326,8 @@ public void publishRenewalDueEvents() {
 - **Window override** — `app.billing.scheduler.renewal-window=PT12H` 같이 ISO-8601 Duration 으로 변경 가능해요 (default `P1D`).
 - **Cron override** — `app.billing.scheduler.renewal-cron` (default 매일 자정) 으로 운영자가 조정합니다.
 - **이벤트 기반 분리** — billing 이 직접 PG 를 호출하지 않고 listener 가 처리해요. 결제 실패 / 재시도 / 알림은 listener 의 책임입니다.
+
+<a id="결정-7--pg-재청구-chargeagain--renewallistener-g-사이클-추가"></a>
 
 ## 결정 7 — PG 재청구 (chargeAgain + RenewalListener) ([G 사이클 추가])
 
@@ -362,6 +380,8 @@ public void onRenewalDue(SubscriptionRenewalDueEvent event) {
 
 `activateFromPayment` 가 PaymentResult 의 `customerUid` 를 PaymentRecord 에 저장 (one-time 결제는 null 유지). 다음 만료 임박 시 RenewalScheduler 가 발견 → listener → renewSubscription → chargeAgain 가 그 customer_uid 사용.
 
+<a id="결정-8--iap-applegoogle-영수증-검증-d-사이클-추가"></a>
+
 ## 결정 8 — IAP (Apple/Google) 영수증 검증 ([D 사이클 추가])
 
 iOS (Apple StoreKit) 와 Android (Google Play) 의 인앱 결제 영수증을 검증 후 Subscription 활성화. 흐름은 PG 와 동일하나 channel=IAP, 외부 검증 API 가 platform 별 다름.
@@ -404,6 +424,8 @@ SubscriptionDto activateFromIap(long userId, String planCode, PurchaseVerificati
 ### Opt-in (platform 별)
 
 `APP_IAP_APPLE_*` 또는 `APP_IAP_GOOGLE_*` 키가 채워졌을 때만 해당 adapter 를 등록해요. 한 platform 만 운영해도 돼요. 둘 다 미설정 시 StubIapAdapter 로 fallback 합니다.
+
+<a id="슬러그별-bundle_id--package_name-d-multi-사이클"></a>
 
 ### 슬러그별 bundle_id / package_name (D-multi 사이클)
 

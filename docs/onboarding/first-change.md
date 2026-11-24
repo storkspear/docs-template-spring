@@ -1,8 +1,10 @@
+<a id="첫-코드-변경--한-필드가-코드-여러-곳에-닿는-경험"></a>
+
 # 첫 코드 변경 — 한 필드가 코드 여러 곳에 닿는 경험
 
 > **유형**: How-to · **독자**: Level 0~1 · **읽는 시간**: ~15분
 
-"코드를 한 줄 바꿔보고 싶다" 는 단계예요. 이 문서는 `users` 테이블의 `nickname` 필드를 따라가며, 한 필드가 DB부터 HTTP 응답까지 코드의 **어느 자리들** 에 닿는지 손으로 짚어 봐요. 따라 하고 나면 이 레포의 한 변경이 어떤 흐름으로 퍼지는지 — 마이그레이션, 엔티티, DTO, 변환 메서드, 테스트 — 가 그림으로 잡혀요.
+이미 구현된 `nickname` 필드를 따라 DB 스키마, 엔티티, DTO, 변환 메서드와 테스트가 어떻게 연결되는지 살펴봐요. 새 필드를 추가할 때도 같은 경로에서 필요한 변경과 검증을 찾을 수 있어요.
 
 > **이 필드는 이미 코드에 들어 있어요.** `nickname` 은 `new-app.sh` 가 만드는 첫 마이그레이션(`V001__init_users.sql`)의 `users` 테이블에 처음부터 포함돼 있고, `User` 엔티티 · `UserProfile` · `UpdateProfileRequest` 에도 모두 반영돼 있어요. 그래서 이 문서는 "지금 추가하라" 가 아니라 *이미 들어간 필드를 거꾸로 따라가며 패턴을 익히는* 가이드예요. 익힌 다음에는 본인 필드(예: `bio`, `avatar_url`)를 **똑같은 자리들에** 더하면 돼요.
 
@@ -47,6 +49,8 @@ UpdateProfileRequest DTO + UserServiceImpl.updateProfile()
 
 이제 1번부터 한 자리씩 따라가요. 본인 필드를 더할 때도 *바로 이 여섯 자리* 에 같은 식으로 손대면 돼요.
 
+<a id="1-db-컬럼--마이그레이션"></a>
+
 ## 1. DB 컬럼 — 마이그레이션
 
 가장 먼저 DB에 컬럼이 있어야 엔티티가 그 컬럼을 읽고 쓸 수 있어요. 이 레포는 SQL을 직접 실행하지 않고 [`Flyway`](../reference/glossary.md#데이터베이스) 마이그레이션 파일로 스키마를 관리해요. 앱마다 `db/migration/<slug>/` 디렉토리에 `V001`, `V002`… 번호 순서로 파일이 쌓이고, 부팅할 때 새 번호만 한 번씩 실행돼요.
@@ -78,6 +82,8 @@ ALTER TABLE users ADD COLUMN bio VARCHAR(200);
 `new-app.sh` 가 깔아 주는 번호는 V001~V027 까지 차 있어요 (V007 은 `--seed-admin` 을 붙였을 때만 생성되는 admin 시드 자리예요). 정확한 번호 배치는 [`Onboarding §3.1`](../start/onboarding.md#31-코드-골격-자동) 의 마이그레이션 표를 보세요. 본인 컬럼은 보통 **그다음 비어 있는 번호**(현재 V028)로 더하면 돼요.
 
 > **왜 `NOT NULL` 을 함부로 못 붙이나** — 운영 DB에는 이미 가입한 사용자 레코드가 있어요. 새 필수 컬럼을 한 번에 강제하면 기존 레코드가 위반돼 마이그레이션이 깨져요. 그래서 "먼저 nullable 로 추가 → 값 채우기 → 나중에 NOT NULL" 의 단계적 배포를 써요. 자세한 규율은 [`운영 런북`](../production/deploy/runbook.md) 에 있어요.
+
+<a id="2-엔티티--user"></a>
 
 ## 2. 엔티티 — `User`
 
@@ -116,6 +122,8 @@ public void updateNickname(String newNickname) {
 
 조회용 `getNickname()` 은 두되, 변경은 `updateNickname()` 처럼 "무슨 일을 하는지" 가 이름에 담긴 메서드로 해요. 단순 `set` 보다 호출부에서 의도가 분명해져요.
 
+<a id="3-응답-dto--userprofile"></a>
+
 ## 3. 응답 DTO — `UserProfile`
 
 엔티티는 `core-*-impl` 안에만 머물고, 바깥(HTTP 응답)으로는 [`DTO`](../reference/glossary.md#코드-패턴) 만 나가요. 프로필 조회·수정 응답에 실리는 DTO가 `UserProfile` 이에요. 이 레포의 DTO는 모두 `record` 로 선언해요([`ADR-016`](../philosophy/adr-016-dto-mapper-forbidden.md)) — 불변이고, `equals` · `hashCode` · `toString` 이 자동으로 생겨요.
@@ -135,6 +143,8 @@ public record UserProfile(
 ```
 
 `nickname` 을 record의 컴포넌트로 한 줄 더한 게 전부예요. 본인 필드를 응답에 내보내고 싶을 때도 여기에 컴포넌트를 한 줄 추가해요.
+
+<a id="4-변환-메서드--usertoprofile"></a>
 
 ## 4. 변환 메서드 — `User.toProfile()`
 
@@ -159,6 +169,8 @@ public UserProfile toProfile() {
 `getId()` · `getCreatedAt()` · `getUpdatedAt()` 은 부모 `BaseEntity` 가 주는 공통 메서드예요([`@MappedSuperclass`](../reference/glossary.md#spring-어노테이션--런타임), [`ADR-009`](../philosophy/adr-009-base-entity.md)).
 
 > **왜 Mapper 클래스를 금지하나** — `UserMapper.toDto(user)` 같은 별도 클래스를 만들면 그 클래스가 엔티티와 DTO 양쪽을 다 알아야 해서 변경 추적이 흩어져요. 변환 로직을 엔티티 안에 두면 필드를 더할 때 한 파일에서 끝나요. 이 약속은 ArchUnit 규칙 r22(`NO_MAPPER_CLASSES`)가 빌드 시점에 강제해요 — 이름이 `Mapper` 로 끝나는 클래스를 만들면 `build` 가 실패해요([`architecture-rules §r22`](../structure/architecture-rules.md#r22-no_mapper_classes)).
+
+<a id="5-입력-dto--서비스--값을-받아-반영"></a>
 
 ## 5. 입력 DTO + 서비스 — 값을 받아 반영
 
@@ -193,6 +205,8 @@ public UserProfile updateProfile(long userId, UpdateProfileRequest request) {
 세 가지를 눈여겨봐요. 사용자 조회는 직접 `findById` 하지 않고 `requireActiveUser()` 헬퍼를 거쳐요 — soft-delete 된 사용자를 걸러 주거든요. 변경은 2단계의 `updateNickname()` 으로, 응답은 4단계의 `toProfile()` 로 만들어요. 그리고 이 메서드는 `@Transactional` 안에서 도니까, 엔티티 필드를 바꾸기만 해도 [`Hibernate`](../reference/glossary.md#데이터베이스) 의 dirty checking 이 트랜잭션이 끝날 때 자동으로 `UPDATE` 를 날려요. `userRepository.save()` 를 따로 부르지 않아요.
 
 이 서비스를 HTTP로 노출하는 컨트롤러는 `UserController` 예요. 엔드포인트는 `GET /api/apps/<slug>/users/me`(조회)와 `PATCH /api/apps/<slug>/users/me`(수정) 두 개고, 응답은 `ApiResponse.ok(...)` 로 감싸 나가요. 컨트롤러는 `UserPort` 만 호출하고 DB에 직접 닿지 않아요 — 이 경계는 [`Architecture Reference`](../structure/architecture.md) 에서 더 다뤄요.
+
+<a id="6-테스트--두-계약을-고정"></a>
 
 ## 6. 테스트 — 두 계약을 고정
 

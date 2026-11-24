@@ -13,7 +13,7 @@
 
 ## 한 문장 요약
 
-메트릭·로그·알림 세 축이 각자 독립으로 동작하고, 모든 데이터에 `appSlug` 라벨이 붙어 앱별로 분리 조회됩니다. 관측성 스택 자체는 운영 서버에서만 띄우고 로컬에는 없어요.
+HTTP 요청 메트릭은 `app` 라벨에 URL의 앱 슬러그를 넣고, 해당 경로가 아니면 `unknown`을 사용해요. 로그는 `app`에 애플리케이션 이름을, `appSlug`에 요청 슬러그를 넣어요. JVM 메트릭이나 요청 밖 로그까지 모두 앱별로 나뉘는 것은 아니에요. 수집·시각화 스택은 운영 호스트에서 사용하고 기본 로컬 개발 환경에서는 띄우지 않아요. 별도 compose로 관리하므로 구성 변경을 검증할 환경은 따로 준비할 수 있어요.
 
 ## 3대 축
 
@@ -40,7 +40,9 @@
  └── logback (loki4j) ──► Loki (push) ──► Grafana (explore)
 ```
 
-각 축이 독립으로 작동하므로 한 축이 다운돼도 다른 축은 영향이 없어요. 예를 들어 Loki 가 죽어도 메트릭과 알림은 그대로 유지됩니다.
+Loki 장애가 곧바로 Prometheus 수집을 중단시키는 구조는 아니에요. 다만 같은 호스트·네트워크·디스크를 공유하므로 호스트 장애나 자원 고갈은 여러 구성요소에 함께 영향을 줄 수 있어요.
+
+<a id="필수-태깅--appslug"></a>
 
 ## 필수 태깅 — `appSlug`
 
@@ -69,6 +71,8 @@ URL path 추출 규칙은 [`AppSlugExtractor`](../../../common/common-web/src/ma
 | `DEBUG` | 개발·디버깅용. 운영 기본 비활성 (`root level INFO`) |
 
 민감 정보 (password, token, JWT secret) 는 절대 로그에 남기지 않습니다. 엔티티 `toString()` 을 오버라이드할 땐 `@ToString.Exclude` 같은 표식으로 민감 필드를 명시 제외해요.
+
+<a id="로그-작성-good--bad-예시"></a>
 
 ### 로그 작성 Good / Bad 예시
 
@@ -103,14 +107,15 @@ Prometheus 가 scrape 할 때 Micrometer 가 `.` 을 `_` 로 바꾸므로, `http
 
 | Alert | 조건 | severity |
 |-------|------|---------|
-| HighErrorRate | 5xx 비율 > 1% / 5분 | warning |
-| HighLatencyP95 | p95 > 1s / 5분 | warning |
-| RateLimitSpike | 429 > 10/분 / 3분 | info |
-| BackendDown | scrape 실패 / 2분 | critical |
-| MinioDown | MinIO scrape 실패 / 2분 | critical |
-| MinioDiskUsage | 70% / 85% / 95% | info / warning / critical |
+| HighErrorRate | prod의 최근 5분 5xx 비율 > 1%, 5분 지속 | warning |
+| HighLatencyP95 | prod의 최근 5분 p95 > 1초, 5분 지속 | warning |
+| RateLimitSpike | prod의 최근 5분 429 발생률 > 10/분, 3분 지속 | info |
+| BackendDown | backend scrape 실패, 2분 지속 | critical |
+| MinioMonitoringDisabled | MinIO scrape 시계열 부재, 30분 지속 | info |
 
-발화된 알림은 `infra/alertmanager/config.yml` 의 Discord webhook 으로 나갑니다. `DISCORD_WEBHOOK_URL` 이 비어 있으면 Alertmanager 컨테이너는 아예 뜨지 않아요 (`alertmanager` compose profile 로 게이팅). 즉 webhook 이 설정돼야만 알림 경로가 활성화됩니다.
+MinIO 중단·디스크 사용량 룰은 현재 파일에서 주석 처리돼 있어요. 위 활성 룰과 구분하고 실제 scrape 대상·알림 profile 설정도 함께 확인해요.
+
+발생한 경보는 Alertmanager를 통해 Discord webhook으로 전달해요. Alertmanager는 기본 compose 실행에서 제외돼 있고 `alertmanager` profile을 켜야 해요. profile을 켰을 때 `DISCORD_WEBHOOK_URL`이 없으면 시작할 수 없어요. 값을 채우는 것과 profile을 활성화하는 것을 모두 확인해요.
 
 ## 환경별 동작
 
@@ -121,7 +126,7 @@ Prometheus 가 scrape 할 때 Micrometer 가 `.` 을 `_` 로 바꾸므로, `http
 | test (CI) | `health,info,prometheus` | 없음 |
 | prod (Mac mini) | `health,info,prometheus` | 운영 스택 전체. logback JSON 콘솔 + Loki push |
 
-dev 와 prod 의 actuator endpoint 는 앱 포트 (`:8080`) 와 공유합니다. 별도 management port 로 격리하지 않은 건, kamal-proxy healthcheck 가 같은 포트에서 `/actuator/health/liveness` 를 hit 할 수 있어 설정이 단순해지기 때문이에요. 노출 endpoint 는 `health`·`info`·`prometheus` 셋으로 제한해 민감 경로를 차단합니다.
+dev·prod의 Actuator는 앱과 같은 8080 포트를 사용해요. Kamal healthcheck가 같은 포트의 `/actuator/health/liveness`를 호출하도록 구성해 배포 설정을 단순하게 유지해요. 웹으로 노출하는 endpoint는 `health`·`info`·`prometheus`로 제한해요. 별도 management port를 사용하지 않으므로 이 경로의 외부 접근 범위도 배포 네트워크에서 함께 확인해요.
 
 로컬에는 수집 스택이 없으므로 Grafana 대시보드나 Prometheus 알림을 로컬에서 확인할 수는 없어요. 앱이 내보내는 신호 자체는 `/actuator/prometheus` 에서 직접 확인할 수 있습니다.
 

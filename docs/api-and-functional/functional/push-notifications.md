@@ -250,9 +250,11 @@ public PushSendResult sendToUser(long userId, PushMessage message) {
 
 `removeInvalidTokens` 는 유저의 디바이스 목록(`DevicePort.findByUser`)을 훑어 `invalidTokens` 에 포함된 토큰을 가진 디바이스만 골라 `unregister` 합니다. 한 디바이스의 unregister 가 실패해도 나머지는 계속 정리하도록 개별 호출을 try-catch 로 감싸요.
 
-앱 도메인 서비스가 푸시를 보낼 때는 **항상 `PushService` 를 주입받아** 쓰면 됩니다. 토큰 조회와 정리 책임이 자동으로 처리돼요.
+유저 단위 전송의 토큰 조회·무효 토큰 정리는 현재 `core-push-impl`의 `PushService`가 담당해요. 이를 다른 `core-*-impl`에 직접 주입하면 impl 사이 의존 금지 규칙과 충돌해요. 앱에서 사용할 진입점은 모듈 경계를 확인해 정하고, 토큰·토픽 전송에는 공개 `PushPort` 계약을 사용해요.
 
 ---
+
+<a id="per-slug-fcm-발송--앱별-격리"></a>
 
 ## per-slug FCM 발송 — 앱별 격리
 
@@ -326,7 +328,7 @@ static Map<String, FirebaseMessaging> build(PushAppCredentialProperties props) {
 }
 ```
 
-두 가지를 챙겨요. 같은 name 으로 이미 초기화된 `FirebaseApp` 이 있으면 `IllegalStateException` 을 잡아 기존 인스턴스를 재사용하므로 컨텍스트 재기동에 안전합니다. 그리고 자격 문자열은 `{` 로 시작하면 raw JSON, 그 외에는 base64 로 디코딩해요. `firebase-link` 가 기록하는 base64 형식이 `.env` 를 bash `source` 할 때 깨지지 않게 하려는 선택입니다.
+같은 이름의 `FirebaseApp`이 이미 초기화돼 있으면 기존 인스턴스를 재사용해요. 자격증명 문자열은 `{`로 시작하면 raw JSON으로 읽고, 그 외에는 base64를 디코딩해요. `firebase-link`가 base64로 기록하는 이유는 JSON의 줄바꿈·따옴표가 환경 파일을 읽는 과정에 영향을 주지 않도록 하기 위해서예요. 잘못된 JSON이나 base64도 정상 처리된다는 뜻은 아니에요.
 
 ### 발송 시점 라우팅
 
@@ -349,7 +351,7 @@ private FirebaseMessaging resolveMessaging() {
 }
 ```
 
-`SlugContext` 는 요청 진입 시 `AppSlugMdcFilter` 가 채우고 끝에서 비우는 ThreadLocal 이라, 발송 시점엔 항상 현재 앱 슬러그가 들어 있어요. 멀티테넌시 schema 라우팅(`SchemaRoutingDataSource`)이 쓰는 것과 같은 컨텍스트입니다.
+HTTP 요청에서는 `AppSlugMdcFilter`가 `SlugContext`를 채우고 요청 종료 때 비워요. 스케줄러·별도 스레드·비동기 작업에 자동으로 전달되는 값은 아니므로, 그런 경로에서는 대상 앱을 명시해 설정하고 `finally`에서 해제해야 해요. 이 컨텍스트는 푸시 자격 선택과 DB 라우팅에 함께 사용돼요.
 
 슬러그가 없거나 그 앱의 FCM 자격이 없으면 `resolveMessaging` 이 null 을 반환하고, 호출부는 **graceful no-op** 으로 처리해요. 푸시 실패가 비즈니스 흐름을 깨뜨리지 않게, 예외를 던지는 대신 실패 카운트만 채운 결과를 돌려줍니다.
 
@@ -448,6 +450,8 @@ public class PushAutoConfiguration {
 
 ---
 
+<a id="nooppushadapter--폴백"></a>
+
 ## NoOpPushAdapter — 폴백
 
 Firebase SDK 가 클래스패스에 없으면 `NoOpPushAdapter` 가 등록됩니다. 모든 메서드가 경고 로그만 남기고 빈 결과를 돌려줘요.
@@ -469,7 +473,7 @@ public PushSendResult sendToDevices(List<String> pushTokens, PushMessage message
 
 푸시 도메인은 전용 에러 enum 을 갖지 않습니다. `PushSendResult` 에 성공/실패 카운트가 담겨 돌아오는 것으로 충분하다고 봐요. 네트워크나 자격 증명 문제는 `FcmPushAdapter` 내부에서 로그로 남기고 `failureCount` 에 반영합니다.
 
-디바이스 도메인도 별도 exception enum 이 없습니다. `unregister` 에서 대상이 없거나 소유자가 아니면 **둘 다** 공통 `CommonError.NOT_FOUND` 로 통일해요 (리소스 존재 여부 누출 방지). 푸시 토큰 자체는 값 객체일 뿐이라, 토큰 무효화는 **예외가 아니라 결과값(`invalidTokens`)** 으로 표현합니다.
+디바이스 도메인은 별도 오류 enum 대신 공통 오류를 사용해요. `unregister`는 대상이 없거나 소유자가 아니면 모두 `CommonError.NOT_FOUND`를 반환해 기기 존재 여부를 구분해서 알리지 않아요. 푸시 공급자가 무효로 판단한 토큰은 예외가 아니라 발송 결과의 `invalidTokens`로 전달해요.
 
 ---
 

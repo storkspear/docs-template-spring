@@ -1,3 +1,5 @@
+<a id="adr-015--conventional-commits--템플릿-전체-semver"></a>
+
 # ADR-015 · Conventional Commits + 템플릿 전체 semver
 
 **Status**: Accepted. 모든 커밋에 Conventional Commits 포맷이 강제돼요 (commitlint + husky + CI). Git 태그는 `template-v<major>.<minor>.<patch>` 형태로 템플릿 레포 전체 단위로 찍힙니다. CHANGELOG 는 Keep a Changelog 포맷을 따르고, Breaking change 는 Deprecation 3 단계를 거쳐야 해요 (ArchUnit r20 이 강제).
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-커밋 메시지 포맷을 기계가 강제하고 (`commitlint`), 버전은 **모듈별이 아니라 템플릿 레포 전체** 를 한 단위로 SemVer 관리합니다. 이렇게 한 이유는 단 하나 — **파생 레포의 cherry-pick 을 가능하게 만들기 위해서**. Conventional Commits 는 "어느 커밋이 공통 코드 개선인지" 를 `git log --grep="^feat\\|^fix"` 같은 명령으로 기계가 읽을 수 있게 해줘요. 파생 레포는 "template-v0.3.0 기반" 한 줄로 간단하게 추적. Breaking change 는 반드시 Deprecation 3단계 (Active → Deprecated → Removed) 를 거치며, ArchUnit r20 이 `@Deprecated(since, forRemoval)` 선언을 기계 강제.
+Conventional Commits로 변경의 종류와 범위를 기록하고, 템플릿 저장소 전체를 하나의 SemVer 버전으로 관리해요. 파생 저장소는 기준 버전과 실제로 가져온 커밋을 기록해 공통 변경을 추적해요. `commitlint`와 ArchUnit이 일부 형식과 선언을 검사하지만, 변경의 호환성이나 폐기 절차 전체를 자동 판단하지는 않아요.
 
 ## 왜 이런 고민이 시작됐나?
 
@@ -42,6 +44,8 @@
 
 ## 고민했던 대안들
 
+<a id="option-1--자유-형식-커밋--모듈별-semver"></a>
+
 ### Option 1 — 자유 형식 커밋 + 모듈별 SemVer
 
 각 모듈 (core-auth-api, common-web 등) 이 자기 버전을 가져요. 커밋 메시지 포맷은 강제가 없어요.
@@ -56,6 +60,8 @@
   - "현재 레포 상태" 를 한 줄로 표현 불가
 - **탈락 이유**: cherry-pick 모델 자체가 불가능해짐. [`제약 2 (시간이 가장 희소한 자원)`](./README.md#제약-2--시간이-가장-희소한-자원) 에 정면 충돌.
 
+<a id="option-2--conventional-commits--커밋-단위-semver-commit-마다-tag"></a>
+
 ### Option 2 — Conventional Commits + 커밋 단위 SemVer (commit 마다 tag)
 
 커밋마다 태그 자동 부여 (`template-v0.1.0`, `template-v0.1.1`, ...). semantic-release 같은 도구로 자동화.
@@ -68,6 +74,8 @@
   - 실제로 **"의미있는 버전"** 은 커밋마다 찍히지 않음 — 누적된 변경이 의미 있을 때가 버전 단위
   - 세밀함이 곧 혼란 — 파생 레포가 "v0.3.47 과 v0.3.48 중 뭘 써?" 라고 물으면 답이 어려움
 - **탈락 이유**: fine-grained 의 함정. 버전 정보의 가치는 **집약된 의미** 에서 나옴.
+
+<a id="option-3--conventional-commits--템플릿-전체-semver-수동-tag--채택"></a>
 
 ### Option 3 — Conventional Commits + 템플릿 전체 SemVer (수동 tag) ★ (채택)
 
@@ -168,6 +176,8 @@ npx --no -- commitlint --edit "$1"
 
 AI coauthor 트레일러는 여기에 더해 `commitlint.config.mjs` 의 `no-ai-coauthor` plugin 룰이 한 번 더 걸러요. 훅의 grep · commitlint 룰 · CI 재검증의 **3중 방어** 입니다 — husky 를 설치하지 않은 clone 에서도 commitlint 와 CI 가 남고, `--no-verify` 로 훅을 건너뛰어도 CI 가 남아요.
 
+<a id="template-v-태그--릴리스-자동화"></a>
+
 ### template-v* 태그 + 릴리스 자동화
 
 ```yaml
@@ -231,6 +241,8 @@ static final ArchRule r20 = ArchitectureRules.DEPRECATED_MUST_DECLARE_SINCE_AND_
 
 `@Deprecated` 만 쓰고 `since`, `forRemoval` 속성 빠뜨리면 빌드 실패.
 
+<a id="gitmessage--커밋-템플릿"></a>
+
 ### `.gitmessage` — 커밋 템플릿
 
 ```
@@ -248,6 +260,8 @@ static final ArchRule r20 = ArchitectureRules.DEPRECATED_MUST_DECLARE_SINCE_AND_
 ```
 
 `git config commit.template .gitmessage` 로 활성화. `git commit` (편집기 모드) 시 이 템플릿이 자동 열림. Commitizen 을 설치하지 않아도 형식 가이드 확보.
+
+<a id="pr--branch-보호"></a>
 
 ### PR / Branch 보호
 

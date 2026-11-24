@@ -1,8 +1,10 @@
+<a id="mac-mini-운영-호스트-설정--실제-설치-기록"></a>
+
 # Mac mini 운영 호스트 설정 — 실제 설치 기록
 
 > **유형**: How-to · **독자**: Level 2 · **읽는 시간**: ~30분
 
-> ⚠️ 이 문서는 template 관리자 본인의 Mac mini 를 실제로 셋업한 기록이에요. 파생 레포 개발자가 자기 환경으로 옮길 때 그대로 베껴 쓰는 샘플로 활용하세요. IP·UUID·도메인·호스트명 같은 개별 값은 본인 환경의 값으로 바꿔야 해요. 전체 구성도·책임 분담·결정 근거는 [`infrastructure.md`](../deploy/infrastructure.md) 가 기준 문서이고, 이 문서는 그 위에 얹은 실제 설치 스냅샷이에요.
+> 이 문서는 관리자의 Mac mini 설치 기록을 보존해요. 아래 호스트 값과 당시 제품·구성 정보는 현재 실행 환경을 보장하지 않아요. 새 설치와 변경은 [`운영 배포 가이드`](../deploy/deployment.md), [`키 발급 가이드`](./key-issuance.md), [`모니터링 셋업`](./monitoring-setup.md)의 현재 절차를 먼저 따라요. 이 문서에서는 호스트 준비 과정과 당시 문제를 해결한 배경을 확인해요.
 >
 > 한 가지 더 — 이 문서에 손으로 따라 하는 단계로 적힌 일 가운데 상당수는 이제 자동화돼 있어요. `infra init` 이 공유 자격(SSH·Cloudflare·GHCR·Tailscale)과 관측 스택을, `prod init` 이 운영 DNS·Secrets 등록을 대신 처리해요. 무엇이 자동이고 무엇이 손작업인지는 §11 과 §17 에서 짚어요. 이 문서를 읽으면 그 자동화가 "안에서 무슨 일을 하는지" 까지 이해하게 돼요.
 >
@@ -57,6 +59,8 @@
 
 ---
 
+<a id="2-하드웨어--os-baseline"></a>
+
 ## 2. 하드웨어 / OS baseline
 
 | 항목 | 값 |
@@ -104,11 +108,15 @@
 | DB driver | HikariCP + PostgreSQL JDBC | 표준 | [HikariCP](../../reference/glossary.md#데이터베이스) 풀 + 표준 JDBC Postgres |
 | 마이그레이션 | [Flyway](../../reference/glossary.md#데이터베이스) | 앱 schema 당 V001~V027 | `app.flyway.mode` 분기 (ADR-033) — prod 는 VALIDATE_ONLY (부팅 시 검증만), 적용은 `tools/deploy/migrate-prod.sh` |
 
+<a id="데이터-레이어--런타임-의존성"></a>
+
 ### 데이터 레이어 — 런타임 의존성
 | 자원 | 위치 | 역할 |
 |---|---|---|
 | [Supabase](../../reference/glossary.md#데이터베이스) Postgres | `aws-1-<region>.pooler.supabase.com` | 운영 DB. pooler 경유 관리형 Postgres |
 | NAS MinIO | `100.X.X.X:9000` (tailnet) | S3 호환 오브젝트 스토리지. Tailscale tailnet 경유 접속이 표준 (WireGuard 암호화) |
+
+<a id="관측성--mac-mini-셀프-호스트"></a>
 
 ### 관측성 — Mac mini 셀프 호스트
 | 구성 | 도구 | 포트 | retention | 목적 |
@@ -334,6 +342,8 @@
 ### 7.2 왜 Cloudflare Tunnel 인가
 홈 공인 IP 를 공개 인터넷에 노출하지 않으면서도 외부 접근을 허용하기 위해서예요. TLS 종료와 WAF·DDoS 방어를 Cloudflare 엣지에 위임하므로 Mac mini 부담이 줄어요. Free plan 이라 비용도 0 이에요. 검토했던 대안 — DDNS 와 포트포워딩, Tailscale Funnel, nginx 와 Let's Encrypt — 은 [`decisions-infra.md I-05`](../deploy/decisions-infra.md) 에 있어요.
 
+<a id="73-왜-docker--kamal-인가"></a>
+
 ### 7.3 왜 Docker + Kamal 인가
 Docker 이미지는 불변 배포 단위라, 버전 롤백이 이미지 tag 하나를 바꾸는 일로 끝나요. Kamal 은 단일 호스트의 blue/green 스왑을 검증된 도구로 운영하게 해줘요. 커스텀 bash 로 직접 재구현하는 것보다 신뢰할 수 있고요. 대안 검토 기록은 [`decisions-infra.md I-09`](../deploy/decisions-infra.md) 에 있어요.
 
@@ -377,6 +387,8 @@ Kamal 은 `docker login` 을 비대화형 SSH 로 Mac mini 에 호출해요. mac
 # Prefix: /opt/homebrew (Apple Silicon 기본)
 ```
 
+<a id="83-tailscale-설치--노드-등록"></a>
+
 ### 8.3 Tailscale 설치 + 노드 등록
 ```bash
 brew install --cask tailscale
@@ -410,6 +422,8 @@ brew install cloudflared
 
 ## 9. Shell 환경
 
+<a id="91-zprofile--login--interactive-shells"></a>
+
 ### 9.1 `~/.zprofile` — login / interactive shells
 Homebrew 설치 시 자동 추가되는 내용 + OrbStack 통합:
 ```zsh
@@ -418,6 +432,8 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # Added by OrbStack: command-line tools and integration
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 ```
+
+<a id="92-zshenv--비대화형-ssh-shell-kamal-이-필수로-의존"></a>
 
 ### 9.2 `~/.zshenv` — 비대화형 SSH shell, Kamal 이 필수로 의존
 
@@ -450,8 +466,10 @@ Error saving credentials: error storing credentials - err: exit status 1
 out: `User interaction is not allowed. (-25308)`
 ```
 
+<a id="102-해결--파일-기반-fake-helper"></a>
+
 ### 10.2 해결 — 파일 기반 fake helper
-`~/.docker/bin/docker-credential-filefake` 스크립트를 작성해요. macOS 에 기본 내장된 Python 3 가 필요해요.
+`~/.docker/bin/docker-credential-filefake` 스크립트를 작성해요. 이 예제는 Python 3를 사용하므로 먼저 `command -v python3`로 설치 여부를 확인해요. 운영에 적용하기 전에는 평문 자격증명 파일의 권한과 백업·회수 절차도 확인해요.
 ```sh
 #!/bin/sh
 STORE="$HOME/.docker/helper-creds.json"
@@ -492,25 +510,15 @@ json.dump(data, open(store, \"w\"), indent=2)
 esac
 ```
 
-실행 권한 + Docker 설정:
+실행 권한을 부여한 뒤 Docker 설정을 확인해요.
+
 ```bash
 chmod +x ~/.docker/bin/docker-credential-filefake
-
-# ~/.docker/config.json
-cat > ~/.docker/config.json <<EOF
-{
-  "auths": {},
-  "credsStore": "filefake",
-  "currentContext": "orbstack"
-}
-EOF
 ```
 
-검증은 비대화형 SSH 를 시뮬레이션해서 해요.
-```bash
-ssh <your-mac-user>@100.X.X.X 'docker login ghcr.io -u <user> -p <token> 2>&1 | tail -3'
-# 기대: "Login Succeeded"
-```
+기존 `~/.docker/config.json`을 백업하고 `credsStore`를 `filefake`로 설정해요. 기존 `auths`·`credHelpers`·context 설정은 필요한 값을 유지해요. 이 예시를 따라 파일 전체를 빈 설정으로 덮어쓰지 않아요.
+
+비대화형 SSH에서도 helper를 사용할 수 있는지 확인해요. 로그인 검증이 필요하면 토큰을 명령 인수에 넣는 `-p` 대신 `--password-stdin`을 사용하고, 토큰 값을 출력하거나 셸 기록에 직접 남기지 않아요.
 
 ### 10.3 보안 주의
 
@@ -533,6 +541,8 @@ cloudflared tunnel create <your-tunnel-name>
 ```
 
 현재 터널 UUID 는 `e1aae337-90b1-4661-a030-dfa498a91648` 이에요. 템플릿 관리자의 개인 UUID 라, 본인 환경에서는 새로 발급되는 UUID 로 바꿔야 해요.
+
+<a id="112-config-파일--cloudflaredyour-tunnel-nameyml"></a>
 
 ### 11.2 config 파일 — `~/.cloudflared/<your-tunnel-name>.yml`
 ```yaml
@@ -558,7 +568,7 @@ cloudflared tunnel route dns <your-tunnel-name> log.example.com
 
 ### 11.4 실행과 영속화
 
-터널을 띄우는 방법은 두 가지예요. 임시로 띄울 땐 nohup 을 쓰지만 세션이 끝나면 유지되지 않아요. 운영에서는 부팅 시 자동 기동하도록 launchd plist 로 등록하기를 권장해요.
+터널을 임시로 실행할 때는 `nohup`을 사용할 수 있어요. 터미널 종료 뒤에도 계속 실행될 수 있지만 재부팅이나 프로세스 실패 후 자동 복구를 보장하지는 않아요. 지속 운영에는 launchd를 사용해요. 아래 `~/Library/LaunchAgents` 예시는 사용자 로그인 세션에 등록하는 방식이므로, 로그인 전에도 필요하다면 시스템 서비스 등록 방식을 별도로 구성해요.
 
 ```bash
 # 방법 A — nohup (임시)
@@ -612,6 +622,8 @@ curl -sSfI https://server.example.com/actuator/health
 
 > 여기서 DNS 레코드 생성(§12.1)은 `prod init` 이 자동으로 처리해요. 반면 Access·WAF·Custom Rule(§12.2~§12.4)은 자동화돼 있지 않아서 Cloudflare 대시보드에서 손으로 한 번 설정해야 해요. 이 구분을 먼저 잡아 두세요.
 
+<a id="121-dns-records--zone-examplecom"></a>
+
 ### 12.1 DNS records — zone `example.com`
 
 Tunnel 경유 CNAME 두 개가 잡혀요. `cloudflared tunnel route dns`, 또는 `prod init` 의 자동 등록이 만들어요. TTL 은 처음엔 300 으로 두고 안정되면 3600 으로 올리기를 권장해요.
@@ -619,6 +631,8 @@ Tunnel 경유 CNAME 두 개가 잡혀요. `cloudflared tunnel route dns`, 또는
 server  CNAME  e1aae337-90b1-4661-a030-dfa498a91648.cfargotunnel.com  (proxied)
 log     CNAME  e1aae337-90b1-4661-a030-dfa498a91648.cfargotunnel.com  (proxied)
 ```
+
+<a id="122-cloudflare-access-zero-trust--손작업"></a>
 
 ### 12.2 Cloudflare Access (Zero Trust) — 손작업
 
@@ -635,6 +649,8 @@ Dashboard → Zero Trust → Access → Applications → Add application 에서 
 
 Free plan 은 50 users 까지 커버해요. 현재는 개인 이메일 1개만 등록돼 있어요.
 
+<a id="123-waf-rate-limiting--손작업"></a>
+
 ### 12.3 WAF Rate Limiting — 손작업
 
 Dashboard → Security → WAF → Rate limiting rules 에서 등록해요.
@@ -649,6 +665,8 @@ Dashboard → Security → WAF → Rate limiting rules 에서 등록해요.
 | Duration | 10초 (Free plan 최대값) |
 
 공격자 입장에서는 10초 차단이 풀리자마자 다시 임계치를 넘겨 재차단되므로, 실질적으로 연속 차단이 돼요. Free plan 의 rule 슬롯 1개를 소비해요.
+
+<a id="124-custom-rule--국가-차단-손작업"></a>
 
 ### 12.4 Custom Rule — 국가 차단 (손작업)
 
@@ -674,6 +692,8 @@ Free plan 의 5개 슬롯 중 1개를 소비해요.
 ```
 
 ---
+
+<a id="13-kamal--kamal-proxy--spring-컨테이너"></a>
 
 ## 13. Kamal + kamal-proxy + Spring 컨테이너
 
@@ -731,6 +751,8 @@ docker compose -f infra/docker-compose.observability.yml up -d
 
 Alertmanager 는 Compose `profiles: [alertmanager]` 로 묶여 있어요. `DISCORD_WEBHOOK_URL` 이 설정됐을 때만 옵트인으로 기동하므로, 미설정 환경에서는 아예 뜨지 않아요.
 
+<a id="144-prometheus-docker_sd-설정"></a>
+
 ### 14.4 Prometheus docker_sd 설정
 `infra/prometheus/prometheus.yml` 의 `docker_sd_configs` 가 `kamal` 네트워크 안에서 `role=web` 라벨이 붙은 컨테이너를 자동으로 발견해요. Spring 컨테이너 이름이 배포마다 바뀌어도 라벨 기반이라 안정적으로 잡혀요. scrape 대상 포트는 8080, 경로는 `/actuator/prometheus` 예요.
 
@@ -751,6 +773,8 @@ Prometheus 컨테이너는 `/var/run/docker.sock:ro` 로 호스트 소켓을 읽
 
 비밀번호는 가끔 rotate 하기를 권장해요. 현재 값은 본인이 관리해요.
 
+<a id="152-template-요구사항--provider-무관"></a>
+
 ### 15.2 Template 요구사항 — provider 무관
 
 코드가 표준 JDBC 만 쓰므로 어떤 Postgres 든 아래 값만 채우면 동작해요.
@@ -763,7 +787,7 @@ Prometheus 컨테이너는 `/var/run/docker.sock:ro` 로 호스트 소켓을 읽
 
 > ⚠️ 정정 — 이전 판의 "Flyway 가 V001~V008 로 core schema 재생성" 설명은 더 이상 맞지 않아요. `core` schema 개념 자체가 [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md) 으로 폐기됐어요.
 
-[ADR-037](../../philosophy/adr-037-core-schema-deprecation.md) 이후 별도의 `core` schema 는 존재하지 않아요. 각 앱의 `users`·`auth`·`device` 테이블은 그 앱의 schema 안에 V001~V006 으로 생성돼요. `core/core-*-impl` 의 Java 코드는 라이브러리 역할로 남아서, 각 앱 DataSource 의 `entityPackagesToScan()` 에 포함돼 앱 schema 의 같은 테이블 위에서 동작해요.
+[ADR-037](../../philosophy/adr-037-core-schema-deprecation.md) 이후 별도의 공용 core schema는 사용하지 않아요. 인증·유저·디바이스 테이블은 각 앱의 마이그레이션으로 그 앱 schema 안에 만들어요. `core/core-*-impl` 코드는 공용 라이브러리로 재사용하고, 라우팅된 앱 DataSource의 테이블을 읽고 써요.
 
 그래서 파생 레포에 새 앱을 추가하면, 그 앱 schema 가 기본 26개 마이그레이션 (V001~V027, V007 제외) 을 받아요. 구성은 [onboarding 의 마이그레이션 표](../../start/onboarding.md#3-첫-앱-모듈-추가) 와 같아요. 인증 기반이 V001~V006, admin 시드가 V007 (`--seed-admin` opt-in — 기본 미생성), 결제·구독·감사가 V008~V012, 2FA 와 알림이 V013~V014, 휴대폰 점유인증이 V015, 이메일 소유확인 코드·활동 추적이 V016~V017, 운영·콘솔이 V018~V021, 환불·콘텐츠·분석이 V022~V025 예요. 도메인 테이블은 V028 부터 작성해요.
 
@@ -791,6 +815,8 @@ APP_STORAGE_MINIO_SECRET_KEY=<secret>
 
 > 무엇이 자동인지 먼저 — Secrets·Variables 등록은 두 명령이 나눠 처리해요. 접미사 없는 공유 자격(`SSH_PRIVATE_KEY`·`GHCR_TOKEN`·`TS_OAUTH_*`·`DEPLOY_HOST`·`DEPLOY_SSH_USER`)은 `infra init` 이 `.env.infra` 에서, 환경별 값은 `prod init` 이 `.env.prod` 에서 읽어 `gh` 로 push 해요. 아래 §17.1 의 SSH 키 생성과 §17.3 의 OAuth client 발급만 호스트와 Tailscale 콘솔에서 손으로 한 번 해 두면 돼요. 목록은 자동 push 가 무엇을 올리는지 보여주는 참고예요.
 
+<a id="171-mac-mini-쪽-준비--gha-전용-ssh-키"></a>
+
 ### 17.1 Mac mini 쪽 준비 — GHA 전용 SSH 키
 
 GHA runner 가 Mac mini 에 SSH 로 붙을 수 있도록 전용 deploy 키 쌍을 만들어요.
@@ -815,7 +841,7 @@ private key 인 `~/.ssh/gha_deploy` 를 `.env.infra` 의 `SSH_PRIVATE_KEY` 에 �
 | `DEPLOY_SSH_USER` | Mac mini 의 운영 계정 (보통 root 가 아닌 개인 계정) |
 | `PUBLIC_HOSTNAME` | `server.example.com` |
 
-`KAMAL_IMAGE` 와 `GHCR_USERNAME` 은 등록할 필요가 없어요 — `deploy.yml` 이 `github.repository` / `github.actor` 컨텍스트에서 자동 계산합니다 (로컬 수동 배포용 `.env.prod` 값은 `init-prod.sh` 가 git remote 에서 자동 도출). 레포마다 달라지는 값이라 `.env.infra` 가 아니라 환경 파일에 남아요.
+`KAMAL_IMAGE`와 `GHCR_USERNAME`은 GitHub에 별도로 등록하지 않아도 돼요. `deploy.yml`이 `github.repository`와 `github.actor`에서 계산해요. 로컬 수동 배포에 쓰는 값은 `init-prod.sh`가 git remote에서 구해 `.env.prod`에 넣어요. 레포마다 달라지는 값이므로 공용 `.env.infra`에는 두지 않아요.
 
 **Repository Secrets**:
 
@@ -835,6 +861,8 @@ Tailscale admin console → Settings → OAuth clients → Generate 에서 CI �
 
 ---
 
+<a id="18-주기적-작업--cron"></a>
+
 ## 18. 주기적 작업 / cron
 
 ### 18.1 현재
@@ -845,9 +873,9 @@ Tailscale admin console → Settings → OAuth clients → Generate 에서 CI �
 
 두 가지를 미뤄 뒀어요.
 
-- **Supabase keep-alive** — Free tier 는 7일 비활성 시 프로젝트가 자동 pause 돼요. 트래픽이 일정하게 있으면 필요 없지만, 조용한 프로젝트라면 `infra/scripts/keep-alive.sh` 를 cron 으로 등록해요.
+- **Supabase keep-alive 검토** — 당시에는 비활성 방지 작업을 미뤄 뒀어요. 현재 `keep-alive.sh`는 기본적으로 `/actuator/health`를 반복 호출해요. DB 활동이나 공급자의 중지 방지 효과는 별도로 확인해야 해요. cron에 넣을 때는 무한 반복 프로세스가 쌓이지 않도록 `ONCE=1`을 지정해요.
   ```cron
-  */14 * * * * /Users/<your-mac-user>/workspace/<파생레포>/infra/scripts/keep-alive.sh >> /tmp/keep-alive.log 2>&1
+  */14 * * * * ONCE=1 /Users/<your-mac-user>/workspace/<파생레포>/infra/scripts/keep-alive.sh >> /tmp/keep-alive.log 2>&1
   ```
 - **NAS 백업** — `pg_dump` 와 MinIO snapshot 을 시놀로지 RAID 로 보내는 작업이에요. 스크립트 원형은 `infra/scripts/backup-to-nas.sh.example` 에 있고, 등록 시점은 Phase 2 에 결정해요.
 
@@ -883,6 +911,8 @@ ssh <your-mac-user>@100.X.X.X 'vm_stat; top -l 1 -n 20 -o mem | head -30'
 
 ---
 
+<a id="20-재해-복구--백업해야-할-대상"></a>
+
 ## 20. 재해 복구 — 백업해야 할 대상
 
 Mac mini 가 고장나서 새 기기로 교체할 때 복원해야 할 핵심 자산을 세 묶음으로 정리해요.
@@ -911,6 +941,8 @@ Mac mini 가 고장나서 새 기기로 교체할 때 복원해야 할 핵심 �
 - Custom rule 국가 차단
 - Tailscale OAuth clients — 새로 발급
 
+<a id="203-재현-가능한-것--백업-불필요"></a>
+
 ### 20.3 재현 가능한 것 — 백업 불필요
 
 - OrbStack·Homebrew·Tailscale 설치는 재설치하면 끝
@@ -936,6 +968,8 @@ MinIO NAS 와 Cloudflare 클라우드 자산이 남아 있다는 전제에서, �
 
 ## 21. 현재 상태 스냅샷 (2026-04-20)
 
+<a id="211-설치됨--활성"></a>
+
 ### 21.1 설치됨 / 활성
 - ✅ macOS 15.3, Apple M2, 8GB
 - ✅ Tailscale (IP 100.X.X.X)
@@ -950,6 +984,8 @@ MinIO NAS 와 Cloudflare 클라우드 자산이 남아 있다는 전제에서, �
 - ✅ Cloudflare Access (`log.*` 이메일 OTP)
 - ✅ WAF rate limit + country block 규칙
 
+<a id="212-제거됨--도그푸딩-cleanup-2026-04-19"></a>
+
 ### 21.2 제거됨 — 도그푸딩 cleanup 2026-04-19
 - Spring 컨테이너와 kamal-proxy 컨테이너
 - 관측성 4개 컨테이너 (compose down — 이미지와 data volume 은 디스크에 존재)
@@ -961,6 +997,8 @@ MinIO NAS 와 Cloudflare 클라우드 자산이 남아 있다는 전제에서, �
 
 > 참고 — 이 cleanup 이후 [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md) 로 `core` schema 개념 자체가 폐기됐어요. 그래서 이제는 cleanup 으로 비우는 게 아니라, 처음부터 각 앱 schema 에 기본 26개 마이그레이션 (V001~V027, V007 opt-in) 이 생성돼요 ([§15.3](#153-현재-schema-상태) 참고).
 
+<a id="213-아직-안-된-것--파생-레포-첫-배포-전까지"></a>
+
 ### 21.3 아직 안 된 것 — 파생 레포 첫 배포 전까지
 - cloudflared 프로세스 재기동 (nohup 또는 launchd plist 등록)
 - kamal-proxy 와 Spring 컨테이너 (파생 레포 `kamal setup` 과 `kamal deploy` 로 생성 예정)
@@ -969,6 +1007,8 @@ MinIO NAS 와 Cloudflare 클라우드 자산이 남아 있다는 전제에서, �
 - 파생 레포 GitHub Secrets 와 Variables 등록
 
 ---
+
+<a id="22-체크리스트--파생-레포-첫-배포-전-할-것"></a>
 
 ## 22. 체크리스트 — 파생 레포 첫 배포 전 할 것
 

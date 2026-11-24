@@ -34,6 +34,8 @@
 
 ---
 
+<a id="layer-1--unit-test"></a>
+
 ## Layer 1 — Unit Test
 
 ### 목적
@@ -82,6 +84,8 @@ class JwtServiceTest {
 }
 ```
 
+<a id="mock-전략--언제-mock-을-쓰나"></a>
+
 ### Mock 전략 — 언제 Mock 을 쓰나
 
 Mockito `@Mock`, `BDDMockito.given(...)` 은 이 층에서만 적극적으로 씁니다. 그 외 층에서는 가능한 한 실제 구현(Testcontainers Postgres, InMemory fake adapter)을 쓰는 편이에요.
@@ -100,6 +104,8 @@ Mock 이 어울리는 자리는 이래요.
 
 ---
 
+<a id="layer-2--contract-test-json"></a>
+
 ## Layer 2 — Contract Test (JSON)
 
 DTO 의 JSON 직렬화·역직렬화 계약을 검증합니다. 클라이언트(Flutter 앱)와의 wire protocol 이 조용히 깨지는 것을 막는 테스트예요.
@@ -111,6 +117,8 @@ DTO 의 JSON 직렬화·역직렬화 계약을 검증합니다. 클라이언트(
 `AbstractJsonContractTest` 는 서브클래스마다 자동으로 3개의 테스트를 돌려요. round-trip(`serialize_roundTripsToSample` — DTO → JSON → DTO 왕복), canonical JSON 파싱(`deserialize_parsesCanonicalJson`), unknown field 무시(`deserialize_ignoresUnknownField`) 세 가지입니다. 사용하는 ObjectMapper 는 전역 Jackson 정책과 같게 설정돼 있어서(`NON_NULL`, `FAIL_ON_UNKNOWN_PROPERTIES=false`, `DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS=false` — Jackson 3 는 java.time 이 코어 내장이라 datatype 모듈 등록이 없어요), 실제 응답과 동일한 직렬화 규칙으로 검증돼요. 민감 필드 처리 규칙까지 포함한 상세는 [`계약 테스트 (Contract Testing)`](./contract-testing.md) 에서 다루고, 여기서는 존재한다는 사실만 기억하면 됩니다.
 
 ---
+
+<a id="layer-3--contract-test-port"></a>
 
 ## Layer 3 — Contract Test (Port)
 
@@ -204,6 +212,8 @@ public interface AuthFixtures {
 
 ---
 
+<a id="layer-4--integration-test"></a>
+
 ## Layer 4 — Integration Test
 
 전체 Spring 컨텍스트를 띄우고 실제 DB(Testcontainers)에 연결해 여러 레이어의 조립이 정상 동작하는지 확인합니다.
@@ -270,7 +280,9 @@ public final class PostgresTestContainer {
 
 `.class` 참조만으로는 컨테이너가 시작되지 않고, accessor 호출 시점(예: `getJdbcUrl()`)에 처음 기동돼요. `@DynamicPropertySource` 에 method reference 로 넘길 때 자연스럽게 연결됩니다.
 
-DB 이름·계정이 모두 `test` 이고 `.withReuse(true)` 라, 같은 JVM 안에서는 물론 테스트 실행 사이에도 컨테이너가 재사용됩니다. **로컬 실행 요구사항은 Docker 가 실행 중이어야 한다는 것** 하나예요. CI(`ubuntu-latest`)에는 기본 설치돼 있어요.
+DB 이름과 계정은 `test`이며 Holder가 같은 JVM 안에서 컨테이너를 공유해요. `.withReuse(true)`가 있어도 실행 사이 재사용은 Testcontainers의 재사용 기능을 별도로 활성화한 환경에서만 적용돼요. 로컬에서는 Docker 실행과 최초 이미지 확보가 필요해요. CI 실행 환경의 컨테이너 지원도 확인해요.
+
+<a id="통합-테스트-예시--보안-체인-검증"></a>
 
 ### 통합 테스트 예시 — 보안 체인 검증
 
@@ -302,6 +314,8 @@ class SecurityIntegrationTest {
 
 토큰 없음은 `CMN_004`, 만료 토큰은 `CMN_007`, 변조 토큰은 별도 코드로 갈라지고, 유효 토큰은 200 으로 통과합니다. ApiError envelope 의 `error.code` 까지 검증하므로 필터 체인이 코드 레벨로 고정돼요.
 
+<a id="외부-http-라이프사이클--wiremock-it"></a>
+
 ### 외부 HTTP 라이프사이클 — WireMock IT
 
 OAuth provider(Google·Kakao·Naver·Apple)는 실제 HTTP 호출 라이프사이클까지 검증해야 의미가 있어요. 그래서 `core-auth-impl` 의 `*WireMockIT` 들은 `@RegisterExtension` 으로 WireMock 서버를 띄우고, 그 base URL 을 SignInService 에 주입해 `HttpClient → WireMock` 왕복을 그대로 태웁니다. 같은 도메인의 순수 단위 테스트(`GoogleSignInServiceTest`)가 `fetchTokenInfo` 를 spy 로 가로채는 것과 달리, IT 는 그 메서드까지 실제로 실행돼요.
@@ -309,6 +323,8 @@ OAuth provider(Google·Kakao·Naver·Apple)는 실제 HTTP 호출 라이프사�
 파일 이름의 `IT` 접미사는 이렇게 "실제 외부 연결·전체 조립을 태우는 통합 테스트" 를 뜻하고, `Test` 접미사는 단위·계약 테스트를 가리킵니다. PortOne(PG)은 코드 IT 대신 dev 환경에서 WireMock 컨테이너(`infra/wiremock/mappings/`)로 스텁해요. 이 책임 분리는 아래 "외부 결제(PG)" 절에서 자세히 다룹니다.
 
 ---
+
+<a id="archunit--실행-가능한-아키텍처-명세"></a>
 
 ## ArchUnit — 실행 가능한 아키텍처 명세
 
@@ -327,6 +343,8 @@ ArchUnit 은 4층과 별개로 동작하는 구조 강제 장치예요. 모듈 �
 규칙을 추가하거나 수정하면 `ArchitectureRules` 에 상수를 추가하고 `BootstrapArchitectureTest` 에 `@ArchTest` 참조를 추가합니다. 규칙 전체 목록은 [`모듈 의존 규칙 (Module Dependencies)`](../../structure/module-dependencies.md) 와 [`Architecture Rules (ArchUnit)`](../../structure/architecture-rules.md) 에서 관리해요.
 
 ---
+
+<a id="contract-cleanup--4중-db-안전장치"></a>
 
 ## Contract cleanup — 4중 DB 안전장치
 
@@ -394,6 +412,8 @@ candidates 배열은 billing 테이블(`subscription_renewals` · `payment_webho
 
 ---
 
+<a id="새-port--새-dto--새-엔드포인트-추가-시-체크리스트"></a>
+
 ## 새 Port / 새 DTO / 새 엔드포인트 추가 시 체크리스트
 
 ### 새 DTO 추가
@@ -415,6 +435,8 @@ candidates 배열은 billing 테이블(`subscription_renewals` · `payment_webho
 
 ---
 
+<a id="외부-결제pg--백엔드프론트-테스트-책임-분리"></a>
+
 ## 외부 결제(PG) — 백엔드·프론트 테스트 책임 분리
 
 PG 결제(PortOne)는 풀 e2e 를 하나의 테스트로 강제하면 안 돼요. 결제 행위의 책임이 프론트와 백엔드로 갈리기 때문입니다.
@@ -433,7 +455,9 @@ PG 결제(PortOne)는 풀 e2e 를 하나의 테스트로 강제하면 안 돼요
   - `422 PAY_009`(`PORTONE_BUSINESS_ERROR`) = PortOne 도달·인증·왕복은 성공했고 가짜 `impUid` 만 거부된 경우입니다. 백엔드 연결·인증 책임은 PASS 예요(실 결제 e2e 는 앱 영역).
   - `502 PAY_005`(`PORTONE_API_ERROR`) 또는 `502 PAY_006`(`PORTONE_AUTH_FAILED`) = PortOne 연결·인증 실패라 진짜 FAIL 입니다.
 
-이 구분을 위해 `PortOneApiClient` 는 네트워크 실패(`IOException` → `PORTONE_API_ERROR`, 502)와 PortOne 응답 거부(`code != 0` → `PORTONE_BUSINESS_ERROR`, 422)를 다른 예외로 던져요. 즉 `tools/verify/api-smoke-test.sh` 의 `[7] PG 결제` 단계는 dev 에서 "풀 결제" 가 아니라 "백엔드가 책임진 만큼" 을 검증합니다. prod 에서는 이 단계가 돌지 않아요 — 회원가입·결제 등 운영 데이터를 만드는 단계(1~7·9)는 전부 SKIP 되고, 서명 거부(8·10)와 비파괴 단계(12~16)만 돌아 배포가 살아있는지 확인합니다.
+`PortOneApiClient`는 네트워크 실패를 `PORTONE_API_ERROR`(502), PortOne의 요청 거부를 `PORTONE_BUSINESS_ERROR`(422)로 구분해요. smoke-test의 7번 PG 단계는 dev에서 백엔드의 요청·오류 처리 경로를 확인하지만 전체 결제 완료를 검증하지는 않아요.
+
+prod에서는 1~7·9번을 건너뛰어요. 남은 단계도 모두 읽기 전용은 아니에요. 서명 거부 경로와 서비스 상태를 확인하고, 선택 메일 단계는 `SMOKE_EMAIL_TO`가 설정되면 실제 메일을 보내요. 운영 검증 전에는 실행 단계와 외부 효과를 확인해요.
 
 이 스크립트는 16단계 e2e smoke(회원가입 → 인증 → 결제 → 환불 → audit)로, `[7] PG 결제` 외에도 webhook·IAP·audit 까지 한 흐름으로 태워요. `--target=local|dev|prod` 로 환경을 골라 같은 흐름을 환경별 책임 범위에 맞게 검증합니다.
 

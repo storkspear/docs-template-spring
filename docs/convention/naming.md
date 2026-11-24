@@ -8,7 +8,7 @@
 
 ## 원칙
 
-이름은 의도를 드러내야 합니다. 구현 세부사항이 아니라 "무엇을 하는가" 를 표현해요.
+이름을 읽고 값의 의미와 동작의 결과를 알 수 있게 써요. `get`·`find`·`require`처럼 실패 시 동작이 다른 이름은 실제 계약에 맞춰 구분하고, 구현을 바꿔도 역할이 같은 이름은 유지해요.
 
 약어는 최소화합니다. `usr` 대신 `user`, `svc` 대신 `service` 를 써요. 다만 널리 알려진 약어인 JWT, JPA, DTO, API 는 그대로 사용합니다.
 
@@ -366,6 +366,8 @@ apps/app-sumtally/src/main/resources/db/migration/sumtally/
 각 앱 schema 는 자기 디렉토리에서 공통 테이블(V001~V027)과 도메인 테이블(V028~)을 함께 관리합니다. Flyway 는 각 디렉토리를 자기 schema 에 대해 독립적으로 적용해요. 공통 마이그레이션 개수는 템플릿이 진화하면서 늘어나니, 도메인 시작 번호는 항상 생성된 디렉토리의 마지막 V 번호 다음을 쓰세요.
 
 ---
+
+<a id="request--response-dto-규칙"></a>
 
 ## Request / Response DTO 규칙
 

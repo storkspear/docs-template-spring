@@ -4,7 +4,7 @@
 
 ## 개요
 
-이 문서는 `template-spring` 의 모듈 간 의존 허용 매트릭스와, 그 규칙을 어떻게 기계적으로 강제하는지를 정리해요. 새 모듈의 `build.gradle` 을 쓰거나 의존 위반 에러를 만났을 때 찾아보는 참조 문서입니다.
+새 모듈의 의존성을 추가하거나 빌드의 의존 위반을 해결할 때 참고하는 문서예요. 아래 매트릭스에서 허용 방향을 확인하고, Gradle의 프로젝트 의존 검사와 ArchUnit의 코드 의존 검사를 구분해요.
 
 전체 의존 방향은 한 줄로 요약돼요. 아래쪽 레이어가 위쪽을 모르고, 위쪽만 아래쪽을 압니다.
 
@@ -57,6 +57,8 @@ common  →  core  →  apps  →  bootstrap
 
 ---
 
+<a id="core-모듈-16도메인--31모듈"></a>
+
 ## core 모듈 16도메인 · 31모듈
 
 `core/` 에는 16개 도메인, 총 31개 모듈이 들어 있어요. 15개 도메인은 각각 `-api` / `-impl` 한 쌍이고, `admin` 만 `-impl` 단독입니다 (콘솔 컨트롤러가 다른 도메인의 Port 를 소비할 뿐 자기 Port 를 노출하지 않아서예요). api 는 [Port](../reference/glossary.md#아키텍처-용어) 인터페이스와 DTO 만 담고, impl 이 그 구현과 [JPA](../reference/glossary.md#데이터베이스) 엔티티를 담습니다. 분리 근거는 [ADR-003](../philosophy/adr-003-api-impl-split.md) 에 있어요.
@@ -67,9 +69,13 @@ common  →  core  →  apps  →  bootstrap
 
 ---
 
+<a id="강제-메커니즘--2중-방어"></a>
+
 ## 강제 메커니즘 — 2중 방어
 
 같은 규칙을 두 단계에서 검사합니다. 먼저 Gradle 이 빌드 구성 시점에 막고, 그래도 새어 나가면 ArchUnit 이 CI 테스트 단계에서 잡아요.
+
+<a id="1차--gradle-convention-plugin"></a>
 
 ### 1차 — Gradle Convention Plugin
 
@@ -86,6 +92,8 @@ common  →  core  →  apps  →  bootstrap
 검증은 Gradle configuration 단계(`afterEvaluate`)에서 돕니다. 위반하면 `GradleException` 을 던져서 컴파일조차 시작하지 않아요. 검사 대상은 main 구성(`api`·`implementation`·`compileOnly`·`runtimeOnly`)이고, `test`·`testFixtures` 구성은 제외됩니다.
 
 검증 로직 자체는 `DependencyRules.groovy` 에 한 군데로 모여 있어요. plugin 마다 허용·금지 패턴만 넘기는 구조라, 규칙을 바꾸려면 이 파일을 고칩니다.
+
+<a id="2차--archunit"></a>
 
 ### 2차 — ArchUnit
 

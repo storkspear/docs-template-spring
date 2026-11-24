@@ -1,3 +1,5 @@
+<a id="adr-037--core-schema--coredatasource-bean-폐기"></a>
+
 # ADR-037 · core schema + coreDataSource Bean 폐기
 
 **Status**: Accepted. `bootstrap/RoutingDataSourceConfig.java` (신규) + `common-persistence/SchemaRoutingDataSource.fail-secure` 로 구현. 런타임 Bean(`coreDataSource`·`coreFlyway`·core EMF fallback)은 폐기 완료. 물리 `core` schema 잔재도 제거 완료(2026-07-01) — `infra/postgres/init.sql` 의 `CREATE SCHEMA core` + `infra/scripts/init-core-schema.sql` 폐기, 더는 어떤 경로로도 `core` schema 를 생성하지 않습니다.
@@ -8,13 +10,13 @@
 
 ## 결론부터
 
-`core` schema 와 `coreDataSource` Bean 을 폐기합니다. 각 app 의 users·auth·device table 은 app schema 안에 V001~V0xx 로 생성하며 V007 에 admin 시드가 포함됩니다. `core/core-*-impl` 의 Java 코드(entity·repository·service·controller)는 library 역할로 유지합니다 — 각 app DataSource 의 `entityPackagesToScan()` 에 포함되어 app schema 의 동일 table 에서 동작합니다.
+공유 `core` 스키마와 기본 연결을 제거하고, 공통 도메인의 테이블을 각 앱 스키마에 두었어요. 공통 Java 구현은 유지하면서 요청의 슬러그로 데이터 접근 대상을 선택해요. 슬러그가 없으면 기본 스키마로 넘어가지 않고 실패해요. `V007` 시드는 `--seed-admin`을 선택했을 때만 생성되며, 운영 콘솔의 고정 `admin` 스키마는 별도로 유지해요.
 
-`SchemaRoutingDataSource.determineCurrentLookupKey()` 는 slug 가 null 이면 fail-secure 로 `IllegalStateException` 을 던집니다. 비인증 endpoint(actuator·health)는 DB 접근이 없으니 무관하고, 인증 endpoint 는 AppSlugMdcFilter 가 JWT 의 appSlug 또는 path 에서 slug 를 추출해 routing 이 정상 동작합니다.
+`SchemaRoutingDataSource.determineCurrentLookupKey()`는 슬러그가 없으면 예외를 던져요. 로그인·가입·refresh·웹훅처럼 인증이 필요 없는 요청도 앱 데이터에 접근하므로 URL 경로에서 슬러그를 정해요. DB 헬스 검사는 라우팅 DataSource를 거치지 않고 실제 DataSource를 직접 검사해요.
 
 ## 왜 이런 고민이 시작됐나?
 
-ADR-005(schema-isolation)와 ADR-012(per-app user model) 시점에 core schema 가 cross-app 공통 데이터 보관소로 설계됐어요. 그런데 ADR-012 의 per-app 격리 결정 후 core schema 의 V001~V008(users·auth·device 등)이 각 app schema 에도 중복 생성됐어요 — `core.users` 와 `apple.users` 가 둘 다 존재. 런타임 traffic 의 99%+ 는 AppSlugMdcFilter 가 JWT 의 appSlug 를 추출하고 SchemaRoutingDataSource 가 app DataSource 로 routing 하므로, core 는 거의 idle 했어요.
+ADR-005와 ADR-012를 거치며 공통 테이블도 각 앱 스키마에 저장하게 됐지만 `core` 스키마와 연결 풀이 남아 있었어요. 같은 종류의 테이블이 두 위치에 있어 데이터 저장 위치가 불명확했고, 사용하지 않는 풀도 연결 예산을 차지했어요. 이를 없애 앱 스키마와 라우팅을 기준으로 정리한 결정이에요.
 
 dogfooding cycle 에서 server-backend(apps/ 하위 watermelon 1개) 부팅 시 Hikari pool 이 core 10 + watermelon 10 = 20 connection 을 잡았어요. Supabase NANO compute 의 session pooler 한도(max_connections=60)에 도달해 `dev test` step 2 의 DB ping 이 `EMAXCONNSESSION` 으로 fail 했어요.
 
@@ -31,6 +33,8 @@ PostgreSQL 에서 `core` schema 가 생성되지 않게 합니다.
 - `core/core-*-impl/src/main/resources/db/migration/core/V*.sql` 의 production migration 7개 삭제 (`core-user-impl` V001~V003, `core-auth-impl` V005~V007, `core-device-impl` V008)
 - `CoreDataSourceConfig.java` 완전 삭제 — `coreDataSource` Bean 과 `coreFlyway` Bean 이 사라짐
 - `application-*.yml`·`.env.*.example`·`infra/docker-spring-local-entrypoint.sh` 에서 `currentSchema=core` 제거
+
+<a id="2-routing--jpa-통합-layer-분리-routingdatasourceconfig-신규"></a>
 
 ### 2. routing + JPA 통합 layer 분리 (`RoutingDataSourceConfig` 신규)
 
@@ -95,6 +99,8 @@ public void onApplicationReady() {
     Thread.startVirtualThread(this::provision);
 }
 ```
+
+<a id="7-hikari-default_pool_size--10--5"></a>
 
 ### 7. Hikari `DEFAULT_POOL_SIZE = 10 → 5`
 

@@ -1,3 +1,5 @@
+<a id="phone-auth-점유인증--sms"></a>
+
 # Phone Auth (점유인증) & SMS
 
 > **유형**: Explanation · **독자**: Level 2 · **읽는 시간**: ~12분
@@ -60,6 +62,8 @@ SMS 발송과 점유인증 책임은 의도적으로 분리되어 있습니다. 
 
 ---
 
+<a id="sms-발송--smsport"></a>
+
 ## SMS 발송 — SmsPort
 
 `SmsPort` 는 메서드 하나의 최소 인터페이스입니다.
@@ -77,6 +81,8 @@ public interface SmsPort {
 ```
 
 `isDevCapture()` 는 `core-email` 의 `EmailPort.isDevCapture()` 와 동일한 역할입니다. `LoggingSmsAdapter` 가 활성일 때만 `true` 를 반환하고, 그때만 호출자가 raw OTP 코드를 dev 응답으로 노출합니다 (운영 어댑터는 항상 `false`).
+
+<a id="coolsmsadapter--solapi-실발송"></a>
 
 ### CoolSmsAdapter — SOLAPI 실발송
 
@@ -99,6 +105,8 @@ SOLAPI 는 국내형 번호(`01012345678`) 를 요구하므로, E.164(`+8210…`
 
 `apiUrl()` / `doPost()` 는 protected seam 으로 노출되어 테스트에서 spy 로 stub 할 수 있습니다. `apiUrl` 미설정 시 운영 SOLAPI 엔드포인트(`https://api.solapi.com/messages/v4/send`) 로 기본값 보정되며, dev/local 도그푸딩은 `COOLSMS_API_URL` 을 WireMock 으로 지정해 **실 발송/과금 없이** HMAC/HTTP 경로를 검증합니다 (`core-payment` 의 `PortOneProperties` 와 동일).
 
+<a id="loggingsmsadapter--dev-캡처"></a>
+
 ### LoggingSmsAdapter — dev 캡처
 
 발신사 키가 없는 비-운영 환경의 fallback 입니다. 실제 문자를 보내지 않고 수신 번호/본문을 `WARN` 로그로 출력합니다 — 점유인증 OTP 를 개발자가 콘솔에서 바로 확인할 수 있습니다.
@@ -110,6 +118,8 @@ SOLAPI 는 국내형 번호(`01012345678`) 를 요구하므로, E.164(`+8210…`
 ```
 
 > `LoggingEmailAdapter` 가 `local` 전용인 것과 달리, SMS fallback 은 `dev` 프로필에서도 활성화됩니다. 실 발신사 발급 전 dev 서버 도그푸딩을 위해서이며, dev 서버는 Cloudflare Access 로 게이팅되어 OTP 콘솔 노출이 안전합니다. **운영(prod) 에는 등록되지 않습니다** (`@Profile("!prod")`).
+
+<a id="자동-구성-graceful--운영-안전망"></a>
 
 ### 자동 구성 (graceful + 운영 안전망)
 
@@ -145,6 +155,8 @@ public LoggingSmsAdapter loggingSmsAdapter() { ... }
 
 ---
 
+<a id="점유인증--phoneauthport"></a>
+
 ## 점유인증 — PhoneAuthPort
 
 `PhoneAuthPort` 는 발송과 검증 두 메서드를 제공합니다.
@@ -177,7 +189,9 @@ public AuthResponse verify(String phoneE164, String code, String appSlug) {
 
 ## 앱에서 사용하는 방법
 
-`core-auth`·`core-payment`·`core-iap` 와 동일하게 (ADR-013 방향 B), 점유인증 컨트롤러도 **core 가 공유 런타임 빈으로 등록**합니다 — 앱이 별도로 추가할 게 없어요. `core-phone-auth-impl` 의 `PhoneAuthController` 한 개가 `{appSlug}` path 로 모든 앱을 처리하고, `PhoneAuthAutoConfiguration` 이 `@Bean` 으로 올립니다. 클래스 레벨 `@ConditionalOnProperty(app.features.phone-auth, matchIfMissing=true)` (default ON) 가 토글이라, `=false` 면 Port·컨트롤러가 함께 사라집니다. 경로는 `ApiEndpoints.Auth.PHONE_REQUEST`(`/phone/request`) / `PHONE_VERIFY`(`/phone/verify`), 둘 다 로그인 전이라 `PUBLIC_PATTERNS` 의 `/phone/**` 가 커버합니다.
+휴대폰 점유인증도 [ADR-013](../../philosophy/adr-013-per-app-auth-endpoints.md)의 공유 컨트롤러 방식을 따라요. `PhoneAuthAutoConfiguration`이 `PhoneAuthController` 한 개를 등록하고, 컨트롤러는 `{appSlug}`로 앱을 구분해요. 앱마다 복제본을 추가하지 않아요.
+
+`app.features.phone-auth`는 기본 활성이고, false이면 Port와 컨트롤러를 함께 등록하지 않아요. 요청·검증 경로는 `ApiEndpoints.Auth.PHONE_REQUEST`와 `PHONE_VERIFY`에 있어요. 로그인 전 단계이므로 `PUBLIC_PATTERNS`의 `/phone/**`에 포함돼요.
 
 ```java
 // core/core-phone-auth-impl/.../controller/PhoneAuthController.java  (공유 — 앱 추가 불필요)
@@ -209,9 +223,11 @@ public class PhoneAuthController {
 - **appSlug** — path variable 에서 직접 받아 `verify` 시 `AuthPort.issueForVerifiedPhone(phoneE164, appSlug)` 으로 전달, JWT claim 슬러그가 됩니다.
 - **앱이 흐름을 바꾸려면** — 자체 `PhoneAuthController` 빈을 정의하면 `@ConditionalOnMissingBean` 으로 공유 빈이 비활성화돼 override 됩니다 (탈출구).
 
+<a id="authportissueforverifiedphone--검증된-번호--토큰"></a>
+
 ### AuthPort.issueForVerifiedPhone — 검증된 번호 → 토큰
 
-`core-auth-api.AuthPort` 에 추가된 메서드입니다. "이 번호의 점유가 검증됐다" 는 신뢰를 전제로, 소셜 로그인과 **동일한 경로**(`auth_social_identities` provider=`phone`, providerId=E.164 번호) 로 유저를 find-or-create 하고 토큰을 발급합니다 — 별도 식별 테이블 없이 기존 소셜 매핑을 재사용합니다.
+`AuthPort`의 이 메서드는 휴대폰 점유 검증이 끝났다는 전제로 호출해요. `auth_social_identities`에서 provider는 `phone`, providerId는 E.164 번호를 사용해 기존 사용자를 찾거나 새 사용자를 만들고 토큰을 발급해요. 별도의 전화번호 식별 테이블을 추가하지 않고 기존 소셜 매핑 구조를 재사용해요.
 
 ```java
 // core/core-auth-api/src/main/java/com/factory/core/auth/api/AuthPort.java
@@ -222,6 +238,8 @@ AuthResponse issueForVerifiedPhone(String phoneE164, String appSlug);
 최초 가입 시 합성 email(점유번호 기반 `.invalid` 도메인) 로 User 가 생성됩니다 — 이 email 은 발송에 쓰이지 않고 실제 email 과 충돌하지 않습니다. 재설치/기기변경 시 같은 번호로 재인증하면 동일 User 로 복구되어 기존 데이터가 유지됩니다.
 
 ---
+
+<a id="otp-수명-관리--otpservice"></a>
 
 ## OTP 수명 관리 — OtpService
 
@@ -252,7 +270,7 @@ public Optional<String> requestOtp(String phoneE164, String brandName) {
 }
 ```
 
-핵심 보안 규칙은 **raw 6자리 코드는 문자에만 들어가고, DB 에는 SHA-256 해시만 저장**한다는 것입니다 — `EmailVerificationService` 와 동일한 규칙입니다. DB 가 유출되어도 해시에서 raw 코드를 역산할 수 없습니다.
+DB에는 raw OTP 대신 SHA-256 해시를 저장해요. 다만 6자리는 후보가 100만 개라 해시 유출 시 오프라인 대입이 가능해요. 평문 저장을 피하는 것만으로 역추적을 막는다고 보장하지 않아요. TTL과 발송·검증 제한은 온라인 요청 경로를 보호해요.
 
 ### 검증 흐름 (brute-force 가드)
 
@@ -276,6 +294,8 @@ public void verify(String phoneE164, String code) {
 
 > `@Transactional(noRollbackFor = PhoneAuthException.class)` — 코드 불일치 시 시도 횟수를 `incrementAttemptsIfBelow` 의 **원자적 UPDATE**(`attempts < MAX` 조건부 +1)로 증가시킨 뒤 예외를 던지는데, 기본 동작(RuntimeException → 롤백) 은 이 증가를 사라지게 해 brute-force 가드를 무력화합니다. `noRollbackFor` 로 증가분을 커밋시킵니다. 원자적 UPDATE 는 read-modify-write 대신 조건부 UPDATE 라 동시 다중 요청에서도 lost-update 없이 한도를 정확히 강제하며, UPDATE 가 0건이면(그 사이 한도 도달) `OTP_TOO_MANY_ATTEMPTS` 로 전환합니다 — `EmailVerificationService` 와 동일 패턴입니다.
 
+<a id="ttl--rate-limit-기본값"></a>
+
 ### TTL / rate-limit 기본값
 
 | 정책 | 값 | 상수 |
@@ -287,6 +307,8 @@ public void verify(String phoneE164, String code) {
 6자리는 1,000,000 가지 → brute-force 평균 500,000 회 요청. **TTL 5분 + 검증 5회 제한 + 발송 rate-limit** 의 3중 방어로 표면을 줄입니다.
 
 ---
+
+<a id="데이터--per-app-auth_phone_verification_codes-v015"></a>
 
 ## 데이터 — per-app `auth_phone_verification_codes` (V015)
 
@@ -351,7 +373,7 @@ app:
 | `app.features.sms` | SMS 도메인(`SmsAutoConfiguration`) | on (`matchIfMissing=true`) |
 | `app.features.phone-auth` | 점유인증 도메인(`PhoneAuthAutoConfiguration`) | on (`matchIfMissing=true`) |
 
-점유인증을 쓰지 않는 앱은 `app.features.phone-auth: false` 로 끄고, `V015` 마이그레이션 파일도 삭제하면 됩니다 ([`ADR-034 — Feature Toggle Lite mode`](../../philosophy/adr-034-feature-toggle-lite-mode.md) 패턴).
+`app.features.phone-auth=false`는 현재 JVM의 공유 PhoneAuth 빈과 컨트롤러를 모두 끄는 설정이에요. 특정 앱 하나만 끄는 설정으로 설명하지 않아요. 이미 적용한 V015 마이그레이션은 기능을 꺼도 유지해요. 적용 전 템플릿을 조정하는 경우와 운영 이력을 변경하는 경우는 구분해야 해요.
 
 ---
 

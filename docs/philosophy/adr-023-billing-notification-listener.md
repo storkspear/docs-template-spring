@@ -1,3 +1,5 @@
+<a id="adr-023--결제-알림-listener-push-우선-email-별도-사이클"></a>
+
 # ADR-023 — 결제 알림 listener (push 우선, email 별도 사이클)
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
@@ -8,7 +10,7 @@
 
 ## 결론부터
 
-구독형 SaaS 의 결제 흐름은 *사용자가 알지 못하는 사이에 권한이 바뀌는* 사건들로 가득해요. 자동 갱신이 실패하거나, 환불이 처리되거나, 가족 공유 해지로 구독이 강제 취소되는 순간 사용자는 *내 권한이 왜 사라졌는지* 알 수 없습니다. 이런 사건을 *즉시 알림으로 사용자에게 전달* 하는 게 결제 알림 listener 의 역할이에요.
+구독 갱신이나 환불 처리 결과를 사용자에게 알리기 위해 Billing 이벤트를 구독하는 listener를 둬요. 이벤트를 사용자 메시지로 바꾸는 정책은 `core-billing-impl`에 두고, 발송은 각 채널의 Port에 맡겨요. 이 ADR은 push로 시작한 결정 기록이며, 현재 구현에는 ADR-025의 email 채널도 포함돼요. 취소 상태가 됐다는 이유만으로 남은 이용 기간까지 즉시 사라진다고 설명하지 않아요.
 
 본 ADR 은 결제 도메인이 발행하는 이벤트들 — 갱신 성공·갱신 실패·갱신 포기(Abandoned)·IAP REFUND·IAP REVOKE — 를 push 알림으로 변환하는 listener 를 정의합니다. 위치는 정책 layer `core-billing-impl` 안의 `SubscriptionNotificationListener` 이고, *어떤 이벤트에 어떤 메시지를 보낼지* 의 알림 정책도 같은 모듈에서 관리해요. 채널은 push(FCM) 만 다루고, email 채널은 [`ADR-025`](./adr-025-billing-notification-email-channel.md) 에서 별도로 추가합니다. push 인프라 (`PushPort`, `FcmPushAdapter`) 가 이미 갖춰져 있는 반면, email 은 별도 도메인 [`ADR-024`](./adr-024-email-domain-extraction.md) 로 추출해야 했기 때문이에요.
 
@@ -74,6 +76,8 @@
 
 ---
 
+<a id="idempotency--동시성"></a>
+
 ## Idempotency / 동시성
 
 이벤트 자체는 BillingServiceImpl 의 phase 3 안에서 1회만 발행 — 중복 발행 0.
@@ -125,11 +129,15 @@
 
 ## 대안 비교
 
+<a id="옵션-a--동기-listener-default-spring--채택"></a>
+
 ### 옵션 A — 동기 listener (default Spring) ★ 채택
 
 - 단순해요. publishEvent 호출자 thread 에서 동작합니다.
 - ❌ 알림 발송이 느릴 수 있어요 — FCM API 응답 대기 (~수백 ms).
 - ✅ 그러나 BillingPort 의 phase 3 가 NOT_SUPPORTED + 이미 commit 완료된 후 발행이라 트랜잭션 영향이 0이에요.
+
+<a id="옵션-b--async-listener"></a>
 
 ### 옵션 B — `@Async` listener
 
@@ -137,6 +145,8 @@
 - ❌ 별도 인프라 (TaskExecutor) 셋업이 필요해요.
 - ❌ 에러 추적이 어려워요 (다른 thread).
 - 향후 알림 발송 비용이 커질 때 (수만 user 한 번에) 도입을 검토합니다.
+
+<a id="옵션-c--outbox-패턴-이벤트-db-저장--별도-worker"></a>
 
 ### 옵션 C — Outbox 패턴 (이벤트 DB 저장 + 별도 worker)
 

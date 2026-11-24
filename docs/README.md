@@ -1,6 +1,8 @@
+<a id="template-spring--docs"></a>
+
 # template-spring — Docs
 
-이 폴더의 문서는 전용 뷰어 사이트에서 보는 것이 편합니다. 사이드바, 목차, 검색이 포함되어 있습니다.
+[문서 사이트](https://storkspear.github.io/docs-template-spring/)에서 사이드바·목차·검색으로 필요한 내용을 찾을 수 있어요. 문서 본문은 `template-spring/docs/`에서 관리하고 공개 미러로 동기화해요.
 
 **👉 https://storkspear.github.io/docs-template-spring**
 
@@ -25,7 +27,7 @@ GitHub 에서 바로 읽고 싶다면 아래 목차를 따라가세요. 섹션 �
 - [`Social Auth Setup`](./start/social-auth-setup.md) — Google/Apple 소셜 로그인
 - [`App Scaffolding`](./start/app-scaffolding.md) — `new-app.sh`
 - [`Dogfood Setup`](./start/dogfood-setup.md)
-  - [`Dogfood FAQ`](./start/dogfood-faq.md)
+  - [`Dogfood FAQ`](start/dogfood-setup.md)
   - [`Dogfood Pitfalls`](./start/dogfood-pitfalls.md)
   - [`Dogfood Walkthrough`](./start/dogfood-walkthrough.md) — 사이클 흐름과 정착된 패턴
 - [`Cross-repo Cherry-pick`](./start/cross-repo-cherry-pick.md)
@@ -113,6 +115,8 @@ GitHub 에서 바로 읽고 싶다면 아래 목차를 따라가세요. 섹션 �
 - [`Code Comments`](./convention/code-comments.md)
 - [`Git Workflow`](./convention/git-workflow.md)
 
+<a id="api--functional"></a>
+
 ## API & Functional
 
 **API**
@@ -163,26 +167,21 @@ GitHub 에서 바로 읽고 싶다면 아래 목차를 따라가세요. 섹션 �
 
 ## Reference
 
-- [`코어 데이터 모델`](./reference/data-model.md) — 코어 21 테이블 + admin 스키마 (컬럼 · FK · 인덱스 · 마이그레이션 V번호)
+- [`코어 데이터 모델`](./reference/data-model.md) — 앱별 공통 테이블과 admin 스키마의 컬럼·제약·마이그레이션
 - [`API Reference`](./reference/api/README.md) — 엔드포인트 카탈로그
 - [`용어 사전`](./reference/glossary.md) — Spring · JPA · Docker · JWT · Kamal 등
 - [`Environment`](./reference/environment.md) — 프레임워크 · 라이브러리 · 외부 서비스 인벤토리
-- [`Environment UI`](./reference/environment-ui.md) — 기술 스택 다이어그램
+- [`Environment UI`](reference/environment.md#기술-스택-한눈에-보기) — 기술 스택 다이어그램
 - [`Edge Cases`](./reference/edge-cases.md)
 - [`Documentation Style Guide`](./reference/STYLE_GUIDE.md) — 저자용
 
 ## 문서 관리 규칙
 
-이 레포의 `docs/` 는 뷰어 레포 (`docs-template-spring`) 와 **동일한 디렉토리 구조 + 동일한 파일 내용** 을 유지합니다. 변경 시 양쪽에 반영하세요.
+본문은 이 저장소의 `docs/`에서 수정해요. 현재 코드와 대조하고 링크를 확인한 뒤, 제공하는 스크립트로 `docs-template-spring`에 복사해요.
 
 ```bash
-# 뷰어 → 이 레포 (manifest.json 과 최상위 README.md 만 제외)
-rsync -av --exclude='manifest.json' --exclude='/README.md' \
-  <viewer>/docs/ <template>/docs/
-
-# 이 레포 → 뷰어 (최상위 README.md 제외)
-rsync -av --exclude='/README.md' <template>/docs/ <viewer>/docs/
-# 뷰어의 manifest.json 만 수동 관리
+bash tools/docs/sync-docs.sh --dry-run ../docs-template-spring
+bash tools/docs/sync-docs.sh ../docs-template-spring
 ```
 
-두 레포의 차이는 단 2 개 파일: 이 레포의 `docs/README.md` (GitHub 진입점), 뷰어의 `docs/manifest.json` (사이드바 구성).
+main에 반영하면 문서 동기화 워크플로가 같은 스크립트를 실행해요. 미러의 `docs/manifest.json`과 정적 뷰어는 별도로 관리하며, 내부 계획 폴더인 `superpowers/`·`planned/`는 공개 미러에 넣지 않아요. 문서를 통합할 때는 기존 주소와 절 링크에 이동 안내를 남겨요.

@@ -2,7 +2,7 @@
 
 > **유형**: How-to · **독자**: Level 1 · **읽는 시간**: ~25분
 
-앱을 하나 추가하면 "구글로 로그인", "Apple 로 로그인" 같은 소셜 로그인을 붙일 수 있어요. 이 문서는 그 로그인이 동작하려면 각 provider 콘솔에서 무엇을 발급받아 어디에 적어야 하는지를, 처음 발급해보는 사람도 따라올 수 있게 한 단계씩 안내해요. 다루는 provider 는 네 곳이에요 — Google, Apple, 그리고 한국 시장용 Kakao·Naver.
+Google·Apple·Kakao·Naver 로그인에 필요한 자격을 준비하고 서버 설정으로 전달하는 절차예요. 제공자별 검증 방식과 설정 항목이 다르므로 사용할 로그인만 준비해요. 콘솔 화면은 바뀔 수 있으니 이름보다 필요한 식별자와 서버의 검증 조건을 기준으로 확인해요.
 
 > 처음 보는 용어가 나오면 [용어 사전](../reference/glossary.md) 에서 바로 찾아볼 수 있어요. 특히 [`OAuth`](../reference/glossary.md#인증--보안) (제3자 로그인 표준) 과 [`Audience (aud)`](../reference/glossary.md#인증--보안) 두 개념은 이 문서 전체에 깔려 있으니 미리 한 번 읽어 두면 편해요.
 
@@ -164,6 +164,8 @@ APP_CREDENTIALS_SUMTALLY_APPLE_BUNDLE_ID=com.twosun.sumtally
 > 한국 시장 앱이면 거의 항상 활성화해요. 글로벌 전용 앱이면 이 섹션을 건너뛰세요.
 
 Kakao 는 다른 provider 와 한 가지가 달라요 — **같은 앱에서 키가 두 개** 나오고, 둘이 서로 다른 자리에 들어가요. 여기서 가장 많이 헷갈리니 먼저 짚고 넘어갈게요.
+
+<a id="키-두-개의-자리--헷갈림-주의"></a>
 
 ### 키 두 개의 자리 — 헷갈림 주의
 
@@ -337,6 +339,8 @@ WARN  MockAppleSignInService activated — Apple RS256 verification is BYPASSED.
 - [ ] Native App Key (문자열) 복사 → 프론트용 (template-flutter)
 - [ ] `.env.prod` 에 App ID 추가
 
+<a id="naver-한국-시장-앱--포털-사용자-비중이-높을-때만"></a>
+
 ### Naver (한국 시장 앱 + 포털 사용자 비중이 높을 때만)
 - [ ] Naver Developers → 애플리케이션 등록 → 사용 API: 네이버 로그인
 - [ ] 제공 정보: 이메일 주소 필수
@@ -433,6 +437,8 @@ WARN  MockAppleSignInService activated — Apple RS256 verification is BYPASSED.
 
 ---
 
+<a id="책-목차--journey-4단계"></a>
+
 ## 책 목차 — Journey 4단계
 
 [`template-spring — 책 목차 (Developer Journey)`](../onboarding/README.md) 의 **4단계 — 발급은 어디서?** 의 첫 항목 (소셜 로그인) 이에요.
@@ -444,7 +450,7 @@ WARN  MockAppleSignInService activated — Apple RS256 verification is BYPASSED.
 
 **막혔을 때 참고:**
 - 운영 함정 모음: [`도그푸딩 함정`](./dogfood-pitfalls.md)
-- 자주 묻는 질문: [`FAQ`](./dogfood-faq.md)
+- 자주 묻는 질문: [`FAQ`](dogfood-setup.md)
 - 시간 순 따라가기: [`도그푸딩 walkthrough`](./dogfood-walkthrough.md)
 
 **왜 이렇게 설계했나:**

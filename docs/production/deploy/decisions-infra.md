@@ -1,3 +1,5 @@
+<a id="인프라-결정-기록-decisions--infrastructure"></a>
+
 # 인프라 결정 기록 (Decisions — Infrastructure)
 
 > **유형**: ADR · **독자**: Level 2~3 · **읽는 시간**: ~25분
@@ -13,7 +15,7 @@ philosophy/ 와 이 문서는 다루는 결정의 성격이 달라요.
 | [`Repository Philosophy — 책 안내`](../../philosophy/README.md) | 코드 설계 결정 39개 ADR — 모듈 구조, 포트·어댑터, Mapper 금지, 테스트 전략 |
 | `decisions-infra.md` (이 문서) | 물리·운영 인프라 결정 — DB, 오브젝트 스토리지, 운영 호스트, 엣지, 관측성, 배포 |
 
-경계에 걸친 결정도 있어요. 예를 들어 서비스별 schema 는 코드 규약이면서 동시에 인프라 결정이라, 양쪽 문서에서 서로 참조해요.
+결정 카드는 당시 선택과 근거를 보존해요. 구현이 달라진 항목은 당시 기록을 현재 절차로 그대로 적용하지 않고 현재 상태를 함께 확인해요. 예를 들어 앱 업로드 버킷은 이제 등록된 앱에서 자동 파생하며, JPA는 primary 라우팅 EntityManagerFactory를 사용해요. 현재 배포·스토리지 동작은 [`운영 배포 가이드`](./deployment.md)와 [`스토리지 규약`](../../api-and-functional/functional/storage.md)을 기준으로 확인해요.
 
 ## 결정 카드 필드 포맷
 
@@ -40,6 +42,8 @@ philosophy/ 와 이 문서는 다루는 결정의 성격이 달라요.
 Phase 1 부터는 우선순위를 재조정해요. 예를 들어 보안 기준을 상향합니다.
 
 ---
+
+<a id="결정-i-01-postgres-provider--supabase-template-관리자-default-교체-가능"></a>
 
 ## 결정 I-01. Postgres provider — Supabase (template 관리자 default, 교체 가능)
 
@@ -113,6 +117,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 ---
 
+<a id="결정-i-03-오브젝트-스토리지--nas-minio-lan-only"></a>
+
 ## 결정 I-03. 오브젝트 스토리지 — NAS MinIO (LAN-only)
 
 - **status**: `provisioned` (template 관리자 LAN 내부에서만 접근)
@@ -147,6 +153,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - `core/core-storage-impl/` — `BucketProvisioner`, `MinIOStorageAdapter`
 
 ---
+
+<a id="결정-i-04-운영-호스트--apple-silicon-맥미니-홈-서버"></a>
 
 ## 결정 I-04. 운영 호스트 — Apple Silicon 맥미니 (홈 서버)
 
@@ -184,6 +192,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 ---
 
+<a id="결정-i-05-외부-접근--cloudflare-tunnel"></a>
+
 ## 결정 I-05. 외부 접근 — Cloudflare Tunnel
 
 - **status**: `template-ready` (`prod init` 이 DNS · Tunnel ingress 를 자동 등록, cloudflared 설치·launchd 등록은 파생 레포 몫)
@@ -217,6 +227,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - [`인프라`](./infrastructure.md) — 운영 구성도 (planned 박스)
 
 ---
+
+<a id="결정-i-06-관측성-스택--셀프-호스트-loki--grafana--prometheus"></a>
 
 ## 결정 I-06. 관측성 스택 — 셀프 호스트 (Loki + Grafana + Prometheus)
 
@@ -254,6 +266,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 ---
 
+<a id="결정-i-07-오브젝트-스토리지-bucket--2-tier-분리"></a>
+
 ## 결정 I-07. 오브젝트 스토리지 Bucket — 2-tier 분리
 
 - **status**:
@@ -286,6 +300,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 ---
 
+<a id="결정-i-08-multi-datasource--앱-모듈-자기-제공-패턴"></a>
+
 ## 결정 I-08. Multi-DataSource — 앱 모듈 자기 제공 패턴
 
 - **status**: `provisioned`
@@ -303,25 +319,16 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - Bootstrap 중앙 집중 (yml map + AbstractRoutingDataSource) — 파생 레포가 template 을 고쳐야 하고 런타임 분기 복잡도가 올라가요
   - Spring Boot auto-config 유지 — app DataSource 추가 시 silent back-off 로 부팅이 실패해요
 - **Trade-off**:
-  - 앱마다 Config 파일이 하나씩 생기지만 자동 생성이라 실제 부담은 0 이에요
-  - 같은 Repository 가 여러 EMF 에 스캔돼서 Spring Data JPA 의 bean 이름 구분에 의존해요
-  - HikariCP pool size 는 `DEFAULT_POOL_SIZE=5` 가 기본값이에요. Supabase NANO 의 session pooler 한도 (max_connections=60) 안에서 4~5개 앱 마진을 확보하려는 값입니다. 필요하면 concrete Config 에서 `poolSize()` 로 override 해요
-  - 전체 connection 은 대략 앱 수 × 5 예요. core 풀이 사라져 ADR-037 이전보다 여유가 큽니다
-  - 각 Flyway 인스턴스가 자기 schema 만 migrate 해요. cross-schema FK 참조는 wiring 이 보장하지 않습니다
-  - `init-app-schema.sql` 이 app role 에 `USAGE, CREATE ON SCHEMA` 를 줍니다. Flyway history 테이블 생성에 필요한 자기 schema 범위 DDL 권한이고, schema 간 격리는 유지돼요
-- **재검토 트리거**:
-  - DataSource 10개 초과 (bean context 부하) — AbstractRoutingDataSource 재고
-  - Hot-swap DataSource 필요 — AbstractRoutingDataSource
-  - 파생 레포에서 pool size 튜닝이 빈번해짐 — yml externalization 도입
-  - 전체 pool 합이 Supabase pooler 한도에 근접 — `poolSize()` 를 더 낮추거나 Pro 전환
-- **관련 문서**:
-  - [`Architecture`](../../structure/architecture.md) — 멀티 DataSource Wiring 섹션
-  - [`ADR-037`](../../philosophy/adr-037-core-schema-deprecation.md) — core schema 폐기와 fail-secure routing
-  - `common/common-persistence/` — abstract 구현, `DEFAULT_POOL_SIZE`
-  - `bootstrap/src/main/java/com/factory/bootstrap/config/RoutingDataSourceConfig.java` — `@Primary` routing 통합
-  - `tools/app/new-app.sh` Step 13.5 — `<Slug>DataSourceConfig` 자동 생성
+  - 앱마다 Config가 필요하지만 `new-app.sh`가 기본 코드를 생성해요. 환경별 설정과 생성 결과 검토는 여전히 필요해요.
+  - 현재 JPA는 라우팅 DataSource와 통합 EntityManagerFactory를 사용해요. 앱마다 같은 Repository를 별도 EMF에 중복 등록하는 구성은 아니에요.
+  - HikariCP의 기본 pool size는 앱당 5예요. 이 값은 당시 연결 수 예산을 바탕으로 정했으며, 현재 플랜의 실제 한도와 앱 수를 확인해 조정해요. 필요한 앱은 `poolSize()`를 재정의할 수 있어요.
+  - 앱 연결 풀의 합은 대략 앱 수 × 5지만 운영 콘솔·마이그레이션 등 추가 연결도 예산에 포함해야 해요.
+  - 각 Flyway 인스턴스는 자기 schema를 대상으로 해요. cross-schema FK의 유효성과 접근 권한을 자동으로 보장하지는 않아요.
+  - 별도 앱 role을 프로비저닝하면 자기 schema의 `USAGE, CREATE` 권한으로 Flyway history를 만들 수 있어요. 운영에서 공용 자격증명을 파생하는 구성과 구분해 실제 권한을 확인해요.
 
 ---
+
+<a id="결정-i-09-배포--kamal--docker-bluegreen-mac-mini"></a>
 
 ## 결정 I-09. 배포 — Kamal + Docker blue/green (Mac mini)
 
@@ -343,7 +350,7 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 | 커스텀 HTTPS webhook + deploy.sh | HMAC 서명·재시도·롤백을 모두 재구현 |
 
 - **Trade-off**:
-  - Kamal 학습에 2~3시간 스파이크가 필요해요
+  - Kamal의 설정과 운영 명령을 익혀야 해요. 필요한 학습 시간은 사용 경험에 따라 달라요.
   - arm64 cross-compile 이 x86 runner 에서 느려요. 빌드가 4분을 넘으면 `builder.remote` 로 Mac mini 에 빌드를 넘기는 걸 검토합니다
   - Kamal 업그레이드 시 `config/deploy.yml` schema 변경 리스크가 있어요. 파생레포에 cherry-pick 이 필요합니다
   - kamal-proxy 는 nginx 를 대체해요. 복잡한 URL path rewrite 가 필요해지면 nginx 를 kamal-proxy 앞에 두는 식으로 확장합니다
@@ -360,6 +367,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - `bootstrap/src/main/java/com/factory/bootstrap/MigrateOnlyRunner.java` — out-of-band migration 엔트리
 
 ---
+
+<a id="결정-i-10-ghcr-push--github_token-대신-pat-ghcr_token"></a>
 
 ## 결정 I-10. GHCR push — GITHUB_TOKEN 대신 PAT (GHCR_TOKEN)
 
@@ -388,6 +397,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 ---
 
+<a id="결정-i-11-dockerfile-이중--runtime-전용--풀빌드-보존"></a>
+
 ## 결정 I-11. Dockerfile 이중 — runtime 전용 + 풀빌드 보존
 
 - **status**: `template-ready`
@@ -414,6 +425,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - [`Runbook`](./runbook.md) — 로컬 수동 배포 절차
 
 ---
+
+<a id="결정-i-12-workflow_run-게이트--jar-artifact-패스"></a>
 
 ## 결정 I-12. workflow_run 게이트 + jar artifact 패스
 
@@ -443,6 +456,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
 
 ---
 
+<a id="결정-i-13-kamal-deploy---skip-push--직접-buildx-push"></a>
+
 ## 결정 I-13. kamal deploy --skip-push + 직접 buildx push
 
 - **status**: `template-ready`
@@ -469,6 +484,8 @@ template 이 DB 에 거는 요구사항은 최소한이에요. 런타임 자격 
   - [kamal deploy 공식 문서](https://kamal-deploy.org/docs/commands/deploy/)
 
 ---
+
+<a id="결정-i-14-tailscale-oauth-client--scope-2개-모두-필수"></a>
 
 ## 결정 I-14. Tailscale OAuth client — scope 2개 모두 필수
 
