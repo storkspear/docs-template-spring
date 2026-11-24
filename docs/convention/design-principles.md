@@ -432,21 +432,17 @@ TDD 는 모든 코드에 적용되는 원칙이 아니에요. 다음은 TDD 가 
 
 ### 적용 예시
 
-Good — 유저가 없으면 곧바로 도메인 예외를 던져요. 실제 `UserServiceImpl.findActiveUser()` 패턴이에요.
+Good — 유저가 없으면 곧바로 도메인 예외를 던져요. 실제 `UserServiceImpl.requireActiveUser()` 패턴이에요.
 
 ```java
 // core-user-impl/UserServiceImpl.java 발췌
-private User findActiveUser(long userId) {
-    User user = userRepository
+private User requireActiveUser(long userId) {
+    return userRepository
             .findById(userId)
+            .filter(user -> !user.isDeleted())
             .orElseThrow(() ->
                 new UserException(UserError.USER_NOT_FOUND,
                     Map.of("id", String.valueOf(userId))));
-    if (user.isDeleted()) {
-        throw new UserException(UserError.USER_NOT_FOUND,
-            Map.of("id", String.valueOf(userId)));
-    }
-    return user;
 }
 ```
 

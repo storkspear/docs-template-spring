@@ -50,7 +50,7 @@ com.factory.core.auth.impl
 
 도메인마다 필요한 특수 패키지를 더 둘 수 있어요. 예를 들어 `core-auth-impl` 은 2FA 코드를 모은 `totp` 패키지를 따로 가집니다.
 
-`mapper` 패키지는 두지 않습니다. 엔티티 ↔ DTO 변환은 Mapper 클래스 대신 Entity 의 `toProfile()` 같은 메서드로 처리해요. Mapper 이름의 클래스는 ArchUnit r22 가 빌드 시점에 차단합니다. 자세한 패턴은 [`DTO 팩토리 컨벤션`](./dto-factory.md) 을 참고하세요.
+`mapper` 패키지는 두지 않습니다. 엔티티 ↔ DTO 변환은 Mapper 클래스 대신 Entity 의 `toProfile()` 같은 메서드로 처리해요. public Mapper 이름의 클래스는 ArchUnit r22 가 빌드 시점에 차단합니다. 자세한 패턴은 [`DTO 팩토리 컨벤션`](./dto-factory.md) 을 참고하세요.
 
 모듈이 작으면 하위 패키지를 생략할 수 있습니다. `common-logging` 처럼 클래스가 두세 개뿐이면 단일 패키지에 모아도 됩니다.
 
