@@ -1,6 +1,6 @@
 # ADR-016 · DTO 변환은 Entity 메서드로 (Mapper 클래스 금지)
 
-**Status**: Accepted. Entity 에 `to<Dto>()` 메서드 패턴을 적용해요. ArchUnit r22 (`NO_MAPPER_CLASSES`) 가 `*Mapper` 클래스를 빌드 시간에 차단합니다.
+**Status**: Accepted. Entity 에 `to<Dto>()` 메서드 패턴을 적용해요. ArchUnit r22 (`NO_MAPPER_CLASSES`) 가 public `*Mapper` 클래스를 빌드 시간에 차단합니다.
 
 > **유형**: ADR · **독자**: Level 3 · **읽는 시간**: ~5분
 
@@ -164,11 +164,11 @@ Option 4 를 **사람 관행** 으로만 유지하면 어느 날 실수로 누�
 - Mapper 가 번식 → Entity 의 `to<Dto>()` 패턴이 희미해짐
 - **원래 규칙이 무너짐**
 
-ArchUnit r22 로 **빌드 시간에 차단** 하면 이 표류를 원천 봉쇄. 사람 의지에 의존하지 않음 ([`ADR-004`](./adr-004-gradle-archunit.md) 의 철학과 정렬).
+ArchUnit r22 는 public Mapper 도입을 **빌드 시간에 차단**해요. package-private 클래스나 인터페이스는 현재 검사 범위 밖이므로, 설계 원칙은 리뷰에서도 확인해요 ([`ADR-004`](./adr-004-gradle-archunit.md) 의 철학과 정렬).
 
 ## 결정
 
-DTO 변환은 **Entity 의 `to<Dto>()` 메서드** 로 제공해요. `*Mapper` 클래스는 ArchUnit r22 로 차단됩니다.
+DTO 변환은 **Entity 의 `to<Dto>()` 메서드** 로 제공해요. 별도 Mapper 클래스를 두지 않는 원칙을 유지하고, ArchUnit r22 는 그중 public 클래스 도입을 차단해요.
 
 ### 실제 구현 예시 — User
 
@@ -272,8 +272,8 @@ public static final ArchRule NO_MAPPER_CLASSES =
 **규칙 의미**:
 - 클래스 이름이 `*Mapper` 로 끝나면서
 - `com.factory..` 패키지에 있고
-- 인터페이스가 아니면
-- → `bePublic()` 체크에서 실패 (의도적으로 "절대 public 이 아니어야 한다" 는 불가능 조건)
+- 인터페이스가 아니고 public 이면
+- → `noClasses().should().bePublic()` 조건에 위배되어 실패해요. package-private 클래스와 인터페이스는 이 검사로 차단되지 않지만, 별도 Mapper 를 두지 않는 설계 원칙은 그대로예요.
 
 실제로 `UserMapper.java` 라는 public class 가 생기는 순간 **빌드 실패**. 에러 메시지:
 
